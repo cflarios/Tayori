@@ -33,9 +33,17 @@ body {
   padding: 12px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(16, 18, 24, 0.82);
-  backdrop-filter: blur(18px) saturate(130%);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  /*
+   * Fondo sólido a propósito. `backdrop-filter: blur()` no compone de forma
+   * fiable sobre una ventana con `transparent: true` en Windows: se verificó
+   * por captura que el contenido de la ventana de atrás se leía nítido a
+   * través del panel. Y una translucidez baja (4%) no da la sensación de ver
+   * lo que hay detrás: sólo añade ruido que compite con las respuestas largas.
+   * La ventana sigue siendo `transparent: true` para que las esquinas
+   * redondeadas no dejen un rectángulo negro.
+   */
+  background: #0e1015;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Barra de estado ── */

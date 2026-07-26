@@ -142,7 +142,7 @@ export function OverlayApp() {
   }, []);
 
   return (
-    <div className="panel" style={{ opacity: settings?.overlayOpacity ?? 0.95 }}>
+    <div className="panel" style={{ opacity: settings?.overlayOpacity ?? 1 }}>
       <StatusBar status={status} levels={levels} stealth={settings?.stealthEnabled ?? true} />
 
       <div className="section">

@@ -156,7 +156,8 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
 export const DEFAULT_SETTINGS: Settings = {
   stealthEnabled: true,
   clickThrough: true,
-  overlayOpacity: 0.95,
+  // Opaco por defecto: la legibilidad manda. Se puede bajar desde el dashboard.
+  overlayOpacity: 1,
 
   llmProviderId: 'claude',
   llmModels: {

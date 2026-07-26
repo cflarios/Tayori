@@ -44,7 +44,15 @@ class SettingsStore extends EventEmitter {
 
     let raw: unknown = null;
     try {
-      if (existsSync(this.file)) raw = JSON.parse(readFileSync(this.file, 'utf-8'));
+      if (existsSync(this.file)) {
+        let text = readFileSync(this.file, 'utf-8');
+        // Notepad y `Set-Content -Encoding utf8` de PowerShell 5.1 escriben un
+        // BOM que hace fallar a JSON.parse. Como el archivo está pensado para
+        // poder editarse a mano, lo toleramos en lugar de ignorar la config
+        // entera en silencio.
+        if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+        raw = JSON.parse(text);
+      }
     } catch (err) {
       // Un JSON corrupto no debe impedir arrancar: caemos a defaults.
       console.error('[settings] no se pudo leer, usando defaults:', err);
