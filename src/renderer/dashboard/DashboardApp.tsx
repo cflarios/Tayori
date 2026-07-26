@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { LLMProviderId, SecretKey, SecretsPresence, Settings } from '@shared/types';
+import type {
+  AudioLevels,
+  CaptureStatus,
+  LLMProviderId,
+  SecretKey,
+  SecretsPresence,
+  Settings,
+} from '@shared/types';
 
 function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -99,15 +106,92 @@ function SecretField({
   );
 }
 
+/**
+ * Panel de captura. Además de ser el control de encendido, es el instrumento
+ * que permite comprobar de un vistazo que los DOS streams llegan por separado:
+ * si al hablar sólo se mueve "Yo" y al reproducir un vídeo sólo se mueve
+ * "Ellos", el pipeline está bien.
+ */
+function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioLevels }) {
+  const [busy, setBusy] = useState(false);
+  const listening = status.state === 'listening';
+
+  const toggle = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      if (listening) await window.api.capture.stop();
+      else await window.api.capture.start();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card__title">Captura de audio</h2>
+      <p className="card__hint">
+        Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es lo
+        que permite distinguir quién habla sin diarización.
+      </p>
+
+      <Row
+        label={listening ? 'Escuchando' : 'En pausa'}
+        desc={
+          status.state === 'error'
+            ? (status.error ?? 'Error desconocido')
+            : `Micrófono: ${status.micActive ? 'activo' : 'inactivo'} · Sistema: ${
+                status.loopbackActive ? 'activo' : 'inactivo'
+              }`
+        }
+      >
+        <button className="btn" disabled={busy || status.state === 'starting'} onClick={() => void toggle()}>
+          {status.state === 'starting' ? 'Iniciando…' : listening ? 'Detener' : 'Empezar a escuchar'}
+        </button>
+      </Row>
+
+      <div className="meters">
+        <div className="meter">
+          <span className="meter__label">Yo (micrófono)</span>
+          <div className="meter__bar">
+            <div className="meter__fill" style={{ width: `${Math.min(levels.me * 140, 100)}%` }} />
+          </div>
+        </div>
+        <div className="meter">
+          <span className="meter__label">Ellos (sistema)</span>
+          <div className="meter__bar">
+            <div
+              className="meter__fill meter__fill--them"
+              style={{ width: `${Math.min(levels.them * 140, 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function DashboardApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [presence, setPresence] = useState<SecretsPresence>({ anthropic: false, google: false });
+  const [status, setStatus] = useState<CaptureStatus>({
+    state: 'idle',
+    micActive: false,
+    loopbackActive: false,
+  });
+  const [levels, setLevels] = useState<AudioLevels>({ me: 0, them: 0 });
 
   useEffect(() => {
     const { api } = window;
     void api.settings.get().then(setSettings);
     void api.secrets.getPresence().then(setPresence);
-    return api.settings.onChange(setSettings);
+    void api.capture.getStatus().then(setStatus);
+
+    const unsubs = [
+      api.settings.onChange(setSettings),
+      api.capture.onStatus(setStatus),
+      api.capture.onLevels(setLevels),
+    ];
+    return () => unsubs.forEach((off) => off());
   }, []);
 
   const patch = useCallback(async (p: Partial<Settings>): Promise<void> => {
@@ -130,6 +214,8 @@ export function DashboardApp() {
       <p className="shell__subtitle">
         Asistente de IA en tiempo real. Configuración local; nada se sube a ningún servidor propio.
       </p>
+
+      <CaptureCard status={status} levels={levels} />
 
       <section className="card">
         <h2 className="card__title">Visibilidad</h2>

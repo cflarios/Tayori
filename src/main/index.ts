@@ -8,6 +8,7 @@ import { createOverlay, getOverlay, resizeOverlay, toggleOverlayVisibility } fro
 import { openDashboard } from './windows/dashboard';
 import { setClickThrough, setStealthForAll } from './windows/stealth';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
+import { audioCapture } from './capture/audio';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -33,6 +34,33 @@ function enableLoopbackAudio(): void {
     // El overlay tiene content protection, así que no se filtra en la captura.
     { useSystemPicker: false }
   );
+}
+
+/**
+ * Concede permiso de micrófono y captura sólo a nuestras propias ventanas.
+ *
+ * Electron no concede `media` por defecto y `getUserMedia` fallaría con
+ * NotAllowedError. Comprobamos el origen en lugar de aceptar todo: en dev el
+ * renderer se sirve desde el dev server de Vite y en producción desde file://,
+ * y nada más debería poder pedir el micrófono.
+ */
+function registerPermissionHandlers(): void {
+  const allowed = new Set(['media', 'display-capture', 'clipboard-read']);
+
+  session.defaultSession.setPermissionRequestHandler((contents, permission, callback) => {
+    const isOwnWindow = BrowserWindow.getAllWindows().some(
+      (win) => !win.isDestroyed() && win.webContents === contents
+    );
+    callback(isOwnWindow && allowed.has(permission));
+  });
+
+  session.defaultSession.setPermissionCheckHandler((contents, permission) => {
+    if (!contents) return false;
+    const isOwnWindow = BrowserWindow.getAllWindows().some(
+      (win) => !win.isDestroyed() && win.webContents === contents
+    );
+    return isOwnWindow && allowed.has(permission);
+  });
 }
 
 function broadcast(channel: string, payload: unknown): void {
@@ -92,16 +120,20 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.dashboardOpen, () => {
     openDashboard();
   });
+
+  // ── Captura de audio ──
+  ipcMain.handle(IPC.captureStart, () => audioCapture.start());
+  ipcMain.handle(IPC.captureStop, () => audioCapture.stop());
+  ipcMain.handle(IPC.captureGetStatus, () => audioCapture.getStatus());
 }
 
-/**
- * Acciones de los hotkeys. Las de audio/LLM se conectan en fases posteriores;
- * por ahora dejan rastro en el log para poder verificar que los atajos llegan.
- */
+/** Acciones de los hotkeys. Las del LLM se conectan en la fase 4. */
 const hotkeyActions = {
   askNow: () => console.log('[hotkey] askNow'),
   screenshotAndAsk: () => console.log('[hotkey] screenshotAndAsk'),
-  toggleListening: () => console.log('[hotkey] toggleListening'),
+  toggleListening: () => {
+    void audioCapture.toggle();
+  },
 };
 
 // Una sola instancia: dos procesos peleando por los mismos hotkeys globales
@@ -123,6 +155,8 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     enableLoopbackAudio();
+    registerPermissionHandlers();
+    audioCapture.registerHandlers();
     registerIpcHandlers();
 
     settingsStore.on('change', (settings: Settings) => {

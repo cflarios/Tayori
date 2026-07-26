@@ -39,6 +39,8 @@ export const IPC = {
   audioChunk: 'audio:chunk',
   audioLevels: 'audio:levels',
   audioWorkerReady: 'audio:worker-ready',
+  audioWorkerStarted: 'audio:worker-started',
+  audioWorkerStopped: 'audio:worker-stopped',
   audioWorkerError: 'audio:worker-error',
 
   // ── event (main → renderer) ──

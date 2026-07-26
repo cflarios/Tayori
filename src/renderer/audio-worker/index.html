@@ -2,9 +2,15 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      `blob:` en script-src es necesario: el AudioWorklet se compila desde un
+      Blob URL (ver pcm-worklet.ts) para no depender del nombre con hash que
+      Vite da a los assets en producción. Sin esto addModule() falla con
+      "Unable to load a worklet's module".
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; media-src 'self' blob:"
+      content="default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; media-src 'self' blob:"
     />
     <title>Audio Worker</title>
   </head>

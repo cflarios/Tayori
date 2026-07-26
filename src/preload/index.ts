@@ -96,6 +96,9 @@ const api = {
     sendChunk: (msg: AudioChunkMessage): void => ipcRenderer.send(IPC.audioChunk, msg),
     sendLevels: (levels: AudioLevels): void => ipcRenderer.send(IPC.audioLevels, levels),
     reportReady: (): void => ipcRenderer.send(IPC.audioWorkerReady),
+    reportStarted: (info: { micActive: boolean; loopbackActive: boolean }): void =>
+      ipcRenderer.send(IPC.audioWorkerStarted, info),
+    reportStopped: (): void => ipcRenderer.send(IPC.audioWorkerStopped),
     reportError: (message: string): void => ipcRenderer.send(IPC.audioWorkerError, message),
   },
 } as const;

@@ -197,6 +197,50 @@ button.btn--danger {
   background: rgba(255, 255, 255, 0.07);
 }
 
+/* ── Medidores de nivel ── */
+
+.meters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.meter__label {
+  font-size: 11.5px;
+  color: #8b9096;
+  width: 120px;
+  flex-shrink: 0;
+}
+
+.meter__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.meter__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #60a5fa;
+  /* Subida instantánea, bajada suave: así el pico se ve aunque sea corto. */
+  transition: width 90ms ease-out;
+}
+
+.meter__fill--them {
+  background: #fbbf24;
+}
+
 .warn {
   font-size: 12px;
   line-height: 1.55;
