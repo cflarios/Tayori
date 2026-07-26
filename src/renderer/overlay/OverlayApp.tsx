@@ -3,6 +3,7 @@ import type {
   Answer,
   AudioLevels,
   CaptureStatus,
+  ImageAttachment,
   Settings,
   TranscriptSegment,
 } from '@shared/types';
@@ -113,6 +114,7 @@ export function OverlayApp() {
   const [levels, setLevels] = useState<AudioLevels>({ me: 0, them: 0 });
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [answer, setAnswer] = useState<Answer | null>(null);
+  const [shot, setShot] = useState<ImageAttachment | null>(null);
 
   useEffect(() => {
     const { api } = window;
@@ -124,7 +126,13 @@ export function OverlayApp() {
       api.settings.onChange(setSettings),
       api.capture.onStatus(setStatus),
       api.capture.onLevels(setLevels),
-      api.ask.onAnswer(setAnswer),
+      api.screenshot.onCaptured(setShot),
+      api.ask.onAnswer((next) => {
+        setAnswer(next);
+        // La captura se consume con la respuesta: dejar el thumbnail visible
+        // haría creer que sigue adjunta a la siguiente pregunta.
+        if (next.status === 'streaming' || next.status === 'done') setShot(null);
+      }),
       api.transcript.onSegment((seg) => {
         // Un segmento parcial se reemplaza in situ; uno nuevo se añade.
         // Sin esto, el transcript se llenaría de versiones intermedias.
@@ -149,6 +157,13 @@ export function OverlayApp() {
         <span className="section__title">Transcripción</span>
         <TranscriptPane segments={segments} />
       </div>
+
+      {shot && (
+        <div className="shot">
+          <img className="shot__img" src={`data:${shot.mime};base64,${shot.base64}`} alt="" />
+          <span className="shot__label">Captura adjunta</span>
+        </div>
+      )}
 
       <div className="section" style={{ flex: 1 }}>
         <span className="section__title">Sugerencia</span>

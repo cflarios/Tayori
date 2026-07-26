@@ -9,9 +9,11 @@ import { openDashboard } from './windows/dashboard';
 import { setClickThrough, setStealthForAll } from './windows/stealth';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
+import { captureScreen } from './capture/screenshot';
 // Renombrado: `session` colisiona con el módulo `session` de Electron, y la
 // colisión resolvía silenciosamente a Function.prototype.bind.
 import { session as sessionOrchestrator } from './core/session';
+import { createLLMProvider, listModelsFor } from './llm';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -128,12 +130,52 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.captureStart, () => audioCapture.start());
   ipcMain.handle(IPC.captureStop, () => audioCapture.stop());
   ipcMain.handle(IPC.captureGetStatus, () => audioCapture.getStatus());
+
+  // ── Respuestas ──
+  ipcMain.handle(IPC.askNow, () => sessionOrchestrator.ask('hotkey'));
+  ipcMain.handle(IPC.askWithText, (_e, text: string) => sessionOrchestrator.askWithText(text));
+  ipcMain.handle(IPC.askAbort, () => sessionOrchestrator.abortAnswer());
+
+  // ── Screenshots ──
+  ipcMain.handle(IPC.screenshotTake, async () => {
+    const image = await captureScreen();
+    if (image) {
+      sessionOrchestrator.attachImage(image);
+      broadcast(IPC.onScreenshot, image);
+    }
+    return image;
+  });
+
+  // ── Modelos ──
+  ipcMain.handle(IPC.llmListModels, () => {
+    const settings = settingsStore.get();
+    return listModelsFor(settings.llmProviderId, settings);
+  });
+
+  ipcMain.handle(IPC.llmTestConnection, async () => {
+    try {
+      return await createLLMProvider(settingsStore.get()).testConnection();
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
 }
 
-/** Acciones de los hotkeys. Las del LLM se conectan en la fase 4. */
 const hotkeyActions = {
-  askNow: () => console.log('[hotkey] askNow'),
-  screenshotAndAsk: () => console.log('[hotkey] screenshotAndAsk'),
+  askNow: () => {
+    void sessionOrchestrator.ask('hotkey');
+  },
+  screenshotAndAsk: () => {
+    void captureScreen().then((image) => {
+      if (image) {
+        sessionOrchestrator.attachImage(image);
+        broadcast(IPC.onScreenshot, image);
+      }
+      // Se pregunta siempre, con o sin captura: si falló la captura es mejor
+      // responder sin ella que no responder nada.
+      return sessionOrchestrator.ask('hotkey');
+    });
+  },
   toggleListening: () => {
     void audioCapture.toggle();
   },

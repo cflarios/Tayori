@@ -1,10 +1,11 @@
 import { BrowserWindow } from 'electron';
 import { IPC } from '@shared/ipc';
-import type { Speaker, TranscriptSegment } from '@shared/types';
+import type { Answer, AnswerTrigger, ImageAttachment, Speaker, TranscriptSegment } from '@shared/types';
 import { settingsStore } from '../config/store';
 import { audioCapture } from '../capture/audio';
 import { createSTTProvider, type STTProvider, type TranscriptEvent } from '../stt';
 import { TranscriptBuffer } from './transcript-buffer';
+import { AnswerEngine } from './answer-engine';
 import { getAudioWorker } from '../windows/audio-worker';
 
 /**
@@ -17,6 +18,7 @@ import { getAudioWorker } from '../windows/audio-worker';
 class SessionOrchestrator {
   private stt: STTProvider | null = null;
   readonly transcript = new TranscriptBuffer(settingsStore.get().transcriptWindowSize);
+  readonly answers = new AnswerEngine(this.transcript);
 
   /**
    * Temporizador por hablante para cerrar segmentos que el motor dejó abiertos.
@@ -36,6 +38,31 @@ class SessionOrchestrator {
       if (status.state === 'listening') void this.startTranscription();
       if (status.state === 'idle' || status.state === 'error') void this.stopTranscription();
     });
+
+    this.answers.on('answer', (answer: Answer) => {
+      this.broadcast(IPC.onAnswer, answer);
+    });
+  }
+
+  // ── API que consumen los hotkeys y el IPC ──
+
+  /** Responde usando la última pregunta cerrada del interlocutor si la hay. */
+  ask(trigger: AnswerTrigger): Promise<void> {
+    const lastQuestion = this.transcript.lastFrom('them');
+    return this.answers.ask(trigger, lastQuestion?.text.trim() || undefined);
+  }
+
+  /** Responde a un texto escrito a mano en el overlay. */
+  askWithText(text: string): Promise<void> {
+    return this.answers.ask('manual-input', text);
+  }
+
+  abortAnswer(): void {
+    this.answers.abort();
+  }
+
+  attachImage(image: ImageAttachment): void {
+    this.answers.attachImage(image);
   }
 
   private async startTranscription(): Promise<void> {
