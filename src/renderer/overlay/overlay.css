@@ -1,0 +1,230 @@
+/*
+ * El fondo de la página debe ser totalmente transparente: la ventana es
+ * `transparent: true` y cualquier color aquí produciría un rectángulo opaco
+ * flotando sobre la pantalla.
+ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  color: #e8eaed;
+  /* El texto sobre fondo translúcido necesita suavizado para seguir legible. */
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(16, 18, 24, 0.82);
+  backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Barra de estado ── */
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  /* Zona de arrastre: el resto del overlay deja pasar los clics. */
+  -webkit-app-region: drag;
+}
+
+.statusbar__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5f6368;
+  flex-shrink: 0;
+}
+
+.statusbar__dot--listening {
+  background: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.7);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.statusbar__dot--error {
+  background: #f87171;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.statusbar__label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9aa0a6;
+  white-space: nowrap;
+}
+
+.statusbar__spacer {
+  flex: 1;
+}
+
+/* Un medidor por hablante: valida de un vistazo que ambos streams llegan. */
+.levels {
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.level {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #9aa0a6;
+}
+
+.level__bar {
+  width: 34px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.level__fill {
+  height: 100%;
+  border-radius: 2px;
+  background: #60a5fa;
+  transition: width 80ms linear;
+}
+
+.level__fill--them {
+  background: #fbbf24;
+}
+
+/* ── Paneles de contenido ── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.section__title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c8288;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.transcript {
+  max-height: 132px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.transcript__line {
+  display: flex;
+  gap: 6px;
+}
+
+.transcript__who {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.transcript__who--me {
+  color: #60a5fa;
+}
+
+.transcript__who--them {
+  color: #fbbf24;
+}
+
+.transcript__text {
+  color: #d2d5d9;
+}
+
+.transcript__text--partial {
+  color: #8b9096;
+  font-style: italic;
+}
+
+.answer {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #f1f3f4;
+  user-select: text;
+  white-space: pre-wrap;
+}
+
+.answer--error {
+  color: #fca5a5;
+}
+
+.empty {
+  font-size: 12px;
+  color: #6b7075;
+  font-style: italic;
+}
+
+/* Scrollbars discretas: una barra clara delata el overlay en una demo. */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Pie con atajos ── */
+
+.hints {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #6b7075;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+}
+
+.hints kbd {
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #9aa0a6;
+}

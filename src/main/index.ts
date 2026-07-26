@@ -1,0 +1,149 @@
+import { app, BrowserWindow, desktopCapturer, ipcMain, session } from 'electron';
+import { electronApp, optimizer } from '@electron-toolkit/utils';
+import { IPC } from '@shared/ipc';
+import type { Settings } from '@shared/types';
+import { settingsStore } from './config/store';
+import { clearSecret, getPresence, setSecret } from './config/secrets';
+import { createOverlay, getOverlay, resizeOverlay, toggleOverlayVisibility } from './windows/overlay';
+import { openDashboard } from './windows/dashboard';
+import { setClickThrough, setStealthForAll } from './windows/stealth';
+import { registerHotkeys, unregisterHotkeys } from './hotkeys';
+
+/**
+ * Habilita la captura de audio del sistema (loopback).
+ *
+ * Sin este handler, `getDisplayMedia()` en el renderer falla en Electron.
+ * `audio: 'loopback'` captura la salida de audio del sistema sin drivers de
+ * terceros (soportado en Windows 10+ desde Electron 31; nativo desde la 39).
+ */
+function enableLoopbackAudio(): void {
+  session.defaultSession.setDisplayMediaRequestHandler(
+    async (_request, callback) => {
+      const sources = await desktopCapturer.getSources({ types: ['screen'] });
+      const screenSource = sources[0];
+      if (!screenSource) {
+        // callback sin video cancela la petición de forma limpia.
+        callback({});
+        return;
+      }
+      // Pedimos video porque getDisplayMedia lo exige, pero el worker
+      // descarta el track de video de inmediato: sólo queremos el audio.
+      callback({ video: screenSource, audio: 'loopback' });
+    },
+    // El overlay tiene content protection, así que no se filtra en la captura.
+    { useSystemPicker: false }
+  );
+}
+
+function broadcast(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send(channel, payload);
+  }
+}
+
+function registerIpcHandlers(): void {
+  // ── Settings ──
+  ipcMain.handle(IPC.settingsGet, () => settingsStore.get());
+
+  ipcMain.handle(IPC.settingsUpdate, (_e, patch: Partial<Settings>) => {
+    const previous = settingsStore.get();
+    const next = settingsStore.update(patch);
+
+    if (patch.stealthEnabled !== undefined && patch.stealthEnabled !== previous.stealthEnabled) {
+      setStealthForAll(next.stealthEnabled);
+    }
+    if (patch.clickThrough !== undefined) {
+      const overlay = getOverlay();
+      if (overlay) setClickThrough(overlay, next.clickThrough);
+    }
+    if (patch.hotkeys) {
+      registerHotkeys(hotkeyActions);
+    }
+    return next;
+  });
+
+  // ── Secretos (las keys nunca salen hacia el renderer) ──
+  ipcMain.handle(IPC.secretsGetPresence, () => getPresence());
+  ipcMain.handle(IPC.secretsSet, (_e, key: 'anthropic' | 'google', value: string) => {
+    setSecret(key, value);
+    return getPresence();
+  });
+  ipcMain.handle(IPC.secretsClear, (_e, key: 'anthropic' | 'google') => {
+    clearSecret(key);
+    return getPresence();
+  });
+
+  // ── Ventanas ──
+  ipcMain.handle(IPC.stealthSet, (_e, enabled: boolean) => {
+    settingsStore.update({ stealthEnabled: enabled });
+    setStealthForAll(enabled);
+    return enabled;
+  });
+
+  ipcMain.handle(IPC.clickThroughSet, (_e, enabled: boolean) => {
+    settingsStore.update({ clickThrough: enabled });
+    const overlay = getOverlay();
+    if (overlay) setClickThrough(overlay, enabled);
+    return enabled;
+  });
+
+  ipcMain.handle(IPC.overlayHide, () => toggleOverlayVisibility());
+  ipcMain.handle(IPC.overlayResize, (_e, height: number) => resizeOverlay(height));
+  ipcMain.handle(IPC.dashboardOpen, () => {
+    openDashboard();
+  });
+}
+
+/**
+ * Acciones de los hotkeys. Las de audio/LLM se conectan en fases posteriores;
+ * por ahora dejan rastro en el log para poder verificar que los atajos llegan.
+ */
+const hotkeyActions = {
+  askNow: () => console.log('[hotkey] askNow'),
+  screenshotAndAsk: () => console.log('[hotkey] screenshotAndAsk'),
+  toggleListening: () => console.log('[hotkey] toggleListening'),
+};
+
+// Una sola instancia: dos procesos peleando por los mismos hotkeys globales
+// y el mismo archivo de settings es una fuente de bugs difíciles de ver.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const overlay = getOverlay();
+    if (overlay && !overlay.isVisible()) overlay.showInactive();
+    openDashboard();
+  });
+
+  app.whenReady().then(() => {
+    electronApp.setAppUserModelId('com.interviewhelper.app');
+
+    app.on('browser-window-created', (_, win) => {
+      optimizer.watchWindowShortcuts(win);
+    });
+
+    enableLoopbackAudio();
+    registerIpcHandlers();
+
+    settingsStore.on('change', (settings: Settings) => {
+      broadcast(IPC.onSettings, settings);
+    });
+
+    createOverlay();
+    registerHotkeys(hotkeyActions);
+
+    // Sin API keys configuradas la app no puede hacer nada útil, así que en el
+    // primer arranque abrimos el dashboard directamente.
+    const presence = getPresence();
+    if (!presence.anthropic && !presence.google) openDashboard();
+  });
+
+  // En Windows el overlay es la app: si se cierra, no queda nada que hacer.
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('will-quit', () => {
+    unregisterHotkeys();
+  });
+}
