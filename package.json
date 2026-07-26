@@ -18,8 +18,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@electron-toolkit/preload": "3.0.2",
     "@electron-toolkit/utils": "4.0.0",
+    "@google/genai": "^2.13.0",
+    "ollama": "^0.6.3",
     "zustand": "5.0.14"
   },
   "devDependencies": {

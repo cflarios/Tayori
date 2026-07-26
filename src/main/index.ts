@@ -9,6 +9,9 @@ import { openDashboard } from './windows/dashboard';
 import { setClickThrough, setStealthForAll } from './windows/stealth';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
+// Renombrado: `session` colisiona con el módulo `session` de Electron, y la
+// colisión resolvía silenciosamente a Function.prototype.bind.
+import { session as sessionOrchestrator } from './core/session';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -157,6 +160,9 @@ if (!app.requestSingleInstanceLock()) {
     enableLoopbackAudio();
     registerPermissionHandlers();
     audioCapture.registerHandlers();
+    // Debe ir tras registerHandlers: el orquestador se suscribe a los eventos
+    // que emite el controlador de captura.
+    sessionOrchestrator.bind();
     registerIpcHandlers();
 
     settingsStore.on('change', (settings: Settings) => {
