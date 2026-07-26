@@ -1,0 +1,41 @@
+appId: com.interviewhelper.app
+productName: Interview Helper
+copyright: MIT
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+# No hay módulos nativos que reconstruir: whisper.cpp se usa como binario
+# externo descargado en tiempo de ejecución, no como binding de Node. Eso evita
+# electron-rebuild, node-gyp y la dependencia de Visual Studio Build Tools.
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  # Sin firma de código: es una app personal. Windows SmartScreen avisará la
+  # primera vez, lo que es esperado y está documentado en el README.
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Interview Helper
+
+portable:
+  artifactName: ${productName}-${version}-portable.exe
+
+# Los assets de Whisper (binario y modelos) NO se empaquetan: son cientos de
+# megas que la mayoría de usuarios no necesitan si usan Gemini Live. Se
+# descargan bajo demanda desde el dashboard a userData.

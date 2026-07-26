@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC, type AudioChunkMessage, type CaptureCommand } from '@shared/ipc';
+import {
+  IPC,
+  type AudioChunkMessage,
+  type CaptureCommand,
+  type WhisperProgress,
+} from '@shared/ipc';
 import type {
   Answer,
   AudioLevels,
@@ -84,6 +89,15 @@ const api = {
     listModels: (): Promise<ModelInfo[]> => ipcRenderer.invoke(IPC.llmListModels),
     testConnection: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.llmTestConnection),
+  },
+
+  whisper: {
+    getStatus: (): Promise<{ binaryInstalled: boolean; modelInstalled: boolean }> =>
+      ipcRenderer.invoke(IPC.whisperGetStatus),
+    install: (): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC.whisperInstall),
+    onProgress: (cb: (p: WhisperProgress) => void) =>
+      subscribe<WhisperProgress>(IPC.onWhisperProgress, cb),
   },
 
   /**

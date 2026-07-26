@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Asistente de IA en tiempo real para reuniones, invisible al compartir pantalla",
   "license": "MIT",
+  "author": "Cristian Ferla",
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
@@ -15,7 +16,9 @@
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:win": "npm run build && node scripts/build-win.mjs",
+    "build:unpacked": "npm run build && node scripts/build-win.mjs --dir"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -33,6 +36,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.2.0",
     "electron": "43.2.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "5.0.0",
     "eslint": "10.8.0",
     "eslint-plugin-react-hooks": "7.1.1",

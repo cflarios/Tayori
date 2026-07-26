@@ -6,6 +6,7 @@ import { audioCapture } from '../capture/audio';
 import { createSTTProvider, type STTProvider, type TranscriptEvent } from '../stt';
 import { TranscriptBuffer } from './transcript-buffer';
 import { AnswerEngine } from './answer-engine';
+import { looksLikeQuestion } from './question-detector';
 import { getAudioWorker } from '../windows/audio-worker';
 
 /**
@@ -27,6 +28,10 @@ class SessionOrchestrator {
    */
   private silenceTimers = new Map<Speaker, NodeJS.Timeout>();
   private static readonly SILENCE_MS = 900;
+
+  /** Momento del último auto-disparo, para el debounce. */
+  private lastAutoTrigger = 0;
+  private static readonly AUTO_DEBOUNCE_MS = 2_500;
 
   /** Conecta el flujo de audio al STT. Llamar una vez al arrancar la app. */
   bind(): void {
@@ -120,11 +125,26 @@ class SessionOrchestrator {
   }
 
   /**
-   * Punto de enganche del auto-disparo (fase 7). Se deja aquí para que el flujo
-   * quede completo desde ahora y la fase 7 sólo añada el detector.
+   * Auto-disparo. Sólo se evalúan intervenciones cerradas del interlocutor:
+   * responder a lo que dice el propio usuario no tendría sentido.
    */
   private onFinalSegment(segment: TranscriptSegment): void {
-    void segment;
+    const settings = settingsStore.get();
+    if (settings.autoTriggerMode === 'off') return;
+    if (segment.speaker !== 'them') return;
+
+    const verdict = looksLikeQuestion(segment.text);
+    if (!verdict.isQuestion) return;
+
+    // Debounce: una pregunta larga puede cerrarse en varios segmentos seguidos.
+    // Sin esto se dispararían dos o tres respuestas para la misma pregunta, y
+    // cada una abortaría la anterior a media generación.
+    const now = Date.now();
+    if (now - this.lastAutoTrigger < SessionOrchestrator.AUTO_DEBOUNCE_MS) return;
+    this.lastAutoTrigger = now;
+
+    console.log(`[auto] disparando (${verdict.reason}): "${segment.text.slice(0, 60)}"`);
+    void this.answers.ask('auto', segment.text.trim());
   }
 
   private armSilenceTimer(speaker: Speaker): void {

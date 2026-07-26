@@ -7,6 +7,14 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Scripts de build: JS plano ejecutado por Node, así que necesita los
+    // globals de Node declarados (los .ts los aporta @types/node vía tsconfig).
+    files: ['scripts/**/*.{js,mjs}', '*.config.{js,mjs}'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly' },
+    },
+  },
+  {
     // eslint-plugin-react-hooks v7 expone el flat config anidado en `configs.flat`;
     // `configs['recommended-latest']` sigue siendo el formato eslintrc antiguo.
     files: ['src/renderer/**/*.{ts,tsx}'],

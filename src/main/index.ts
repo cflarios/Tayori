@@ -14,6 +14,7 @@ import { captureScreen } from './capture/screenshot';
 // colisión resolvía silenciosamente a Function.prototype.bind.
 import { session as sessionOrchestrator } from './core/session';
 import { createLLMProvider, listModelsFor } from './llm';
+import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -155,6 +156,20 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.llmTestConnection, async () => {
     try {
       return await createLLMProvider(settingsStore.get()).testConnection();
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  // ── Whisper local ──
+  ipcMain.handle(IPC.whisperGetStatus, () => getWhisperStatus(settingsStore.get().whisperModel));
+
+  ipcMain.handle(IPC.whisperInstall, async () => {
+    try {
+      await ensureWhisperReady(settingsStore.get().whisperModel, (progress) => {
+        broadcast(IPC.onWhisperProgress, progress);
+      });
+      return { ok: true };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }

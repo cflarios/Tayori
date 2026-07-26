@@ -1,6 +1,7 @@
 import type { Settings } from '@shared/types';
 import { getSecret } from '../config/secrets';
 import { GeminiLiveSTT } from './gemini-live';
+import { WhisperLocalSTT } from './whisper-local';
 import type { STTProvider } from './types';
 
 export type { STTProvider, STTStartOptions, TranscriptEvent } from './types';
@@ -25,10 +26,8 @@ export function createSTTProvider(settings: Settings): STTProvider {
     }
 
     case 'whisper-local':
-      // Se implementa en la fase 7. El mensaje es explícito para que el usuario
-      // sepa que la opción existe pero aún no está lista, en lugar de fallar
-      // con un error genérico.
-      throw new Error('Whisper local todavía no está implementado. Usa Gemini Live por ahora.');
+      // `create` lanza con un mensaje que indica qué falta descargar y dónde.
+      return WhisperLocalSTT.create(settings.whisperModel);
 
     default: {
       // Si se añade un id al tipo y no se maneja aquí, TypeScript falla el build.

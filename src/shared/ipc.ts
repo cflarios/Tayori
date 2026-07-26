@@ -35,6 +35,9 @@ export const IPC = {
   llmListModels: 'llm:list-models',
   llmTestConnection: 'llm:test-connection',
 
+  whisperGetStatus: 'whisper:get-status',
+  whisperInstall: 'whisper:install',
+
   // ── send (renderer → main, sin respuesta) ──
   audioChunk: 'audio:chunk',
   audioLevels: 'audio:levels',
@@ -50,6 +53,7 @@ export const IPC = {
   onSettings: 'event:settings',
   onAudioLevels: 'event:audio-levels',
   onScreenshot: 'event:screenshot',
+  onWhisperProgress: 'event:whisper-progress',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;
@@ -72,4 +76,12 @@ export interface AudioChunkMessage {
   speaker: 'me' | 'them';
   pcm: ArrayBuffer;
   sampleRate: number;
+}
+
+/** Progreso de descarga de los assets de Whisper local. */
+export interface WhisperProgress {
+  target: 'binary' | 'model';
+  receivedBytes: number;
+  /** `0` si el servidor no envía Content-Length. */
+  totalBytes: number;
 }
