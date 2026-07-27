@@ -18,6 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:win": "npm run build && node scripts/build-win.mjs",
+    "build:portable": "npm run build && node scripts/build-win.mjs --win portable",
     "build:unpacked": "npm run build && node scripts/build-win.mjs --dir"
   },
   "dependencies": {

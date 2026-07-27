@@ -47,6 +47,10 @@ function pickOutputDir() {
 
 const outputDir = pickOutputDir();
 const relocated = !outputDir.startsWith(projectRoot);
+const requestedArgs = process.argv.slice(2);
+const includesPlatformTarget = requestedArgs.some((arg) =>
+  ['--win', '--mac', '--linux'].includes(arg)
+);
 
 if (relocated) {
   console.log(
@@ -71,11 +75,11 @@ const result = spawnSync(
   process.execPath,
   [
     cli,
-    '--win',
+    ...(includesPlatformTarget ? [] : ['--win']),
     '--config',
     'electron-builder.yml',
     `--config.directories.output=${outputDir}`,
-    ...process.argv.slice(2),
+    ...requestedArgs,
   ],
   { cwd: projectRoot, stdio: 'inherit' }
 );

@@ -194,6 +194,17 @@ npm test            # vitest — lógica pura: buffer, detector, VAD
 npm run build:win   # instalador NSIS + portable
 ```
 
+## Builds y releases
+
+GitHub Actions ejecuta typecheck, lint, tests y genera el `.exe` portable en
+cada push. El archivo queda disponible durante 30 días como artefacto del run.
+
+Las publicaciones se gestionan con Release Please: al fusionar en `main` un
+commit con formato [Conventional Commits](https://www.conventionalcommits.org/)
+(`fix:`, `feat:`, `feat!:`, etc.), crea o actualiza una PR de release. Al
+fusionarla, actualiza la versión, `CHANGELOG.md`, crea el GitHub Release y le
+adjunta `Audio Helper-<versión>-portable.exe`.
+
 ## Consideraciones legales
 
 La app no graba ni almacena nada (ver arriba), lo que la deja fuera de la mayoría
