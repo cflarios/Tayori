@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import { IPC } from '@shared/ipc';
 import {
+  autoTriggerIsInert,
   speakersFor,
   type Answer,
   type AnswerTrigger,
@@ -58,10 +59,33 @@ class SessionOrchestrator {
 
   // ── API que consumen los hotkeys y el IPC ──
 
-  /** Responde usando la última pregunta cerrada del interlocutor si la hay. */
+  /** Responde usando la última intervención cerrada relevante, si la hay. */
   ask(trigger: AnswerTrigger): Promise<void> {
-    const lastQuestion = this.transcript.lastFrom('them');
+    const lastQuestion = this.lastRelevantSegment();
     return this.answers.ask(trigger, lastQuestion?.text.trim() || undefined);
+  }
+
+  /**
+   * Qué intervención se toma como "la pregunta" con el hotkey manual.
+   *
+   * Se prefiere el hablante configurado para el auto-disparo. Sólo se cae a
+   * otro si ése **ni siquiera se está escuchando** (disparo en `them` con
+   * `audioSources: 'mic'`, por ejemplo): ahí `lastFrom` devolvería siempre null
+   * y el hotkey mandaría la pregunta vacía. Si sí se escucha pero todavía no ha
+   * dicho nada, no hay fallback: mandar la última línea de otro como si fuera la
+   * pregunta es peor que dejar que el modelo la deduzca del transcript.
+   */
+  private lastRelevantSegment(): TranscriptSegment | null {
+    const settings = settingsStore.get();
+    const wanted = settings.autoTriggerSpeaker;
+    const heard = speakersFor(settings.audioSources);
+    const order: Speaker[] = wanted !== 'any' && heard.includes(wanted) ? [wanted] : ['them', 'me'];
+
+    for (const speaker of order) {
+      const segment = this.transcript.lastFrom(speaker);
+      if (segment) return segment;
+    }
+    return null;
   }
 
   /** Responde a un texto escrito a mano en el overlay. */
@@ -100,6 +124,20 @@ class SessionOrchestrator {
 
       this.stt = provider;
       console.log(`[stt] transcripción iniciada con "${provider.id}"`);
+
+      // Aviso explícito de una combinación que no da ningún síntoma: el audio
+      // llega, se transcribe, y el auto-disparo descarta todos los segmentos
+      // porque el hablante que debería dispararlo ni siquiera se escucha. Sin
+      // esta línea, desde fuera se ve igual que "el modelo no responde".
+      if (autoTriggerIsInert(settings)) {
+        console.warn(
+          `[auto] inerte: se dispara con "${settings.autoTriggerSpeaker}" pero ` +
+            `audioSources="${settings.audioSources}" solo escucha ` +
+            `[${speakersFor(settings.audioSources).join(', ')}]. ` +
+            'No saltará ninguna respuesta automática; usa el hotkey manual o ' +
+            'cambia los ajustes en el dashboard.'
+        );
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[stt] no se pudo iniciar:', message);
@@ -133,13 +171,16 @@ class SessionOrchestrator {
   }
 
   /**
-   * Auto-disparo. Sólo se evalúan intervenciones cerradas del interlocutor:
-   * responder a lo que dice el propio usuario no tendría sentido.
+   * Auto-disparo. Sólo se evalúan intervenciones cerradas del hablante elegido;
+   * el default es el interlocutor porque responder a lo que dice el propio
+   * usuario no tiene sentido en una entrevista.
    */
   private onFinalSegment(segment: TranscriptSegment): void {
     const settings = settingsStore.get();
     if (settings.autoTriggerMode === 'off') return;
-    if (segment.speaker !== 'them') return;
+
+    const wanted = settings.autoTriggerSpeaker;
+    if (wanted !== 'any' && segment.speaker !== wanted) return;
 
     const verdict = looksLikeQuestion(segment.text);
     if (!verdict.isQuestion) return;

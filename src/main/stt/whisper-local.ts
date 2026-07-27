@@ -39,12 +39,23 @@ const HALLUCINATIONS = [
   '[silencio]',
   '[blank_audio]',
   '[sonido]',
-  'you',
 ];
+
+/**
+ * Alucinaciones que son una palabra corriente. Van aparte porque hay que
+ * compararlas con el texto ENTERO: whisper devuelve "you" a secas sobre
+ * silencio, pero buscarla como subcadena descartaba también cualquier frase que
+ * la contuviera ("what about your team", "youtube").
+ */
+const HALLUCINATION_EXACT = ['you', 'gracias', 'thank you', 'thanks', '¡gracias!'];
 
 function isLikelyHallucination(text: string): boolean {
   const normalized = text.toLowerCase().trim();
   if (normalized.length < 4) return true;
+
+  const bare = normalized.replace(/[.!?¡¿]/g, '').trim();
+  if (HALLUCINATION_EXACT.includes(bare)) return true;
+
   return HALLUCINATIONS.some((phrase) => normalized.includes(phrase));
 }
 
@@ -206,7 +217,10 @@ export class WhisperLocalSTT implements STTProvider {
       // Sin timestamps ni marcas: sólo queremos el texto.
       '--no-timestamps',
       '--no-prints',
-      '--output-txt', 'false',
+      // Ojo: `--output-txt` es un flag booleano SIN argumento. Pasarle "false"
+      // hacía que whisper-cli lo tomara por un fichero de entrada
+      // ("error: input file not found 'false'") y encima escribía un .txt al
+      // lado del WAV. Lo que queremos es no pasarlo en absoluto.
       // Hilos: dejamos un núcleo libre para no ahogar la captura de audio.
       '-t', String(Math.max(2, (cpus().length || 4) - 1)),
     ];

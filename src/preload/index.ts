@@ -65,6 +65,14 @@ const api = {
      */
     setMouseIgnore: (ignore: boolean): void =>
       ipcRenderer.send(IPC.overlayMouseIgnore, ignore),
+
+    /**
+     * Vuelve el overlay enfocable para poder escribir en él. Se envía con
+     * `invoke` y no con `send` porque el renderer necesita saber que ya se
+     * aplicó antes de enfocar el textarea.
+     */
+    setInteractive: (interactive: boolean): Promise<void> =>
+      ipcRenderer.invoke(IPC.overlayInteractive, interactive),
     startDrag: (): void => ipcRenderer.send(IPC.overlayDragStart),
     endDrag: (): void => ipcRenderer.send(IPC.overlayDragEnd),
     quit: (): Promise<void> => ipcRenderer.invoke(IPC.overlayQuit),

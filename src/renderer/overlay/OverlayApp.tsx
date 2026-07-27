@@ -169,6 +169,95 @@ function SetupPrompt() {
   );
 }
 
+/** Las dos formas de darle una pregunta al asistente. */
+type InputTab = 'listen' | 'write';
+
+function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => void }) {
+  return (
+    // `data-interactive`: sin esto las pestañas serían inclicables con los
+    // clics atravesables activos, que es el modo recomendado durante una llamada.
+    <div className="tabs" data-interactive>
+      {(
+        [
+          ['listen', 'Escucha'],
+          ['write', 'Escritura'],
+        ] as const
+      ).map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          className={`tab${tab === id ? ' tab--active' : ''}`}
+          aria-pressed={tab === id}
+          onClick={() => onChange(id)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Pestaña de escritura: preguntar sin depender del audio.
+ *
+ * Requiere que el overlay sea enfocable, lo que sólo pasa mientras esta pestaña
+ * está abierta — de ahí el efecto de `setInteractive` en `OverlayApp`. Es la
+ * única situación en la que la app toma el foco, y el aviso del pie lo dice
+ * porque es justo el comportamiento que el resto del programa evita.
+ */
+function ComposePane({ onSend }: { onSend: (text: string) => void }) {
+  const [draft, setDraft] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // La ventana ya es enfocable cuando esto se monta; enfocar aquí evita que el
+  // usuario tenga que dar un clic extra para empezar a escribir.
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const send = (): void => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    onSend(text);
+  };
+
+  return (
+    <div className="compose" data-interactive>
+      <textarea
+        ref={inputRef}
+        className="compose__input"
+        placeholder="Escribe tu pregunta y pulsa Enter…"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter envía; Shift+Enter salta línea. No se usa Ctrl+Enter porque
+          // es un hotkey GLOBAL: lo intercepta el main y nunca llegaría aquí.
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            send();
+          }
+        }}
+      />
+      <div className="compose__foot">
+        <span className="compose__hint">Enter envía · Shift+Enter salta línea</span>
+        <button
+          type="button"
+          className="compose__btn"
+          disabled={!draft.trim()}
+          onClick={send}
+        >
+          Enviar
+        </button>
+      </div>
+      <p className="compose__warn">
+        Mientras esta pestaña esté abierta el overlay toma el foco del teclado. Vuelve a «Escucha»
+        antes de compartir pantalla.
+      </p>
+    </div>
+  );
+}
+
 function AnswerPane({ answer }: { answer: Answer | null }) {
   if (!answer) {
     return <p className="empty">Ctrl+Enter para pedir una respuesta.</p>;
@@ -194,21 +283,39 @@ export function OverlayApp() {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [shot, setShot] = useState<ImageAttachment | null>(null);
   const [configured, setConfigured] = useState(true);
+  const [tab, setTab] = useState<InputTab>('listen');
 
   useChromeMouse();
   const onDragStart = useOverlayDrag();
+
+  /**
+   * El overlay sólo es enfocable mientras se escribe.
+   *
+   * La limpieza del efecto no es opcional: si la ventana se quedara enfocable
+   * acabaría robando el foco de la videollamada, que es exactamente lo que la
+   * app existe para evitar (CONTEXT §4). Por eso se revierte al cambiar de
+   * pestaña y también al desmontar.
+   */
+  useEffect(() => {
+    if (tab !== 'write') return;
+    void window.api.window.setInteractive(true);
+    return () => {
+      void window.api.window.setInteractive(false);
+    };
+  }, [tab]);
 
   useEffect(() => {
     const { api } = window;
 
     void api.settings.get().then(setSettings);
     void api.capture.getStatus().then(setStatus);
-    // Ollama no necesita clave, así que su sola selección cuenta como
-    // configurado; para Claude y Gemini se exige la clave correspondiente.
+    // Ollama no necesita clave, pero SÍ un modelo elegido: sin él cada consulta
+    // falla con "no hay ningún modelo seleccionado", y antes ese caso pasaba por
+    // configurado y no mostraba ningún aviso. Claude y Gemini exigen su clave.
     void Promise.all([api.settings.get(), api.secrets.getPresence()]).then(
       ([current, presence]) => {
         setConfigured(
-          current.llmProviderId === 'ollama' ||
+          (current.llmProviderId === 'ollama' && Boolean(current.llmModels.ollama)) ||
             (current.llmProviderId === 'claude' && presence.anthropic) ||
             (current.llmProviderId === 'gemini' && presence.google)
         );
@@ -254,8 +361,12 @@ export function OverlayApp() {
       {!configured && <SetupPrompt />}
 
       <div className="section">
-        <span className="section__title">Transcripción</span>
-        <TranscriptPane segments={segments} />
+        <Tabs tab={tab} onChange={setTab} />
+        {tab === 'listen' ? (
+          <TranscriptPane segments={segments} />
+        ) : (
+          <ComposePane onSend={(text) => void window.api.ask.withText(text)} />
+        )}
       </div>
 
       {shot && (

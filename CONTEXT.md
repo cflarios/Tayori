@@ -131,6 +131,38 @@ Dos detalles que parecen de más y no lo son:
   seguimiento va por intervalo y no por los `mousemove` del renderer porque al
   arrastrar rápido el cursor se sale de la ventana.
 
+### Las dos pestañas: escucha y escritura
+
+El panel de entrada tiene dos pestañas. **Escucha** es la transcripción de
+siempre; **Escritura** es un textarea que llama a `askWithText`. La respuesta se
+pinta en «Sugerencia» en los dos casos: cambia de dónde sale la pregunta, no
+dónde aparece la respuesta.
+
+Escribir exige que la ventana sea enfocable, así que la pestaña de escritura es
+**la única situación en la que el overlay toma el foco**. Es aceptable porque la
+pide el usuario explícitamente, pero tiene tres consecuencias que van juntas y no
+se pueden separar:
+
+- **Revertir no es opcional.** El efecto de `OverlayApp` llama a
+  `setInteractive(false)` al cambiar de pestaña y al desmontar, y
+  `toggleOverlayVisibility` lo fuerza antes de ocultar. Una ventana que se queda
+  enfocable acaba robando el foco de la videollamada, que es exactamente lo que
+  la app existe para evitar.
+- **La guarda vive en el main, no en React.** `setOverlayMouseIgnore` sale antes
+  si `isOverlayInteractive()`. Sin ella los dos mecanismos se pelean: basta mover
+  el cursor sobre una zona no interactiva para que el hover de `useChromeMouse`
+  devuelva los clics atravesables a mitad de una frase y el botón de enviar deje
+  de responder. Se puso ahí y no en el orden de los efectos de React porque ese
+  orden es demasiado frágil para sostener una invariante.
+- **Envía `Enter`, no `Ctrl+Enter`.** `Ctrl+Enter` es un hotkey **global**: lo
+  intercepta el main y nunca llega al textarea. Si algún día se quiere que
+  `Ctrl+Enter` envíe el borrador, hay que desregistrar el acelerador al entrar en
+  la pestaña y volver a registrarlo al salir; no basta con un `onKeyDown`.
+
+El aviso de que el overlay toma el foco está **en la propia pestaña**, no sólo
+aquí: es una excepción a la promesa central del producto y callarla sería el tipo
+de verdad a medias que el README se esfuerza en no contar.
+
 ### Discreción en Windows: barra de tareas y nombre del proceso
 
 Dos cosas distintas que el usuario pidió, con alcances muy distintos:
@@ -333,6 +365,27 @@ momento posible, y el usuario **siempre** tiene el hotkey manual como red.
 - **Debounce de 2,5 s**: una pregunta larga puede cerrarse en varios segmentos
   seguidos, y sin él se dispararían varias respuestas abortándose entre sí.
 
+**Quién dispara es configurable, pero el default no cambia.**
+`settings.autoTriggerSpeaker` acepta `them` (default), `me` y `any`. El default
+sigue siendo el interlocutor por la razón de siempre: responder a lo que dices tú
+no tiene sentido en una entrevista. Se hizo configurable porque la combinación
+`audioSources: 'mic'` + disparo en `them` deja el auto-disparo **muerto en
+silencio** — el carril `them` ni siquiera se crea, así que `onFinalSegment`
+descartaba todos los segmentos sin emitir una sola traza, y desde fuera se veía
+exactamente igual que "el modelo no responde". Quien usa la app dictando las
+preguntas necesita `me`.
+
+Esa combinación imposible se detecta con `autoTriggerIsInert()` en
+`shared/types.ts`, que usan a la vez el main (avisa por consola al arrancar la
+transcripción) y el dashboard (banner rojo). Está en shared **a propósito**: la
+regla tiene que decir lo mismo en los dos sitios o el aviso deja de coincidir con
+el comportamiento.
+
+El hotkey manual (`session.lastRelevantSegment()`) sigue la misma preferencia,
+pero cae al otro hablante **sólo si el preferido ni se escucha**. Si sí se
+escucha y todavía no ha dicho nada, no hay fallback: mandar la última línea de
+otro como si fuera la pregunta es peor que dejar que el modelo la deduzca.
+
 ---
 
 ## 6. Bugs encontrados al verificar, y qué enseñó cada uno
@@ -350,6 +403,10 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | `session.bind()` resolvía a `Function.prototype.bind` | Colisión de nombre con el módulo `session` de Electron | TypeScript avisó con "Duplicate identifier"; sin él habría sido un fallo silencioso |
 | El selector mostraba los modelos del proveedor equivocado | `listModels()` lento del proveedor A resolviendo **después** de cambiar a B | Lo detectó la regla `set-state-in-effect` de eslint. Se arregló guardando el resultado junto al proveedor y descartándolo por comparación |
 | `EPERM` al empaquetar | **OneDrive** mantiene un lock sobre `release/` | Ver §7 |
+| El dashboard mostraba `llama3.2:3b` elegido y los settings guardaban `""` | Un `<select>` controlado cuyo `value` **no existe entre sus `<option>`**: el navegador pinta la primera opción como seleccionada pero **no dispara `onChange`** | Un select controlado tiene que tener siempre una `<option>` con su valor, aunque sea un hueco. Si no, la UI miente y el fallo aparece muy lejos de su causa |
+| Whisper local fallaba con `Command failed` en cada intervención | `findWhisperBinary()` recorría el directorio y devolvía la **primera** coincidencia; `main.exe` ordena antes que `whisper-cli.exe` y desde whisper.cpp 1.7 es un stub de deprecación que sale con **código 1** | Buscar por prioridad del array de candidatos, nunca por orden de directorio. Y que un ejecutable exista no significa que sirva |
+| Frases con "you" desaparecían del transcript | `'you'` estaba en la lista de alucinaciones y se comparaba con `includes()` | Un filtro de subcadenas necesita que las entradas sean lo bastante largas para no aparecer dentro de texto legítimo; las cortas van a comparación exacta |
+| `error: input file not found 'false'` en whisper-cli | `--output-txt false`: `-otxt` es un flag booleano SIN argumento, así que `false` se tomaba por un fichero de entrada | Verificar cada bandera contra el CLI real; whisper.cpp no falla, solo lo ignora y escribe un `.txt` de más |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve
@@ -430,8 +487,13 @@ capturas de pantalla**, no solo compilando.
 - **Streaming real de tokens** de Claude/Gemini (necesita API key del usuario).
 - **Transcripción en vivo** con Gemini Live (ídem).
 - **Auto-disparo sobre habla real** (la heurística sí está cubierta por tests).
-- **Whisper local end-to-end**: los assets nunca se descargaron en esta sesión.
-- **Ollama**: no hay servidor corriendo en la máquina.
+- **Whisper local end-to-end**: los assets **ya están descargados** y se
+  comprobó, ejecutándolo, que `whisper-cli.exe` transcribe un WAV generado a
+  mano con la lista de argumentos exacta que usa la app, y que
+  `findWhisperBinary()` elige `whisper-cli.exe` y no el stub `main.exe`. Lo que
+  sigue sin probarse es la cadena completa con voz real: VAD → turno → texto.
+- **Ollama**: el servidor **sí corre** ahora, con `llama3.2:3b`. Lo verificado es
+  el listado de modelos; el streaming de tokens sobre una pregunta real no.
 - **La prueba en una videollamada real** (Meet / Teams / Zoom / OBS). La
   verificación se hizo con captura GDI/BitBlt.
   `WDA_EXCLUDEFROMCAPTURE` cubre también las rutas DXGI y Windows Graphics
@@ -445,15 +507,9 @@ capturas de pantalla**, no solo compilando.
 Cosas que existen a medias. No son bugs; son trabajo no terminado, y está mejor
 escrito aquí que descubierto por sorpresa.
 
-- **`setOverlayInteractive()` sigue siendo código muerto.** Existe en
-  `src/main/windows/overlay.ts` y resuelve bien el problema (volver el overlay
-  enfocable para escribir sin romper la regla de no robar foco), pero **nada la
-  llama**: falta el input de texto en el overlay y su handler IPC. Ahora que la
-  barra ya tiene botones funcionando, es el siguiente paso natural.
-- **`askWithText` está completo salvo la UI.** La cadena IPC → preload →
-  `session.askWithText()` funciona; ningún renderer la invoca.
 - **`resizeOverlay` no lo llama nadie.** El handler y el preload existen; la idea
-  era que el overlay se ajustara a la altura de la respuesta.
+  era que el overlay se ajustara a la altura de la respuesta. Ahora que la
+  pestaña de escritura cambia la altura útil del panel, es más visible que antes.
 - **`overlayOpacity` no se puede cambiar.** El overlay lo respeta; el dashboard
   no lo expone.
 - **Los hotkeys no se pueden remapear desde la UI.** `settings.hotkeys` y

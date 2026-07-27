@@ -86,18 +86,41 @@ export function toggleOverlayVisibility(): void {
   const win = getOverlay();
   if (!win) return;
   // El hook de `show` en stealth.ts re-aplica la protección de contenido.
-  if (win.isVisible()) win.hide();
-  else win.showInactive();
+  if (win.isVisible()) {
+    // Ocultarlo mientras está enfocable lo dejaría así al volver, y una ventana
+    // enfocable que reaparece puede robar el foco de la videollamada.
+    setOverlayInteractive(false);
+    win.hide();
+  } else win.showInactive();
+}
+
+/**
+ * `true` mientras el overlay está en modo escritura.
+ *
+ * Vive en el módulo y no en los settings porque es estado efímero de la ventana,
+ * no una preferencia: si la app se reinicia, el overlay debe volver a arrancar
+ * no enfocable pase lo que pase.
+ */
+let overlayInteractive = false;
+
+export function isOverlayInteractive(): boolean {
+  return overlayInteractive;
 }
 
 /**
  * Permite escribir en el overlay sin romper la regla de no robar foco:
  * lo vuelve enfocable, enfoca, y al terminar revierte.
+ *
+ * Es la única situación en la que el overlay toma el foco, y es aceptable
+ * porque la pide el usuario explícitamente al abrir la pestaña de escritura.
+ * Revertir NO es opcional: una ventana que se queda enfocable acaba robando el
+ * foco de Teams/Meet, que es justo lo que delata al asistente (ver CONTEXT §4).
  */
 export function setOverlayInteractive(interactive: boolean): void {
   const win = getOverlay();
   if (!win) return;
 
+  overlayInteractive = interactive;
   win.setFocusable(interactive);
   if (interactive) {
     setClickThrough(win, false);
@@ -119,6 +142,15 @@ export function setOverlayInteractive(interactive: boolean): void {
 export function setOverlayMouseIgnore(ignore: boolean): void {
   const win = getOverlay();
   if (!win) return;
+  /*
+   * En modo escritura manda `setOverlayInteractive` y esto no pinta nada. Sin
+   * esta guarda los dos mecanismos se pelean: basta mover el cursor sobre una
+   * zona no interactiva del panel para que el hover devuelva los clics
+   * atravesables a mitad de una frase, y el botón de enviar deje de responder.
+   * La autoridad está aquí, en el main, y no en el orden de los efectos de
+   * React, que es demasiado frágil para sostener una invariante.
+   */
+  if (overlayInteractive) return;
   // Si el usuario desactivó los clics atravesables, la ventana ya es
   // interactiva por completo y no hay nada que alternar.
   if (!settingsStore.get().clickThrough) return;

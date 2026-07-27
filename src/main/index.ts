@@ -8,6 +8,7 @@ import {
   createOverlay,
   getOverlay,
   resizeOverlay,
+  setOverlayInteractive,
   setOverlayMouseIgnore,
   startOverlayDrag,
   stopOverlayDrag,
@@ -131,6 +132,12 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC.overlayHide, () => toggleOverlayVisibility());
+
+  // Modo escritura: la única vía por la que el overlay toma el foco, y siempre
+  // a petición explícita del usuario (abrir la pestaña de escritura).
+  ipcMain.handle(IPC.overlayInteractive, (_e, interactive: boolean) =>
+    setOverlayInteractive(interactive)
+  );
   ipcMain.handle(IPC.overlayResize, (_e, height: number) => resizeOverlay(height));
   ipcMain.handle(IPC.dashboardOpen, () => {
     openDashboard();

@@ -21,6 +21,8 @@ export const IPC = {
   overlayHide: 'overlay:hide',
   overlayResize: 'overlay:resize',
   overlayMouseIgnore: 'overlay:mouse-ignore',
+  /** Vuelve el overlay enfocable para poder escribir en él. Ver `overlay.ts`. */
+  overlayInteractive: 'overlay:interactive',
   overlayDragStart: 'overlay:drag-start',
   overlayDragEnd: 'overlay:drag-end',
   overlayQuit: 'overlay:quit',

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { WhisperProgress } from '@shared/ipc';
+import { autoTriggerIsInert, speakersFor } from '@shared/types';
 import type {
   AudioLevels,
   CaptureStatus,
@@ -323,8 +324,22 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
     let cancelled = false;
     window.api.llm
       .listModels()
-      .then((models) => {
-        if (!cancelled) setLoaded({ provider, models });
+      .then(async (models) => {
+        if (cancelled) return;
+        setLoaded({ provider, models });
+
+        // Si el modelo guardado no está entre los cargados, hay que PERSISTIR
+        // uno. Un <select> controlado cuyo `value` no existe entre sus <option>
+        // pinta la primera opción como elegida pero no dispara `onChange`: la
+        // UI decía "llama3.2:3b" mientras los settings seguían con "", y cada
+        // respuesta fallaba con "no hay ningún modelo seleccionado".
+        const stored = await window.api.settings.get();
+        const currentModel = stored.llmModels[provider];
+        const first = models[0];
+        if (!first || models.some((m) => m.id === currentModel)) return;
+        // Se relee del main en lugar de usar el `settings` del render: entre
+        // que se pidió la lista y llegó, el usuario ha podido tocar otro ajuste.
+        await patch({ llmModels: { ...stored.llmModels, [provider]: first.id } });
       })
       .catch(() => {
         if (!cancelled) setLoaded({ provider, models: [] });
@@ -332,10 +347,14 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
     return () => {
       cancelled = true;
     };
-  }, [provider]);
+  }, [provider, patch]);
 
   const models = loaded?.provider === provider ? loaded.models : [];
   const test = tested?.provider === provider ? tested.result : null;
+  const selectedModel = settings.llmModels[provider];
+  /** Mientras la lista carga (o si el modelo guardado ya no existe) el valor
+   *  no está entre las opciones; sin este hueco el select mentiría. */
+  const modelMissing = !models.some((m) => m.id === selectedModel);
 
   const runTest = async (): Promise<void> => {
     setBusy(true);
@@ -373,15 +392,17 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         }
       >
         <select
-          value={settings.llmModels[settings.llmProviderId]}
+          value={modelMissing ? '' : selectedModel}
           disabled={models.length === 0}
           onChange={(e) =>
             void patch({
-              llmModels: { ...settings.llmModels, [settings.llmProviderId]: e.target.value },
+              llmModels: { ...settings.llmModels, [provider]: e.target.value },
             })
           }
         >
-          {models.length === 0 && <option value="">—</option>}
+          {modelMissing && (
+            <option value="">{models.length === 0 ? '—' : '— elige un modelo —'}</option>
+          )}
           {models.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
@@ -633,19 +654,28 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
 }
 
 /**
- * El auto-disparo ya ignora tu propia voz (solo evalúa intervenciones del
- * interlocutor), así que esta opción decide qué entra en el CONTEXTO enviado al
- * modelo, no cuándo se dispara. Los textos lo dicen explícitamente porque es la
- * confusión natural.
+ * Por defecto el auto-disparo ignora tu propia voz (solo evalúa intervenciones
+ * del interlocutor), así que esta opción decide sobre todo qué entra en el
+ * CONTEXTO enviado al modelo. Los textos lo dicen explícitamente porque es la
+ * confusión natural — y avisan de la combinación que deja el disparo inerte.
  */
 const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], string> = {
   both:
     'El modelo sabe lo que ya has respondido, así que no te sugiere repetirlo. ' +
-    'El auto-disparo nunca reacciona a tu propia voz.',
+    'Por defecto el auto-disparo no reacciona a tu propia voz.',
   system:
     'Tu micrófono no se abre siquiera. Evita cualquier posibilidad de que tus ' +
     'respuestas entren en el contexto, a cambio de que el modelo no sepa qué has dicho ya.',
-  mic: 'Solo se transcribe lo que dices tú. Útil para dictar notas, no para una entrevista.',
+  mic:
+    'Solo se transcribe lo que dices tú. Útil para dictar notas, no para una entrevista: ' +
+    'el interlocutor no se escucha, así que el auto-disparo por defecto no puede saltar.',
+};
+
+/** Nombres de los hablantes en los avisos, para no repetirlos en cada texto. */
+const SPEAKER_LABEL: Record<'me' | 'them' | 'any', string> = {
+  me: 'tu micrófono',
+  them: 'el interlocutor',
+  any: 'cualquiera de los dos',
 };
 
 /** Duplicado a propósito: el renderer no puede importar del proceso main. */
@@ -677,6 +707,43 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
           <option value="heuristic">Automático (heurística local)</option>
         </select>
       </Row>
+
+      {settings.autoTriggerMode !== 'off' && (
+        <>
+          <Row
+            label="Quién dispara la respuesta"
+            desc="Por defecto solo el interlocutor: responder a lo que dices tú no tiene sentido en una entrevista. Cámbialo si usas la app para dictar las preguntas tú mismo."
+          >
+            <select
+              value={settings.autoTriggerSpeaker}
+              onChange={(e) =>
+                void patch({
+                  autoTriggerSpeaker: e.target.value as Settings['autoTriggerSpeaker'],
+                })
+              }
+            >
+              <option value="them">El interlocutor</option>
+              <option value="me">Mi micrófono</option>
+              <option value="any">Cualquiera de los dos</option>
+            </select>
+          </Row>
+
+          {/* La combinación imposible no da ningún síntoma: el audio llega, se
+              transcribe, y el disparo descarta todo en silencio. Por eso se
+              avisa aquí y no solo en el log del proceso principal. */}
+          {autoTriggerIsInert(settings) && (
+            <div className="warn">
+              El auto-disparo espera a <strong>{SPEAKER_LABEL[settings.autoTriggerSpeaker]}</strong>,
+              pero «Qué se escucha» solo abre{' '}
+              {speakersFor(settings.audioSources)
+                .map((s) => SPEAKER_LABEL[s])
+                .join(' y ')}
+              : <strong>nunca se disparará ninguna respuesta automática</strong>. Cambia una de las
+              dos cosas, o usa <kbd>Ctrl</kbd>+<kbd>Enter</kbd> para preguntar a mano.
+            </div>
+          )}
+        </>
+      )}
 
       <Row
         label="Contexto enviado"

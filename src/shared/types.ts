@@ -101,6 +101,17 @@ export interface Answer {
 /** Escalera de auto-disparo, de más barato a más costoso. */
 export type AutoTriggerMode = 'off' | 'heuristic' | 'heuristic+classifier';
 
+/**
+ * Qué hablante puede disparar una respuesta automática.
+ *
+ * El default es y sigue siendo `them`: en una entrevista responder a tu propia
+ * voz no tiene sentido, y el detector está afinado para precisión sobre recall.
+ * Es configurable porque la combinación `audioSources: 'mic'` + `them` deja el
+ * auto-disparo muerto en silencio — no hay carril `them` que evaluar — y quien
+ * usa la app para dictar preguntas necesita `me`.
+ */
+export type AutoTriggerSpeaker = 'them' | 'me' | 'any';
+
 export interface ContextPack {
   id: string;
   name: string;
@@ -151,6 +162,8 @@ export interface Settings {
   audioSources: AudioSourceMode;
 
   autoTriggerMode: AutoTriggerMode;
+  /** Quién puede disparar una respuesta automática. */
+  autoTriggerSpeaker: AutoTriggerSpeaker;
   /** Segundos de transcript que se envían con el hotkey manual. */
   manualContextSeconds: number;
   /** Máximo de segmentos que retiene el buffer rodante. */
@@ -162,6 +175,22 @@ export interface Settings {
 
   hotkeys: HotkeyMap;
   ollamaBaseUrl: string;
+}
+
+/**
+ * `true` si los ajustes dejan el auto-disparo inerte: el hablante que debería
+ * dispararlo no está entre los que se escuchan, así que no puede saltar nunca.
+ *
+ * Es un fallo silencioso —todo el pipeline funciona y la última puerta se cierra
+ * sin traza—, así que el main lo registra al arrancar la transcripción y el
+ * dashboard lo avisa. Ambos usan esta función para no duplicar la regla.
+ */
+export function autoTriggerIsInert(
+  settings: Pick<Settings, 'autoTriggerMode' | 'autoTriggerSpeaker' | 'audioSources'>
+): boolean {
+  if (settings.autoTriggerMode === 'off') return false;
+  if (settings.autoTriggerSpeaker === 'any') return false;
+  return !speakersFor(settings.audioSources).includes(settings.autoTriggerSpeaker);
 }
 
 export const DEFAULT_HOTKEYS: HotkeyMap = {
@@ -195,6 +224,7 @@ export const DEFAULT_SETTINGS: Settings = {
   audioSources: 'both',
 
   autoTriggerMode: 'heuristic',
+  autoTriggerSpeaker: 'them',
   manualContextSeconds: 30,
   transcriptWindowSize: 40,
 

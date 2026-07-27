@@ -185,6 +185,126 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Pestañas: escuchar o escribir ── */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.tab {
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* Mismo tono que `.section__title`: las pestañas OCUPAN su sitio, así que
+     deben leerse como el rótulo que sustituyen y no como dos botones más. */
+  color: #7c8288;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 2px 8px 5px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.tab:hover {
+  color: #b7bcc1;
+}
+
+.tab--active {
+  color: #e8eaed;
+  border-bottom-color: #60a5fa;
+}
+
+/* ── Pestaña de escritura ── */
+
+.compose {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.compose__input {
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #f1f3f4;
+  /* `body` tiene `user-select: none` para que arrastrar el overlay no seleccione
+     texto; en un campo de escritura hay que devolverlo o no se puede ni
+     seleccionar lo que acabas de escribir. */
+  user-select: text;
+  resize: none;
+  height: 74px;
+  padding: 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.compose__input:focus {
+  border-color: rgba(96, 165, 250, 0.6);
+}
+
+.compose__input::placeholder {
+  color: #6b7075;
+  font-style: italic;
+}
+
+.compose__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compose__hint {
+  flex: 1;
+  font-size: 10px;
+  color: #6b7075;
+}
+
+.compose__btn {
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 550;
+  color: #0e1015;
+  background: #60a5fa;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    opacity 120ms ease;
+}
+
+.compose__btn:hover:not(:disabled) {
+  background: #93c5fd;
+}
+
+.compose__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/*
+ * Aviso del foco. Es la única situación en la que el overlay lo toma, y el
+ * resto de la app existe para evitarlo: callarlo sería justo el tipo de
+ * promesa a medias que el README se esfuerza en no hacer.
+ */
+.compose__warn {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #b98b2e;
+}
+
 .transcript {
   max-height: 132px;
   overflow-y: auto;
