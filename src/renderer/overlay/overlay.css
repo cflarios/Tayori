@@ -527,6 +527,46 @@ body {
   background: #fde68a;
 }
 
+/* ── Error del motor de transcripción ── */
+
+.sttError {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.26);
+}
+
+.sttError__text {
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #fca5a5;
+  /* Los mensajes de Gemini traen el modelo y la causa; poder copiarlos es
+     justamente el punto de enseñarlos. */
+  user-select: text;
+  max-height: 68px;
+  overflow-y: auto;
+}
+
+.sttError__close {
+  flex-shrink: 0;
+  display: flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #fca5a5;
+  cursor: pointer;
+}
+
+.sttError__close:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
 /* ── Thumbnail de captura adjunta ── */
 
 .shot {

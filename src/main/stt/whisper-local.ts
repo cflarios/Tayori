@@ -248,6 +248,54 @@ export class WhisperLocalSTT implements STTProvider {
 }
 
 /**
+ * Ejecuta whisper-cli sobre un WAV sintético para probar la instalación entera.
+ *
+ * Se ejecuta el binario de verdad, con el modelo de verdad, porque los dos
+ * fallos que se han dado aquí eran invisibles de otra forma: el stub `main.exe`
+ * (existe, pesa lo mismo que un ejecutable, y sale con código 1) y las DLL de
+ * ggml, que sólo revientan al cargar el modelo. Un `existsSync` no habría
+ * detectado ninguno de los dos.
+ */
+export async function testWhisperBinary(
+  modelId: string
+): Promise<{ ok: boolean; detail: string }> {
+  const binary = findWhisperBinary();
+  if (!binary) {
+    return { ok: false, detail: 'No se encuentra whisper-cli.exe. Descárgalo desde arriba.' };
+  }
+  if (!isModelInstalled(modelId)) {
+    return { ok: false, detail: `El modelo "${modelId}" no está descargado.` };
+  }
+
+  const dir = mkdtempSync(join(tmpdir(), 'ih-whisper-test-'));
+  const wavPath = join(dir, 'probe.wav');
+  // Medio segundo de tono bajo: suficiente para que cargue el modelo y corra la
+  // inferencia. No importa qué transcriba, sólo que llegue al final.
+  const samples = new Int16Array(8_000);
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = Math.round(1_500 * Math.sin((2 * Math.PI * 220 * i) / 16_000));
+  }
+  writeFileSync(wavPath, toWav(samples, 16_000));
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      execFile(
+        binary,
+        ['-m', getModelPath(modelId), '-f', wavPath, '--no-timestamps', '--no-prints', '-t', '2'],
+        { timeout: 90_000, maxBuffer: 1024 * 1024 },
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+    return { ok: true, detail: `Whisper funciona. Ejecutable: ${binary}` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, detail: `Falló al ejecutar ${binary}\n${message}` };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
  * Limpia la salida de whisper-cli.
  *
  * Aun con `--no-timestamps` deja líneas de diagnóstico y a veces marcas de

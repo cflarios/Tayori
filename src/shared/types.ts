@@ -180,6 +180,23 @@ export type AutoTriggerMode = 'off' | 'heuristic' | 'heuristic+classifier';
  */
 export type AutoTriggerSpeaker = 'them' | 'me' | 'any';
 
+/**
+ * Cuánto se arriesga el detector de preguntas.
+ *
+ * Existe porque el equilibrio correcto **depende de para qué uses la app**, y no
+ * hay un único acierto:
+ *
+ * - `strict`: sólo señales inequívocas (interrogativo al principio, signo de
+ *   interrogación, apertura imperativa). Es el comportamiento original, pensado
+ *   para una entrevista real donde una sugerencia a destiempo distrae.
+ * - `balanced`: añade interrogativos acentuados en cualquier posición y
+ *   fórmulas de consulta. Recupera las preguntas que el ASR entrega sin signos.
+ * - `all`: responde a toda intervención cerrada que no sea una muletilla. Es lo
+ *   que quieres cuando eres tú quien le dicta las preguntas a propósito, porque
+ *   ahí no hay ruido del que protegerse.
+ */
+export type AutoTriggerSensitivity = 'strict' | 'balanced' | 'all';
+
 export interface ContextPack {
   id: string;
   name: string;
@@ -244,6 +261,8 @@ export interface Settings {
   autoTriggerMode: AutoTriggerMode;
   /** Quién puede disparar una respuesta automática. */
   autoTriggerSpeaker: AutoTriggerSpeaker;
+  /** Cuánto se arriesga el detector al decidir si algo es una pregunta. */
+  autoTriggerSensitivity: AutoTriggerSensitivity;
   /** Segundos de transcript que se envían con el hotkey manual. */
   manualContextSeconds: number;
   /** Máximo de segmentos que retiene el buffer rodante. */
@@ -307,6 +326,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
   autoTriggerMode: 'heuristic',
   autoTriggerSpeaker: 'them',
+  autoTriggerSensitivity: 'balanced',
   manualContextSeconds: 30,
   transcriptWindowSize: 40,
 

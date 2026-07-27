@@ -297,7 +297,89 @@ export function DashboardApp() {
       <BehaviourCard settings={settings} patch={patch} />
       <HistoryCard settings={settings} patch={patch} />
       <ContextCard settings={settings} patch={patch} />
+      <DiagnosticsCard />
     </div>
+  );
+}
+
+// ────────────────────────────── Diagnóstico ──────────────────────────────
+
+/**
+ * Logs y prueba del motor de transcripción.
+ *
+ * Existe porque en el `.exe` empaquetado **no había ningún sitio donde mirar**:
+ * los `console.*` del main sólo se veían arrancando desde una terminal. Un fallo
+ * de Gemini Live y una sala en silencio producían exactamente la misma pantalla.
+ */
+function DiagnosticsCard() {
+  const [log, setLog] = useState('');
+  const [location, setLocation] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
+
+  const refresh = useCallback((): void => {
+    void window.api.logs.read().then(setLog);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    void window.api.logs.location().then(setLocation);
+  }, [refresh]);
+
+  const runTest = async (): Promise<void> => {
+    setTesting(true);
+    setResult(null);
+    try {
+      // La prueba escribe en el log, así que se relee después: el detalle
+      // completo (qué modelos se probaron y qué contestó cada uno) está ahí.
+      setResult(await window.api.transcript.testConnection());
+      refresh();
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const copy = async (): Promise<void> => {
+    await navigator.clipboard.writeText(log);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1_500);
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card__title">Diagnóstico</h2>
+      <p className="card__hint">
+        Si algo no funciona, esto es lo que hay que mirar antes que nada. El registro se guarda en{' '}
+        <code>{location || 'tu carpeta de datos'}</code>.
+      </p>
+
+      <Row
+        label="Probar la transcripción"
+        desc="Conecta de verdad con el motor configurado: con Gemini Live negocia el modelo, con Whisper ejecuta el binario sobre un audio de prueba."
+      >
+        <button className="btn" disabled={testing} onClick={() => void runTest()}>
+          {testing ? 'Probando…' : 'Probar'}
+        </button>
+      </Row>
+
+      {result && (
+        <div className={result.ok ? 'diag diag--ok' : 'warn'}>
+          <strong>{result.ok ? 'Funciona.' : 'Falló.'}</strong> {result.detail}
+        </div>
+      )}
+
+      <div className="field" style={{ marginTop: 12 }}>
+        <button className="btn" onClick={refresh}>
+          Actualizar registro
+        </button>
+        <button className="btn" disabled={!log} onClick={() => void copy()}>
+          {copied ? 'Copiado' : 'Copiar'}
+        </button>
+      </div>
+
+      <pre className="logview">{log || 'Todavía no hay nada registrado en esta sesión.'}</pre>
+    </section>
   );
 }
 
@@ -847,6 +929,22 @@ const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], string> = {
     'el interlocutor no se escucha, así que el auto-disparo por defecto no puede saltar.',
 };
 
+/**
+ * El equilibrio correcto depende de para qué uses la app, así que los textos
+ * describen el caso de uso y no el algoritmo: nadie elige "recall" a ciegas.
+ */
+const SENSITIVITY_HINT: Record<Settings['autoTriggerSensitivity'], string> = {
+  strict:
+    'Solo dispara con interrogativo al principio, signo de interrogación o "cuéntame…". ' +
+    'Casi nunca molesta, pero se le escapan preguntas que el reconocedor entrega sin signos.',
+  balanced:
+    'Añade interrogativos acentuados en cualquier posición y fórmulas como "me recomiendas". ' +
+    'Recupera la mayoría de preguntas reales a cambio de algún disparo de más.',
+  all:
+    'Responde a todo lo que no sea un saludo o una prueba de audio. Es lo que quieres si eres ' +
+    'tú quien dicta las preguntas; en una entrevista real interrumpirá constantemente.',
+};
+
 /** Nombres de los hablantes en los avisos, para no repetirlos en cada texto. */
 const SPEAKER_LABEL: Record<'me' | 'them' | 'any', string> = {
   me: 'tu micrófono',
@@ -901,6 +999,24 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
               <option value="them">El interlocutor</option>
               <option value="me">Mi micrófono</option>
               <option value="any">Cualquiera de los dos</option>
+            </select>
+          </Row>
+
+          <Row
+            label="Cuándo considera que es una pregunta"
+            desc={SENSITIVITY_HINT[settings.autoTriggerSensitivity]}
+          >
+            <select
+              value={settings.autoTriggerSensitivity}
+              onChange={(e) =>
+                void patch({
+                  autoTriggerSensitivity: e.target.value as Settings['autoTriggerSensitivity'],
+                })
+              }
+            >
+              <option value="strict">Estricto · solo señales claras</option>
+              <option value="balanced">Equilibrado · recomendado</option>
+              <option value="all">Todo · cualquier intervención</option>
             </select>
           </Row>
 

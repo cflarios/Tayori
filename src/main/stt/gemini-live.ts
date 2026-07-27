@@ -194,26 +194,82 @@ export class GeminiLiveSTT implements STTProvider {
   readonly events = new EventEmitter();
 
   private lanes = new Map<Speaker, Lane>();
-  private client: GoogleGenAI | null = null;
+  /** Modelo que aceptó la cuenta. Se resuelve una vez y se reutiliza. */
+  private resolvedModel: string | null = null;
 
+  /** `model` fijo salta la negociación; sin él se prueban los candidatos. */
   constructor(
     private readonly apiKey: string,
-    private readonly model: string = GEMINI_LIVE_MODELS[0]
+    private readonly model?: string
   ) {}
 
   async start(options: STTStartOptions): Promise<void> {
     await this.stop();
-    this.client = new GoogleGenAI({ apiKey: this.apiKey });
+    // El cliente es de la sesión, no del provider: cada `start` abre el suyo y
+    // los carriles lo capturan, así que `stop` no tiene nada que limpiar.
+    const client = new GoogleGenAI({ apiKey: this.apiKey });
+    const model = await this.resolveModel(client, options);
 
     // Solo los hablantes que se escuchan: una sesión por hablante es cara.
     for (const speaker of options.speakers) {
-      const lane = new Lane(speaker, this.client, this.model, options, this.events);
+      const lane = new Lane(speaker, client, model, options, this.events);
       this.lanes.set(speaker, lane);
     }
 
     // Conectamos en paralelo: en serie se sumarían los handshakes y el primer
     // segundo de la reunión llegaría sin transcribir.
     await Promise.all([...this.lanes.values()].map((lane) => lane.connect()));
+  }
+
+  /**
+   * Negocia qué modelo Live acepta esta cuenta.
+   *
+   * `GEMINI_LIVE_MODELS` siempre estuvo ordenado por preferencia y CONTEXT.md
+   * decía que había que probar el siguiente si el primero daba 404 o permission
+   * denied — pero **eso nunca se implementó**: el constructor cogía el `[0]` y
+   * ahí se acababa. Si tu cuenta no tenía habilitado ese preview, la
+   * transcripción fallaba entera y el único rastro era un `console.error` que en
+   * el .exe empaquetado no se veía en ningún sitio.
+   *
+   * Se abre una sesión de sondeo y se cierra. Cuesta una conexión de más al
+   * arrancar, y a cambio el error final dice qué se probó y qué contestó cada
+   * uno, en lugar de un 404 pelado sobre un id que no elegiste.
+   */
+  private async resolveModel(client: GoogleGenAI, options: STTStartOptions): Promise<string> {
+    if (this.resolvedModel) return this.resolvedModel;
+
+    const candidates = this.model ? [this.model] : [...GEMINI_LIVE_MODELS];
+    const failures: string[] = [];
+
+    for (const candidate of candidates) {
+      try {
+        const probe = await client.live.connect({
+          model: candidate,
+          config: {
+            responseModalities: [Modality.TEXT],
+            systemInstruction: SILENCE_INSTRUCTION,
+            inputAudioTranscription:
+              options.language === 'auto'
+                ? { languageAuto: {} }
+                : { languageHints: { languageCodes: [options.language] } },
+          },
+          callbacks: { onopen: () => {}, onmessage: () => {}, onerror: () => {}, onclose: () => {} },
+        });
+        probe.close();
+
+        this.resolvedModel = candidate;
+        console.log(`[gemini-live] modelo aceptado: "${candidate}"`);
+        return candidate;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        failures.push(`  · ${candidate} → ${message}`);
+        console.warn(`[gemini-live] "${candidate}" rechazado: ${message}`);
+      }
+    }
+
+    throw new Error(
+      `Ningún modelo de Gemini Live está disponible para esta API key.\n${failures.join('\n')}`
+    );
   }
 
   push(speaker: Speaker, pcm: Buffer): void {
@@ -223,6 +279,23 @@ export class GeminiLiveSTT implements STTProvider {
   async stop(): Promise<void> {
     for (const lane of this.lanes.values()) lane.close();
     this.lanes.clear();
-    this.client = null;
+  }
+
+  /**
+   * Comprueba que la key y algún modelo Live funcionan, sin abrir carriles.
+   * Es lo que hay detrás del botón "Probar transcripción" del dashboard.
+   */
+  async testConnection(language: string): Promise<{ ok: boolean; detail: string }> {
+    try {
+      const client = new GoogleGenAI({ apiKey: this.apiKey });
+      const model = await this.resolveModel(client, {
+        sampleRate: 16_000,
+        language,
+        speakers: ['them'],
+      });
+      return { ok: true, detail: `Conectado con "${model}".` };
+    } catch (err) {
+      return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+    }
   }
 }

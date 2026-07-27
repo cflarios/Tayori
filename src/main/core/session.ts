@@ -221,7 +221,10 @@ class SessionOrchestrator {
       provider.events.on('error', (err: Error) => {
         console.error('[stt]', err.message);
         // Un error de STT no detiene la captura: el audio sigue llegando y la
-        // reconexión puede recuperar la sesión.
+        // reconexión puede recuperar la sesión. Pero SÍ se enseña: antes sólo
+        // iba a `console.error`, así que una sesión que fallaba carril a carril
+        // se veía igual que una sala en silencio.
+        this.broadcast(IPC.onSTTError, err.message);
       });
 
       await provider.start({
@@ -250,6 +253,7 @@ class SessionOrchestrator {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[stt] no se pudo iniciar:', message);
+      this.broadcast(IPC.onSTTError, message);
       this.broadcast(IPC.onCaptureStatus, {
         ...audioCapture.getStatus(),
         state: 'error',
@@ -318,8 +322,14 @@ class SessionOrchestrator {
     const wanted = settings.autoTriggerSpeaker;
     if (wanted !== 'any' && segment.speaker !== wanted) return;
 
-    const verdict = looksLikeQuestion(segment.text);
-    if (!verdict.isQuestion) return;
+    const verdict = looksLikeQuestion(segment.text, settings.autoTriggerSensitivity);
+    if (!verdict.isQuestion) {
+      // Se registra el descarte: es la única forma de saber por qué la app "no
+      // responde" sin ponerse a adivinar. Una prueba real gastó cinco frases
+      // seguidas para descubrir que el detector las estaba tirando en silencio.
+      console.log(`[auto] descartado (${verdict.reason}): "${segment.text.slice(0, 60)}"`);
+      return;
+    }
 
     // Debounce: una pregunta larga puede cerrarse en varios segmentos seguidos.
     // Sin esto se dispararían dos o tres respuestas para la misma pregunta, y

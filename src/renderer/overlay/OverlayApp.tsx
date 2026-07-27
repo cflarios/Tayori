@@ -428,6 +428,7 @@ export function OverlayApp() {
   const [shot, setShot] = useState<ImageAttachment | null>(null);
   const [configured, setConfigured] = useState(true);
   const [tab, setTab] = useState<InputTab>('listen');
+  const [sttError, setSttError] = useState<string | null>(null);
 
   useChromeMouse();
   const onDragStart = useOverlayDrag();
@@ -495,6 +496,9 @@ export function OverlayApp() {
         setAnswer(null);
         setShot(null);
       }),
+      // Un motor que falla carril a carril se veía exactamente igual que una
+      // sala en silencio: el overlay decía "Escuchando" y no llegaba nada.
+      api.transcript.onError(setSttError),
     ];
 
     return () => unsubs.forEach((off) => off());
@@ -511,6 +515,20 @@ export function OverlayApp() {
       />
 
       {!configured && <SetupPrompt />}
+
+      {sttError && (
+        <div className="sttError" data-interactive>
+          <span className="sttError__text">Transcripción: {sttError}</span>
+          <button
+            type="button"
+            className="sttError__close"
+            aria-label="Descartar"
+            onClick={() => setSttError(null)}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      )}
 
       {settings && (
         <ProfileChips

@@ -455,3 +455,41 @@ button.btn--danger {
   margin-top: 4px;
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
 }
+
+/* ── Diagnóstico ── */
+
+.diag {
+  font-size: 12px;
+  line-height: 1.55;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.diag--ok {
+  color: #86efac;
+  background: rgba(52, 211, 153, 0.09);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+}
+
+/*
+ * Monoespaciado y con scroll propio: son cientos de líneas y lo que se busca
+ * son marcas de tiempo alineadas. `pre-wrap` porque los errores de Gemini traen
+ * líneas largísimas y el scroll horizontal las haría ilegibles.
+ */
+.logview {
+  margin-top: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: #0c0e12;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #b7bcc1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}

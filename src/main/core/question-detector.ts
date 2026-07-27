@@ -10,6 +10,8 @@
  * un caso, el usuario todavía tiene el hotkey manual.
  */
 
+import type { AutoTriggerSensitivity } from '@shared/types';
+
 /** Marcadores de pregunta en español e inglés, al principio de la frase. */
 const INTERROGATIVE_OPENERS = [
   // Español
@@ -46,8 +48,54 @@ const MIN_WORDS = 3;
 const FILLERS = [
   'que tal', 'qué tal', 'como estas', 'cómo estás', 'como va', 'cómo va',
   'me escuchas', 'me oyes', 'se me escucha', 'puedes oirme', 'puedes oírme',
+  // Variantes de la comprobación de audio que faltaban. Salieron de una prueba
+  // real: "me puedes escuchar" no estaba y no lo cazaba ninguna otra regla.
+  'me puedes escuchar', 'puedes escucharme', 'me escuchan', 'se escucha',
+  'me oyen', 'probando',
+  'hola buenos dias', 'hola buenas', 'buenos dias', 'buenas tardes',
   'how are you', 'can you hear me', 'do you hear me', 'are you there',
   'is that ok', 'does that make sense', 'you know', 'right',
+];
+
+/**
+ * Interrogativos ACENTUADOS, buscados en el texto crudo y en cualquier posición.
+ *
+ * En español el acento es lo único que separa "qué" de "que", y `normalize()`
+ * lo tira para poder comparar de forma estable — con lo que la señal más fuerte
+ * del idioma se perdía antes de mirarla. Por eso esta comprobación va aparte y
+ * sobre el original.
+ *
+ * Buscar en cualquier posición importa: "si quiero X, **qué** lenguaje debería
+ * usar" es una pregunta de manual y las reglas de apertura no la ven, porque
+ * sólo miran las dos primeras palabras.
+ *
+ * `\p{L}` con la bandera `u` en lugar de `\b`: `\b` es ASCII, así que en "qué"
+ * vería un límite de palabra entre la "u" y la "é" y la regla no funcionaría.
+ */
+const ACCENTED_INTERROGATIVE =
+  /(^|[^\p{L}])(qué|cuál|cuáles|cómo|cuándo|dónde|quién|quiénes|cuánto|cuánta|cuántos|cuántas)([^\p{L}]|$)/u;
+
+/**
+ * Fórmulas que piden criterio, en cualquier posición.
+ *
+ * Un ASR no puntúa de forma fiable, así que muchas preguntas llegan como
+ * afirmaciones. Estas construcciones piden una respuesta aunque el texto acabe
+ * en punto.
+ *
+ * **Aquí NO hay ninguna variante de "debería"**, y no es un olvido. Se probaron
+ * (`que deberia`, `deberia usar`, …) y disparaban con subordinadas normales:
+ * "creo que debería haber estudiado más" no es una pregunta. Lo que distingue
+ * "¿qué lenguaje debería usar?" de esa frase no es el verbo, es el
+ * interrogativo — y de eso ya se encarga `ACCENTED_INTERROGATIVE`. El test de
+ * falsos positivos de `question-detector.test.ts` fija esta decisión.
+ */
+const EMBEDDED_MARKERS = [
+  'me recomiendas', 'que recomiendas', 'recomendarias', 'me aconsejas',
+  'que sugieres', 'que opinas', 'que piensas', 'que harias',
+  'cual es mejor', 'cual seria', 'que diferencia hay', 'cual es la diferencia',
+  'me puedes explicar', 'puedes explicarme', 'como puedo', 'como se hace',
+  'que tan',
+  'what would you', 'which one should', 'how would you', 'what do you think',
 ];
 
 /** Quita acentos y puntuación para comparar de forma estable. */
@@ -73,7 +121,10 @@ export interface QuestionVerdict {
  * No requiere signo de interrogación porque muchos motores de STT no lo ponen
  * de forma fiable — apoyarse en él perdería la mayoría de las preguntas.
  */
-export function looksLikeQuestion(text: string): QuestionVerdict {
+export function looksLikeQuestion(
+  text: string,
+  sensitivity: AutoTriggerSensitivity = 'balanced'
+): QuestionVerdict {
   const raw = text.trim();
   if (!raw) return { isQuestion: false, reason: 'vacío' };
 
@@ -82,12 +133,28 @@ export function looksLikeQuestion(text: string): QuestionVerdict {
 
   // Las muletillas se comprueban antes que todo lo demás: "¿cómo estás?" tiene
   // signo de interrogación y empieza por interrogativo, y aun así no se responde.
-  if (FILLERS.some((filler) => normalized === filler || normalized.startsWith(`${filler} `))) {
+  //
+  // La segunda condición existe porque en la práctica no se dicen solas: en una
+  // prueba real llegó "Hola, ¿cómo estás? ¿Me escuchas?", que no EMPIEZA por
+  // ninguna muletilla y traía signo de interrogación, así que disparaba. Se
+  // acota a frases cortas para no descartar una pregunta larga que de pasada
+  // contenga una de estas fórmulas.
+  const startsWithFiller = FILLERS.some(
+    (filler) => normalized === filler || normalized.startsWith(`${filler} `)
+  );
+  const shortFiller = words.length <= 7 && FILLERS.some((filler) => normalized.includes(filler));
+  if (startsWithFiller || shortFiller) {
     return { isQuestion: false, reason: 'muletilla o comprobación de audio' };
   }
 
   if (words.length < MIN_WORDS) {
     return { isQuestion: false, reason: `demasiado corto (${words.length} palabras)` };
+  }
+
+  // Superado el filtro de muletillas y de longitud, en `all` ya no hay nada que
+  // decidir: si estás dictando tú las preguntas, no hay ruido del que protegerse.
+  if (sensitivity === 'all') {
+    return { isQuestion: true, reason: 'sensibilidad "todo"' };
   }
 
   for (const prompt of IMPERATIVE_PROMPTS) {
@@ -105,6 +172,24 @@ export function looksLikeQuestion(text: string): QuestionVerdict {
   const firstTwo = words.slice(0, 2).join(' ');
   if (INTERROGATIVE_OPENERS.includes(firstWord) || INTERROGATIVE_OPENERS.includes(firstTwo)) {
     return { isQuestion: true, reason: `interrogativo inicial: "${firstWord}"` };
+  }
+
+  // A partir de aquí, sólo en `balanced`. Son las reglas que recuperan las
+  // preguntas que el ASR entrega sin signos, a cambio de algún disparo de más.
+  if (sensitivity === 'strict') {
+    return { isQuestion: false, reason: 'sin marcadores de pregunta (modo estricto)' };
+  }
+
+  // Sobre el texto CRUDO: el acento sobrevive aquí y no en `normalized`.
+  const accented = ACCENTED_INTERROGATIVE.exec(raw.toLowerCase());
+  if (accented) {
+    return { isQuestion: true, reason: `interrogativo acentuado: "${accented[2]}"` };
+  }
+
+  for (const marker of EMBEDDED_MARKERS) {
+    if (normalized.includes(marker)) {
+      return { isQuestion: true, reason: `fórmula de consulta: "${marker}"` };
+    }
   }
 
   return { isQuestion: false, reason: 'sin marcadores de pregunta' };

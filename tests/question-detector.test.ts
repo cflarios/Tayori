@@ -81,3 +81,115 @@ describe('looksLikeQuestion', () => {
     });
   });
 });
+
+/**
+ * Casos salidos de una prueba de escucha real (julio 2026). De cinco frases
+ * seguidas solo disparó la primera, y el usuario lo vivió como "la app dejó de
+ * responder". Los tres primeros describen lo que fallaba.
+ */
+describe('recall sobre habla real transcrita por Whisper', () => {
+  it('detecta la pregunta aunque el interrogativo no vaya al principio', () => {
+    // Whisper no pone "¿", y el interrogativo llega en la palabra nueve. Las
+    // reglas de apertura solo miran las dos primeras.
+    const verdict = looksLikeQuestion(
+      'Si yo quiero programar una aplicación escritorio qué lenguaje de programación debería usar ahora.'
+    );
+    expect(verdict.isQuestion).toBe(true);
+  });
+
+  it('acepta fórmulas de consulta sin interrogativo ni signo', () => {
+    expect(looksLikeQuestion('Me recomiendas Postgres o MySQL para esto.').isQuestion).toBe(true);
+    expect(looksLikeQuestion('Cuál es la diferencia entre un proceso y un hilo.').isQuestion).toBe(
+      true
+    );
+    expect(looksLikeQuestion('Como puedo mejorar el rendimiento de esa consulta.').isQuestion).toBe(
+      true
+    );
+  });
+
+  it('el acento es la señal, no el verbo', () => {
+    // El mismo verbo, dos frases distintas. Es la razón de que no haya ninguna
+    // variante de "debería" entre los marcadores.
+    expect(
+      looksLikeQuestion('Qué base de datos debería usar para esto.').isQuestion
+    ).toBe(true);
+    expect(
+      looksLikeQuestion('Le dije que debería usar Postgres y me hizo caso.').isQuestion
+    ).toBe(false);
+  });
+
+  it('sigue descartando las comprobaciones de audio', () => {
+    // "me puedes escuchar" no estaba en la lista y no lo cazaba nada más.
+    for (const filler of ['Me puedes escuchar.', 'Se escucha bien', 'Hola buenos días']) {
+      expect(looksLikeQuestion(filler).isQuestion).toBe(false);
+    }
+  });
+
+  it('no dispara con afirmaciones que suenan parecido', () => {
+    // El precio de subir el recall: estas NO pueden empezar a disparar. Por eso
+    // los marcadores son multi-palabra y no "deberia" a secas.
+    const statements = [
+      'Creo que debería haber estudiado más matemáticas en su momento.',
+      'Trabajé tres años en una empresa que hacía aplicaciones de escritorio.',
+      'Lo que hicimos fue migrar todo el backend a Go durante ese trimestre.',
+      'Mi experiencia con bases de datos viene sobre todo de Postgres.',
+    ];
+    for (const text of statements) {
+      expect(looksLikeQuestion(text).isQuestion).toBe(false);
+    }
+  });
+});
+
+/**
+ * Transcripciones LITERALES de una sesión real con Whisper local, sacadas del
+ * historial guardado. Son la mejor prueba disponible de lo irregular que es un
+ * ASR: la misma persona, seguidas, unas con signos y otras sin ellos.
+ */
+const REALES = {
+  conSignos: '¿Qué tanto sabes de genería software?',
+  sinSignos: 'que empresa creó Kotlin.',
+  condicional:
+    'Si yo quiero programar una aplicación escritorio que lenguaje de programación deberiosa ahora.',
+  saludoYPrueba: 'Hola, ¿cómo estás? ¿Me escuchas?',
+};
+
+describe('sensibilidad del auto-disparo', () => {
+  it('las muletillas no disparan en ningún modo, ni con signo de interrogación', () => {
+    // Este caso disparaba: no EMPIEZA por muletilla y trae "?", así que pasaba
+    // los dos filtros. Es un saludo, no una pregunta.
+    for (const mode of ['strict', 'balanced', 'all'] as const) {
+      expect(looksLikeQuestion(REALES.saludoYPrueba, mode).isQuestion).toBe(false);
+    }
+  });
+
+  it('estricto solo acepta señales inequívocas', () => {
+    expect(looksLikeQuestion(REALES.conSignos, 'strict').isQuestion).toBe(true);
+    // "que" inicial es un interrogativo de apertura, así que también pasa.
+    expect(looksLikeQuestion(REALES.sinSignos, 'strict').isQuestion).toBe(true);
+    // Ésta no: el interrogativo va en la palabra nueve y sin acento.
+    expect(looksLikeQuestion(REALES.condicional, 'strict').isQuestion).toBe(false);
+  });
+
+  it('equilibrado no cambia lo que estricto ya aceptaba', () => {
+    expect(looksLikeQuestion(REALES.conSignos, 'balanced').isQuestion).toBe(true);
+    expect(looksLikeQuestion(REALES.sinSignos, 'balanced').isQuestion).toBe(true);
+  });
+
+  it('todo responde a cualquier intervención que no sea muletilla', () => {
+    // El caso del usuario: dicta él las preguntas, no hay ruido del que
+    // protegerse, y cualquier heurística sobra.
+    expect(looksLikeQuestion(REALES.condicional, 'all').isQuestion).toBe(true);
+    expect(
+      looksLikeQuestion('Es posible utilizar Kotlin para aplicaciones de escritorio.', 'all')
+        .isQuestion
+    ).toBe(true);
+    // Pero sigue sin responder a un "Hola" suelto.
+    expect(looksLikeQuestion('Hola', 'all').isQuestion).toBe(false);
+  });
+
+  it('el default es equilibrado', () => {
+    expect(looksLikeQuestion(REALES.conSignos)).toEqual(
+      looksLikeQuestion(REALES.conSignos, 'balanced')
+    );
+  });
+});

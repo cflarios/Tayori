@@ -416,6 +416,42 @@ momento posible, y el usuario **siempre** tiene el hotkey manual como red.
 - **Debounce de 2,5 s**: una pregunta larga puede cerrarse en varios segmentos
   seguidos, y sin él se dispararían varias respuestas abortándose entre sí.
 
+**Julio 2026: el equilibrio se volvió configurable, con datos.** La primera
+prueba de escucha real dio la medida: de cinco frases seguidas dictadas al
+micrófono, **sólo disparó una**, y desde fuera se vivió como "la app se quedó
+colgada". No estaba colgada — el detector las descartaba en silencio.
+
+Lo que enseñaron las transcripciones literales (recuperadas del historial, que
+para esto ya valió lo que costó) es que **el mismo motor puntúa de forma
+irregular en la misma sesión**:
+
+```
+"¿Qué tanto sabes de ingeniería software?"     ← con signos
+"que empresa creó Kotlin."                      ← sin signos ni acento
+"Si yo quiero programar una aplicación escritorio que lenguaje… deberiosa ahora."
+```
+
+Dos causas concretas, las dos arregladas:
+
+- **`normalize()` tira los acentos**, y en español el acento es lo único que
+  separa "qué" de "que" — la señal más fuerte del idioma se perdía antes de
+  mirarla. Ahora los interrogativos acentuados se buscan sobre el texto **crudo**
+  y **en cualquier posición**, no sólo en las dos primeras palabras.
+- **El filtro de muletillas sólo miraba el principio.** "Hola, ¿cómo estás?
+  ¿Me escuchas?" no empieza por muletilla y trae signo de interrogación, así que
+  disparaba. Ahora también se comprueba por contenido en frases cortas.
+
+Y como el equilibrio correcto **depende de para qué uses la app**, se añadió
+`autoTriggerSensitivity` (`strict` | `balanced` | `all`, default `balanced`).
+`all` existe porque el caso real del usuario era dictarle él las preguntas a
+propósito: ahí no hay ruido del que protegerse y cualquier heurística sobra.
+
+**Lo que se probó y se descartó:** meter variantes de "debería" entre los
+marcadores (`que deberia`, `deberia usar`…). Disparaban con subordinadas
+normales — *"creo que debería haber estudiado más"* no es una pregunta. Lo que
+distingue una pregunta no es el verbo, es el interrogativo. El test de falsos
+positivos de `question-detector.test.ts` fija esa decisión para que no vuelva.
+
 **Quién dispara es configurable, pero el default no cambia.**
 `settings.autoTriggerSpeaker` acepta `them` (default), `me` y `any`. El default
 sigue siendo el interlocutor por la razón de siempre: responder a lo que dices tú
@@ -458,6 +494,9 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | Whisper local fallaba con `Command failed` en cada intervención | `findWhisperBinary()` recorría el directorio y devolvía la **primera** coincidencia; `main.exe` ordena antes que `whisper-cli.exe` y desde whisper.cpp 1.7 es un stub de deprecación que sale con **código 1** | Buscar por prioridad del array de candidatos, nunca por orden de directorio. Y que un ejecutable exista no significa que sirva |
 | Frases con "you" desaparecían del transcript | `'you'` estaba en la lista de alucinaciones y se comparaba con `includes()` | Un filtro de subcadenas necesita que las entradas sean lo bastante largas para no aparecer dentro de texto legítimo; las cortas van a comparación exacta |
 | `error: input file not found 'false'` en whisper-cli | `--output-txt false`: `-otxt` es un flag booleano SIN argumento, así que `false` se tomaba por un fichero de entrada | Verificar cada bandera contra el CLI real; whisper.cpp no falla, solo lo ignora y escribe un `.txt` de más |
+| Gemini Live no funcionaba y no había forma de saber por qué | `GEMINI_LIVE_MODELS` está ordenado por preferencia y este mismo documento decía que se probaba el siguiente si el primero fallaba — **pero nadie lo implementó**: el constructor cogía el `[0]` y ahí acababa | Documentar una intención no la implementa. Si CONTEXT dice que algo hace X, debe haber un test o una lectura del código que lo confirme |
+| "La app dejó de responder" sin ningún error | El detector descartaba las frases **en silencio**: no había log del descarte ni del motivo | Un camino que decide no actuar necesita dejar rastro tanto como uno que falla. El `return` mudo es el peor de los dos |
+| Ningún diagnóstico posible en el `.exe` empaquetado | Los `console.*` del main sólo existían arrancando desde una terminal | Si la app se usa empaquetada, el log tiene que ir a un archivo desde el primer día |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve
@@ -545,6 +584,11 @@ capturas de pantalla**, no solo compilando.
   sigue sin probarse es la cadena completa con voz real: VAD → turno → texto.
 - **Ollama**: el servidor **sí corre** ahora, con `llama3.2:3b`. Lo verificado es
   el listado de modelos; el streaming de tokens sobre una pregunta real no.
+- **Gemini Live sigue sin probarse contra la API real.** El fallback de modelo
+  está implementado y hay un botón "Probar" en Diagnóstico que abre una sesión
+  de verdad, pero requiere la API key del usuario. Hasta que alguien lo pulse,
+  **no sabemos qué modelo Live acepta la cuenta** — sólo que ya no se falla en
+  silencio sobre el primer candidato.
 - **La prueba en una videollamada real** (Meet / Teams / Zoom / OBS). La
   verificación se hizo con captura GDI/BitBlt.
   `WDA_EXCLUDEFROMCAPTURE` cubre también las rutas DXGI y Windows Graphics

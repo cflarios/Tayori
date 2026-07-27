@@ -92,6 +92,15 @@ const api = {
   transcript: {
     onSegment: (cb: (s: TranscriptSegment) => void) =>
       subscribe<TranscriptSegment>(IPC.onTranscript, cb),
+    /** Fallos del motor de transcripción, para poder enseñarlos en la UI. */
+    onError: (cb: (message: string) => void) => subscribe<string>(IPC.onSTTError, cb),
+    testConnection: (): Promise<{ ok: boolean; detail: string }> =>
+      ipcRenderer.invoke(IPC.sttTestConnection),
+  },
+
+  logs: {
+    read: (): Promise<string> => ipcRenderer.invoke(IPC.logsRead),
+    location: (): Promise<string> => ipcRenderer.invoke(IPC.logsLocation),
   },
 
   ask: {

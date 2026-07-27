@@ -51,6 +51,12 @@ export const IPC = {
   whisperGetStatus: 'whisper:get-status',
   whisperInstall: 'whisper:install',
 
+  /** Conecta de verdad con el motor de transcripción y dice qué falló. */
+  sttTestConnection: 'stt:test-connection',
+
+  logsRead: 'logs:read',
+  logsLocation: 'logs:location',
+
   ollamaGetStatus: 'ollama:get-status',
 
   // ── send (renderer → main, sin respuesta) ──
@@ -71,6 +77,8 @@ export const IPC = {
   onWhisperProgress: 'event:whisper-progress',
   /** Se empezó una conversación nueva: los renderers deben limpiar su estado. */
   onConversationReset: 'event:conversation-reset',
+  /** Fallo del motor de transcripción. La captura sigue viva; hay que enseñarlo. */
+  onSTTError: 'event:stt-error',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

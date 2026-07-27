@@ -33,6 +33,8 @@ import { session as sessionOrchestrator } from './core/session';
 import { createLLMProvider, listModelsFor } from './llm';
 import { probeOllama } from './llm/ollama';
 import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
+import { testSTTConnection } from './stt';
+import { initLogging, logLocation, readLogTail } from './logging';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -229,6 +231,11 @@ function registerIpcHandlers(): void {
   // ── Ollama ──
   ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));
 
+  // ── Diagnóstico ──
+  ipcMain.handle(IPC.logsRead, () => readLogTail());
+  ipcMain.handle(IPC.logsLocation, () => logLocation());
+  ipcMain.handle(IPC.sttTestConnection, () => testSTTConnection(settingsStore.get()));
+
   // ── Whisper local ──
   ipcMain.handle(IPC.whisperGetStatus, () => getWhisperStatus(settingsStore.get().whisperModel));
 
@@ -270,6 +277,11 @@ const hotkeyActions = {
 // del productName del empaquetado. Sin este anclaje, un cambio de productName
 // podría mover userData y orfanar los settings y la API key cifrada con DPAPI.
 app.setName('interview-helper');
+
+// Inmediatamente después de fijar el nombre, porque la ruta del log sale de
+// `userData` y ésta deriva de `app.name`. Antes de esto no había ningún sitio
+// donde mirar en el .exe empaquetado.
+initLogging();
 
 // Una sola instancia: dos procesos peleando por los mismos hotkeys globales
 // y el mismo archivo de settings es una fuente de bugs difíciles de ver.
