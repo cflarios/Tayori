@@ -131,6 +131,38 @@ Dos detalles que parecen de más y no lo son:
   seguimiento va por intervalo y no por los `mousemove` del renderer porque al
   arrastrar rápido el cursor se sale de la ventana.
 
+### Discreción en Windows: barra de tareas y nombre del proceso
+
+Dos cosas distintas que el usuario pidió, con alcances muy distintos:
+
+- **Barra de tareas:** ni el overlay ni el dashboard aparecen. El overlay ya la
+  evitaba; se añadió `skipTaskbar: true` al dashboard y un `setSkipTaskbar(true)`
+  re-afirmado tras `showInactive()` en el overlay, por un gotcha de Electron en
+  ventanas `transparent`+`frameless`. También se neutralizó el **título de
+  ventana** del dashboard (BrowserWindow `title` y el `<title>` del HTML — este
+  último gana tras cargar la página, así que hay que cambiar los dos), porque se
+  filtra por Alt+Tab y la sección "Aplicaciones" del Administrador.
+
+- **Nombre del proceso:** renombrado a `Audio Helper` en `electron-builder.yml`
+  (`productName` + `executableName` + `nsis.shortcutName`). Es **cosmético**: no
+  oculta el proceso, sólo evita que un vistazo casual muestre "Interview Helper".
+
+**Se descartó explícitamente el ocultamiento tipo rootkit** (driver de kernel
+que intercepte `NtQuerySystemInformation`, o hooking de `taskmgr.exe`): es
+indistinguible de malware, lo marca el antivirus, exige driver firmado o
+test-signing, y puede provocar BSOD con PatchGuard. No es la herramienta
+correcta para un asistente personal, y cruza a territorio de rootkit. Si alguien
+lo propone a futuro, la respuesta es no.
+
+**Restricción crítica que hay que preservar:** NO cambiar el campo `name` de
+`package.json` (`interview-helper`). `app.getPath('userData')` deriva de
+`app.name`, que Electron toma de ese campo — no del `productName` del
+empaquetado. Se ancló además con `app.setName('interview-helper')` al inicio de
+`main/index.ts`, antes de cualquier `getPath('userData')`. Si esto se rompe, la
+app deja de encontrar los settings y la API key cifrada con DPAPI: quedan
+huérfanos en la carpeta vieja. Verificar siempre que userData sigue siendo
+`%APPDATA%\interview-helper` tras tocar el empaquetado.
+
 ### El dashboard se abre sólo desde el engranaje
 
 Decisión explícita del usuario. No hay apertura automática en el primer

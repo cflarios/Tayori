@@ -8,9 +8,14 @@ export function getDashboard(): BrowserWindow | null {
 }
 
 /**
- * Ventana normal de configuración. Deliberadamente NO lleva stealth: es donde
- * el usuario administra la app y debe comportarse como una ventana corriente
- * (aparece en la barra de tareas, se puede redimensionar y enfocar).
+ * Ventana de configuración. Redimensionable y enfocable (a diferencia del
+ * overlay), pero NO aparece en la barra de tareas: reducir la presencia en la
+ * interfaz de Windows es el objetivo, y el engranaje del overlay siempre la
+ * recupera (`focus()`/`restore()` abajo), así que no hace falta el botón.
+ *
+ * El título es neutro: se filtra por Alt+Tab y por la sección "Aplicaciones"
+ * del Administrador de tareas. La marca "Interview Helper" vive dentro del
+ * contenido del dashboard, que sí ve el usuario y no se expone al sistema.
  */
 export function openDashboard(): BrowserWindow {
   const existing = getDashboard();
@@ -26,7 +31,8 @@ export function openDashboard(): BrowserWindow {
     minWidth: 720,
     minHeight: 560,
     show: false,
-    title: 'Interview Helper',
+    skipTaskbar: true,
+    title: 'Audio Helper',
     backgroundColor: '#0f1115',
     autoHideMenuBar: true,
     webPreferences: {

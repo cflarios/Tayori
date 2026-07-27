@@ -113,14 +113,35 @@ construir el buffer de captura, así que **no aparece** en:
 
 - Una **cámara** apuntando a tu pantalla.
 - Software de **proctoring o monitorización** que enumere procesos o ventanas
-  abiertas. El proceso `Interview Helper` es perfectamente visible en el
-  Administrador de tareas.
+  abiertas. El proceso es visible en el Administrador de tareas (ver abajo).
 - Lo que **digas por el micrófono**. Si lees la sugerencia en voz alta, se oye.
 - Alguien mirando por encima de tu hombro.
 
 Requiere Windows 10 2004 o superior. En versiones anteriores el sistema degrada
 a `WDA_MONITOR` y la ventana sale como un **rectángulo negro** — más llamativo
 que no ocultarla. Verifica tu versión con `winver` antes de confiar en esto.
+
+### Presencia en Windows: barra de tareas y Administrador de tareas
+
+Ni el overlay ni la ventana de configuración aparecen en la **barra de tareas**.
+La configuración se recupera con el engranaje del overlay; el overlay, con
+`Ctrl+Shift+H`.
+
+En el build empaquetado, el proceso se llama **Audio Helper**, no "Interview
+Helper", así que un vistazo casual al Administrador de tareas no lo delata (sus
+subprocesos se agrupan bajo ese nombre, igual que cualquier app de Electron
+como Slack o VS Code). Esto es **cosmético, no ocultamiento**:
+
+- En la pestaña **Detalles** se ve la ruta del `.exe`.
+- Un software de **proctoring** que enumere procesos o compare firmas/binarios
+  lo detecta sin importar el nombre.
+- En **modo desarrollo** (`npm run dev`) el proceso siempre es "Electron".
+
+Ocultar de verdad el proceso del Administrador exigiría técnicas de rootkit
+(driver de kernel, hooking de `taskmgr.exe`) que son indistinguibles de malware,
+las marca el antivirus y pueden desestabilizar el sistema. **No se implementan
+a propósito.** El nombre se cambia en `electron-builder.yml` (`productName` /
+`executableName`) si prefieres otro.
 
 ## Latencia y privacidad: el compromiso
 

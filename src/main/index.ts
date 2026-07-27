@@ -220,6 +220,13 @@ const hotkeyActions = {
   },
 };
 
+// Fija app.name ANTES de cualquier getPath('userData'). El build empaquetado se
+// renombra a un nombre neutro en electron-builder.yml (para que el Administrador
+// de tareas no muestre "Interview Helper"), pero `app.name` deriva de aquí, no
+// del productName del empaquetado. Sin este anclaje, un cambio de productName
+// podría mover userData y orfanar los settings y la API key cifrada con DPAPI.
+app.setName('interview-helper');
+
 // Una sola instancia: dos procesos peleando por los mismos hotkeys globales
 // y el mismo archivo de settings es una fuente de bugs difíciles de ver.
 if (!app.requestSingleInstanceLock()) {

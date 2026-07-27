@@ -68,6 +68,10 @@ export function createOverlay(): BrowserWindow {
     setClickThrough(win, settings.clickThrough);
     // showInactive, no show: mostrar sin robar el foco a la videollamada.
     win.showInactive();
+    // Gotcha de Electron: en ventanas transparent+frameless, `skipTaskbar` a
+    // veces no "prende" hasta re-aplicarlo tras mostrar. Sólo con stealth ON;
+    // en modo demo (removeStealth) la ventana se muestra a propósito.
+    if (settings.stealthEnabled) win.setSkipTaskbar(true);
   });
 
   overlay.on('closed', () => {

@@ -1,5 +1,13 @@
 appId: com.interviewhelper.app
-productName: Interview Helper
+# Nombre neutro a propósito: es lo que ve el Administrador de tareas (nombre de
+# imagen del .exe y FileDescription/ProductName en los recursos de versión), los
+# accesos directos y el instalador. Genérico y plausible durante una llamada, y
+# NO imita un proceso real de Windows (svchost, RuntimeBroker…) porque eso
+# dispararía el antivirus. Cámbialo por el que prefieras: es solo cosmético.
+# La marca "Interview Helper" que ve el usuario vive en la UI (código), no aquí,
+# y `app.name` (ruta de userData) se ancla en main/index.ts, no en este campo.
+productName: Audio Helper
+executableName: Audio Helper
 copyright: MIT
 
 directories:
@@ -31,7 +39,8 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Interview Helper
+  # Coherente con el nombre neutro: el acceso directo tampoco debe delatar.
+  shortcutName: Audio Helper
 
 portable:
   artifactName: ${productName}-${version}-portable.exe
