@@ -860,7 +860,13 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
         <>
           <Row
             label="Modelo de Whisper"
-            desc="Modelos más grandes transcriben mejor y tardan más."
+            desc={
+              settings.language === 'en' || settings.language === 'auto'
+                ? 'Modelos más grandes transcriben mejor y tardan más.'
+                : 'Modelos más grandes transcriben mejor y tardan más. Fuera del inglés la ' +
+                  'diferencia entre Base y Small es grande: si las palabras salen cambiadas, ' +
+                  'es lo primero que conviene subir.'
+            }
           >
             <select
               value={settings.whisperModel}
@@ -955,8 +961,8 @@ const SPEAKER_LABEL: Record<'me' | 'them' | 'any', string> = {
 /** Duplicado a propósito: el renderer no puede importar del proceso main. */
 const WHISPER_MODEL_OPTIONS = [
   { id: 'tiny', label: 'Tiny (74 MB) — el más rápido' },
-  { id: 'base', label: 'Base (141 MB) — recomendado' },
-  { id: 'small', label: 'Small (465 MB) — más preciso' },
+  { id: 'base', label: 'Base (141 MB) — justo en español' },
+  { id: 'small', label: 'Small (465 MB) — recomendado en español' },
 ];
 
 // ────────────────────────────── Comportamiento ──────────────────────────────

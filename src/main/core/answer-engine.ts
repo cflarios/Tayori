@@ -23,6 +23,24 @@ const MAX_ANSWER_TOKENS = 700;
 /** Cada cuántos ms se difunde el texto acumulado durante el streaming. */
 const FLUSH_INTERVAL_MS = 60;
 
+/**
+ * Tope de tiempo para una respuesta completa.
+ *
+ * Sin esto, un proveedor que se queda colgado deja la respuesta en "Pensando…"
+ * **para siempre**: no hay error, no hay reintento, y como el overlay se ve
+ * exactamente igual que mientras piensa de verdad, desde fuera es "la app dejó
+ * de responder". Pasa de verdad con Ollama en CPU: si el modelo se descargó por
+ * inactividad y hay que recargarlo mientras Whisper está usando la máquina, la
+ * primera petición puede tardar minutos o no volver.
+ *
+ * 2 minutos es largo de sobra para cualquier generación legítima de 700 tokens,
+ * incluso en CPU, y corto para que el fallo se vea dentro de la conversación.
+ */
+const GENERATION_TIMEOUT_MS = 120_000;
+
+/** Sin un solo token en este tiempo, el proveedor no va a arrancar. */
+const FIRST_TOKEN_TIMEOUT_MS = 45_000;
+
 export class AnswerEngine extends EventEmitter {
   private current: Answer | null = null;
   private controller: AbortController | null = null;
@@ -81,6 +99,40 @@ export class AnswerEngine extends EventEmitter {
     };
     this.emitCurrent();
 
+    /*
+     * Dos relojes, no uno. El primero cubre "el proveedor no arranca" —modelo
+     * descargándose, servidor atascado— y el segundo "arrancó pero no termina".
+     * Distinguirlos importa porque el mensaje al usuario es distinto, y porque
+     * una respuesta a medias es mejor que ninguna: al vencer el largo se
+     * conserva lo que ya se había escrito.
+     */
+    let gotFirstToken = false;
+    const firstTokenTimer = setTimeout(() => {
+      if (!gotFirstToken && !controller.signal.aborted) {
+        console.error(
+          `[answer] ${this.current?.id.slice(0, 8)} sin respuesta de ` +
+            `${settings.llmProviderId} tras ${FIRST_TOKEN_TIMEOUT_MS / 1000}s: se cancela.`
+        );
+        controller.abort();
+        this.update({
+          status: 'error',
+          error: `${settings.llmProviderId} no respondió en ${FIRST_TOKEN_TIMEOUT_MS / 1000}s. Si es Ollama, comprueba que el servidor sigue vivo (ollama ps).`,
+        });
+      }
+    }, FIRST_TOKEN_TIMEOUT_MS);
+
+    const totalTimer = setTimeout(() => {
+      if (!controller.signal.aborted) {
+        console.error(`[answer] ${this.current?.id.slice(0, 8)} excedió el tiempo total.`);
+        controller.abort();
+        this.update(
+          this.current?.text
+            ? { status: 'done' }
+            : { status: 'error', error: 'La generación excedió el tiempo límite.' }
+        );
+      }
+    }, GENERATION_TIMEOUT_MS);
+
     try {
       const provider = createLLMProvider(settings);
       const stream = provider.streamAnswer(
@@ -98,7 +150,10 @@ export class AnswerEngine extends EventEmitter {
         controller.signal
       );
 
-      await this.consume(stream, controller, settings);
+      await this.consume(stream, controller, settings, () => {
+        gotFirstToken = true;
+        clearTimeout(firstTokenTimer);
+      });
     } catch (err) {
       if (controller.signal.aborted) return;
       this.update({
@@ -106,6 +161,8 @@ export class AnswerEngine extends EventEmitter {
         error: err instanceof LLMError ? err.message : String(err),
       });
     } finally {
+      clearTimeout(firstTokenTimer);
+      clearTimeout(totalTimer);
       if (this.controller === controller) this.controller = null;
     }
   }
@@ -119,11 +176,13 @@ export class AnswerEngine extends EventEmitter {
   private async consume(
     stream: AsyncIterable<string>,
     controller: AbortController,
-    settings: Settings
+    settings: Settings,
+    onFirstChunk: () => void
   ): Promise<void> {
     void settings;
     let buffer = '';
     let lastFlush = 0;
+    let first = true;
 
     const flush = (): void => {
       if (!buffer) return;
@@ -134,6 +193,10 @@ export class AnswerEngine extends EventEmitter {
 
     for await (const chunk of stream) {
       if (controller.signal.aborted) return;
+      if (first) {
+        first = false;
+        onFirstChunk();
+      }
       buffer += chunk;
       if (Date.now() - lastFlush >= FLUSH_INTERVAL_MS) flush();
     }

@@ -109,6 +109,34 @@ function normalize(text: string): string {
     .trim();
 }
 
+/** Saludos que casi siempre van pegados delante de una prueba de audio. */
+const GREETINGS = ['hola', 'hey', 'oye', 'buenas', 'buenos dias', 'buenas tardes', 'hi', 'hello'];
+
+/**
+ * `true` si la intervención ENTERA es saludo y comprobación de audio.
+ *
+ * La regla anterior descartaba cualquier frase que **empezara** por una
+ * muletilla, y eso mataba preguntas de verdad: en una sesión real se descartó
+ * "¿Qué tal es la idea de software?" porque empieza por "qué tal". Una muletilla
+ * tiene que ser la frase entera, no su primera mitad.
+ *
+ * Se parte en oraciones porque en la práctica se dicen encadenadas —"Hola,
+ * ¿cómo estás? ¿Me escuchas?"— y sólo se descarta si **todas** las partes son
+ * saludo o comprobación. Basta con que una no lo sea para que valga la pena
+ * mirarla.
+ */
+function isAllFiller(raw: string): boolean {
+  const clauses = raw
+    .split(/[?¿!¡.,;]+/)
+    .map((clause) => normalize(clause))
+    .filter(Boolean);
+
+  if (clauses.length === 0) return false;
+  return clauses.every(
+    (clause) => GREETINGS.includes(clause) || FILLERS.includes(clause)
+  );
+}
+
 export interface QuestionVerdict {
   isQuestion: boolean;
   /** Por qué se decidió así. Se registra para poder afinar la heurística. */
@@ -133,17 +161,7 @@ export function looksLikeQuestion(
 
   // Las muletillas se comprueban antes que todo lo demás: "¿cómo estás?" tiene
   // signo de interrogación y empieza por interrogativo, y aun así no se responde.
-  //
-  // La segunda condición existe porque en la práctica no se dicen solas: en una
-  // prueba real llegó "Hola, ¿cómo estás? ¿Me escuchas?", que no EMPIEZA por
-  // ninguna muletilla y traía signo de interrogación, así que disparaba. Se
-  // acota a frases cortas para no descartar una pregunta larga que de pasada
-  // contenga una de estas fórmulas.
-  const startsWithFiller = FILLERS.some(
-    (filler) => normalized === filler || normalized.startsWith(`${filler} `)
-  );
-  const shortFiller = words.length <= 7 && FILLERS.some((filler) => normalized.includes(filler));
-  if (startsWithFiller || shortFiller) {
+  if (isAllFiller(raw)) {
     return { isQuestion: false, reason: 'muletilla o comprobación de audio' };
   }
 

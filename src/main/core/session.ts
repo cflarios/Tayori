@@ -56,9 +56,27 @@ class SessionOrchestrator {
   /** Volcado diferido: un turno largo dispara muchos cambios seguidos. */
   private static readonly SAVE_DEBOUNCE_MS = 800;
 
+  /**
+   * Vigilancia del recorrido audio → transcripción → respuesta.
+   *
+   * Cada escalón puede pararse en silencio y desde fuera los tres se ven igual:
+   * "la app dejó de responder". Estas marcas son lo que permite decir en cuál
+   * se paró sin tener que reproducirlo a ciegas.
+   */
+  private lastChunkAt = 0;
+  private lastSegmentAt = 0;
+  private watchdog: NodeJS.Timeout | null = null;
+  private static readonly WATCHDOG_MS = 15_000;
+  /** Sin transcripción durante este tiempo, habiendo audio, es un atasco. */
+  private static readonly STALL_MS = 30_000;
+
+  /** Último estado difundido por respuesta, para registrar sólo los cambios. */
+  private answerStage = new Map<string, string>();
+
   /** Conecta el flujo de audio al STT. Llamar una vez al arrancar la app. */
   bind(): void {
     audioCapture.on('chunk', (speaker: Speaker, pcm: Buffer) => {
+      this.lastChunkAt = Date.now();
       this.stt?.push(speaker, pcm);
     });
 
@@ -70,7 +88,81 @@ class SessionOrchestrator {
     this.answers.on('answer', (answer: Answer) => {
       this.broadcast(IPC.onAnswer, answer);
       this.recordAnswer(answer);
+      this.logAnswerStage(answer);
     });
+  }
+
+  /**
+   * Registra el ciclo de vida de cada respuesta, una línea por cambio de estado.
+   *
+   * La duración es lo importante: distingue "el modelo no arrancó" de "el modelo
+   * tardó 40 segundos", que producen la misma pantalla en blanco.
+   */
+  private logAnswerStage(answer: Answer): void {
+    if (this.answerStage.get(answer.id) === answer.status) return;
+    this.answerStage.set(answer.id, answer.status);
+
+    const took = Date.now() - answer.createdAt;
+    if (answer.status === 'thinking') {
+      console.log(
+        `[answer] ${answer.id.slice(0, 8)} pidiendo a ${answer.providerId}/${answer.model} ` +
+          `(${answer.trigger}): "${answer.question.slice(0, 60)}"`
+      );
+    } else if (answer.status === 'streaming') {
+      // Sólo la primera vez que se pasa a streaming: es el tiempo hasta el
+      // primer token, que es lo que de verdad se percibe como latencia.
+      console.log(`[answer] ${answer.id.slice(0, 8)} primer texto tras ${took}ms`);
+    } else if (answer.status === 'done') {
+      console.log(
+        `[answer] ${answer.id.slice(0, 8)} completada en ${took}ms (${answer.text.length} car.)`
+      );
+    } else if (answer.status === 'error') {
+      console.error(`[answer] ${answer.id.slice(0, 8)} falló tras ${took}ms: ${answer.error}`);
+    } else if (answer.status === 'aborted') {
+      console.log(`[answer] ${answer.id.slice(0, 8)} abortada tras ${took}ms`);
+    }
+
+    // El mapa no puede crecer para siempre en una sesión larga.
+    if (this.answerStage.size > 50) {
+      for (const key of [...this.answerStage.keys()].slice(0, 25)) this.answerStage.delete(key);
+    }
+  }
+
+  /**
+   * Avisa cuando llega audio pero no sale transcripción.
+   *
+   * Es la comprobación que faltaba: sin ella, un motor muerto y una sala en
+   * silencio producen exactamente el mismo overlay, con el punto verde de
+   * "Escuchando" encendido en los dos casos.
+   */
+  private startWatchdog(): void {
+    this.stopWatchdog();
+    this.watchdog = setInterval(() => {
+      const now = Date.now();
+      const audioFresh = now - this.lastChunkAt < SessionOrchestrator.WATCHDOG_MS;
+      const silentFor = now - this.lastSegmentAt;
+
+      if (!audioFresh) {
+        console.warn(
+          '[watchdog] no llega audio del worker. La captura está anunciada como activa pero ' +
+            'no entran chunks: revisa el dispositivo de entrada.'
+        );
+        return;
+      }
+      if (this.lastSegmentAt > 0 && silentFor > SessionOrchestrator.STALL_MS) {
+        console.warn(
+          `[watchdog] entra audio pero el motor "${this.stt?.id}" no devuelve texto desde hace ` +
+            `${Math.round(silentFor / 1000)}s.`
+        );
+      }
+    }, SessionOrchestrator.WATCHDOG_MS);
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdog) {
+      clearInterval(this.watchdog);
+      this.watchdog = null;
+    }
   }
 
   // ── Historial ──
@@ -235,7 +327,14 @@ class SessionOrchestrator {
       });
 
       this.stt = provider;
-      console.log(`[stt] transcripción iniciada con "${provider.id}"`);
+      this.lastSegmentAt = Date.now();
+      this.startWatchdog();
+      console.log(
+        `[stt] transcripción iniciada con "${provider.id}" · idioma ${settings.language} · ` +
+          `hablantes [${speakersFor(settings.audioSources).join(', ')}] · ` +
+          `disparo ${settings.autoTriggerMode}/${settings.autoTriggerSpeaker}/` +
+          `${settings.autoTriggerSensitivity}`
+      );
 
       // Aviso explícito de una combinación que no da ningún síntoma: el audio
       // llega, se transcribe, y el auto-disparo descarta todos los segmentos
@@ -263,6 +362,7 @@ class SessionOrchestrator {
   }
 
   private async stopTranscription(): Promise<void> {
+    this.stopWatchdog();
     for (const timer of this.silenceTimers.values()) clearTimeout(timer);
     this.silenceTimers.clear();
 
@@ -276,6 +376,7 @@ class SessionOrchestrator {
   }
 
   private onSegment(event: TranscriptEvent): void {
+    this.lastSegmentAt = Date.now();
     const segment = this.transcript.ingest(event.speaker, event.text, event.isFinal);
     this.broadcast(IPC.onTranscript, segment);
 

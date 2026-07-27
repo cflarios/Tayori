@@ -276,6 +276,25 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
 
 ### Audio
 
+- **Filtro antialiasing antes de decimar.** La primera versión remuestreaba
+  48 kHz → 16 kHz con interpolación lineal y nada más, razonando que "el
+  aliasing por encima de 8 kHz no afecta a la inteligibilidad". **Ese
+  razonamiento estaba del revés y fue un bug real**: lo que hay por encima de
+  8 kHz no desaparece al decimar, se **pliega** hacia abajo y aterriza dentro de
+  la banda de la voz. Las sibilantes (s, f, z, ch) viven ahí, así que acababan
+  superpuestas sobre las vocales. El efecto perverso es que **vocalizar mejor lo
+  empeora**, porque mete más energía en la banda que se va a plegar. Se detectó
+  porque la transcripción era mediocre con los DOS motores a la vez, que es lo
+  que señaló que el fallo estaba aguas arriba de ambos.
+  Ahora va un Butterworth de **8º orden** a 7 kHz. El orden no es celo: con 4º
+  un tono de 12 kHz salía a -23 dB, audible de sobra para un reconocedor; con 8º
+  baja de -40 dB. `pcm-worklet.test.ts` ejecuta el worklet real en un sandbox y
+  fija ambos números.
+- **Ni un `push` dentro de `process()`.** Corre en el hilo de audio, con deadline
+  de tiempo real. La versión anterior usaba arrays JS con `push` por muestra y
+  `slice`/`splice` en cada llamada (~cada 2,7 ms): basura para el GC en el peor
+  sitio posible, y con Whisper y el LLM comiéndose la CPU se traduce en bloques
+  perdidos. Todo el estado son `Float32Array` con índices y `copyWithin`.
 - **Dos streams independientes** (mic = `me`, loopback = `them`) en lugar de
   diarización. El hablante se deduce del origen: más simple y exacto.
 - **`echoCancellation` y `noiseSuppression` desactivados en el micrófono.** Con
@@ -390,6 +409,16 @@ Detalles que no son opcionales en `core/vad.ts`:
   falla entre un micro de portátil y uno de diadema, que difieren en un orden de
   magnitud; y si se actualizara durante el habla, la propia voz arrastraría el
   suelo hacia arriba hasta dejar de detectarse.
+- **Rescate del enganche.** Actualizar el suelo *sólo* en silencio tiene un fallo
+  que aparece después de un rato: si el ruido de fondo sube por encima de 2,5×
+  el suelo aprendido —el ventilador acelerando porque Whisper y el LLM están
+  cargando la CPU, o el AGC del micrófono subiendo ganancia— todos los frames
+  pasan a contar como habla, y entonces el suelo **ya no vuelve a actualizarse
+  nunca**, porque sólo se actualizaba en silencio. El VAD se queda enganchado y
+  todo sale por corte forzado a 20 s. Por eso, pasados 30 s seguidos de "habla",
+  se asume que es ruido y se deja que el suelo lo aprenda. El campo `forced` de
+  `Utterance` existía desde el principio y no lo leía nadie; ahora se registra,
+  porque varios cortes forzados seguidos son la firma exacta de este fallo.
 - **Corte forzado a los 20 s**, o quien habla sin pausas nunca se transcribiría.
 - **Descarte de picos cortos** (< 250 ms): un golpe en la mesa supera el umbral
   un instante, y sin filtro se mandaría a Whisper, que devolvería una
@@ -497,6 +526,9 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | Gemini Live no funcionaba y no había forma de saber por qué | `GEMINI_LIVE_MODELS` está ordenado por preferencia y este mismo documento decía que se probaba el siguiente si el primero fallaba — **pero nadie lo implementó**: el constructor cogía el `[0]` y ahí acababa | Documentar una intención no la implementa. Si CONTEXT dice que algo hace X, debe haber un test o una lectura del código que lo confirme |
 | "La app dejó de responder" sin ningún error | El detector descartaba las frases **en silencio**: no había log del descarte ni del motivo | Un camino que decide no actuar necesita dejar rastro tanto como uno que falla. El `return` mudo es el peor de los dos |
 | Ningún diagnóstico posible en el `.exe` empaquetado | Los `console.*` del main sólo existían arrancando desde una terminal | Si la app se usa empaquetada, el log tiene que ir a un archivo desde el primer día |
+| Transcripción mediocre con los DOS motores | Sin filtro antialiasing, el contenido sobre 8 kHz se plegaba dentro de la banda de voz al decimar a 16 kHz | Que un fallo afecte por igual a dos implementaciones independientes es la señal de que está aguas arriba de ambas |
+| "¿Qué tal es la idea de software?" descartada como muletilla | El filtro hacía `startsWith('que tal ')`, así que cualquier pregunta que empezara por una muletilla moría | Una lista de frases a ignorar debe compararse contra la frase ENTERA; un prefijo compartido no significa lo mismo |
+| Respuesta eternamente en "Pensando…" | No había ningún tiempo límite en la generación: un proveedor colgado dejaba el estado ahí para siempre | Todo lo que espera a un proceso ajeno necesita reloj. Sin él, "lento" y "muerto" son la misma pantalla |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve

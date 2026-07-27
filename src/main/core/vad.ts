@@ -57,6 +57,16 @@ export class EnergyVAD {
    */
   private noiseFloor = 0.02;
 
+  /** Frames seguidos clasificados como habla. Ver el rescate del enganche. */
+  private speechRun = 0;
+
+  /**
+   * A partir de aquí se deja de creer que sea habla de verdad. 30 s: largo para
+   * que un monólogo normal no lo toque, corto para que el enganche se corrija
+   * dentro de la misma conversación y no al día siguiente.
+   */
+  private static readonly LATCH_FRAMES = Math.round(30_000 / FRAME_MS);
+
   constructor(options: VADOptions) {
     const rate = options.sampleRate;
     this.frameSize = Math.round((rate * FRAME_MS) / 1000);
@@ -102,6 +112,27 @@ export class EnergyVAD {
       // El suelo sólo se actualiza en silencio, o la propia voz lo arrastraría
       // hacia arriba hasta dejar de detectarse.
       this.noiseFloor = this.noiseFloor * 0.95 + energy * 0.05;
+      this.speechRun = 0;
+    } else {
+      this.speechRun += 1;
+      /*
+       * Rescate del enganche.
+       *
+       * Actualizar el suelo SÓLO en silencio tiene un fallo que se manifiesta
+       * después de un rato: si el ruido de fondo sube por encima de 2,5× el
+       * suelo aprendido —el ventilador acelerando porque Whisper y el LLM están
+       * comiendo CPU, o el AGC del micrófono subiendo ganancia— cada frame pasa
+       * a contar como habla. Entonces el suelo ya no vuelve a actualizarse
+       * nunca, porque sólo se actualizaba en silencio, y el VAD se queda
+       * enganchado: todo sale por corte forzado a 20 s y la transcripción se
+       * vuelve inservible. Visto desde fuera: "deja de responder".
+       *
+       * Nadie habla sin parar `LATCH_FRAMES` seguidos. Superado eso, lo que
+       * estamos midiendo es ruido, así que se deja que el suelo lo aprenda.
+       */
+      if (this.speechRun > EnergyVAD.LATCH_FRAMES) {
+        this.noiseFloor = this.noiseFloor * 0.98 + energy * 0.02;
+      }
     }
 
     if (!this.speaking) {
@@ -166,7 +197,13 @@ export class EnergyVAD {
     this.speaking = false;
     this.silenceRun = 0;
     this.speechFrames = 0;
+    this.speechRun = 0;
     this.noiseFloor = 0.02;
+  }
+
+  /** Suelo de ruido actual. Sólo para diagnóstico. */
+  get currentNoiseFloor(): number {
+    return this.noiseFloor;
   }
 }
 

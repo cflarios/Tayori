@@ -193,3 +193,40 @@ describe('sensibilidad del auto-disparo', () => {
     );
   });
 });
+
+/**
+ * Transcripciones LITERALES de una sesión de prueba (log del 27/07, 21:05-21:12).
+ * Son la mejor referencia que hay de lo que llega de verdad, con las erratas del
+ * reconocedor incluidas.
+ */
+describe('casos del log de una sesión real', () => {
+  it('un saludo encadenado con una prueba de audio no dispara', () => {
+    for (const text of [
+      'Hola, ¿cómo estás? ¿Me escuchas?',
+      'Hola, ¿puedes oírme?',
+      '¿Hey, can you hear me?',
+      'Hola, puedes escucharme.',
+    ]) {
+      expect(looksLikeQuestion(text).isQuestion).toBe(false);
+    }
+  });
+
+  it('pero una pregunta que EMPIEZA como muletilla sí dispara', () => {
+    // Se descartaba porque el filtro miraba el prefijo: "qué tal" es muletilla,
+    // luego "¿Qué tal es la idea de software?" tambien lo era. No lo es.
+    expect(looksLikeQuestion('¿Qué tal es la idea de software?').isQuestion).toBe(true);
+    expect(looksLikeQuestion('¿Cómo estás gestionando el despliegue?').isQuestion).toBe(true);
+  });
+
+  it('en modo "todo" también pasan las que el reconocedor destroza', () => {
+    // Ninguna de estas tiene marcador aprovechable, y las tres eran preguntas.
+    for (const text of [
+      'Quiero usar Jenkins como CI/CD que sugerencias me das.',
+      'si yo creo ser quien quince en CI/CD como funcionaría.',
+      'Si yo quiero utilizar Jenkins como se hice de como la haría.',
+    ]) {
+      expect(looksLikeQuestion(text, 'balanced').isQuestion).toBe(false);
+      expect(looksLikeQuestion(text, 'all').isQuestion).toBe(true);
+    }
+  });
+});

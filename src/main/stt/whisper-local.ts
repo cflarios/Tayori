@@ -89,6 +89,12 @@ class Lane {
    * CPU y ambas tardan más que ejecutadas en orden.
    */
   private queue: Promise<void> = Promise.resolve();
+  /**
+   * Turnos esperando a whisper. Si esto crece y no baja, la transcripción va
+   * más lenta que el habla y la latencia se acumula sin techo — otra forma de
+   * "deja de responder" que desde fuera es indistinguible de un cuelgue.
+   */
+  private pending = 0;
 
   constructor(
     private readonly speaker: Speaker,
@@ -100,7 +106,29 @@ class Lane {
   }
 
   push(pcm: Int16Array): void {
-    for (const utterance of this.vad.push(pcm)) this.enqueue(utterance);
+    for (const utterance of this.vad.push(pcm)) {
+      /*
+       * `forced` significa que el turno se cortó por llegar al máximo, no
+       * porque la persona dejara de hablar. Uno suelto es normal (alguien que
+       * se enrolla); varios seguidos son la firma del VAD enganchado en ruido,
+       * y hasta ahora ese dato existía en el tipo `Utterance` y no lo leía
+       * nadie. Es exactamente lo que hay que ver en el log cuando "deja de
+       * responder".
+       */
+      if (utterance.forced) {
+        console.warn(
+          `[vad:${this.speaker}] corte FORZADO a ${Math.round(utterance.durationMs / 1000)}s ` +
+            `(suelo de ruido ${this.vad.currentNoiseFloor.toFixed(4)}). ` +
+            'Si se repite, el detector está tomando ruido por voz.'
+        );
+      } else {
+        console.log(
+          `[vad:${this.speaker}] turno de ${Math.round(utterance.durationMs)}ms → a transcribir ` +
+            `(${this.pending} en cola)`
+        );
+      }
+      this.enqueue(utterance);
+    }
   }
 
   flush(): void {
@@ -109,10 +137,26 @@ class Lane {
   }
 
   private enqueue(utterance: Utterance): void {
+    this.pending += 1;
     this.queue = this.queue.then(async () => {
+      const startedAt = Date.now();
       try {
         const text = await this.transcribe(utterance);
-        if (text && !isLikelyHallucination(text)) {
+        const tookMs = Date.now() - startedAt;
+        // Más lento que tiempo real significa que la cola sólo puede crecer.
+        if (tookMs > utterance.durationMs) {
+          console.warn(
+            `[whisper:${this.speaker}] ${tookMs}ms para transcribir ${Math.round(utterance.durationMs)}ms ` +
+              'de audio: más lento que tiempo real. Prueba un modelo más pequeño.'
+          );
+        }
+
+        if (!text) {
+          console.log(`[whisper:${this.speaker}] sin texto (${tookMs}ms)`);
+        } else if (isLikelyHallucination(text)) {
+          console.log(`[whisper:${this.speaker}] descartado por alucinación: "${text}"`);
+        } else {
+          console.log(`[whisper:${this.speaker}] "${text}" (${tookMs}ms)`);
           this.emitter.emit('segment', { speaker: this.speaker, text, isFinal: true });
         }
       } catch (err) {
@@ -122,6 +166,8 @@ class Lane {
             `[whisper:${this.speaker}] ${err instanceof Error ? err.message : String(err)}`
           )
         );
+      } finally {
+        this.pending -= 1;
       }
     });
   }
