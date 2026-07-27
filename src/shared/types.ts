@@ -96,7 +96,75 @@ export interface Answer {
   error?: string;
 }
 
+// ──────────────────────────────── Historial ─────────────────────────────────
+
+/**
+ * Una pregunta y su respuesta, ya cerradas.
+ *
+ * Se guarda el proveedor y el modelo junto al texto: al repasar una respuesta
+ * floja lo primero que quieres saber es con qué la generaste, y esa información
+ * ya no está en ningún otro sitio una vez cambias de modelo.
+ */
+export interface ConversationTurn {
+  id: string;
+  question: string;
+  answer: string;
+  trigger: AnswerTrigger;
+  providerId: LLMProviderId;
+  model: string;
+  createdAt: number;
+  /** Presente si la generación falló; el turno se guarda igual. */
+  error?: string;
+}
+
+export interface Conversation {
+  id: string;
+  /** Derivado de la primera pregunta; el usuario no tiene que ponerle nombre. */
+  title: string;
+  startedAt: number;
+  endedAt?: number;
+  profileId: PromptProfileId;
+  /** Transcripción completa, sólo segmentos cerrados. */
+  segments: TranscriptSegment[];
+  turns: ConversationTurn[];
+}
+
+/**
+ * Cabecera para pintar la lista sin leer el cuerpo entero de cada archivo.
+ * Con 200 conversaciones, cargar todas para mostrar una lista sería absurdo.
+ */
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  startedAt: number;
+  turnCount: number;
+  segmentCount: number;
+}
+
+/** Título a partir de la primera intervención útil. */
+export function conversationTitle(text: string): string {
+  const clean = text.trim().replace(/\s+/g, ' ');
+  if (!clean) return 'Conversación sin título';
+  return clean.length > 60 ? `${clean.slice(0, 57)}…` : clean;
+}
+
 // ───────────────────────────────── Settings ─────────────────────────────────
+
+/**
+ * Tamaños del overlay.
+ *
+ * Cuatro presets en vez de un redimensionado libre: la ventana es `frameless`,
+ * así que no hay bordes que arrastrar, y montar asas propias por un ajuste que
+ * se toca dos veces no compensa.
+ */
+export type OverlaySize = 'S' | 'M' | 'L' | 'XL';
+
+export const OVERLAY_SIZES: Record<OverlaySize, { width: number; height: number }> = {
+  S: { width: 380, height: 420 },
+  M: { width: 460, height: 560 },
+  L: { width: 560, height: 700 },
+  XL: { width: 680, height: 820 },
+};
 
 /** Escalera de auto-disparo, de más barato a más costoso. */
 export type AutoTriggerMode = 'off' | 'heuristic' | 'heuristic+classifier';
@@ -148,6 +216,18 @@ export interface Settings {
   /** Si el overlay ignora clics y los reenvía a la ventana de abajo. */
   clickThrough: boolean;
   overlayOpacity: number;
+  /** Tamaño del panel. Ver `OVERLAY_SIZES`. */
+  overlaySize: OverlaySize;
+
+  /**
+   * Si las conversaciones se guardan en disco.
+   *
+   * Rompe la promesa original de "la app no graba nada": mientras esté activo
+   * se escriben transcripciones a `userData/conversations`. Es un interruptor y
+   * no una constante justamente para que se pueda volver al comportamiento
+   * anterior sin desinstalar nada.
+   */
+  historyEnabled: boolean;
 
   llmProviderId: LLMProviderId;
   /** Modelo elegido por provider, para no perder la selección al cambiar. */
@@ -210,6 +290,8 @@ export const DEFAULT_SETTINGS: Settings = {
   clickThrough: true,
   // Opaco por defecto: la legibilidad manda. Se puede bajar desde el dashboard.
   overlayOpacity: 1,
+  overlaySize: 'M',
+  historyEnabled: true,
 
   llmProviderId: 'claude',
   llmModels: {

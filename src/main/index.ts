@@ -5,11 +5,19 @@ import type { Settings } from '@shared/types';
 import { settingsStore } from './config/store';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
 import {
+  clearHistory,
+  deleteConversation,
+  getConversation,
+  historyLocation,
+  listConversations,
+} from './config/history';
+import {
   createOverlay,
   getOverlay,
   resizeOverlay,
   setOverlayInteractive,
   setOverlayMouseIgnore,
+  setOverlaySize,
   startOverlayDrag,
   stopOverlayDrag,
   toggleOverlayVisibility,
@@ -103,6 +111,14 @@ function registerIpcHandlers(): void {
     if (patch.hotkeys) {
       registerHotkeys(hotkeyActions);
     }
+    if (patch.overlaySize && patch.overlaySize !== previous.overlaySize) {
+      setOverlaySize(next.overlaySize);
+    }
+    // Apagar el historial a mitad de una conversación debe cortar también la que
+    // está en curso; si no, seguiría en memoria y volvería a disco al reactivarlo.
+    if (patch.historyEnabled === false && previous.historyEnabled) {
+      sessionOrchestrator.newConversation();
+    }
     return next;
   });
 
@@ -152,6 +168,8 @@ function registerIpcHandlers(): void {
   // ocultarla temporalmente está Ctrl+Shift+H.
   ipcMain.handle(IPC.overlayQuit, () => {
     audioCapture.stop();
+    // Volcar antes de salir: lo que quedara en el debounce se perdería.
+    sessionOrchestrator.flush();
     app.quit();
   });
 
@@ -174,6 +192,25 @@ function registerIpcHandlers(): void {
     }
     return image;
   });
+
+  // ── Historial de conversaciones ──
+  ipcMain.handle(IPC.conversationNew, () => {
+    sessionOrchestrator.newConversation();
+  });
+  ipcMain.handle(IPC.historyList, () => listConversations());
+  ipcMain.handle(IPC.historyGet, (_e, id: string) => getConversation(id));
+  ipcMain.handle(IPC.historyDelete, (_e, id: string) => {
+    deleteConversation(id);
+    return listConversations();
+  });
+  ipcMain.handle(IPC.historyClear, () => {
+    // Se corta la conversación en curso antes de borrar: si no, el debounce
+    // pendiente volvería a escribir en disco justo después de vaciar la carpeta.
+    sessionOrchestrator.newConversation();
+    clearHistory();
+    return listConversations();
+  });
+  ipcMain.handle(IPC.historyLocation, () => historyLocation());
 
   // ── Modelos ──
   ipcMain.handle(IPC.llmListModels, () => {
@@ -281,5 +318,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('will-quit', () => {
     unregisterHotkeys();
+    // Cerrar por cualquier vía (X de la barra, Alt+F4, apagado) debe consolidar
+    // el historial; `overlayQuit` no es el único camino de salida.
+    sessionOrchestrator.flush();
   });
 }

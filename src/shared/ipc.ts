@@ -38,6 +38,13 @@ export const IPC = {
 
   screenshotTake: 'screenshot:take',
 
+  conversationNew: 'conversation:new',
+  historyList: 'history:list',
+  historyGet: 'history:get',
+  historyDelete: 'history:delete',
+  historyClear: 'history:clear',
+  historyLocation: 'history:location',
+
   llmListModels: 'llm:list-models',
   llmTestConnection: 'llm:test-connection',
 
@@ -62,6 +69,8 @@ export const IPC = {
   onAudioLevels: 'event:audio-levels',
   onScreenshot: 'event:screenshot',
   onWhisperProgress: 'event:whisper-progress',
+  /** Se empezó una conversación nueva: los renderers deben limpiar su estado. */
+  onConversationReset: 'event:conversation-reset',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

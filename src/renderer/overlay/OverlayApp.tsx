@@ -5,6 +5,7 @@ import type {
   AudioLevels,
   CaptureStatus,
   ImageAttachment,
+  OverlaySize,
   Settings,
   TranscriptSegment,
 } from '@shared/types';
@@ -49,16 +50,40 @@ function CloseIcon() {
   );
 }
 
+/** Hoja en blanco: empezar una conversación nueva. */
+function NewChatIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        d="M13.5 8.2v3.1a1.4 1.4 0 0 1-1.4 1.4H6l-3 2.2v-2.2a1.4 1.4 0 0 1-1.4-1.4v-6A1.4 1.4 0 0 1 3 3.7h4.6"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        d="M12 1.8v4.4M9.8 4h4.4"
+      />
+    </svg>
+  );
+}
+
 function StatusBar({
   status,
   levels,
   stealth,
   onDragStart,
+  onNewConversation,
 }: {
   status: CaptureStatus;
   levels: AudioLevels;
   stealth: boolean;
   onDragStart: (event: React.MouseEvent) => void;
+  onNewConversation: () => void;
 }) {
   const dotClass =
     status.state === 'listening'
@@ -100,6 +125,15 @@ function StatusBar({
       <button
         type="button"
         className="iconbtn"
+        title="Nueva conversación (limpia la transcripción y el contexto)"
+        aria-label="Nueva conversación"
+        onClick={onNewConversation}
+      >
+        <NewChatIcon />
+      </button>
+      <button
+        type="button"
+        className="iconbtn"
         title="Configuración"
         aria-label="Abrir configuración"
         onClick={() => void window.api.window.openDashboard()}
@@ -119,6 +153,18 @@ function StatusBar({
   );
 }
 
+/**
+ * Minutos:segundos desde que empezó la conversación, no la hora del reloj.
+ * Al repasar lo que importa es "hace cuánto se dijo esto", y una hora absoluta
+ * obliga a restar mentalmente.
+ */
+function elapsed(startedAt: number, at: number): string {
+  const total = Math.max(0, Math.round((at - startedAt) / 1000));
+  const mm = Math.floor(total / 60);
+  const ss = total % 60;
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+}
+
 function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -126,7 +172,11 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
     endRef.current?.scrollIntoView({ block: 'end' });
   }, [segments]);
 
-  if (segments.length === 0) {
+  // El primer segmento es a la vez la condición de "hay algo" y el origen de
+  // tiempos, así que se resuelve de una vez: un `?? Date.now()` de respaldo
+  // sería una llamada impura en render (y la regla `purity` de eslint la caza).
+  const first = segments[0];
+  if (!first) {
     return <p className="empty">Esperando audio…</p>;
   }
 
@@ -134,6 +184,7 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
     <div className="transcript">
       {segments.slice(-VISIBLE_LINES).map((seg) => (
         <div className="transcript__line" key={seg.id}>
+          <span className="transcript__time">{elapsed(first.startedAt, seg.startedAt)}</span>
           <span className={`transcript__who transcript__who--${seg.speaker}`}>
             {seg.speaker === 'me' ? 'Yo' : 'Ellos'}
           </span>
@@ -143,6 +194,99 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
         </div>
       ))}
       <div ref={endRef} />
+    </div>
+  );
+}
+
+/**
+ * Perfiles de respuesta como chips.
+ *
+ * `promptProfileId` ya existía, pero sólo se podía cambiar desde el dashboard,
+ * que hay que abrir con el engranaje y roba el foco. Cambiar de registro a mitad
+ * de una llamada es justo el momento en el que no puedes hacer ninguna de las dos.
+ * `custom` no está aquí: se edita con un textarea y ése sí necesita el dashboard.
+ */
+const PROFILE_CHIPS = [
+  ['interview', 'Entrevista'],
+  ['meeting', 'Reunión'],
+  ['lecture', 'Clase'],
+  ['support', 'Soporte'],
+] as const;
+
+function ProfileChips({
+  active,
+  onChange,
+}: {
+  active: Settings['promptProfileId'];
+  onChange: (id: Settings['promptProfileId']) => void;
+}) {
+  return (
+    <div className="chips" data-interactive>
+      {PROFILE_CHIPS.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          className={`chip${active === id ? ' chip--active' : ''}`}
+          aria-pressed={active === id}
+          onClick={() => onChange(id)}
+        >
+          {label}
+        </button>
+      ))}
+      {active === 'custom' && <span className="chip chip--active">Personalizado</span>}
+    </div>
+  );
+}
+
+/**
+ * Acciones rápidas sobre la última respuesta.
+ *
+ * Son prompts enlatados que van por `askWithText`, la misma vía que la pestaña
+ * de escritura: no hay un camino nuevo hacia el LLM que mantener. Cada una es
+ * algo que si no tendrías que teclear entero mientras alguien te mira.
+ */
+const QUICK_ACTIONS = [
+  ['Sigue', 'Amplía tu última respuesta con un ejemplo concreto y breve.'],
+  ['Más corto', 'Reformula tu última respuesta en dos viñetas, más directa.'],
+  ['Seguimiento', 'Dame 3 preguntas de seguimiento que YO pueda hacer ahora.'],
+  ['Resumen', 'Resume la conversación hasta ahora en 4 viñetas.'],
+] as const;
+
+function QuickActions({ onAsk }: { onAsk: (prompt: string) => void }) {
+  return (
+    <div className="quick" data-interactive>
+      {QUICK_ACTIONS.map(([label, prompt]) => (
+        <button key={label} type="button" className="quick__btn" onClick={() => onAsk(prompt)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const SIZES: OverlaySize[] = ['S', 'M', 'L', 'XL'];
+
+function SizePicker({
+  active,
+  onChange,
+}: {
+  active: OverlaySize;
+  onChange: (size: OverlaySize) => void;
+}) {
+  return (
+    <div className="sizes" data-interactive>
+      {SIZES.map((size) => (
+        <button
+          key={size}
+          type="button"
+          className={`sizes__btn${active === size ? ' sizes__btn--active' : ''}`}
+          aria-pressed={active === size}
+          title={`Tamaño ${size}`}
+          onClick={() => onChange(size)}
+        >
+          {size}
+        </button>
+      ))}
     </div>
   );
 }
@@ -344,6 +488,13 @@ export function OverlayApp() {
           return next;
         });
       }),
+      // El main ya limpió su buffer; el overlay tiene su propia copia en estado
+      // de React y se quedaría enseñando la conversación anterior.
+      api.history.onReset(() => {
+        setSegments([]);
+        setAnswer(null);
+        setShot(null);
+      }),
     ];
 
     return () => unsubs.forEach((off) => off());
@@ -356,9 +507,17 @@ export function OverlayApp() {
         levels={levels}
         stealth={settings?.stealthEnabled ?? true}
         onDragStart={onDragStart}
+        onNewConversation={() => void window.api.history.newConversation()}
       />
 
       {!configured && <SetupPrompt />}
+
+      {settings && (
+        <ProfileChips
+          active={settings.promptProfileId}
+          onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
+        />
+      )}
 
       <div className="section">
         <Tabs tab={tab} onChange={setTab} />
@@ -381,16 +540,25 @@ export function OverlayApp() {
         <AnswerPane answer={answer} />
       </div>
 
+      {/* Sólo tienen sentido cuando hay una respuesta sobre la que actuar:
+          "Sigue" o "Más corto" sin nada previo pedirían al modelo que ampliara
+          el vacío. */}
+      {answer && (answer.status === 'done' || answer.status === 'streaming') && (
+        <QuickActions onAsk={(prompt) => void window.api.ask.withText(prompt)} />
+      )}
+
       <div className="hints">
         <span>
           <kbd>Ctrl</kbd>+<kbd>Enter</kbd> preguntar
         </span>
         <span>
-          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> captura
-        </span>
-        <span>
           <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> ocultar
         </span>
+        <span className="hints__spacer" />
+        <SizePicker
+          active={settings?.overlaySize ?? 'M'}
+          onChange={(overlaySize) => void window.api.settings.update({ overlaySize })}
+        />
       </div>
     </div>
   );

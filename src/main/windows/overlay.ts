@@ -1,12 +1,11 @@
 import { BrowserWindow, screen } from 'electron';
+import { OVERLAY_SIZES, type OverlaySize } from '@shared/types';
 import { settingsStore } from '../config/store';
 import { setClickThrough, setStealth } from './stealth';
 import { loadRenderer, preloadPath } from './resolve';
 
 let overlay: BrowserWindow | null = null;
 
-const WIDTH = 460;
-const HEIGHT = 560;
 const MARGIN = 24;
 /** Píxeles que se desplaza el overlay con los hotkeys de movimiento. */
 const NUDGE = 40;
@@ -21,12 +20,13 @@ export function createOverlay(): BrowserWindow {
 
   const settings = settingsStore.get();
   const { workArea } = screen.getPrimaryDisplay();
+  const { width, height } = OVERLAY_SIZES[settings.overlaySize];
 
   overlay = new BrowserWindow({
-    width: WIDTH,
-    height: HEIGHT,
+    width,
+    height,
     // Arranca arriba a la derecha: la zona con menos UI en Meet/Teams/Zoom.
-    x: workArea.x + workArea.width - WIDTH - MARGIN,
+    x: workArea.x + workArea.width - width - MARGIN,
     y: workArea.y + MARGIN,
 
     frame: false,
@@ -206,9 +206,32 @@ export function nudgeOverlay(dx: number, dy: number): void {
   win.setPosition((pos[0] ?? 0) + dx * NUDGE, (pos[1] ?? 0) + dy * NUDGE);
 }
 
+/**
+ * Aplica uno de los tamaños predefinidos.
+ *
+ * Se reancla al borde derecho en lugar de crecer hacia la derecha: el overlay
+ * arranca arriba a la derecha (la zona con menos UI en Meet/Teams/Zoom) y
+ * ensancharlo hacia fuera lo sacaría de la pantalla.
+ */
+export function setOverlaySize(size: OverlaySize): void {
+  const win = getOverlay();
+  if (!win) return;
+
+  const { width, height } = OVERLAY_SIZES[size];
+  const pos = win.getPosition();
+  const current = win.getSize();
+  const right = (pos[0] ?? 0) + (current[0] ?? width);
+
+  const { workArea } = screen.getPrimaryDisplay();
+  const x = Math.max(workArea.x, Math.min(right - width, workArea.x + workArea.width - width));
+  const y = Math.min(pos[1] ?? 0, workArea.y + workArea.height - height);
+
+  win.setBounds({ x, y: Math.max(workArea.y, y), width, height });
+}
+
 export function resizeOverlay(height: number): void {
   const win = getOverlay();
   if (!win) return;
-  const width = win.getSize()[0] ?? WIDTH;
+  const width = win.getSize()[0] ?? OVERLAY_SIZES.M.width;
   win.setSize(width, Math.round(Math.max(120, Math.min(height, 900))));
 }

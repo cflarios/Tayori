@@ -79,17 +79,41 @@ bloquee salvo revisar los `require` implícitos del bundle.
 
 ## 4. Decisiones de arquitectura y su razón
 
-### La app escucha, no graba
+### La app escucha, no graba — matizado en julio de 2026
 
-Distinción que conviene no perder porque cambia lo que se le puede prometer al
-usuario, y el código ya la respeta: **no se persiste audio en ningún punto**.
-Los chunks del worklet van al motor de transcripción y se descartan; el
-`TranscriptBuffer` es una ventana rodante acotada en memoria; nada se escribe a
-disco. No hay archivos de audio, historial ni exportación.
+La versión original **no persistía nada**, y este apartado avisaba de que añadir
+un historial rompería esa promesa y obligaría a actualizar el README y las
+consideraciones legales *a la vez*. Eso es exactamente lo que pasó: el usuario
+pidió un historial de conversaciones que se guarde, eligiendo explícitamente
+incluir la transcripción y no sólo las respuestas.
 
-Si alguien añade en el futuro un "guardar la transcripción" o un log de sesión,
-esa promesa deja de ser cierta y hay que actualizar el README y las
-consideraciones legales a la vez. No es un detalle de redacción.
+Dónde queda la línea ahora, que es lo que hay que saber para no volver a moverla
+sin darse cuenta:
+
+- **El audio sigue sin tocar el disco. Nunca.** Los chunks del worklet van al
+  motor y se descartan. No hay archivos de audio ni temporales — la única
+  excepción es el WAV que Whisper local necesita para invocar `whisper-cli`, que
+  se borra en el `finally` de cada invocación y vive en un `mkdtemp` que se
+  destruye al parar. Esta parte **no se negocia**: es lo que separa la app de una
+  grabadora.
+- **El texto sí se guarda**, si `settings.historyEnabled` está activo: respuestas
+  y transcripción completa, un JSON por conversación en
+  `userData/conversations`. Ver `main/config/history.ts`.
+- **Es un interruptor, no una constante.** Apagarlo devuelve el comportamiento
+  antiguo por completo: `ensureConversation()` devuelve `null` y no se crea ni la
+  carpeta. Esa forma —que el punto de entrada devuelva `null` en lugar de repartir
+  comprobaciones por todo el orquestador— es lo que hace que no se pueda colar
+  una escritura por olvido.
+
+El cambio legal **no es cosmético**: en varias jurisdicciones un registro escrito
+de una conversación cuenta igual que una grabación a efectos de consentimiento.
+Por eso el README ya no dice "no graba nada" a secas, y «Consideraciones legales»
+separa ahora tres cosas que antes iban juntas: grabación, a dónde va el audio, y
+las políticas de la empresa en la que estés.
+
+**La regla de antes sigue en pie, sólo se movió el listón:** si alguien añade
+exportación, sincronización o cualquier salida nueva de estos datos, hay que
+volver a tocar el README y este apartado en el mismo commit.
 
 ### Ventanas
 
@@ -162,6 +186,33 @@ se pueden separar:
 El aviso de que el overlay toma el foco está **en la propia pestaña**, no sólo
 aquí: es una excepción a la promesa central del producto y callarla sería el tipo
 de verdad a medias que el README se esfuerza en no contar.
+
+### Qué salió a la superficie del overlay, y por qué
+
+El overlay pasó de tres controles a unos cuantos más. El criterio para decidir
+qué sube del dashboard al overlay es uno solo: **¿lo necesitarías a mitad de una
+llamada?** El dashboard hay que abrirlo con el engranaje y roba el foco, así que
+todo lo que esté allí es, en la práctica, inalcanzable mientras hablas.
+
+- **Chips de perfil.** `promptProfileId` ya existía; sólo estaba en un
+  desplegable del dashboard. Cambiar de registro es justo lo que quieres poder
+  hacer sin parar. `custom` no es un chip porque se edita con un textarea.
+- **Acciones rápidas** (Sigue / Más corto / Seguimiento / Resumen). Son prompts
+  enlatados que van por `askWithText`, la misma vía que la pestaña de escritura:
+  **no hay un camino nuevo hacia el LLM**. Sólo aparecen si hay una respuesta
+  sobre la que actuar; "amplía tu última respuesta" sin respuesta previa le pide
+  al modelo que amplíe el vacío.
+- **Tamaño S/M/L/XL.** Cuatro presets y no redimensionado libre: la ventana es
+  `frameless`, no hay bordes que arrastrar, y montar asas propias por un ajuste
+  que se toca dos veces no compensa. `setOverlaySize` **reancla al borde
+  derecho**: el overlay vive arriba a la derecha y crecer hacia fuera lo sacaría
+  de la pantalla.
+- **Marcas de tiempo relativas**, no la hora del reloj. Al repasar lo que importa
+  es "hace cuánto se dijo esto"; una hora absoluta obliga a restar mentalmente.
+- **Nueva conversación.** Aborta la respuesta en vuelo, vuelca la conversación,
+  limpia el `TranscriptBuffer` **y** emite `onConversationReset`. Lo último no es
+  opcional: el overlay tiene su propia copia de los segmentos en estado de React
+  y sin el evento seguiría enseñando la conversación anterior.
 
 ### Discreción en Windows: barra de tareas y nombre del proceso
 

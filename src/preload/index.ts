@@ -9,6 +9,8 @@ import type {
   Answer,
   AudioLevels,
   CaptureStatus,
+  Conversation,
+  ConversationSummary,
   ImageAttachment,
   ModelInfo,
   OllamaStatus,
@@ -103,6 +105,18 @@ const api = {
     take: (): Promise<ImageAttachment | null> => ipcRenderer.invoke(IPC.screenshotTake),
     onCaptured: (cb: (img: ImageAttachment) => void) =>
       subscribe<ImageAttachment>(IPC.onScreenshot, cb),
+  },
+
+  history: {
+    /** Empieza una conversación nueva y limpia el contexto en curso. */
+    newConversation: (): Promise<void> => ipcRenderer.invoke(IPC.conversationNew),
+    list: (): Promise<ConversationSummary[]> => ipcRenderer.invoke(IPC.historyList),
+    get: (id: string): Promise<Conversation | null> => ipcRenderer.invoke(IPC.historyGet, id),
+    remove: (id: string): Promise<ConversationSummary[]> =>
+      ipcRenderer.invoke(IPC.historyDelete, id),
+    clear: (): Promise<ConversationSummary[]> => ipcRenderer.invoke(IPC.historyClear),
+    location: (): Promise<string> => ipcRenderer.invoke(IPC.historyLocation),
+    onReset: (cb: () => void) => subscribe<null>(IPC.onConversationReset, cb),
   },
 
   llm: {

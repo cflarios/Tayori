@@ -5,6 +5,8 @@ import type {
   AudioLevels,
   CaptureStatus,
   ContextPack,
+  Conversation,
+  ConversationSummary,
   LLMProviderId,
   ModelInfo,
   OllamaStatus,
@@ -293,8 +295,182 @@ export function DashboardApp() {
       <ModelCard settings={settings} patch={patch} />
       <TranscriptionCard settings={settings} patch={patch} />
       <BehaviourCard settings={settings} patch={patch} />
+      <HistoryCard settings={settings} patch={patch} />
       <ContextCard settings={settings} patch={patch} />
     </div>
+  );
+}
+
+// ────────────────────────────── Historial ──────────────────────────────
+
+const dateFormat = new Intl.DateTimeFormat('es-ES', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/**
+ * Historial de conversaciones.
+ *
+ * Esta tarjeta es la que hace visible que la app **sí** escribe en disco, algo
+ * que durante toda su vida anterior no hacía. Por eso enseña la ruta exacta y
+ * el botón de borrar todo está aquí y no escondido: si vas a guardar
+ * transcripciones de otras personas, tienes que poder ver qué hay y quitarlo.
+ */
+function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const [items, setItems] = useState<ConversationSummary[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Conversation | null>(null);
+  const [location, setLocation] = useState('');
+  const [confirmingClear, setConfirmingClear] = useState(false);
+
+  const refresh = useCallback((): void => {
+    void window.api.history.list().then(setItems);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    void window.api.history.location().then(setLocation);
+    // Empezar una conversación nueva desde el overlay debe verse aquí sin
+    // tener que cerrar y reabrir el dashboard.
+    return window.api.history.onReset(refresh);
+  }, [refresh]);
+
+  // El detalle se pide bajo demanda: la lista sólo trae cabeceras, y cargar
+  // cada transcripción completa para pintar una lista no tendría sentido.
+  useEffect(() => {
+    if (!openId) return;
+    let cancelled = false;
+    void window.api.history.get(openId).then((conversation) => {
+      if (!cancelled) setDetail(conversation);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [openId]);
+
+  const remove = async (id: string): Promise<void> => {
+    setItems(await window.api.history.remove(id));
+    if (openId === id) {
+      setOpenId(null);
+      setDetail(null);
+    }
+  };
+
+  const clearAll = async (): Promise<void> => {
+    setItems(await window.api.history.clear());
+    setOpenId(null);
+    setDetail(null);
+    setConfirmingClear(false);
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card__title">Historial de conversaciones</h2>
+      <p className="card__hint">
+        Se guardan en tu máquina, en texto plano, y no se envían a ningún sitio. Incluyen la
+        transcripción completa: eso significa lo que dijo la otra persona, no sólo lo que
+        preguntaste tú.
+      </p>
+
+      <Row
+        label="Guardar conversaciones"
+        desc={
+          settings.historyEnabled
+            ? `Activo. Se escriben en ${location || 'tu carpeta de datos'}.`
+            : 'Apagado. Nada toca el disco: la app vuelve a escuchar sin guardar.'
+        }
+      >
+        <Switch
+          on={settings.historyEnabled}
+          onChange={(v) => void patch({ historyEnabled: v })}
+        />
+      </Row>
+
+      {items.length === 0 && (
+        <p className="card__hint" style={{ marginBottom: 0 }}>
+          {settings.historyEnabled
+            ? 'Todavía no hay ninguna conversación guardada.'
+            : 'No hay nada guardado.'}
+        </p>
+      )}
+
+      {items.map((item) => (
+        <div key={item.id} className="conv">
+          <div className="conv__head">
+            <button
+              className="conv__title"
+              onClick={() => setOpenId(openId === item.id ? null : item.id)}
+            >
+              <span className="conv__name">{item.title}</span>
+              <span className="conv__meta">
+                {dateFormat.format(item.startedAt)} · {item.turnCount} respuesta
+                {item.turnCount === 1 ? '' : 's'} · {item.segmentCount} intervencion
+                {item.segmentCount === 1 ? '' : 'es'}
+              </span>
+            </button>
+            <button className="btn btn--danger" onClick={() => void remove(item.id)}>
+              Borrar
+            </button>
+          </div>
+
+          {openId === item.id && detail?.id === item.id && (
+            <div className="conv__body">
+              {detail.turns.map((turn) => (
+                <div key={turn.id} className="turn">
+                  <div className="turn__q">{turn.question || '(sin pregunta aislada)'}</div>
+                  <div className={`turn__a${turn.error ? ' turn__a--error' : ''}`}>
+                    {turn.error ?? turn.answer}
+                  </div>
+                  <div className="turn__meta">
+                    {turn.providerId} · {turn.model} · {turn.trigger}
+                  </div>
+                </div>
+              ))}
+
+              {detail.segments.length > 0 && (
+                <>
+                  <div className="conv__subtitle">Transcripción</div>
+                  <div className="conv__transcript">
+                    {detail.segments.map((seg) => (
+                      <div key={seg.id} className="conv__line">
+                        <span className={`transcript-who transcript-who--${seg.speaker}`}>
+                          {seg.speaker === 'me' ? 'Yo' : 'Ellos'}
+                        </span>
+                        <span>{seg.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {items.length > 0 && (
+        <div className="field">
+          {confirmingClear ? (
+            <>
+              <span className="row__desc" style={{ flex: 1 }}>
+                Se borran las {items.length} conversaciones. No hay deshacer.
+              </span>
+              <button className="btn btn--danger" onClick={() => void clearAll()}>
+                Sí, borrar todo
+              </button>
+              <button className="btn" onClick={() => setConfirmingClear(false)}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button className="btn btn--danger" onClick={() => setConfirmingClear(true)}>
+              Borrar todo el historial
+            </button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

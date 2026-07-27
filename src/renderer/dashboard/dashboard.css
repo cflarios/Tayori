@@ -332,3 +332,126 @@ button.btn--danger {
   padding: 12px 14px;
   margin-top: 12px;
 }
+
+/* ── Historial de conversaciones ── */
+
+.conv {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.conv__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/*
+ * La cabecera entera es el disparador de abrir/cerrar, no un chevron de 12 px:
+ * el área clicable debe ser el elemento que se lee, no un adorno al lado.
+ */
+.conv__title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.conv__title:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.conv__name {
+  font-size: 13px;
+  color: #e8eaed;
+}
+
+.conv__meta {
+  font-size: 11.5px;
+  color: #7c8288;
+}
+
+.conv__body {
+  margin-top: 12px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(96, 165, 250, 0.3);
+}
+
+.conv__subtitle {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c8288;
+  margin: 14px 0 6px;
+}
+
+.conv__transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* Una entrevista de una hora son cientos de líneas: acotar y dejar scrollar
+     evita que una sola conversación empuje el resto de la página fuera. */
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #b7bcc1;
+}
+
+.conv__line {
+  display: flex;
+  gap: 8px;
+}
+
+.transcript-who {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 11.5px;
+}
+
+.transcript-who--me {
+  color: #60a5fa;
+}
+
+.transcript-who--them {
+  color: #fbbf24;
+}
+
+.turn {
+  margin-bottom: 14px;
+}
+
+.turn__q {
+  font-size: 12.5px;
+  font-weight: 550;
+  color: #fbbf24;
+  margin-bottom: 4px;
+}
+
+.turn__a {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #e8eaed;
+  white-space: pre-wrap;
+}
+
+.turn__a--error {
+  color: #fca5a5;
+}
+
+.turn__meta {
+  font-size: 11px;
+  color: #6b7075;
+  margin-top: 4px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+}

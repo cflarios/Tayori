@@ -1,14 +1,18 @@
+import { randomUUID } from 'node:crypto';
 import { BrowserWindow } from 'electron';
 import { IPC } from '@shared/ipc';
 import {
   autoTriggerIsInert,
+  conversationTitle,
   speakersFor,
   type Answer,
   type AnswerTrigger,
+  type Conversation,
   type ImageAttachment,
   type Speaker,
   type TranscriptSegment,
 } from '@shared/types';
+import { saveConversation } from '../config/history';
 import { settingsStore } from '../config/store';
 import { audioCapture } from '../capture/audio';
 import { createSTTProvider, type STTProvider, type TranscriptEvent } from '../stt';
@@ -41,6 +45,17 @@ class SessionOrchestrator {
   private lastAutoTrigger = 0;
   private static readonly AUTO_DEBOUNCE_MS = 2_500;
 
+  /**
+   * Conversación en curso. Se crea perezosamente al primer contenido: arrancar
+   * la app y no decir nada no debe dejar una conversación vacía en el historial.
+   */
+  private conversation: Conversation | null = null;
+  /** Ids de respuestas ya archivadas: `answer` se emite en cada actualización. */
+  private recordedAnswers = new Set<string>();
+  private saveTimer: NodeJS.Timeout | null = null;
+  /** Volcado diferido: un turno largo dispara muchos cambios seguidos. */
+  private static readonly SAVE_DEBOUNCE_MS = 800;
+
   /** Conecta el flujo de audio al STT. Llamar una vez al arrancar la app. */
   bind(): void {
     audioCapture.on('chunk', (speaker: Speaker, pcm: Buffer) => {
@@ -54,7 +69,101 @@ class SessionOrchestrator {
 
     this.answers.on('answer', (answer: Answer) => {
       this.broadcast(IPC.onAnswer, answer);
+      this.recordAnswer(answer);
     });
+  }
+
+  // ── Historial ──
+
+  /**
+   * Cierra la conversación actual y empieza otra en limpio.
+   *
+   * Limpia también el `TranscriptBuffer` y aborta la respuesta en vuelo: el
+   * sentido de "nueva conversación" es que lo anterior deje de contaminar el
+   * contexto que se manda al modelo, y dejar el buffer con la charla vieja lo
+   * haría inútil.
+   */
+  newConversation(): void {
+    this.answers.abort();
+    this.flush();
+    this.conversation = null;
+    this.recordedAnswers.clear();
+    this.transcript.clear();
+    this.broadcast(IPC.onConversationReset, null);
+  }
+
+  /** Vuelca ya lo pendiente. Se llama al cerrar y al cambiar de conversación. */
+  flush(): void {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    if (this.conversation && settingsStore.get().historyEnabled) {
+      saveConversation({ ...this.conversation, endedAt: Date.now() });
+    }
+  }
+
+  /**
+   * La conversación sólo existe si el historial está activo. Devolver `null`
+   * con el interruptor apagado es lo que garantiza que no se escriba nada:
+   * el resto del código no tiene que acordarse de comprobarlo.
+   */
+  private ensureConversation(seedTitle?: string): Conversation | null {
+    if (!settingsStore.get().historyEnabled) return null;
+
+    if (!this.conversation) {
+      this.conversation = {
+        id: randomUUID(),
+        title: seedTitle ? conversationTitle(seedTitle) : 'Conversación sin título',
+        startedAt: Date.now(),
+        profileId: settingsStore.get().promptProfileId,
+        segments: [],
+        turns: [],
+      };
+    } else if (this.conversation.title === 'Conversación sin título' && seedTitle) {
+      // El título se fija con el primer contenido útil, venga de la voz o del
+      // teclado; hasta entonces la conversación existe pero no tiene nombre.
+      this.conversation.title = conversationTitle(seedTitle);
+    }
+    return this.conversation;
+  }
+
+  private scheduleSave(): void {
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      this.saveTimer = null;
+      const current = this.conversation;
+      if (current && settingsStore.get().historyEnabled) saveConversation(current);
+    }, SessionOrchestrator.SAVE_DEBOUNCE_MS);
+  }
+
+  /**
+   * Archiva una respuesta cuando llega a un estado terminal.
+   *
+   * `answer` se emite en CADA actualización del streaming, así que sin el set de
+   * ids ya archivados el mismo turno entraría decenas de veces. Las abortadas no
+   * se guardan: una respuesta que se cortó porque llegó otra pregunta es ruido,
+   * no historial.
+   */
+  private recordAnswer(answer: Answer): void {
+    if (answer.status !== 'done' && answer.status !== 'error') return;
+    if (this.recordedAnswers.has(answer.id)) return;
+
+    const conversation = this.ensureConversation(answer.question);
+    if (!conversation) return;
+
+    this.recordedAnswers.add(answer.id);
+    conversation.turns.push({
+      id: answer.id,
+      question: answer.question,
+      answer: answer.text,
+      trigger: answer.trigger,
+      providerId: answer.providerId,
+      model: answer.model,
+      createdAt: answer.createdAt,
+      ...(answer.error ? { error: answer.error } : {}),
+    });
+    this.scheduleSave();
   }
 
   // ── API que consumen los hotkeys y el IPC ──
@@ -153,6 +262,10 @@ class SessionOrchestrator {
     for (const timer of this.silenceTimers.values()) clearTimeout(timer);
     this.silenceTimers.clear();
 
+    // Parar de escuchar es el momento natural para consolidar: si la app se
+    // cierra después, lo pendiente del debounce ya está en disco.
+    this.flush();
+
     const provider = this.stt;
     this.stt = null;
     await provider?.stop();
@@ -164,10 +277,33 @@ class SessionOrchestrator {
 
     if (event.isFinal) {
       this.clearSilenceTimer(event.speaker);
+      this.archiveSegment(segment);
       this.onFinalSegment(segment);
     } else {
       this.armSilenceTimer(event.speaker);
     }
+  }
+
+  /**
+   * Guarda un segmento cerrado en la conversación.
+   *
+   * Va aparte de `onFinalSegment` porque ese método sale antes por razones del
+   * auto-disparo (hablante que no toca, modo apagado) y un segmento debe
+   * archivarse igual: el historial no depende de que la respuesta se dispare.
+   * Se guarda una copia porque el `TranscriptBuffer` recicla los objetos de los
+   * parciales, y se comprueba el id porque un segmento puede cerrarse tanto por
+   * el motor como por el temporizador de silencio.
+   */
+  private archiveSegment(segment: TranscriptSegment): void {
+    if (!segment.text.trim()) return;
+    const conversation = this.ensureConversation(
+      segment.speaker === 'them' ? segment.text : undefined
+    );
+    if (!conversation) return;
+    if (conversation.segments.some((s) => s.id === segment.id)) return;
+
+    conversation.segments.push({ ...segment });
+    this.scheduleSave();
   }
 
   /**
@@ -205,6 +341,7 @@ class SessionOrchestrator {
         const closed = this.transcript.finalizeOpen(speaker);
         if (closed) {
           this.broadcast(IPC.onTranscript, closed);
+          this.archiveSegment(closed);
           this.onFinalSegment(closed);
         }
       }, SessionOrchestrator.SILENCE_MS)
