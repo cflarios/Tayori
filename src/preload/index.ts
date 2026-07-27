@@ -11,6 +11,7 @@ import type {
   CaptureStatus,
   ImageAttachment,
   ModelInfo,
+  OllamaStatus,
   SecretKey,
   SecretsPresence,
   Settings,
@@ -56,6 +57,17 @@ const api = {
     resizeOverlay: (height: number): Promise<void> =>
       ipcRenderer.invoke(IPC.overlayResize, height),
     openDashboard: (): Promise<void> => ipcRenderer.invoke(IPC.dashboardOpen),
+
+    /**
+     * Alterna si el overlay deja pasar el ratón. Se envía con `send` y no con
+     * `invoke` porque se dispara en cada mousemove: esperar una respuesta por
+     * cada uno añadiría latencia al hover sin ninguna ventaja.
+     */
+    setMouseIgnore: (ignore: boolean): void =>
+      ipcRenderer.send(IPC.overlayMouseIgnore, ignore),
+    startDrag: (): void => ipcRenderer.send(IPC.overlayDragStart),
+    endDrag: (): void => ipcRenderer.send(IPC.overlayDragEnd),
+    quit: (): Promise<void> => ipcRenderer.invoke(IPC.overlayQuit),
   },
 
   capture: {
@@ -98,6 +110,10 @@ const api = {
       ipcRenderer.invoke(IPC.whisperInstall),
     onProgress: (cb: (p: WhisperProgress) => void) =>
       subscribe<WhisperProgress>(IPC.onWhisperProgress, cb),
+  },
+
+  ollama: {
+    getStatus: (): Promise<OllamaStatus> => ipcRenderer.invoke(IPC.ollamaGetStatus),
   },
 
   /**

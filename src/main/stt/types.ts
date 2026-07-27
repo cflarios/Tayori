@@ -23,6 +23,14 @@ export interface STTStartOptions {
   /** BCP-47, o `'auto'` para detección automática. */
   language: string;
   /**
+   * Hablantes que se van a escuchar realmente.
+   *
+   * Importa porque Gemini Live abre una sesión WebSocket por hablante: crear la
+   * del micrófono cuando el usuario eligió escuchar solo el sistema gastaría una
+   * conexión que nunca recibe audio.
+   */
+  speakers: Speaker[];
+  /**
    * Términos que sesgan el reconocedor. En una entrevista son oro: nombres de
    * empresa, siglas y tecnologías son justo lo que un ASR generalista falla.
    */

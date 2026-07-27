@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import type {
   Answer,
   AudioLevels,
@@ -18,14 +19,46 @@ const STATUS_LABEL: Record<CaptureStatus['state'], string> = {
   error: 'Error',
 };
 
+/** Engranaje y X, dibujados en línea para no depender de una fuente de iconos. */
+function GearIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M8 10.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Zm0-1.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+      />
+      <path
+        fill="currentColor"
+        d="M6.94 1.5a.75.75 0 0 0-.74.63l-.19 1.15a4.9 4.9 0 0 0-.83.48l-1.09-.42a.75.75 0 0 0-.92.33l-1.06 1.84a.75.75 0 0 0 .18.95l.9.73a4.98 4.98 0 0 0 0 .96l-.9.73a.75.75 0 0 0-.18.95l1.06 1.84c.19.32.57.46.92.33l1.09-.42c.26.19.54.35.83.48l.19 1.15c.06.36.38.63.74.63h2.12c.36 0 .68-.27.74-.63l.19-1.15c.29-.13.57-.29.83-.48l1.09.42c.35.13.73-.01.92-.33l1.06-1.84a.75.75 0 0 0-.18-.95l-.9-.73a4.98 4.98 0 0 0 0-.96l.9-.73a.75.75 0 0 0 .18-.95L13.8 3.67a.75.75 0 0 0-.92-.33l-1.09.42a4.9 4.9 0 0 0-.83-.48l-.19-1.15a.75.75 0 0 0-.74-.63H6.94Z"
+        opacity=".55"
+      />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        d="M4 4l8 8M12 4l-8 8"
+      />
+    </svg>
+  );
+}
+
 function StatusBar({
   status,
   levels,
   stealth,
+  onDragStart,
 }: {
   status: CaptureStatus;
   levels: AudioLevels;
   stealth: boolean;
+  onDragStart: (event: React.MouseEvent) => void;
 }) {
   const dotClass =
     status.state === 'listening'
@@ -35,13 +68,17 @@ function StatusBar({
         : 'statusbar__dot';
 
   return (
-    <div className="statusbar">
+    // `data-interactive` es lo que hace que la ventana deje de ignorar el ratón
+    // mientras el cursor está aquí; sin él, con los clics atravesables activos
+    // no se podría ni arrastrar ni pulsar los botones.
+    <div className="statusbar" data-interactive onMouseDown={onDragStart}>
       <span className={dotClass} />
       <span className="statusbar__label">{STATUS_LABEL[status.state]}</span>
       {/* Aviso explícito cuando el overlay SÍ es visible en una captura:
           es el estado peligroso, así que no puede pasar desapercibido. */}
       {!stealth && <span className="statusbar__label">· visible</span>}
       <span className="statusbar__spacer" />
+
       <div className="levels">
         <div className="level">
           <span>Yo</span>
@@ -59,6 +96,25 @@ function StatusBar({
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        className="iconbtn"
+        title="Configuración"
+        aria-label="Abrir configuración"
+        onClick={() => void window.api.window.openDashboard()}
+      >
+        <GearIcon />
+      </button>
+      <button
+        type="button"
+        className="iconbtn iconbtn--close"
+        title="Cerrar Interview Helper (Ctrl+Shift+H solo lo oculta)"
+        aria-label="Cerrar"
+        onClick={() => void window.api.window.quit()}
+      >
+        <CloseIcon />
+      </button>
     </div>
   );
 }
@@ -91,6 +147,28 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
   );
 }
 
+/**
+ * Estado de primer arranque. El dashboard ya no se abre solo, así que sin esto
+ * un usuario nuevo se quedaría mirando un overlay que no hace nada y sin pista
+ * de dónde configurar las claves.
+ */
+function SetupPrompt() {
+  return (
+    <div className="setup" data-interactive>
+      <p className="setup__text">
+        Falta configurar un proveedor de IA. Ábrelo con el engranaje de arriba.
+      </p>
+      <button
+        type="button"
+        className="setup__btn"
+        onClick={() => void window.api.window.openDashboard()}
+      >
+        Abrir configuración
+      </button>
+    </div>
+  );
+}
+
 function AnswerPane({ answer }: { answer: Answer | null }) {
   if (!answer) {
     return <p className="empty">Ctrl+Enter para pedir una respuesta.</p>;
@@ -115,12 +193,27 @@ export function OverlayApp() {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [shot, setShot] = useState<ImageAttachment | null>(null);
+  const [configured, setConfigured] = useState(true);
+
+  useChromeMouse();
+  const onDragStart = useOverlayDrag();
 
   useEffect(() => {
     const { api } = window;
 
     void api.settings.get().then(setSettings);
     void api.capture.getStatus().then(setStatus);
+    // Ollama no necesita clave, así que su sola selección cuenta como
+    // configurado; para Claude y Gemini se exige la clave correspondiente.
+    void Promise.all([api.settings.get(), api.secrets.getPresence()]).then(
+      ([current, presence]) => {
+        setConfigured(
+          current.llmProviderId === 'ollama' ||
+            (current.llmProviderId === 'claude' && presence.anthropic) ||
+            (current.llmProviderId === 'gemini' && presence.google)
+        );
+      }
+    );
 
     const unsubs = [
       api.settings.onChange(setSettings),
@@ -151,7 +244,14 @@ export function OverlayApp() {
 
   return (
     <div className="panel" style={{ opacity: settings?.overlayOpacity ?? 1 }}>
-      <StatusBar status={status} levels={levels} stealth={settings?.stealthEnabled ?? true} />
+      <StatusBar
+        status={status}
+        levels={levels}
+        stealth={settings?.stealthEnabled ?? true}
+        onDragStart={onDragStart}
+      />
+
+      {!configured && <SetupPrompt />}
 
       <div className="section">
         <span className="section__title">Transcripción</span>

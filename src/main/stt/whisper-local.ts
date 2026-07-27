@@ -158,7 +158,7 @@ export class WhisperLocalSTT implements STTProvider {
     this.stopped = false;
     this.tempDir = mkdtempSync(join(tmpdir(), 'ih-whisper-'));
 
-    for (const speaker of ['me', 'them'] as const) {
+    for (const speaker of options.speakers) {
       this.lanes.set(
         speaker,
         new Lane(

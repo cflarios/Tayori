@@ -103,6 +103,65 @@ export function setOverlayInteractive(interactive: boolean): void {
   }
 }
 
+/**
+ * Deja pasar o captura el ratón puntualmente.
+ *
+ * Lo llama el renderer al entrar y salir de la barra del overlay: con los clics
+ * atravesables activados —el modo recomendado durante una llamada— la ventana
+ * ignora el ratón por completo, y sin esto el engranaje y la X serían
+ * inclicables. `forward: true` mantiene los eventos de movimiento llegando al
+ * renderer, que es lo que le permite detectar el hover en primer lugar.
+ */
+export function setOverlayMouseIgnore(ignore: boolean): void {
+  const win = getOverlay();
+  if (!win) return;
+  // Si el usuario desactivó los clics atravesables, la ventana ya es
+  // interactiva por completo y no hay nada que alternar.
+  if (!settingsStore.get().clickThrough) return;
+  setClickThrough(win, ignore);
+}
+
+/**
+ * Arrastre manual de la ventana.
+ *
+ * No se usa `-webkit-app-region: drag` porque no funciona con
+ * `focusable: false`, y renunciar a esa opción no es viable: robar el foco de
+ * la videollamada es justo lo que delata al asistente. En su lugar se sigue el
+ * cursor desde el proceso main y se reposiciona la ventana.
+ */
+let dragTimer: NodeJS.Timeout | null = null;
+
+export function startOverlayDrag(): void {
+  const win = getOverlay();
+  if (!win || dragTimer) return;
+
+  const cursor = screen.getCursorScreenPoint();
+  const pos = win.getPosition();
+  // Desfase entre el cursor y la esquina de la ventana: mantenerlo constante
+  // es lo que hace que la ventana no salte al empezar a arrastrar.
+  const offsetX = cursor.x - (pos[0] ?? 0);
+  const offsetY = cursor.y - (pos[1] ?? 0);
+
+  // ~60 fps. Un intervalo en lugar de seguir los mousemove del renderer porque
+  // el cursor sale de la ventana en cuanto el arrastre va rápido.
+  dragTimer = setInterval(() => {
+    const current = getOverlay();
+    if (!current) {
+      stopOverlayDrag();
+      return;
+    }
+    const point = screen.getCursorScreenPoint();
+    current.setPosition(point.x - offsetX, point.y - offsetY);
+  }, 16);
+}
+
+export function stopOverlayDrag(): void {
+  if (dragTimer) {
+    clearInterval(dragTimer);
+    dragTimer = null;
+  }
+}
+
 export function nudgeOverlay(dx: number, dy: number): void {
   const win = getOverlay();
   if (!win) return;

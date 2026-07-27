@@ -53,8 +53,19 @@ body {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
-  /* Zona de arrastre: el resto del overlay deja pasar los clics. */
-  -webkit-app-region: drag;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  /*
+   * El arrastre se implementa en JS (useOverlayDrag + setPosition desde main),
+   * no con `-webkit-app-region: drag`: esa propiedad no funciona con
+   * `focusable: false`, y no podemos renunciar a eso porque robar el foco de la
+   * videollamada es lo que delata al asistente.
+   */
+  cursor: grab;
+}
+
+.statusbar:active {
+  cursor: grabbing;
 }
 
 .statusbar__dot {
@@ -97,7 +108,37 @@ body {
 .levels {
   display: flex;
   gap: 8px;
-  -webkit-app-region: no-drag;
+}
+
+/* ── Botones de la barra (engranaje y cerrar) ── */
+
+.iconbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #9aa0a6;
+  cursor: pointer;
+  /* El cursor de arrastre de la barra no debe heredarse en los botones. */
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.iconbtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8eaed;
+}
+
+.iconbtn--close:hover {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
 }
 
 .level {
@@ -215,6 +256,39 @@ body {
 
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ── Aviso de primer arranque ── */
+
+.setup {
+  flex-shrink: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.24);
+}
+
+.setup__text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fcd34d;
+  margin-bottom: 10px;
+}
+
+.setup__btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  color: #0e1015;
+  background: #fcd34d;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.setup__btn:hover {
+  background: #fde68a;
 }
 
 /* ── Thumbnail de captura adjunta ── */

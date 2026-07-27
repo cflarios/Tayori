@@ -4,7 +4,15 @@ import { IPC } from '@shared/ipc';
 import type { Settings } from '@shared/types';
 import { settingsStore } from './config/store';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
-import { createOverlay, getOverlay, resizeOverlay, toggleOverlayVisibility } from './windows/overlay';
+import {
+  createOverlay,
+  getOverlay,
+  resizeOverlay,
+  setOverlayMouseIgnore,
+  startOverlayDrag,
+  stopOverlayDrag,
+  toggleOverlayVisibility,
+} from './windows/overlay';
 import { openDashboard } from './windows/dashboard';
 import { setClickThrough, setStealthForAll } from './windows/stealth';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
@@ -14,6 +22,7 @@ import { captureScreen } from './capture/screenshot';
 // colisión resolvía silenciosamente a Function.prototype.bind.
 import { session as sessionOrchestrator } from './core/session';
 import { createLLMProvider, listModelsFor } from './llm';
+import { probeOllama } from './llm/ollama';
 import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
 
 /**
@@ -127,6 +136,18 @@ function registerIpcHandlers(): void {
     openDashboard();
   });
 
+  // Alto tráfico (un evento por mousemove), así que van por `on` y no `handle`.
+  ipcMain.on(IPC.overlayMouseIgnore, (_e, ignore: boolean) => setOverlayMouseIgnore(ignore));
+  ipcMain.on(IPC.overlayDragStart, () => startOverlayDrag());
+  ipcMain.on(IPC.overlayDragEnd, () => stopOverlayDrag());
+
+  // La X del overlay cierra la app entera: el overlay ES la aplicación. Para
+  // ocultarla temporalmente está Ctrl+Shift+H.
+  ipcMain.handle(IPC.overlayQuit, () => {
+    audioCapture.stop();
+    app.quit();
+  });
+
   // ── Captura de audio ──
   ipcMain.handle(IPC.captureStart, () => audioCapture.start());
   ipcMain.handle(IPC.captureStop, () => audioCapture.stop());
@@ -160,6 +181,9 @@ function registerIpcHandlers(): void {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
+
+  // ── Ollama ──
+  ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));
 
   // ── Whisper local ──
   ipcMain.handle(IPC.whisperGetStatus, () => getWhisperStatus(settingsStore.get().whisperModel));
@@ -201,10 +225,12 @@ const hotkeyActions = {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
+  // Intentar abrir una segunda instancia recupera el overlay en lugar de
+  // arrancar otra app; es la vía de escape si se ocultó y no se recuerda el
+  // atajo.
   app.on('second-instance', () => {
     const overlay = getOverlay();
     if (overlay && !overlay.isVisible()) overlay.showInactive();
-    openDashboard();
   });
 
   app.whenReady().then(() => {
@@ -229,10 +255,9 @@ if (!app.requestSingleInstanceLock()) {
     createOverlay();
     registerHotkeys(hotkeyActions);
 
-    // Sin API keys configuradas la app no puede hacer nada útil, así que en el
-    // primer arranque abrimos el dashboard directamente.
-    const presence = getPresence();
-    if (!presence.anthropic && !presence.google) openDashboard();
+    // El dashboard NO se abre solo, ni siquiera en el primer arranque: solo con
+    // el engranaje del overlay. Cuando faltan las keys, el overlay muestra una
+    // llamada a la acción que apunta a ese botón.
   });
 
   // En Windows el overlay es la app: si se cierra, no queda nada que hacer.

@@ -11,6 +11,23 @@
  */
 export type Speaker = 'me' | 'them';
 
+/**
+ * Qué fuentes de audio se escuchan.
+ *
+ * `system` (solo la salida del sistema) es lo que quieres si te molesta que el
+ * asistente procese tus propias respuestas. Nota: el auto-disparo ya ignora lo
+ * que dices tú — solo evalúa intervenciones del interlocutor — así que esto
+ * afecta al contexto que se envía al modelo, no a cuándo se dispara.
+ */
+export type AudioSourceMode = 'both' | 'system' | 'mic';
+
+/** Traduce el modo a los hablantes que estarán activos. */
+export function speakersFor(mode: AudioSourceMode): Speaker[] {
+  if (mode === 'system') return ['them'];
+  if (mode === 'mic') return ['me'];
+  return ['me', 'them'];
+}
+
 /** Frecuencia de muestreo a la que normalizamos todo el audio antes del STT. */
 export const TARGET_SAMPLE_RATE = 16_000 as const;
 
@@ -94,13 +111,17 @@ export interface ContextPack {
 
 export type PromptProfileId = 'interview' | 'meeting' | 'lecture' | 'support' | 'custom';
 
+/**
+ * No hay atajo para el dashboard a propósito: se abre únicamente con el botón
+ * de engranaje del overlay. Si el overlay está oculto, `toggleOverlay` lo
+ * recupera.
+ */
 export interface HotkeyMap {
   askNow: string;
   screenshotAndAsk: string;
   toggleOverlay: string;
   toggleListening: string;
   toggleClickThrough: string;
-  openDashboard: string;
   moveUp: string;
   moveDown: string;
   moveLeft: string;
@@ -126,6 +147,9 @@ export interface Settings {
   language: string;
   whisperModel: string;
 
+  /** Qué se escucha: micrófono, salida del sistema, o ambas. */
+  audioSources: AudioSourceMode;
+
   autoTriggerMode: AutoTriggerMode;
   /** Segundos de transcript que se envían con el hotkey manual. */
   manualContextSeconds: number;
@@ -146,7 +170,6 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
   toggleOverlay: 'Control+Shift+H',
   toggleListening: 'Control+Shift+M',
   toggleClickThrough: 'Control+Shift+C',
-  openDashboard: 'Control+Shift+D',
   moveUp: 'Control+Alt+Up',
   moveDown: 'Control+Alt+Down',
   moveLeft: 'Control+Alt+Left',
@@ -169,6 +192,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sttProviderId: 'gemini-live',
   language: 'auto',
   whisperModel: 'base',
+  audioSources: 'both',
 
   autoTriggerMode: 'heuristic',
   manualContextSeconds: 30,
@@ -181,6 +205,16 @@ export const DEFAULT_SETTINGS: Settings = {
   hotkeys: DEFAULT_HOTKEYS,
   ollamaBaseUrl: 'http://127.0.0.1:11434',
 };
+
+/** Estado del servidor local de Ollama, sondeado bajo demanda. */
+export interface OllamaStatus {
+  /** `false` si Ollama no está instalado o no está corriendo. */
+  reachable: boolean;
+  version?: string;
+  /** Modelos ya descargados en la máquina. */
+  models: ModelInfo[];
+  error?: string;
+}
 
 /** Las keys nunca viajan al renderer; solo si están presentes o no. */
 export interface SecretsPresence {

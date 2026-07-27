@@ -8,7 +8,7 @@ dentro de tres meses— vuelve a tomar las mismas decisiones desde cero, o peor,
 las revierte sin saber qué las motivó.
 
 Escrito al final de la sesión de construcción inicial (26 de julio de 2026,
-commits `8093c25`..`baa4e29`).
+commits `8093c25`..`baa4e29`) y actualizado en la primera ronda de ajustes.
 
 ---
 
@@ -79,6 +79,18 @@ bloquee salvo revisar los `require` implícitos del bundle.
 
 ## 4. Decisiones de arquitectura y su razón
 
+### La app escucha, no graba
+
+Distinción que conviene no perder porque cambia lo que se le puede prometer al
+usuario, y el código ya la respeta: **no se persiste audio en ningún punto**.
+Los chunks del worklet van al motor de transcripción y se descartan; el
+`TranscriptBuffer` es una ventana rodante acotada en memoria; nada se escribe a
+disco. No hay archivos de audio, historial ni exportación.
+
+Si alguien añade en el futuro un "guardar la transcripción" o un log de sesión,
+esa promesa deja de ser cierta y hay que actualizar el README y las
+consideraciones legales a la vez. No es un detalle de redacción.
+
 ### Ventanas
 
 - **Tres entradas de renderer** (overlay, dashboard, audio-worker).
@@ -95,6 +107,57 @@ bloquee salvo revisar los `require` implícitos del bundle.
   (electron/electron#29085, corregido a medias en #45868 pero inconsistente
   entre builds). **No quitar ese hook**: es la causa número uno de fugas en este
   tipo de app.
+
+### Los controles del overlay y el candado de los clics atravesables
+
+Hay una contradicción de fondo entre dos requisitos, y la solución no es obvia:
+el overlay debe **dejar pasar los clics** durante una llamada, y a la vez tener
+**botones pulsables** (engranaje, cerrar) y una zona de arrastre.
+
+`setIgnoreMouseEvents(true, { forward: true })` hace que la ventana ignore los
+clics *pero siga recibiendo los eventos de movimiento*. Eso es exactamente lo
+que se explota: el renderer escucha `mousemove`, mira con `elementFromPoint` si
+el cursor está sobre algo marcado con `data-interactive`, y pide al main que
+deje de ignorar el ratón sólo durante ese rato (`useChromeMouse`).
+
+Dos detalles que parecen de más y no lo son:
+
+- Se escucha también `mouseleave` del documento. Si el cursor sale rápido por un
+  borde puede no llegar un último `mousemove` sobre zona no interactiva, y la
+  ventana se quedaría capturando clics encima de la videollamada.
+- El arrastre es **manual** (`startOverlayDrag` sigue el cursor desde el main con
+  `setPosition`), no `-webkit-app-region: drag`. Esa propiedad no funciona con
+  `focusable: false`, y renunciar a `focusable: false` no es opción. El
+  seguimiento va por intervalo y no por los `mousemove` del renderer porque al
+  arrastrar rápido el cursor se sale de la ventana.
+
+### El dashboard se abre sólo desde el engranaje
+
+Decisión explícita del usuario. No hay apertura automática en el primer
+arranque, y **no hay atajo de teclado** (se quitó `openDashboard` del
+`HotkeyMap`). Consecuencias que hay que preservar juntas:
+
+- El overlay muestra un aviso de configuración cuando el proveedor activo no
+  tiene credencial, porque si no un usuario nuevo se queda sin pista alguna.
+  Ollama cuenta como configurado sin credencial.
+- Abrir una segunda instancia **recupera el overlay** en lugar de abrir el
+  dashboard: es la vía de escape si se ocultó con `Ctrl+Shift+H` y no se
+  recuerda el atajo.
+
+### Qué se escucha es configurable
+
+`Settings.audioSources` (`both` | `system` | `mic`) llega hasta dos sitios:
+`capture.ts` (qué streams se abren; con `system` ni siquiera se pide permiso de
+micrófono) y `STTStartOptions.speakers` (qué lanes crea el motor). Lo segundo
+importa porque Gemini Live abre **una sesión WebSocket por hablante**: crear la
+del micrófono cuando no se está escuchando gastaría una conexión vacía.
+
+Matiz que la UI dice explícitamente porque es la confusión natural: **el
+auto-disparo nunca reaccionó a tu propia voz** — `onFinalSegment` sólo evalúa
+segmentos de `them`. Este ajuste decide qué entra en el *contexto* que se manda
+al modelo, no cuándo se dispara. Escuchar el micrófono suele ser útil (el modelo
+sabe qué has respondido ya y no te sugiere repetirlo); `system` existe para
+quien prefiera que sus respuestas no salgan de la máquina en absoluto.
 
 ### Audio
 
@@ -259,6 +322,27 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve
 `number[]`, no una tupla) y `preserve-caught-error` (re-lanzar sin `cause`).
+La regla `set-state-in-effect` de eslint ha encontrado **dos** condiciones de
+carrera reales (el selector de modelos y el sondeo de Ollama); merece la pena
+tratar sus avisos como bugs y no como pedantería.
+
+### Los clics sintéticos NO sirven para probar el overlay
+
+Vale la pena dejarlo escrito porque casi provoca un "arreglo" de código sano.
+
+Al verificar el botón del engranaje con `SetCursorPos` + `mouse_event` desde
+PowerShell, **el click no llegaba nunca**, ni siquiera con los clics
+atravesables desactivados. La conclusión tentadora era que el mecanismo de
+hover estaba roto. Era falso: probado a mano con un ratón real, **funciona**.
+
+La causa es que la entrada sintética no reproduce fielmente el camino de
+mensajes que Electron reenvía con `forward: true` hacia una ventana con
+`focusable: false` (`WS_EX_NOACTIVATE`).
+
+**Regla práctica:** las capturas de pantalla sirven para verificar que el
+overlay *renderiza* y que el stealth funciona, pero **la interacción con el
+ratón sobre el overlay hay que probarla a mano**. Si un click sintético falla,
+la hipótesis por defecto debe ser el arnés de pruebas, no el código.
 
 ---
 
@@ -329,10 +413,11 @@ capturas de pantalla**, no solo compilando.
 Cosas que existen a medias. No son bugs; son trabajo no terminado, y está mejor
 escrito aquí que descubierto por sorpresa.
 
-- **`setOverlayInteractive()` es código muerto.** Existe en
+- **`setOverlayInteractive()` sigue siendo código muerto.** Existe en
   `src/main/windows/overlay.ts` y resuelve bien el problema (volver el overlay
   enfocable para escribir sin romper la regla de no robar foco), pero **nada la
-  llama**: falta el input de texto en el overlay y su handler IPC.
+  llama**: falta el input de texto en el overlay y su handler IPC. Ahora que la
+  barra ya tiene botones funcionando, es el siguiente paso natural.
 - **`askWithText` está completo salvo la UI.** La cadena IPC → preload →
   `session.askWithText()` funciona; ningún renderer la invoca.
 - **`resizeOverlay` no lo llama nadie.** El handler y el preload existen; la idea
@@ -371,6 +456,10 @@ ven igual.
 
 **Hotkeys globales:** dispararlos con el foco en **otra** aplicación. Si solo
 funcionan con la app enfocada, no están registrados como globales.
+
+**Interacción con el overlay (a mano, sin excepción):** arrastrar por la barra,
+pulsar el engranaje y pulsar la X — con los **clics atravesables activados**,
+que es el caso difícil. Los clics sintéticos no valen aquí (ver §6).
 
 **Empaquetado:** `npm run build:win` y después **ejecutar el `.exe`
 empaquetado**. Que se generen los archivos no prueba que arranque: el bundle de

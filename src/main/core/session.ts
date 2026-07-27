@@ -1,6 +1,13 @@
 import { BrowserWindow } from 'electron';
 import { IPC } from '@shared/ipc';
-import type { Answer, AnswerTrigger, ImageAttachment, Speaker, TranscriptSegment } from '@shared/types';
+import {
+  speakersFor,
+  type Answer,
+  type AnswerTrigger,
+  type ImageAttachment,
+  type Speaker,
+  type TranscriptSegment,
+} from '@shared/types';
 import { settingsStore } from '../config/store';
 import { audioCapture } from '../capture/audio';
 import { createSTTProvider, type STTProvider, type TranscriptEvent } from '../stt';
@@ -87,6 +94,7 @@ class SessionOrchestrator {
       await provider.start({
         sampleRate: 16_000,
         language: settings.language,
+        speakers: speakersFor(settings.audioSources),
         vocabulary: collectVocabulary(settings.contextPacks),
       });
 

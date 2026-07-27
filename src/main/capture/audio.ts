@@ -1,7 +1,8 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { EventEmitter } from 'node:events';
-import { IPC, type AudioChunkMessage } from '@shared/ipc';
+import { IPC, type AudioChunkMessage, type CaptureCommand } from '@shared/ipc';
 import type { AudioLevels, CaptureStatus, Speaker } from '@shared/types';
+import { settingsStore } from '../config/store';
 import { createAudioWorker, getAudioWorker } from '../windows/audio-worker';
 
 /**
@@ -126,7 +127,7 @@ class AudioCaptureController extends EventEmitter {
     return worker;
   }
 
-  async start(captureMic = true): Promise<CaptureStatus> {
+  async start(): Promise<CaptureStatus> {
     if (this.status.state === 'listening' || this.status.state === 'starting') {
       return this.getStatus();
     }
@@ -135,7 +136,11 @@ class AudioCaptureController extends EventEmitter {
     this.bytesReceived = { me: 0, them: 0 };
     try {
       const worker = await this.ensureWorker();
-      worker.webContents.send(IPC.onCaptureCommand, { action: 'start', captureMic });
+      const command: CaptureCommand = {
+        action: 'start',
+        sources: settingsStore.get().audioSources,
+      };
+      worker.webContents.send(IPC.onCaptureCommand, command);
     } catch (err) {
       this.setStatus({
         state: 'error',
@@ -146,7 +151,8 @@ class AudioCaptureController extends EventEmitter {
   }
 
   stop(): CaptureStatus {
-    getAudioWorker()?.webContents.send(IPC.onCaptureCommand, { action: 'stop', captureMic: false });
+    const command: CaptureCommand = { action: 'stop', sources: 'both' };
+    getAudioWorker()?.webContents.send(IPC.onCaptureCommand, command);
     this.setStatus({ state: 'idle', micActive: false, loopbackActive: false });
     return this.getStatus();
   }

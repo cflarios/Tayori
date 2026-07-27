@@ -1,5 +1,5 @@
 import { Ollama } from 'ollama';
-import type { LLMProviderId, ModelInfo } from '@shared/types';
+import type { LLMProviderId, ModelInfo, OllamaStatus } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
 /**
@@ -106,6 +106,60 @@ export class OllamaProvider implements LLMProvider {
     } catch (err) {
       return { ok: false, error: toLLMError(err, this.id).message };
     }
+  }
+}
+
+/**
+ * Sondea el servidor local de Ollama.
+ *
+ * Distingue tres estados que desde el dashboard se ven muy distintos, y que un
+ * simple "lista vacía" confundiría: no instalado / no corriendo, corriendo pero
+ * sin modelos, y corriendo con modelos. El tercero es el único usable, y el
+ * segundo tiene una solución concreta (`ollama pull`) que conviene decirle al
+ * usuario en lugar de dejarlo adivinando.
+ */
+export async function probeOllama(baseUrl: string): Promise<OllamaStatus> {
+  // Timeout corto: si Ollama no está, queremos saberlo ya y no bloquear la UI
+  // del dashboard esperando el timeout por defecto de fetch.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2_000);
+
+  let version: string | undefined;
+  try {
+    const response = await fetch(new URL('/api/version', baseUrl), {
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return { reachable: false, models: [], error: `Ollama respondió HTTP ${response.status}.` };
+    }
+    const body = (await response.json()) as { version?: string };
+    version = body.version;
+  } catch (err) {
+    return {
+      reachable: false,
+      models: [],
+      // Solo el hecho: la sugerencia de qué hacer la pone el dashboard, para no
+      // duplicar la instrucción en pantalla.
+      error:
+        err instanceof Error && err.name === 'AbortError'
+          ? 'Ollama no respondió a tiempo.'
+          : 'No se encontró ningún servidor de Ollama escuchando.',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  try {
+    const models = await new OllamaProvider(baseUrl, '').listModels();
+    return { reachable: true, ...(version ? { version } : {}), models };
+  } catch (err) {
+    // El servidor está vivo (respondió a /api/version) pero fallo el listado.
+    return {
+      reachable: true,
+      ...(version ? { version } : {}),
+      models: [],
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 

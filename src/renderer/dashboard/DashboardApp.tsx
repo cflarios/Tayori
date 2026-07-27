@@ -6,6 +6,7 @@ import type {
   ContextPack,
   LLMProviderId,
   ModelInfo,
+  OllamaStatus,
   SecretKey,
   SecretsPresence,
   Settings,
@@ -364,8 +365,10 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       <Row
         label="Modelo"
         desc={
-          settings.llmProviderId === 'ollama' && models.length === 0
-            ? 'No se detectaron modelos. Comprueba que Ollama esté corriendo y descarga uno con: ollama pull llama3.2'
+          // El diagnóstico detallado lo da el panel de estado de abajo; aquí
+          // solo se apunta hacia él para no decir lo mismo dos veces.
+          provider === 'ollama' && models.length === 0
+            ? 'Sin modelos disponibles. Mira el estado de Ollama más abajo.'
             : undefined
         }
       >
@@ -397,7 +400,97 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
           </span>
         )}
       </div>
+
+      {provider === 'ollama' && <OllamaStatusPanel />}
     </section>
+  );
+}
+
+/**
+ * Estado de Ollama. Distingue los tres casos que importan, porque "no aparece
+ * ningún modelo" tiene causas muy distintas y soluciones distintas: no está
+ * instalado, está instalado pero parado, o corre sin modelos descargados.
+ */
+function OllamaStatusPanel() {
+  const [status, setStatus] = useState<OllamaStatus | null>(null);
+  const [checking, setChecking] = useState(true);
+  /** Se incrementa para relanzar el sondeo desde el botón. */
+  const [attempt, setAttempt] = useState(0);
+
+  // El efecto solo llama a setState desde el callback de la promesa; poner el
+  // `setChecking(true)` aquí dentro dispararía renders en cascada.
+  useEffect(() => {
+    let cancelled = false;
+    void window.api.ollama
+      .getStatus()
+      .then((next) => {
+        if (cancelled) return;
+        setStatus(next);
+        setChecking(false);
+      })
+      .catch(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const probe = (): void => {
+    setChecking(true);
+    setAttempt((n) => n + 1);
+  };
+
+  return (
+    <div className="ollama">
+      <div className="ollama__head">
+        <span className="row__label">Estado de Ollama</span>
+        {checking && <span className="badge badge--missing">comprobando…</span>}
+        {!checking && status?.reachable && (
+          <span className="badge badge--ok">
+            detectado{status.version ? ` · v${status.version}` : ''}
+          </span>
+        )}
+        {!checking && status && !status.reachable && (
+          <span className="badge badge--missing">no detectado</span>
+        )}
+        <span className="statusbar__spacer" style={{ flex: 1 }} />
+        <button className="btn" onClick={probe} disabled={checking}>
+          Volver a comprobar
+        </button>
+      </div>
+
+      {!checking && status && !status.reachable && (
+        <div className="warn">
+          {status.error} Instálalo desde <strong>ollama.com</strong> y déjalo corriendo; el
+          servidor arranca solo tras la instalación.
+        </div>
+      )}
+
+      {!checking && status?.reachable && status.models.length === 0 && (
+        <div className="warn">
+          Ollama está corriendo pero no tiene ningún modelo descargado. Descarga uno desde una
+          terminal, por ejemplo: <code>ollama pull llama3.2</code>
+        </div>
+      )}
+
+      {!checking && status?.reachable && status.models.length > 0 && (
+        <>
+          <div className="row__desc" style={{ marginTop: 10 }}>
+            {status.models.length} modelo{status.models.length === 1 ? '' : 's'} detectado
+            {status.models.length === 1 ? '' : 's'} automáticamente:
+          </div>
+          <ul className="ollama__list">
+            {status.models.map((m) => (
+              <li key={m.id}>
+                {m.id}
+                {m.supportsVision && <span className="badge badge--ok">visión</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -444,6 +537,22 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
         Gemini Live transcribe en ~300 ms pero envía el audio a Google. Whisper local no sale de tu
         máquina, a cambio de ~1–2 s de latencia.
       </p>
+
+      <Row
+        label="Qué se escucha"
+        desc={AUDIO_SOURCE_HINT[settings.audioSources]}
+      >
+        <select
+          value={settings.audioSources}
+          onChange={(e) =>
+            void patch({ audioSources: e.target.value as Settings['audioSources'] })
+          }
+        >
+          <option value="both">Micrófono y salida del sistema</option>
+          <option value="system">Solo la salida del sistema</option>
+          <option value="mic">Solo el micrófono</option>
+        </select>
+      </Row>
 
       <Row label="Motor">
         <select
@@ -522,6 +631,22 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
     </section>
   );
 }
+
+/**
+ * El auto-disparo ya ignora tu propia voz (solo evalúa intervenciones del
+ * interlocutor), así que esta opción decide qué entra en el CONTEXTO enviado al
+ * modelo, no cuándo se dispara. Los textos lo dicen explícitamente porque es la
+ * confusión natural.
+ */
+const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], string> = {
+  both:
+    'El modelo sabe lo que ya has respondido, así que no te sugiere repetirlo. ' +
+    'El auto-disparo nunca reacciona a tu propia voz.',
+  system:
+    'Tu micrófono no se abre siquiera. Evita cualquier posibilidad de que tus ' +
+    'respuestas entren en el contexto, a cambio de que el modelo no sepa qué has dicho ya.',
+  mic: 'Solo se transcribe lo que dices tú. Útil para dictar notas, no para una entrevista.',
+};
 
 /** Duplicado a propósito: el renderer no puede importar del proceso main. */
 const WHISPER_MODEL_OPTIONS = [

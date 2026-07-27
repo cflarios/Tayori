@@ -2,7 +2,6 @@ import { globalShortcut } from 'electron';
 import type { HotkeyMap } from '@shared/types';
 import { settingsStore } from './config/store';
 import { getOverlay, nudgeOverlay, toggleOverlayVisibility } from './windows/overlay';
-import { openDashboard } from './windows/dashboard';
 import { setClickThrough } from './windows/stealth';
 
 /** Acciones que un hotkey puede disparar. Las rellena `registerHotkeys`. */
@@ -41,7 +40,7 @@ export function registerHotkeys(actions: HotkeyActions): string[] {
   bind(keys.screenshotAndAsk, actions.screenshotAndAsk);
   bind(keys.toggleListening, actions.toggleListening);
   bind(keys.toggleOverlay, toggleOverlayVisibility);
-  bind(keys.openDashboard, () => openDashboard());
+  // Sin atajo para el dashboard: se abre solo con el engranaje del overlay.
 
   bind(keys.toggleClickThrough, () => {
     const win = getOverlay();

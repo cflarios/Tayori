@@ -7,6 +7,12 @@ cuando compartes pantalla**.
 Open source, MIT, sin monetización. Todo corre en tu máquina y las llamadas van
 directas al proveedor de IA que elijas — no hay servidor intermedio.
 
+**No graba nada.** El audio se procesa al vuelo: los fragmentos van al motor de
+transcripción y se descartan en el acto, sin tocar el disco. La transcripción
+vive en memoria como una ventana rodante de las últimas intervenciones y
+desaparece al cerrar la app. No hay archivos de audio, ni historial, ni
+exportación. Es un asistente que escucha, no una grabadora.
+
 ## Qué hace
 
 - **Escucha dos fuentes por separado**: tu micrófono y el audio del sistema. Eso
@@ -51,14 +57,29 @@ El binario no está firmado, así que Windows SmartScreen avisará la primera ve
 
 ## Primeros pasos
 
-1. Arranca la app. El dashboard se abre solo si no hay ninguna key configurada.
-2. Pega tu API key de Anthropic o de Google.
-3. En **Contexto**, añade tu CV y la descripción del puesto. Esto es lo que
+1. Arranca la app. Aparece solo el overlay, arriba a la derecha.
+2. Pulsa el **engranaje** de su barra superior para abrir la configuración. Es
+   la única forma de abrirla: no hay atajo ni se abre sola.
+3. Pega tu API key de Anthropic o de Google.
+4. Elige **qué se escucha**. Por defecto son ambas fuentes; si prefieres que el
+   asistente no procese tus propias respuestas, cambia a *Solo la salida del
+   sistema*.
+5. En **Contexto**, añade tu CV y la descripción del puesto. Esto es lo que
    evita que el modelo invente experiencia que no tienes, y además mejora el
    reconocimiento de nombres propios y siglas.
-4. Pulsa **Empezar a escuchar** y comprueba que los dos medidores se mueven: el
-   de arriba al hablar tú, el de abajo al reproducir cualquier audio.
-5. El overlay aparece arriba a la derecha. Muévelo con `Ctrl+Alt+flechas`.
+6. Pulsa **Empezar a escuchar** y comprueba que los medidores se mueven.
+
+### Manejar el overlay
+
+- **Moverlo**: arrastra la barra superior con el botón izquierdo, o usa
+  `Ctrl+Alt+flechas`.
+- **Configuración**: el botón del engranaje.
+- **Cerrar la app**: la **X**. Para ocultarla temporalmente sin cerrarla,
+  `Ctrl+Shift+H`.
+
+Los botones de la barra funcionan aunque tengas activados los *clics
+atravesables*: el overlay deja de ignorar el ratón mientras el cursor está sobre
+la barra, y vuelve a dejarlo pasar en cuanto sales.
 
 ## Atajos de teclado
 
@@ -71,8 +92,10 @@ Todos son globales: funcionan aunque la ventana de la videollamada tenga el foco
 | `Ctrl+Shift+H` | Mostrar u ocultar el overlay |
 | `Ctrl+Shift+M` | Empezar o parar de escuchar |
 | `Ctrl+Shift+C` | Alternar clics atravesables |
-| `Ctrl+Shift+D` | Abrir el dashboard |
 | `Ctrl+Alt+←↑→↓` | Mover el overlay |
+
+La configuración **no tiene atajo** a propósito: se abre solo con el engranaje
+del overlay.
 
 ## El modo invisible: qué protege y qué no
 
@@ -152,8 +175,13 @@ npm run build:win   # instalador NSIS + portable
 
 ## Consideraciones legales
 
-Grabar o transcribir una conversación sin consentimiento es ilegal en bastantes
-jurisdicciones, y muchas empresas lo prohíben en sus procesos de selección.
+La app no graba ni almacena nada (ver arriba), lo que la deja fuera de la mayoría
+de normativas sobre **grabación** de conversaciones. Aun así, el audio de la
+reunión sí se envía a un tercero para transcribirlo si usas Gemini Live, y
+muchas empresas restringen el uso de asistentes de IA en sus procesos de
+selección. Si eso te preocupa, **Whisper local + Ollama** no envía nada a
+ningún sitio.
+
 Comprueba qué aplica en tu caso; la responsabilidad de usar esto es tuya.
 
 ## Licencia

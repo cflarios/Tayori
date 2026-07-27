@@ -106,37 +106,47 @@ function captureMicrophone(): Promise<MediaStream> {
 }
 
 export async function startCapture(
-  captureMic: boolean,
+  sources: 'both' | 'system' | 'mic',
   callbacks: CaptureCallbacks
 ): Promise<{ micActive: boolean; loopbackActive: boolean }> {
   await stopCapture();
 
+  const wantsLoopback = sources === 'both' || sources === 'system';
+  const wantsMic = sources === 'both' || sources === 'mic';
+
   let micActive = false;
+  let loopbackActive = false;
 
-  // El loopback es la fuente imprescindible: sin ella no hay nada que
-  // transcribir de la reunión. Si falla, propagamos el error en lugar de
-  // arrancar una sesión que no oye a nadie.
-  const loopback = await captureLoopback();
-  lanes.set('them', await buildLane('them', loopback, callbacks));
+  if (wantsLoopback) {
+    // Cuando el usuario pidió el audio del sistema, es la fuente principal: si
+    // falla, propagamos en lugar de arrancar una sesión que no oye a nadie.
+    // Con `sources === 'mic'` ni siquiera se pide permiso de captura.
+    const loopback = await captureLoopback();
+    lanes.set('them', await buildLane('them', loopback, callbacks));
+    loopbackActive = true;
+  }
 
-  if (captureMic) {
-    // El micrófono es opcional: si el usuario lo tiene desconectado o niega el
-    // permiso, seguimos escuchando a la otra parte en lugar de fallar entero.
+  if (wantsMic) {
     try {
       const mic = await captureMicrophone();
       lanes.set('me', await buildLane('me', mic, callbacks));
       micActive = true;
     } catch (err) {
-      callbacks.onError(
-        `No se pudo abrir el micrófono (se sigue escuchando la reunión): ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
+      const detail = err instanceof Error ? err.message : String(err);
+      // Con ambas fuentes, perder el micrófono degrada pero no impide seguir
+      // escuchando la reunión. Si el micrófono ERA la única fuente pedida, no
+      // hay nada que degradar: es un fallo.
+      if (loopbackActive) {
+        callbacks.onError(
+          `No se pudo abrir el micrófono (se sigue escuchando la reunión): ${detail}`
+        );
+      } else {
+        throw new Error(`No se pudo abrir el micrófono: ${detail}`, { cause: err });
+      }
     }
   }
 
-  // Si llegamos aquí, el loopback está activo: captureLoopback() lanza si no.
-  return { micActive, loopbackActive: true };
+  return { micActive, loopbackActive };
 }
 
 export async function stopCapture(): Promise<void> {

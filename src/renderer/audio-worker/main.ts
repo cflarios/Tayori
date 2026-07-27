@@ -51,7 +51,7 @@ const callbacks = {
 
 window.api.audioWorker.onCommand((command) => {
   if (command.action === 'start') {
-    startCapture(command.captureMic, callbacks)
+    startCapture(command.sources, callbacks)
       .then(({ micActive, loopbackActive }) => {
         startLevelsReporting();
         window.api.audioWorker.reportStarted({ micActive, loopbackActive });

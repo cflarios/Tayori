@@ -20,6 +20,10 @@ export const IPC = {
   clickThroughSet: 'click-through:set',
   overlayHide: 'overlay:hide',
   overlayResize: 'overlay:resize',
+  overlayMouseIgnore: 'overlay:mouse-ignore',
+  overlayDragStart: 'overlay:drag-start',
+  overlayDragEnd: 'overlay:drag-end',
+  overlayQuit: 'overlay:quit',
   dashboardOpen: 'dashboard:open',
 
   captureStart: 'capture:start',
@@ -37,6 +41,8 @@ export const IPC = {
 
   whisperGetStatus: 'whisper:get-status',
   whisperInstall: 'whisper:install',
+
+  ollamaGetStatus: 'ollama:get-status',
 
   // ── send (renderer → main, sin respuesta) ──
   audioChunk: 'audio:chunk',
@@ -63,8 +69,8 @@ export type IpcChannel = (typeof IPC)[keyof typeof IPC];
 /** Orden que main envía al audio-worker. */
 export interface CaptureCommand {
   action: 'start' | 'stop';
-  /** Si se debe capturar el micrófono además del loopback. */
-  captureMic: boolean;
+  /** Qué fuentes abrir. Ignorado cuando `action` es `stop`. */
+  sources: 'both' | 'system' | 'mic';
 }
 
 /**

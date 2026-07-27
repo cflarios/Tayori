@@ -205,7 +205,8 @@ export class GeminiLiveSTT implements STTProvider {
     await this.stop();
     this.client = new GoogleGenAI({ apiKey: this.apiKey });
 
-    for (const speaker of ['me', 'them'] as const) {
+    // Solo los hablantes que se escuchan: una sesión por hablante es cara.
+    for (const speaker of options.speakers) {
       const lane = new Lane(speaker, this.client, this.model, options, this.events);
       this.lanes.set(speaker, lane);
     }

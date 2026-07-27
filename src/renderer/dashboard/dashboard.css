@@ -267,6 +267,46 @@ button.btn--danger {
   transition: width 200ms ease-out;
 }
 
+/* ── Estado de Ollama ── */
+
+.ollama {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ollama__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ollama__list {
+  list-style: none;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ollama__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  color: #d2d5d9;
+}
+
+.ollama code,
+.warn code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* ── Context packs ── */
 
 .pack {
