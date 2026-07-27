@@ -516,3 +516,30 @@ Y en el README están escritos sin adornos los límites reales: no protege de un
 cámara apuntando a la pantalla, no oculta el proceso frente a software de
 proctoring que enumere ventanas, y no oculta lo que digas por el micrófono. Esa
 honestidad es parte del producto; no conviene diluirla.
+
+---
+
+## 12. Build and release automation
+
+Two GitHub Actions workflows live under `.github/workflows/`:
+
+- **`ci.yml`** runs on every `push` and `pull_request` in Windows. It runs
+  `npm ci`, typecheck, lint and tests, then builds only the portable target via
+  `npm run build:portable` (`electron-builder --win portable`). The `.exe` is
+  available as a run artifact for 30 days. `build:win` remains available for a
+  local NSIS installer build.
+- **`release.yml`** runs on pushes to `main`. Release Please reads Conventional
+  Commits and opens or updates a release PR. Once that PR is merged, it updates
+  `package.json`, `package-lock.json`, `CHANGELOG.md` and the versions manifest,
+  then creates the tag, GitHub Release and its generated change notes.
+
+When Release Please creates a release, a Windows runner rebuilds the portable
+from **that tag** and attaches two files to the Releases page:
+`Audio Helper-<version>-portable.exe` and a `.zip` containing that same
+executable. The CI artifact is deliberately not reused, so the published binary
+always belongs to the versioned commit.
+
+Version bumps require Conventional Commits on `main`: `fix:` bumps patch,
+`feat:` bumps minor, and `feat!:` (or `BREAKING CHANGE`) marks a breaking
+change. The base version is tracked in `.release-please-manifest.json`; do not
+manually edit it except for an intentional bootstrap.
