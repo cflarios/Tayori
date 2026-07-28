@@ -42,6 +42,18 @@ const IMPERATIVE_PROMPTS = [
 const MIN_WORDS = 3;
 
 /**
+ * Mínimo cuando hay una señal inequívoca de pregunta.
+ *
+ * En español muchas preguntas completas son de dos palabras: "¿Podrías
+ * presentarte?", "¿Qué recomiendas?", "¿Cómo funciona?". Con el mínimo fijo en
+ * tres se descartaban en silencio — pasó de verdad, y desde fuera parecía que
+ * la app había dejado de responder. Se baja sólo cuando hay signo de
+ * interrogación o interrogativo inicial, para no abrir la puerta a
+ * confirmaciones sueltas como "vale ya".
+ */
+const MIN_WORDS_WITH_MARKER = 2;
+
+/**
  * Muletillas y confirmaciones que la heurística marcaría por empezar con un
  * interrogativo pero que no piden respuesta.
  */
@@ -165,7 +177,14 @@ export function looksLikeQuestion(
     return { isQuestion: false, reason: 'muletilla o comprobación de audio' };
   }
 
-  if (words.length < MIN_WORDS) {
+  const firstWord = words[0] ?? '';
+  const hasStrongMarker =
+    raw.includes('?') ||
+    INTERROGATIVE_OPENERS.includes(firstWord) ||
+    IMPERATIVE_PROMPTS.some((prompt) => normalized.startsWith(prompt));
+
+  const minWords = hasStrongMarker ? MIN_WORDS_WITH_MARKER : MIN_WORDS;
+  if (words.length < minWords) {
     return { isQuestion: false, reason: `demasiado corto (${words.length} palabras)` };
   }
 
@@ -186,7 +205,6 @@ export function looksLikeQuestion(
     return { isQuestion: true, reason: 'signo de interrogación' };
   }
 
-  const firstWord = words[0] ?? '';
   const firstTwo = words.slice(0, 2).join(' ');
   if (INTERROGATIVE_OPENERS.includes(firstWord) || INTERROGATIVE_OPENERS.includes(firstTwo)) {
     return { isQuestion: true, reason: `interrogativo inicial: "${firstWord}"` };

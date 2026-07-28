@@ -76,12 +76,14 @@ function StatusBar({
   status,
   levels,
   stealth,
+  language,
   onDragStart,
   onNewConversation,
 }: {
   status: CaptureStatus;
   levels: AudioLevels;
   stealth: boolean;
+  language: string;
   onDragStart: (event: React.MouseEvent) => void;
   onNewConversation: () => void;
 }) {
@@ -102,6 +104,17 @@ function StatusBar({
       {/* Aviso explícito cuando el overlay SÍ es visible en una captura:
           es el estado peligroso, así que no puede pasar desapercibido. */}
       {!stealth && <span className="statusbar__label">· visible</span>}
+      {/*
+        Un idioma forzado que no coincide con lo que se habla no produce ningún
+        error: el reconocedor devuelve texto inventado en ese idioma. Al no estar
+        a la vista en ningún sitio, era imposible sospecharlo. `auto` no se
+        muestra porque no puede equivocarse.
+      */}
+      {language !== 'auto' && (
+        <span className="statusbar__lang" title={`Transcribiendo como "${language}"`}>
+          {language.toUpperCase()}
+        </span>
+      )}
       <span className="statusbar__spacer" />
 
       <div className="levels">
@@ -510,6 +523,7 @@ export function OverlayApp() {
         status={status}
         levels={levels}
         stealth={settings?.stealthEnabled ?? true}
+        language={settings?.language ?? 'auto'}
         onDragStart={onDragStart}
         onNewConversation={() => void window.api.history.newConversation()}
       />

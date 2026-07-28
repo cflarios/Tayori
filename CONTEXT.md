@@ -364,6 +364,16 @@ el código parece "incompleto" en estos puntos, es deliberado:
 
 Model IDs correctos: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`.
 
+**Cuarto hecho, aprendido a golpes:** el punto 2 se verificó contra Opus 5 y se
+aplicó a los tres modelos. `output_config.effort` es de la **generación 5**, y
+Haiku 4.5 devuelve `400: "This model does not support the effort parameter"` —
+así que Haiku fallaba en TODAS las preguntas mientras Opus funcionaba, un patrón
+que desde fuera no tiene ningún sentido. `EFFORT_UNSUPPORTED` en `claude.ts`
+lleva la lista y además **aprende en caliente**: si un modelo futuro también lo
+rechaza, la primera petición lo detecta, reintenta sin el parámetro y las
+siguientes ya salen bien. La lección general es que un parámetro comprobado
+contra un modelo no está comprobado para su familia.
+
 Para Gemini Live, la documentación de Google listaba **tres model IDs distintos**
 en páginas diferentes. La forma de la API se verificó contra los tipos del SDK
 instalado (`node_modules/@google/genai/dist/genai.d.ts`), que es la fuente
@@ -529,6 +539,9 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | Transcripción mediocre con los DOS motores | Sin filtro antialiasing, el contenido sobre 8 kHz se plegaba dentro de la banda de voz al decimar a 16 kHz | Que un fallo afecte por igual a dos implementaciones independientes es la señal de que está aguas arriba de ambas |
 | "¿Qué tal es la idea de software?" descartada como muletilla | El filtro hacía `startsWith('que tal ')`, así que cualquier pregunta que empezara por una muletilla moría | Una lista de frases a ignorar debe compararse contra la frase ENTERA; un prefijo compartido no significa lo mismo |
 | Respuesta eternamente en "Pensando…" | No había ningún tiempo límite en la generación: un proveedor colgado dejaba el estado ahí para siempre | Todo lo que espera a un proceso ajeno necesita reloj. Sin él, "lento" y "muerto" son la misma pantalla |
+| Haiku 4.5 fallaba con 400 en cada pregunta | `output_config.effort` es de la generación Claude 5 y se enviaba a todos los modelos. La API lo dice claro: *"This model does not support the effort parameter"* | Un parámetro verificado contra UN modelo no está verificado para toda la familia. Ver `EFFORT_UNSUPPORTED` |
+| Respuestas sin relación con lo preguntado, mezclando idiomas | `settings.language` estaba en `en` con alguien hablando español. Whisper **no falla** al forzar idioma: devuelve texto plausible inventado a partir de los sonidos (*"Are y'all gonna eat?"*) | Un ajuste cuyo error no produce ningún error tiene que estar a la vista. Por eso el idioma forzado sale ahora en la barra del overlay |
+| "¿Podrías presentarte?" descartada | `MIN_WORDS = 3`, y en español abundan las preguntas completas de dos palabras | Un umbral de longitud necesita excepción cuando hay una señal inequívoca |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve

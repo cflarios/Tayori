@@ -230,3 +230,25 @@ describe('casos del log de una sesión real', () => {
     }
   });
 });
+
+/**
+ * Sesión del 28/07, 04:00-04:03. El idioma estaba forzado a inglés mientras se
+ * hablaba español, así que estas transcripciones son literalmente lo que
+ * Whisper inventó — y siguen siendo el mejor material de prueba que hay.
+ */
+describe('casos del log del 28/07', () => {
+  it('acepta preguntas de dos palabras con signo', () => {
+    // Se descartaba por "demasiado corto (2 palabras)". Es una pregunta entera.
+    expect(looksLikeQuestion('Podrías presentarte?').isQuestion).toBe(true);
+    expect(looksLikeQuestion('¿Qué recomiendas?').isQuestion).toBe(true);
+    expect(looksLikeQuestion('¿Cómo funciona?').isQuestion).toBe(true);
+  });
+
+  it('pero dos palabras sin marcador siguen sin bastar', () => {
+    // El mínimo sólo baja cuando hay señal inequívoca; si no, cualquier
+    // confirmación suelta empezaría a disparar.
+    expect(looksLikeQuestion('vale ya').isQuestion).toBe(false);
+    expect(looksLikeQuestion('perfecto gracias').isQuestion).toBe(false);
+    expect(looksLikeQuestion('¿Y?').isQuestion).toBe(false);
+  });
+});

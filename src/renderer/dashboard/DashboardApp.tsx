@@ -845,7 +845,10 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
         </select>
       </Row>
 
-      <Row label="Idioma" desc="Automático detecta el idioma; fijarlo mejora la precisión.">
+      <Row
+        label="Idioma"
+        desc="Automático detecta el idioma; fijarlo mejora la precisión cuando aciertas."
+      >
         <select value={settings.language} onChange={(e) => void patch({ language: e.target.value })}>
           <option value="auto">Automático</option>
           <option value="es">Español</option>
@@ -855,6 +858,21 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
           <option value="de">Alemán</option>
         </select>
       </Row>
+
+      {/*
+        El aviso es fuerte porque el fallo es silencioso y muy desconcertante:
+        pasó de verdad con el idioma en inglés y alguien hablando español.
+        Whisper devolvía "Are y'all gonna eat?" y el modelo respondía a eso.
+      */}
+      {settings.language !== 'auto' && (
+        <div className="warn">
+          Estás forzando <strong>{LANGUAGE_LABEL[settings.language] ?? settings.language}</strong>.
+          Si hablas en otro idioma <strong>no verás ningún error</strong>: el reconocedor devuelve
+          texto plausible en el idioma que le impongas, inventado a partir de los sonidos. Si las
+          respuestas no tienen nada que ver con lo que preguntaste, esto es lo primero que hay que
+          mirar.
+        </div>
+      )}
 
       {settings.sttProviderId === 'whisper-local' && (
         <>
@@ -956,6 +974,14 @@ const SPEAKER_LABEL: Record<'me' | 'them' | 'any', string> = {
   me: 'tu micrófono',
   them: 'el interlocutor',
   any: 'cualquiera de los dos',
+};
+
+const LANGUAGE_LABEL: Record<string, string> = {
+  es: 'Español',
+  en: 'Inglés',
+  pt: 'Portugués',
+  fr: 'Francés',
+  de: 'Alemán',
 };
 
 /** Duplicado a propósito: el renderer no puede importar del proceso main. */
