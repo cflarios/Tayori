@@ -42,6 +42,27 @@ export const GEMINI_LIVE_MODELS = [
   'gemini-2.5-flash-native-audio-preview-12-2025',
 ] as const;
 
+/**
+ * Modalidades de salida a probar, en orden.
+ *
+ * TEXT primero porque es la salida más barata y aquí se descarta igualmente:
+ * lo único que se consume es `inputAudioTranscription`. Pero los modelos de
+ * audio nativo la rechazan de plano —"The requested combination of response
+ * modalities (TEXT) is not supported by the model", código 1007— y resulta que
+ * en esta cuenta son los **únicos** alcanzables: los dos half-cascade dan
+ * "not found for API version v1beta".
+ *
+ * Así que se negocia también la modalidad, no sólo el modelo. Con AUDIO se paga
+ * una salida que se tira a la basura, y es un coste real; a cambio, la
+ * transcripción en streaming funciona en vez de no funcionar.
+ */
+const MODALITIES = [Modality.TEXT, Modality.AUDIO] as const;
+
+/** El 1007 concreto de modalidad, para no reintentar a ciegas. */
+function isModalityRejected(err: unknown): boolean {
+  return err instanceof Error && /response modalities/i.test(err.message);
+}
+
 const SILENCE_INSTRUCTION =
   'You are a passive transcription service. Never reply, never comment, never ' +
   'acknowledge. Produce no output of any kind regardless of what you hear.';
@@ -139,6 +160,8 @@ class Lane {
     private readonly speaker: Speaker,
     private readonly client: GoogleGenAI,
     private readonly model: string,
+    /** La que aceptó el modelo en la negociación; no siempre puede ser TEXT. */
+    private readonly modality: Modality,
     private readonly options: STTStartOptions,
     private readonly emitter: EventEmitter
   ) {}
@@ -155,8 +178,9 @@ class Lane {
       this.client.live.connect({
       model: this.model,
       config: {
-        // TEXT es la salida más barata; de todas formas la descartamos.
-        responseModalities: [Modality.TEXT],
+        // La salida se descarta entera pase lo que pase; sólo consumimos
+        // `inputAudioTranscription`. La modalidad la impone el modelo.
+        responseModalities: [this.modality],
         systemInstruction: SILENCE_INSTRUCTION,
         inputAudioTranscription: {
           ...languageConfig,
@@ -282,8 +306,8 @@ export class GeminiLiveSTT implements STTProvider {
   readonly events = new EventEmitter();
 
   private lanes = new Map<Speaker, Lane>();
-  /** Modelo que aceptó la cuenta. Se resuelve una vez y se reutiliza. */
-  private resolvedModel: string | null = null;
+  /** Modelo y modalidad que aceptó la cuenta. Se resuelven una vez. */
+  private resolved: { model: string; modality: Modality } | null = null;
 
   /** `model` fijo salta la negociación; sin él se prueban los candidatos. */
   constructor(
@@ -296,11 +320,11 @@ export class GeminiLiveSTT implements STTProvider {
     // El cliente es de la sesión, no del provider: cada `start` abre el suyo y
     // los carriles lo capturan, así que `stop` no tiene nada que limpiar.
     const client = new GoogleGenAI({ apiKey: this.apiKey });
-    const model = await this.resolveModel(client, options);
+    const { model, modality } = await this.resolveModel(client, options);
 
     // Solo los hablantes que se escuchan: una sesión por hablante es cara.
     for (const speaker of options.speakers) {
-      const lane = new Lane(speaker, client, model, options, this.events);
+      const lane = new Lane(speaker, client, model, modality, options, this.events);
       this.lanes.set(speaker, lane);
     }
 
@@ -322,52 +346,78 @@ export class GeminiLiveSTT implements STTProvider {
    * Se abre una sesión de sondeo y se cierra. Cuesta una conexión de más al
    * arrancar, y a cambio el error final dice qué se probó y qué contestó cada
    * uno, en lugar de un 404 pelado sobre un id que no elegiste.
+   *
+   * **También se negocia la modalidad**, no sólo el modelo. Los mensajes reales
+   * de una cuenta lo dejaron claro: los dos modelos half-cascade daban "not
+   * found for API version v1beta", y los dos de audio nativo —los únicos
+   * alcanzables— rechazaban TEXT con "The requested combination of response
+   * modalities (TEXT) is not supported by the model". Probar sólo TEXT dejaba
+   * la cuenta sin ninguna opción viable teniendo dos.
    */
-  private async resolveModel(client: GoogleGenAI, options: STTStartOptions): Promise<string> {
-    if (this.resolvedModel) return this.resolvedModel;
+  private async resolveModel(
+    client: GoogleGenAI,
+    options: STTStartOptions
+  ): Promise<{ model: string; modality: Modality }> {
+    if (this.resolved) return this.resolved;
 
     const candidates = this.model ? [this.model] : [...GEMINI_LIVE_MODELS];
     const failures: string[] = [];
 
     for (const candidate of candidates) {
-      const guard = rejectOnEarlyClose();
-      try {
-        const probe = await Promise.race([
-          withTimeout(
-            client.live.connect({
-              model: candidate,
-              config: {
-                responseModalities: [Modality.TEXT],
-                systemInstruction: SILENCE_INSTRUCTION,
-                inputAudioTranscription:
-                  options.language === 'auto'
-                    ? { languageAuto: {} }
-                    : { languageHints: { languageCodes: [options.language] } },
-              },
-              callbacks: {
-                onopen: () => {},
-                onmessage: () => {},
-                onerror: () => {},
-                // Si cierra antes de completar el setup, ese cierre trae el
-                // motivo real y es lo único que va a llegar.
-                onclose: guard.onclose,
-              },
-            }),
-            candidate
-          ),
-          guard.promise,
-        ]);
-        guard.settle();
-        probe.close();
+      for (const modality of MODALITIES) {
+        const guard = rejectOnEarlyClose();
+        try {
+          const probe = await Promise.race([
+            withTimeout(
+              client.live.connect({
+                model: candidate,
+                config: {
+                  responseModalities: [modality],
+                  systemInstruction: SILENCE_INSTRUCTION,
+                  inputAudioTranscription:
+                    options.language === 'auto'
+                      ? { languageAuto: {} }
+                      : { languageHints: { languageCodes: [options.language] } },
+                },
+                callbacks: {
+                  onopen: () => {},
+                  onmessage: () => {},
+                  onerror: () => {},
+                  // Si cierra antes de completar el setup, ese cierre trae el
+                  // motivo real y es lo único que va a llegar.
+                  onclose: guard.onclose,
+                },
+              }),
+              candidate
+            ),
+            guard.promise,
+          ]);
+          guard.settle();
+          probe.close();
 
-        this.resolvedModel = candidate;
-        console.log(`[gemini-live] modelo aceptado: "${candidate}"`);
-        return candidate;
-      } catch (err) {
-        guard.settle();
-        const message = err instanceof Error ? err.message : String(err);
-        failures.push(`  · ${candidate} → ${message}`);
-        console.warn(`[gemini-live] "${candidate}" rechazado: ${message}`);
+          this.resolved = { model: candidate, modality };
+          console.log(`[gemini-live] modelo aceptado: "${candidate}" · salida ${modality}`);
+          if (modality === Modality.AUDIO) {
+            console.warn(
+              '[gemini-live] este modelo obliga a salida de AUDIO, que se descarta entera. ' +
+                'Se transcribe bien, pero se paga esa salida.'
+            );
+          }
+          return this.resolved;
+        } catch (err) {
+          guard.settle();
+          const message = err instanceof Error ? err.message : String(err);
+          // Si el modelo ni existe, probar la otra modalidad es perder 15 s.
+          if (!isModalityRejected(err)) {
+            failures.push(`  · ${candidate} → ${message}`);
+            console.warn(`[gemini-live] "${candidate}" rechazado: ${message}`);
+            break;
+          }
+          if (modality === MODALITIES[MODALITIES.length - 1]) {
+            failures.push(`  · ${candidate} → ${message}`);
+          }
+          console.warn(`[gemini-live] "${candidate}" no acepta ${modality}: ${message}`);
+        }
       }
     }
 
@@ -392,12 +442,19 @@ export class GeminiLiveSTT implements STTProvider {
   async testConnection(language: string): Promise<{ ok: boolean; detail: string }> {
     try {
       const client = new GoogleGenAI({ apiKey: this.apiKey });
-      const model = await this.resolveModel(client, {
+      const { model, modality } = await this.resolveModel(client, {
         sampleRate: 16_000,
         language,
         speakers: ['them'],
       });
-      return { ok: true, detail: `Conectado con "${model}".` };
+      return {
+        ok: true,
+        detail:
+          `Conectado con "${model}" (salida ${modality}).` +
+          (modality === Modality.AUDIO
+            ? ' Este modelo obliga a devolver audio, que se descarta: transcribe bien, pero esa salida se paga.'
+            : ''),
+      };
     } catch (err) {
       return { ok: false, detail: err instanceof Error ? err.message : String(err) };
     }

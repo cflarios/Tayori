@@ -454,6 +454,9 @@ class SessionOrchestrator {
       // responde" sin ponerse a adivinar. Una prueba real gastó cinco frases
       // seguidas para descubrir que el detector las estaba tirando en silencio.
       console.log(`[auto] descartado (${verdict.reason}): "${segment.text.slice(0, 60)}"`);
+      // Y además se enseña. El log sirve para depurar; el overlay, para que
+      // quien está hablando entienda por qué no ha pasado nada.
+      this.broadcast(IPC.onAutoSkip, { text: segment.text, reason: verdict.reason });
       return;
     }
 

@@ -79,6 +79,15 @@ export const IPC = {
   onConversationReset: 'event:conversation-reset',
   /** Fallo del motor de transcripción. La captura sigue viva; hay que enseñarlo. */
   onSTTError: 'event:stt-error',
+  /**
+   * El detector decidió no responder a una intervención.
+   *
+   * Sin esto el descarte es invisible: aparece la transcripción y no pasa nada
+   * más, que desde fuera es indistinguible de una app rota. Pasó de verdad —
+   * alguien probó cinco veces con "¿me escuchas?" y concluyó que ningún modelo
+   * respondía, cuando cada descarte había sido correcto.
+   */
+  onAutoSkip: 'event:auto-skip',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

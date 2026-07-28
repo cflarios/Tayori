@@ -94,6 +94,9 @@ const api = {
       subscribe<TranscriptSegment>(IPC.onTranscript, cb),
     /** Fallos del motor de transcripción, para poder enseñarlos en la UI. */
     onError: (cb: (message: string) => void) => subscribe<string>(IPC.onSTTError, cb),
+    /** El detector decidió no responder, y por qué. */
+    onAutoSkip: (cb: (info: { text: string; reason: string }) => void) =>
+      subscribe<{ text: string; reason: string }>(IPC.onAutoSkip, cb),
     testConnection: (): Promise<{ ok: boolean; detail: string }> =>
       ipcRenderer.invoke(IPC.sttTestConnection),
   },

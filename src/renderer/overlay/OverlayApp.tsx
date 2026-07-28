@@ -415,8 +415,46 @@ function ComposePane({ onSend }: { onSend: (text: string) => void }) {
   );
 }
 
-function AnswerPane({ answer }: { answer: Answer | null }) {
+/**
+ * Explica un descarte del detector en lenguaje llano.
+ *
+ * El motivo interno ("muletilla o comprobación de audio") es preciso pero no
+ * dice qué hacer. Estos textos sí, y el de la comprobación de audio es
+ * afirmativo a propósito: alguien que pregunta "¿me escuchas?" quiere saber si
+ * la cadena funciona, y la respuesta honesta es que sí — sólo que eso no
+ * dispara una sugerencia.
+ */
+function explainSkip(reason: string): string {
+  if (reason.includes('muletilla')) {
+    return 'Te escucho, pero un saludo o una prueba de sonido no dispara respuesta. Prueba con una pregunta real.';
+  }
+  if (reason.includes('corto')) {
+    return 'Demasiado corto para tomarlo por una pregunta.';
+  }
+  if (reason.includes('estricto')) {
+    return 'No parecía una pregunta. En modo estricto sólo cuentan las señales claras; súbelo a «Equilibrado» o «Todo» en el dashboard.';
+  }
+  return 'No parecía una pregunta. Si quieres que responda a todo, pon la sensibilidad en «Todo».';
+}
+
+function AnswerPane({
+  answer,
+  skip,
+}: {
+  answer: Answer | null;
+  skip: { text: string; reason: string } | null;
+}) {
   if (!answer) {
+    // El descarte sólo se enseña mientras no haya respuesta: si ya hay una en
+    // pantalla, taparla con un aviso sobre una frase suelta sería peor.
+    if (skip) {
+      return (
+        <div className="skip">
+          <span className="skip__what">«{skip.text}»</span>
+          <span className="skip__why">{explainSkip(skip.reason)}</span>
+        </div>
+      );
+    }
     return <p className="empty">Ctrl+Enter para pedir una respuesta.</p>;
   }
   if (answer.status === 'thinking') {
@@ -442,6 +480,7 @@ export function OverlayApp() {
   const [configured, setConfigured] = useState(true);
   const [tab, setTab] = useState<InputTab>('listen');
   const [sttError, setSttError] = useState<string | null>(null);
+  const [skip, setSkip] = useState<{ text: string; reason: string } | null>(null);
 
   useChromeMouse();
   const onDragStart = useOverlayDrag();
@@ -485,8 +524,11 @@ export function OverlayApp() {
       api.capture.onStatus(setStatus),
       api.capture.onLevels(setLevels),
       api.screenshot.onCaptured(setShot),
+      // Un descarte deja de importar en cuanto llega una respuesta de verdad.
+      api.transcript.onAutoSkip(setSkip),
       api.ask.onAnswer((next) => {
         setAnswer(next);
+        setSkip(null);
         // La captura se consume con la respuesta: dejar el thumbnail visible
         // haría creer que sigue adjunta a la siguiente pregunta.
         if (next.status === 'streaming' || next.status === 'done') setShot(null);
@@ -569,7 +611,7 @@ export function OverlayApp() {
 
       <div className="section" style={{ flex: 1 }}>
         <span className="section__title">Sugerencia</span>
-        <AnswerPane answer={answer} />
+        <AnswerPane answer={answer} skip={skip} />
       </div>
 
       {/* Sólo tienen sentido cuando hay una respuesta sobre la que actuar:
