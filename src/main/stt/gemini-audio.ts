@@ -58,6 +58,35 @@ export interface AudioAnswerContext {
   history: { question: string; answer: string }[];
 }
 
+/**
+ * Lee la respuesta estructurada, tolerando que venga cortada.
+ *
+ * `responseSchema` garantiza la forma cuando el modelo llega al final, pero no
+ * que llegue: si se agota `maxOutputTokens` el JSON sale truncado y `JSON.parse`
+ * lanza. Ya no debería pasar con el razonamiento desactivado, pero una respuesta
+ * larga siempre puede rozar el tope, y perder el turno entero por una comilla
+ * que falta es un mal negocio: se rescata al menos la transcripción.
+ */
+export function parseAudioResponse(raw: string): { transcript: string; answer: string } | null {
+  try {
+    const parsed = JSON.parse(raw) as { transcripcion?: string; respuesta?: string };
+    return {
+      transcript: (parsed.transcripcion ?? '').trim(),
+      answer: (parsed.respuesta ?? '').trim(),
+    };
+  } catch {
+    // Rescate: el campo `transcripcion` va primero en el esquema, así que suele
+    // estar completo aunque `respuesta` se haya quedado a medias.
+    const salvaged = /"transcripcion"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(raw);
+    if (!salvaged?.[1]) return null;
+    try {
+      return { transcript: (JSON.parse(`"${salvaged[1]}"`) as string).trim(), answer: '' };
+    } catch {
+      return null;
+    }
+  }
+}
+
 /** Carril por hablante: su VAD y su cola en serie. */
 class Lane {
   private readonly vad: EnergyVAD;
@@ -168,7 +197,16 @@ export class GeminiAudioSTT implements STTProvider {
           systemInstruction: systemPrompt,
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA,
-          maxOutputTokens: 900,
+          /*
+           * Sin esto llegaban JSON cortados a media cadena
+           * ("Unterminated string in JSON at position 59"). Gemini 2.5 razona
+           * por defecto, y **los tokens de razonamiento se descuentan de
+           * `maxOutputTokens`**: se gastaban pensando y la respuesta se cortaba
+           * antes de cerrar las comillas. Aquí el razonamiento no aporta —hay
+           * que transcribir y contestar breve— y además es latencia pura.
+           */
+          thinkingConfig: { thinkingBudget: 0 },
+          maxOutputTokens: 1_200,
         },
       });
 
@@ -180,9 +218,17 @@ export class GeminiAudioSTT implements STTProvider {
         return;
       }
 
-      const parsed = JSON.parse(raw) as { transcripcion?: string; respuesta?: string };
-      const transcript = (parsed.transcripcion ?? '').trim();
-      const answer = (parsed.respuesta ?? '').trim();
+      const parsed = parseAudioResponse(raw);
+      if (!parsed) {
+        // Un JSON roto no puede tumbar el turno: se registra el crudo recortado
+        // para poder diagnosticarlo y se sigue escuchando.
+        console.warn(
+          `[gemini-audio:${speaker}] respuesta no parseable, se descarta el turno: ` +
+            JSON.stringify(raw.slice(0, 200))
+        );
+        return;
+      }
+      const { transcript, answer } = parsed;
       const tookMs = Date.now() - startedAt;
 
       console.log(

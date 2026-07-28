@@ -79,6 +79,48 @@ async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   }
 }
 
+/**
+ * Rechaza en cuanto el socket se cierra durante el handshake, con el motivo.
+ *
+ * Aquí estaba el fallo de verdad. Cuando el setup no se acepta, el servidor
+ * cierra con un código y un texto perfectamente legibles —`1007 · "API key not
+ * valid. Please pass a valid API key."`— **pero sin enviar ningún mensaje**. El
+ * SDK espera un `setupComplete` que no va a llegar y su promesa no se resuelve
+ * ni se rechaza jamás.
+ *
+ * El timeout de 15 s tapaba el síntoma pero tiraba la información: convertía un
+ * "tu API key no vale" en un "sin respuesta". Escuchando el cierre se recupera
+ * la causa exacta y se falla al instante.
+ */
+function rejectOnEarlyClose(): {
+  onclose: (event: { code?: number; reason?: string }) => void;
+  promise: Promise<never>;
+  settle: () => void;
+} {
+  let reject: (err: Error) => void = () => {};
+  let done = false;
+
+  const promise = new Promise<never>((_, rej) => {
+    reject = rej;
+  });
+
+  return {
+    onclose: (event) => {
+      if (done) return;
+      const reason = event.reason?.trim();
+      reject(
+        new Error(
+          reason ? `${reason} (código ${event.code ?? '?'})` : `cerrado con código ${event.code ?? '?'}`
+        )
+      );
+    },
+    promise,
+    settle: () => {
+      done = true;
+    },
+  };
+}
+
 /** Un carril = una sesión WebSocket dedicada a un hablante. */
 class Lane {
   private session: Session | null = null;
@@ -288,33 +330,41 @@ export class GeminiLiveSTT implements STTProvider {
     const failures: string[] = [];
 
     for (const candidate of candidates) {
+      const guard = rejectOnEarlyClose();
       try {
-        const probe = await withTimeout(
-          client.live.connect({
-            model: candidate,
-            config: {
-              responseModalities: [Modality.TEXT],
-              systemInstruction: SILENCE_INSTRUCTION,
-              inputAudioTranscription:
-                options.language === 'auto'
-                  ? { languageAuto: {} }
-                  : { languageHints: { languageCodes: [options.language] } },
-            },
-            callbacks: {
-              onopen: () => {},
-              onmessage: () => {},
-              onerror: () => {},
-              onclose: () => {},
-            },
-          }),
-          candidate
-        );
+        const probe = await Promise.race([
+          withTimeout(
+            client.live.connect({
+              model: candidate,
+              config: {
+                responseModalities: [Modality.TEXT],
+                systemInstruction: SILENCE_INSTRUCTION,
+                inputAudioTranscription:
+                  options.language === 'auto'
+                    ? { languageAuto: {} }
+                    : { languageHints: { languageCodes: [options.language] } },
+              },
+              callbacks: {
+                onopen: () => {},
+                onmessage: () => {},
+                onerror: () => {},
+                // Si cierra antes de completar el setup, ese cierre trae el
+                // motivo real y es lo único que va a llegar.
+                onclose: guard.onclose,
+              },
+            }),
+            candidate
+          ),
+          guard.promise,
+        ]);
+        guard.settle();
         probe.close();
 
         this.resolvedModel = candidate;
         console.log(`[gemini-live] modelo aceptado: "${candidate}"`);
         return candidate;
       } catch (err) {
+        guard.settle();
         const message = err instanceof Error ? err.message : String(err);
         failures.push(`  · ${candidate} → ${message}`);
         console.warn(`[gemini-live] "${candidate}" rechazado: ${message}`);
