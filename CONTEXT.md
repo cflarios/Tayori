@@ -426,6 +426,30 @@ una dependencia de unzip por una operación que se hace una vez.
 El ejecutable se **busca** en lugar de asumir su ruta: el nombre cambió entre
 versiones (`main.exe` → `whisper-cli.exe`) y el zip no tiene estructura estable.
 
+**Desde julio de 2026 se usa `whisper-server`, no el CLI por turno.** El mismo
+zip trae `whisper-server.exe`, que mantiene el modelo cargado entre peticiones y
+acepta WAV por HTTP. Medido con los mismos hilos y el mismo audio:
+
+| | por turno |
+|---|---|
+| `whisper-cli` (proceso nuevo cada vez) | ~1440 ms |
+| `whisper-server` (modelo residente) | ~825 ms |
+
+Los ~1440 ms del CLI coinciden con los tiempos reales del log de una sesión
+(1380–1540 ms), así que la medida es representativa y no de laboratorio.
+
+Dos cosas que conviene no confundir:
+
+- **El CLI sigue ahí y no es código muerto.** Si el servidor no arranca —puerto
+  ocupado, binario viejo sin `whisper-server.exe`— se cae al CLI. Una mejora de
+  latencia no puede tumbar la transcripción entera.
+- **Lo que NO arregla:** whisper.cpp procesa siempre una ventana de 30 segundos,
+  así que el paso del encoder cuesta lo mismo con 1,7 s de audio que con 8,2 s.
+  Ese suelo es del modelo, no del transporte, y es la razón de que los tiempos
+  del log fueran tan planos. Quien busque bajar de ahí tiene que tocar
+  `--audio-ctx`, a costa de precisión, o cambiar a un motor con streaming real
+  (Gemini Live).
+
 ### VAD: energía en TypeScript, no Silero
 
 Por el mismo criterio. El plan decía `@ricky0123/vad-web` + `onnxruntime-node`,

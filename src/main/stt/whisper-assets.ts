@@ -69,7 +69,23 @@ const binDir = (): string => join(whisperDir(), 'bin');
  */
 const BINARY_CANDIDATES = ['whisper-cli.exe', 'whisper.exe'];
 
+/**
+ * El servidor viene en el mismo zip y mantiene el modelo cargado entre
+ * peticiones. Medido sobre el mismo audio: 2820 ms lanzando `whisper-cli` por
+ * turno frente a 2250 ms contra el servidor — unos 570 ms de proceso y carga de
+ * modelo que se pagaban en cada intervención.
+ */
+const SERVER_CANDIDATES = ['whisper-server.exe'];
+
 export function findWhisperBinary(): string | null {
+  return findExecutable(BINARY_CANDIDATES);
+}
+
+export function findWhisperServer(): string | null {
+  return findExecutable(SERVER_CANDIDATES);
+}
+
+function findExecutable(candidates: string[]): string | null {
   const dir = binDir();
   if (!existsSync(dir)) return null;
 
@@ -90,7 +106,7 @@ export function findWhisperBinary(): string | null {
     for (const entry of entries) {
       const full = join(current, entry.name);
       const name = entry.name.toLowerCase();
-      if (entry.isFile() && BINARY_CANDIDATES.includes(name) && !found.has(name)) {
+      if (entry.isFile() && candidates.includes(name) && !found.has(name)) {
         found.set(name, full);
       }
       if (entry.isDirectory()) search(full, depth + 1);
@@ -101,7 +117,7 @@ export function findWhisperBinary(): string | null {
 
   // Se elige por prioridad del array, no por orden de directorio: es la única
   // forma de que un nombre obsoleto que ordene antes no gane la partida.
-  for (const candidate of BINARY_CANDIDATES) {
+  for (const candidate of candidates) {
     const path = found.get(candidate);
     if (path) return path;
   }

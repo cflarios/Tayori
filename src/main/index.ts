@@ -34,6 +34,7 @@ import { createLLMProvider, listModelsFor } from './llm';
 import { probeOllama } from './llm/ollama';
 import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
 import { testSTTConnection } from './stt';
+import { whisperServer } from './stt/whisper-server';
 import { initLogging, logLocation, readLogTail } from './logging';
 
 /**
@@ -330,6 +331,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('will-quit', () => {
     unregisterHotkeys();
+    // El servidor de Whisper es un proceso hijo: si no se mata aquí sobrevive a
+    // la app con el modelo entero en memoria.
+    whisperServer.stop();
     // Cerrar por cualquier vía (X de la barra, Alt+F4, apagado) debe consolidar
     // el historial; `overlayQuit` no es el único camino de salida.
     sessionOrchestrator.flush();

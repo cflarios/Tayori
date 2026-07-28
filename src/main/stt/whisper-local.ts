@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import type { Speaker, STTProviderId } from '@shared/types';
 import { EnergyVAD, type Utterance } from '../core/vad';
 import { findWhisperBinary, getModelPath, isModelInstalled } from './whisper-assets';
+import { whisperServer } from './whisper-server';
 import type { STTProvider, STTStartOptions } from './types';
 
 /**
@@ -185,6 +186,8 @@ export class WhisperLocalSTT implements STTProvider {
   private tempDir: string | null = null;
   private counter = 0;
   private stopped = false;
+  /** `false` cae al CLI, que arranca un proceso por intervención. */
+  private useServer = false;
 
   constructor(
     private readonly binaryPath: string,
@@ -214,6 +217,13 @@ export class WhisperLocalSTT implements STTProvider {
     await this.stop();
     this.stopped = false;
     this.tempDir = mkdtempSync(join(tmpdir(), 'ih-whisper-'));
+
+    // El servidor ahorra ~570 ms por turno frente a lanzar el CLI cada vez. Si
+    // no arranca se sigue con el CLI: más lento, pero la transcripción funciona.
+    this.useServer = await whisperServer.ensure(this.modelPath, options.language);
+    console.log(
+      `[whisper] transcribiendo con ${this.useServer ? 'whisper-server (modelo residente)' : 'whisper-cli (un proceso por turno)'}`
+    );
 
     for (const speaker of options.speakers) {
       this.lanes.set(
@@ -250,12 +260,28 @@ export class WhisperLocalSTT implements STTProvider {
     return Promise.resolve();
   }
 
-  /** Ejecuta whisper-cli sobre un WAV temporal y devuelve el texto plano. */
+  /** Transcribe un turno: por el servidor si está vivo, si no por el CLI. */
   private async runWhisper(utterance: Utterance, options: STTStartOptions): Promise<string> {
     if (!this.tempDir) return '';
 
+    const wav = toWav(utterance.pcm, options.sampleRate);
+
+    if (this.useServer && whisperServer.running) {
+      try {
+        return cleanOutput(await whisperServer.transcribe(wav, options.language));
+      } catch (err) {
+        // El servidor puede haberse caído entre turnos. Se degrada al CLI en
+        // lugar de perder la intervención, y se deja de intentarlo.
+        console.warn(
+          `[whisper-server] falló (${err instanceof Error ? err.message : String(err)}); ` +
+            'se continúa con whisper-cli.'
+        );
+        this.useServer = false;
+      }
+    }
+
     const wavPath = join(this.tempDir, `u${this.counter++}.wav`);
-    writeFileSync(wavPath, toWav(utterance.pcm, options.sampleRate));
+    writeFileSync(wavPath, wav);
 
     const args = [
       '-m', this.modelPath,
