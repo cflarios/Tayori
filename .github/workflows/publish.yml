@@ -1,22 +1,24 @@
-## Publica un GitHub Release con el .exe portable a partir de un tag.
+## Reconstruye y publica el .exe portable de un tag que YA existe.
 ##
-## Existe porque `release.yml` depende de que Release Please pueda ABRIR una
-## pull request, y eso está desactivado por defecto en GitHub
-## ("Allow GitHub Actions to create and approve pull requests"). Cuando esa
-## opción está apagada, release-please calcula la versión, genera el CHANGELOG,
-## crea la rama... y muere en el último paso, dejando el repositorio sin release.
+## Es la válvula de escape manual, no el camino normal: de eso se encarga
+## `release.yml`, que crea el tag y adjunta los binarios al fusionar la PR de
+## release. Este workflow sirve cuando ese job falló, cuando hay que rehacer un
+## binario, o cuando el release se creó a mano.
 ##
-## Crear un RELEASE, en cambio, sí está permitido con `contents: write`. Así que
-## este workflow no depende de ninguna configuración: empujas un tag `v*` y sale
-## el ejecutable publicado. También sirve de válvula de escape manual desde la
-## pestaña Actions.
+## Nació porque `release.yml` depende de que Release Please pueda ABRIR una pull
+## request, y eso viene desactivado por defecto en GitHub ("Allow GitHub Actions
+## to create and approve pull requests"). Con esa opción apagada, release-please
+## calcula la versión, genera el CHANGELOG, crea la rama... y muere en el último
+## paso, dejando el repositorio sin release. Crear un RELEASE, en cambio, sí
+## está permitido con `contents: write`.
+##
+## **Sin disparo por tag a propósito.** Ahora que los tags son `v*` en los dos
+## sitios, engancharlo a `push: tags` haría que cada release compilara dos veces
+## en paralelo, unos ocho minutos de runner de Windows para el mismo binario.
 
 name: Publish release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -35,7 +37,7 @@ jobs:
       - name: Resolve tag
         id: tag
         shell: bash
-        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        run: echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
 
       - name: Check out the tagged commit
         uses: actions/checkout@v4
