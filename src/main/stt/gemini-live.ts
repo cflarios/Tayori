@@ -19,14 +19,27 @@ import type { STTProvider, STTStartOptions } from './types';
  */
 
 /**
- * Modelos Live disponibles. La documentación de Google lista varios y no todos
- * están habilitados en toda cuenta, así que el orden es de preferencia y el
- * primero es el default. Si uno da 404/permission denied, probar el siguiente.
+ * Modelos Live, en orden de preferencia. No todos están habilitados en toda
+ * cuenta, así que se prueban en cadena (ver `resolveModel`).
+ *
+ * **El orden se corrigió con la fuente autoritativa, no con la documentación
+ * web.** El propio SDK trae un ejemplo de `live.connect` en sus typedefs que
+ * distingue los dos casos:
+ *
+ *     if (GOOGLE_GENAI_USE_VERTEXAI) model = 'gemini-2.0-flash-live-preview-04-09';
+ *     else                           model = 'gemini-live-2.5-flash-preview';
+ *
+ * Aquí se usa API key, o sea el Gemini Developer API, o sea la rama `else`.
+ * Antes encabezaba la lista `gemini-2.5-flash-native-audio-preview-12-2025`,
+ * que además de no aparecer en el SDK es un modelo de audio nativo: esos
+ * esperan `responseModalities: [AUDIO]` y aquí se pide TEXT, así que tenía dos
+ * motivos para fallar. Queda al final, por si alguna cuenta sólo tiene ése.
  */
 export const GEMINI_LIVE_MODELS = [
-  'gemini-2.5-flash-native-audio-preview-12-2025',
   'gemini-live-2.5-flash-preview',
+  'gemini-2.0-flash-live-preview-04-09',
   'gemini-3.1-flash-live-preview',
+  'gemini-2.5-flash-native-audio-preview-12-2025',
 ] as const;
 
 const SILENCE_INSTRUCTION =
