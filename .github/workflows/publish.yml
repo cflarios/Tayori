@@ -1,0 +1,84 @@
+## Publica un GitHub Release con el .exe portable a partir de un tag.
+##
+## Existe porque `release.yml` depende de que Release Please pueda ABRIR una
+## pull request, y eso está desactivado por defecto en GitHub
+## ("Allow GitHub Actions to create and approve pull requests"). Cuando esa
+## opción está apagada, release-please calcula la versión, genera el CHANGELOG,
+## crea la rama... y muere en el último paso, dejando el repositorio sin release.
+##
+## Crear un RELEASE, en cambio, sí está permitido con `contents: write`. Así que
+## este workflow no depende de ninguna configuración: empujas un tag `v*` y sale
+## el ejecutable publicado. También sirve de válvula de escape manual desde la
+## pestaña Actions.
+
+name: Publish release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag ya existente que se quiere publicar (ej. v0.2.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Build and publish portable .exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify before publishing
+        run: npm run typecheck && npm run lint && npm test
+
+      - name: Build portable executable
+        run: npm run build:portable
+
+      - name: Create release and attach assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
+        run: |
+          $artifact = Get-ChildItem -Path release -Filter '*-portable.exe' | Select-Object -First 1
+          if ($null -eq $artifact) { throw 'No se generó el ejecutable portable.' }
+
+          # El .zip existe porque Windows SmartScreen y algunos gestores de
+          # descarga tratan mucho peor un .exe suelto que uno comprimido.
+          $zip = Join-Path $artifact.DirectoryName "$($artifact.BaseName).zip"
+          Compress-Archive -LiteralPath $artifact.FullName -DestinationPath $zip -Force
+
+          # Las notas salen del CHANGELOG que ya generó Release Please.
+          $notes = if (Test-Path CHANGELOG.md) { 'CHANGELOG.md' } else { $null }
+
+          $exists = gh release view $env:TAG 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG $artifact.FullName $zip --clobber
+          } elseif ($notes) {
+            gh release create $env:TAG $artifact.FullName $zip --title $env:TAG --notes-file $notes
+          } else {
+            gh release create $env:TAG $artifact.FullName $zip --title $env:TAG --generate-notes
+          }
