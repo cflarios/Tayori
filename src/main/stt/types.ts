@@ -37,14 +37,34 @@ export interface STTStartOptions {
   vocabulary?: string[];
 }
 
+/** Respuesta que produce por su cuenta un motor de audio directo. */
+export interface DirectAnswerEvent {
+  speaker: Speaker;
+  /** Lo que se entendió, para que el overlay siga mostrando transcripción. */
+  question: string;
+  answer: string;
+  model: string;
+}
+
 /**
  * Un provider emite:
  *   - `segment` → TranscriptEvent
  *   - `error`   → Error (no fatal; el orquestador decide qué hacer)
+ *   - `answer`  → DirectAnswerEvent, sólo si `answersDirectly`
  */
 export interface STTProvider {
   readonly id: STTProviderId;
   readonly events: EventEmitter;
+
+  /**
+   * `true` si el motor **también responde**, porque le llega el audio al propio
+   * modelo de lenguaje y devuelve transcripción y respuesta en la misma llamada.
+   *
+   * El orquestador lo necesita para no disparar una segunda respuesta por su
+   * cuenta: el detector de preguntas sobra cuando quien decide es el modelo que
+   * está oyendo el audio.
+   */
+  readonly answersDirectly?: boolean;
 
   start(options: STTStartOptions): Promise<void>;
   /** PCM16 little-endian mono a `sampleRate`. */

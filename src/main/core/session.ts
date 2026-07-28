@@ -15,7 +15,13 @@ import {
 import { saveConversation } from '../config/history';
 import { settingsStore } from '../config/store';
 import { audioCapture } from '../capture/audio';
-import { createSTTProvider, type STTProvider, type TranscriptEvent } from '../stt';
+import {
+  createSTTProvider,
+  type DirectAnswerEvent,
+  type STTProvider,
+  type TranscriptEvent,
+} from '../stt';
+import { buildSystemPrompt } from './prompt';
 import { TranscriptBuffer } from './transcript-buffer';
 import { AnswerEngine } from './answer-engine';
 import { looksLikeQuestion } from './question-detector';
@@ -308,9 +314,23 @@ class SessionOrchestrator {
 
     const settings = settingsStore.get();
     try {
-      const provider = createSTTProvider(settings);
+      // El contexto se pasa como función y no como valor: el motor de audio
+      // directo lo consulta en cada turno, y para entonces el perfil o la
+      // memoria pueden haber cambiado.
+      const provider = createSTTProvider(settings, () => ({
+        systemPrompt: buildSystemPrompt(settingsStore.get()),
+        history: this.answers.historySnapshot(),
+      }));
 
       provider.events.on('segment', (event: TranscriptEvent) => this.onSegment(event));
+
+      // Cuando el motor responde por su cuenta, el detector de preguntas sobra:
+      // quien decide si algo merecía respuesta es el modelo que oyó el audio.
+      if (provider.answersDirectly) {
+        provider.events.on('answer', (event: DirectAnswerEvent) => {
+          this.answers.present(event.question, event.answer, 'gemini', event.model);
+        });
+      }
       provider.events.on('error', (err: Error) => {
         console.error('[stt]', err.message);
         // Un error de STT no detiene la captura: el audio sigue llegando y la
@@ -341,7 +361,7 @@ class SessionOrchestrator {
       // llega, se transcribe, y el auto-disparo descarta todos los segmentos
       // porque el hablante que debería dispararlo ni siquiera se escucha. Sin
       // esta línea, desde fuera se ve igual que "el modelo no responde".
-      if (autoTriggerIsInert(settings)) {
+      if (!provider.answersDirectly && autoTriggerIsInert(settings)) {
         console.warn(
           `[auto] inerte: se dispara con "${settings.autoTriggerSpeaker}" pero ` +
             `audioSources="${settings.audioSources}" solo escucha ` +
@@ -418,6 +438,10 @@ class SessionOrchestrator {
    * usuario no tiene sentido en una entrevista.
    */
   private onFinalSegment(segment: TranscriptSegment): void {
+    // Con audio directo la respuesta ya vino con la transcripción; disparar
+    // aquí generaría una segunda, esta vez leyendo el texto en lugar de oírlo.
+    if (this.stt?.answersDirectly) return;
+
     const settings = settingsStore.get();
     if (settings.autoTriggerMode === 'off') return;
 

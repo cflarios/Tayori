@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import type { Answer, AnswerTrigger, ImageAttachment, Settings } from '@shared/types';
+import type {
+  Answer,
+  AnswerTrigger,
+  ImageAttachment,
+  LLMProviderId,
+  Settings,
+} from '@shared/types';
 import { settingsStore } from '../config/store';
 import { createLLMProvider, LLMError } from '../llm';
 import type { ConversationExchange } from '../llm/types';
@@ -76,6 +82,37 @@ export class AnswerEngine extends EventEmitter {
 
   get hasPendingImages(): boolean {
     return this.pendingImages.length > 0;
+  }
+
+  /** Copia de la memoria, para quien tenga que componer la petición por su cuenta. */
+  historySnapshot(): ConversationExchange[] {
+    return [...this.history];
+  }
+
+  /**
+   * Muestra una respuesta que generó otro (el motor de audio directo).
+   *
+   * No pasa por `ask()` porque no hay nada que pedir: cuando el WAV va al propio
+   * modelo, la respuesta llega junto con la transcripción en la misma llamada.
+   * Lo que sí comparte es todo lo de después —difusión al overlay, memoria,
+   * historial en disco—, y por eso vive aquí y no suelta por el orquestador.
+   */
+  present(question: string, text: string, providerId: LLMProviderId, model: string): void {
+    // Si había una generación en vuelo, esta respuesta la sustituye.
+    this.abort();
+
+    this.current = {
+      id: randomUUID(),
+      status: 'done',
+      trigger: 'auto',
+      question,
+      text,
+      providerId,
+      model,
+      createdAt: Date.now(),
+    };
+    this.emitCurrent();
+    this.remember();
   }
 
   /**

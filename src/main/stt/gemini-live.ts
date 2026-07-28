@@ -49,6 +49,36 @@ const SILENCE_INSTRUCTION =
 /** Backoff de reconexión: la Live API cierra sesiones largas por diseño. */
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000];
 
+/**
+ * Tope para el handshake del WebSocket.
+ *
+ * `live.connect()` no trae ninguno: si el socket no llega a establecerse —red
+ * caída, modelo que no existe y el servidor deja la conexión abierta— la
+ * promesa **no resuelve ni rechaza nunca**. Eso dejaba `startTranscription`
+ * colgado para siempre: la captura seguía anunciando "Escuchando", el audio
+ * entraba, y no había ni transcripción ni error en el log. Es exactamente el
+ * fallo silencioso que este proyecto se toma en serio evitar.
+ */
+const CONNECT_TIMEOUT_MS = 15_000;
+
+/** Rechaza si la promesa no se resuelve a tiempo. */
+async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label}: sin respuesta en ${CONNECT_TIMEOUT_MS / 1000}s`)),
+          CONNECT_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Un carril = una sesión WebSocket dedicada a un hablante. */
 class Lane {
   private session: Session | null = null;
@@ -79,7 +109,8 @@ class Lane {
         ? { languageAuto: {} }
         : { languageHints: { languageCodes: [this.options.language] } };
 
-    this.session = await this.client.live.connect({
+    this.session = await withTimeout(
+      this.client.live.connect({
       model: this.model,
       config: {
         // TEXT es la salida más barata; de todas formas la descartamos.
@@ -111,7 +142,9 @@ class Lane {
           if (!this.closed) this.scheduleReconnect();
         },
       },
-    });
+      }),
+      `[gemini-live:${this.speaker}] handshake`
+    );
   }
 
   private handleMessage(message: LiveServerMessage): void {
@@ -256,18 +289,26 @@ export class GeminiLiveSTT implements STTProvider {
 
     for (const candidate of candidates) {
       try {
-        const probe = await client.live.connect({
-          model: candidate,
-          config: {
-            responseModalities: [Modality.TEXT],
-            systemInstruction: SILENCE_INSTRUCTION,
-            inputAudioTranscription:
-              options.language === 'auto'
-                ? { languageAuto: {} }
-                : { languageHints: { languageCodes: [options.language] } },
-          },
-          callbacks: { onopen: () => {}, onmessage: () => {}, onerror: () => {}, onclose: () => {} },
-        });
+        const probe = await withTimeout(
+          client.live.connect({
+            model: candidate,
+            config: {
+              responseModalities: [Modality.TEXT],
+              systemInstruction: SILENCE_INSTRUCTION,
+              inputAudioTranscription:
+                options.language === 'auto'
+                  ? { languageAuto: {} }
+                  : { languageHints: { languageCodes: [options.language] } },
+            },
+            callbacks: {
+              onopen: () => {},
+              onmessage: () => {},
+              onerror: () => {},
+              onclose: () => {},
+            },
+          }),
+          candidate
+        );
         probe.close();
 
         this.resolvedModel = candidate;

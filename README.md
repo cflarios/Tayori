@@ -152,10 +152,16 @@ a propósito.** El nombre se cambia en `electron-builder.yml` (`productName` /
 
 ## Latencia y privacidad: el compromiso
 
-| Motor de transcripción | Latencia | Dónde va el audio |
+| Motor | Latencia | Dónde va el audio |
 |---|---|---|
 | Gemini Live | ~300 ms | A Google |
-| Whisper local | ~1–2 s | A ningún sitio |
+| Gemini audio directo | ~1–2 s, pero **sustituye también la llamada al modelo** | A Google |
+| Whisper local | ~0,8–1,5 s | A ningún sitio |
+
+**Gemini audio directo** no transcribe y luego pregunta: manda tu voz al propio
+modelo, que devuelve transcripción y respuesta a la vez. Una transcripción mala
+deja de poder estropear la respuesta, porque el modelo oye lo que dijiste en
+lugar de leer lo que otro entendió. A cambio, el audio sale de tu máquina.
 
 Whisper local descarga el binario oficial de whisper.cpp (7,6 MB) y un modelo
 GGML (74–465 MB según el que elijas) la primera vez que lo activas. No usa un

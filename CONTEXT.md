@@ -309,6 +309,36 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
   del nombre con hash que Vite da a los assets en producción. Eso obliga a
   permitir `blob:` en `script-src` del audio-worker (ver §6).
 
+### Audio directo: saltarse la transcripción entera
+
+`gemini-audio` no es un motor de transcripción más. Manda el WAV del turno **al
+propio modelo de lenguaje** y recibe transcripción y respuesta en la misma
+llamada, con `responseSchema` para que la separación la garantice la API y no
+una expresión regular.
+
+Nació de un diagnóstico concreto: con el idioma forzado mal, el reconocedor
+devolvía *"Are y'all gonna eat?"* a partir de una frase en español y el modelo
+respondía impecablemente a algo que nadie dijo. Ese fallo tiene dos eslabones, y
+este motor elimina el primero: el modelo **oye** el audio en lugar de leer lo
+que otro entendió.
+
+Lo que cambia en el orquestador, y por qué:
+
+- **`STTProvider.answersDirectly`.** Con ese flag, `onFinalSegment` sale antes:
+  disparar el detector generaría una segunda respuesta, esta vez leyendo el
+  texto. Quien decide si algo merecía respuesta es el modelo que oyó el audio,
+  y por eso el aviso de `autoTriggerIsInert` tampoco aplica aquí.
+- **`AnswerEngine.present()`.** La respuesta no la pidió el motor de respuestas,
+  pero todo lo de después —difusión al overlay, memoria de la conversación,
+  historial en disco— tiene que ser idéntico. Por eso entra por el mismo sitio
+  en lugar de difundirse suelta desde el orquestador.
+- **El contexto se pasa como función, no como valor.** El motor lo consulta en
+  cada turno; entre el arranque y la tercera pregunta el perfil o la memoria ya
+  han cambiado.
+
+**Sigue haciendo falta el VAD.** Alguien tiene que decidir cuándo termina el
+turno; esto no es streaming. Para eso está Gemini Live.
+
 ### Transcripción
 
 - **Una sesión de Gemini Live POR HABLANTE.** Más conexiones que mezclar los
@@ -587,6 +617,7 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | Respuestas sin relación con lo preguntado, mezclando idiomas | `settings.language` estaba en `en` con alguien hablando español. Whisper **no falla** al forzar idioma: devuelve texto plausible inventado a partir de los sonidos (*"Are y'all gonna eat?"*) | Un ajuste cuyo error no produce ningún error tiene que estar a la vista. Por eso el idioma forzado sale ahora en la barra del overlay |
 | "¿Podrías presentarte?" descartada | `MIN_WORDS = 3`, y en español abundan las preguntas completas de dos palabras | Un umbral de longitud necesita excepción cuando hay una señal inequívoca |
 | El asistente olvidaba lo que él mismo había dicho | Cada consulta era un turno único: sus respuestas anteriores no volvían al modelo, y el transcript sólo contiene voz | "Contexto" y "memoria" no son lo mismo. Un transcript no es un historial de conversación |
+| Gemini Live "no funcionaba" sin dejar rastro | `live.connect()` **no tiene tiempo límite**: si el handshake no llega a completarse, la promesa no resuelve ni rechaza nunca. `startTranscription` quedaba colgado, la captura seguía diciendo "Escuchando" y no había ni transcripción ni error | Lo detectó el log: `[capture] primer chunk` sin ningún `[stt] transcripción iniciada` detrás. Toda promesa de red necesita reloj, y una que cuelga es peor que una que falla |
 | ~1,3 s fijos por turno en Whisper local | `whisper-cli` **carga el modelo en cada invocación**: tarda lo mismo con 1,7 s que con 8,2 s de audio | Medir el coste contra el tamaño de la entrada delata al instante lo que es fijo y lo que es proporcional |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:

@@ -841,9 +841,20 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
           }
         >
           <option value="gemini-live">Gemini Live (nube, más rápido)</option>
+          <option value="gemini-audio">Gemini audio directo (el modelo oye tu voz)</option>
           <option value="whisper-local">Whisper local (offline, privado)</option>
         </select>
       </Row>
+
+      {settings.sttProviderId === 'gemini-audio' && (
+        <div className="diag diag--ok">
+          El audio va <strong>directo al modelo</strong>, sin pasar por un reconocedor. Una mala
+          transcripción deja de poder estropear la respuesta, porque el modelo oye tu voz en lugar
+          de leer lo que otro entendió. Usa el modelo de Gemini que elijas más arriba, y el
+          detector de preguntas no interviene: decide el propio modelo si lo que dijiste pedía
+          respuesta.
+        </div>
+      )}
 
       <Row
         label="Idioma"
