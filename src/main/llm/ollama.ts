@@ -68,6 +68,14 @@ export class OllamaProvider implements LLMProvider {
         stream: true,
         messages: [
           { role: 'system', content: request.systemPrompt },
+          // Los turnos anteriores van como mensajes reales: sin ellos el modelo
+          // no recuerda nada de lo que él mismo respondió.
+          ...(request.history ?? [])
+            .filter((turn) => turn.question.trim() && turn.answer.trim())
+            .flatMap((turn) => [
+              { role: 'user', content: turn.question },
+              { role: 'assistant', content: turn.answer },
+            ]),
           {
             role: 'user',
             content: buildUserTurn(request),

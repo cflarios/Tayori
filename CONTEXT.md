@@ -331,6 +331,26 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
 
 ### Respuestas
 
+- **El asistente recuerda sus propios turnos, y eso hubo que añadirlo.** La
+  primera versión mandaba cada consulta como un turno **único**: system prompt
+  más un mensaje de usuario. Las respuestas anteriores del modelo no volvían
+  nunca. El transcript no lo suplía, porque sólo contiene voz —micrófono y
+  sistema—, jamás lo generado.
+  El síntoma, sacado de una conversación real: a los 90 segundos de haber dicho
+  *"yo trabajo como comercial"*, el asistente contestaba *"no tengo información
+  sobre cuál es mi profesión en esta conversación"*. Y olvidaba un nombre que le
+  acababan de asignar en menos de un minuto.
+  Ahora `AnswerRequest.history` lleva los últimos 8 intercambios y **cada
+  proveedor los envía como mensajes reales** (`user`/`assistant`, o `model` en
+  Gemini), no resumidos dentro del prompt: es lo que hace que el modelo los trate
+  como cosas que dijo él. Se guardan sólo los turnos completados con texto —una
+  respuesta abortada no es algo que el modelo dijera— y "nueva conversación" los
+  borra, que es justamente para lo que existe ese botón.
+- **`manualContextSeconds` NO es la memoria**, aunque lo parezca. Es cuántos
+  segundos de transcripción acompañan a la pregunta. Con el valor en 10 el modelo
+  recibía poco más que la frase en curso; la memoria de la conversación es cosa
+  de `history`. La etiqueta del dashboard se cambió a "ventana de voz" porque
+  "contexto enviado" invitaba exactamente a esa confusión.
 - **`AbortSignal` es obligatorio en la firma de `LLMProvider`, no opcional.** Si
   el entrevistador pregunta otra cosa mientras se genera la respuesta anterior,
   hay que cancelarla: una respuesta obsoleta es **peor que ninguna**, porque el
@@ -542,6 +562,8 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | Haiku 4.5 fallaba con 400 en cada pregunta | `output_config.effort` es de la generación Claude 5 y se enviaba a todos los modelos. La API lo dice claro: *"This model does not support the effort parameter"* | Un parámetro verificado contra UN modelo no está verificado para toda la familia. Ver `EFFORT_UNSUPPORTED` |
 | Respuestas sin relación con lo preguntado, mezclando idiomas | `settings.language` estaba en `en` con alguien hablando español. Whisper **no falla** al forzar idioma: devuelve texto plausible inventado a partir de los sonidos (*"Are y'all gonna eat?"*) | Un ajuste cuyo error no produce ningún error tiene que estar a la vista. Por eso el idioma forzado sale ahora en la barra del overlay |
 | "¿Podrías presentarte?" descartada | `MIN_WORDS = 3`, y en español abundan las preguntas completas de dos palabras | Un umbral de longitud necesita excepción cuando hay una señal inequívoca |
+| El asistente olvidaba lo que él mismo había dicho | Cada consulta era un turno único: sus respuestas anteriores no volvían al modelo, y el transcript sólo contiene voz | "Contexto" y "memoria" no son lo mismo. Un transcript no es un historial de conversación |
+| ~1,3 s fijos por turno en Whisper local | `whisper-cli` **carga el modelo en cada invocación**: tarda lo mismo con 1,7 s que con 8,2 s de audio | Medir el coste contra el tamaño de la entrada delata al instante lo que es fijo y lo que es proporcional |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve

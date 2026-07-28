@@ -135,7 +135,7 @@ export class ClaudeProvider implements LLMProvider {
           },
         ],
         ...(withEffort ? { output_config: { effort: this.effort } } : {}),
-        messages: [{ role: 'user', content }],
+        messages: [...historyMessages(request), { role: 'user', content }],
       },
       { signal }
     );
@@ -199,6 +199,23 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
     return new LLMError(`Error de Anthropic (${err.status ?? '?'}): ${err.message}`, providerId);
   }
   return new LLMError(err instanceof Error ? err.message : String(err), providerId);
+}
+
+/**
+ * Turnos anteriores como mensajes reales.
+ *
+ * Van como `user`/`assistant` alternos y no resumidos dentro del prompt: así el
+ * modelo los reconoce como cosas que dijo él. Se saltan los vacíos porque la
+ * API rechaza un mensaje sin contenido.
+ */
+function historyMessages(request: AnswerRequest): Anthropic.MessageParam[] {
+  const messages: Anthropic.MessageParam[] = [];
+  for (const turn of request.history ?? []) {
+    if (!turn.question.trim() || !turn.answer.trim()) continue;
+    messages.push({ role: 'user', content: turn.question });
+    messages.push({ role: 'assistant', content: turn.answer });
+  }
+  return messages;
 }
 
 /** Compone el turno de usuario: transcripción como contexto, pregunta al final. */

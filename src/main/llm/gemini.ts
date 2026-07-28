@@ -42,7 +42,17 @@ export class GeminiProvider implements LLMProvider {
     try {
       const stream = await this.client.models.generateContentStream({
         model: this.model,
-        contents: [{ role: 'user', parts }],
+        contents: [
+          // Gemini llama "model" al papel del asistente; por lo demás es la
+          // misma idea que en Claude y Ollama: turnos reales, no texto pegado.
+          ...(request.history ?? [])
+            .filter((turn) => turn.question.trim() && turn.answer.trim())
+            .flatMap((turn) => [
+              { role: 'user', parts: [{ text: turn.question }] },
+              { role: 'model', parts: [{ text: turn.answer }] },
+            ]),
+          { role: 'user', parts },
+        ],
         config: {
           systemInstruction: request.systemPrompt,
           maxOutputTokens: request.maxTokens,

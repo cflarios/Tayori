@@ -177,6 +177,7 @@ class SessionOrchestrator {
    */
   newConversation(): void {
     this.answers.abort();
+    this.answers.resetHistory();
     this.flush();
     this.conversation = null;
     this.recordedAnswers.clear();

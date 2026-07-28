@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import type { Answer, AnswerTrigger, ImageAttachment, Settings } from '@shared/types';
 import { settingsStore } from '../config/store';
 import { createLLMProvider, LLMError } from '../llm';
+import type { ConversationExchange } from '../llm/types';
 import { buildSystemPrompt } from './prompt';
 import type { TranscriptBuffer } from './transcript-buffer';
 
@@ -47,6 +48,23 @@ export class AnswerEngine extends EventEmitter {
   /** Capturas pendientes de adjuntar a la siguiente consulta. */
   private pendingImages: ImageAttachment[] = [];
 
+  /**
+   * Turnos ya cerrados de esta conversación, del más antiguo al más reciente.
+   *
+   * Sin esto el asistente no tenía ninguna memoria de lo que él mismo había
+   * dicho: cada pregunta era una conversación nueva de un solo turno. El
+   * transcript no lo suplía, porque sólo contiene voz —lo que dice el
+   * micrófono y el sistema—, nunca las respuestas generadas.
+   */
+  private history: ConversationExchange[] = [];
+
+  /**
+   * Cuántos intercambios se reenvían. Ocho cubre de sobra una conversación de
+   * varios minutos sin que el prompt crezca hasta doler; los más antiguos se
+   * caen por el principio.
+   */
+  private static readonly MAX_HISTORY = 8;
+
   constructor(private readonly transcript: TranscriptBuffer) {
     super();
   }
@@ -58,6 +76,15 @@ export class AnswerEngine extends EventEmitter {
 
   get hasPendingImages(): boolean {
     return this.pendingImages.length > 0;
+  }
+
+  /**
+   * Olvida los turnos anteriores. Lo llama "nueva conversación": si no, la
+   * memoria del asistente sobreviviría a un reinicio que existe justamente para
+   * cortar con lo anterior.
+   */
+  resetHistory(): void {
+    this.history = [];
   }
 
   /** Cancela la generación en curso, si hay alguna. */
@@ -142,6 +169,9 @@ export class AnswerEngine extends EventEmitter {
             this.transcript.recent(settings.manualContextSeconds)
           ),
           ...(question ? { question } : {}),
+          // Se pasa una copia: la generación es asíncrona y `history` puede
+          // recibir un turno nuevo mientras ésta sigue en vuelo.
+          ...(this.history.length ? { history: [...this.history] } : {}),
           // Un modelo sin visión ignoraría las imágenes silenciosamente; mejor
           // no enviarlas y ahorrar el ancho de banda.
           ...(provider.supportsVision && images.length ? { images } : {}),
@@ -154,6 +184,7 @@ export class AnswerEngine extends EventEmitter {
         gotFirstToken = true;
         clearTimeout(firstTokenTimer);
       });
+      this.remember();
     } catch (err) {
       if (controller.signal.aborted) return;
       this.update({
@@ -210,6 +241,25 @@ export class AnswerEngine extends EventEmitter {
       // rechazó o se quedó sin tokens; decirlo es mejor que un panel vacío.
       ...(this.current?.text ? {} : { status: 'error', error: 'El modelo no devolvió texto.' }),
     });
+  }
+
+  /**
+   * Archiva el turno recién terminado para las siguientes consultas.
+   *
+   * Sólo se guardan las completadas con texto: una abortada o fallida no es
+   * algo que el modelo "dijo", y meterla le haría creer que sí. Si no hubo
+   * pregunta aislada se guarda una marca, porque la API exige contenido no
+   * vacío en cada mensaje.
+   */
+  private remember(): void {
+    const answer = this.current;
+    if (!answer || answer.status !== 'done' || !answer.text.trim()) return;
+
+    this.history.push({
+      question: answer.question.trim() || '(pregunta deducida de la transcripción)',
+      answer: answer.text.trim(),
+    });
+    if (this.history.length > AnswerEngine.MAX_HISTORY) this.history.shift();
   }
 
   private update(patch: Partial<Answer>): void {

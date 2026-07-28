@@ -1070,8 +1070,8 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
       )}
 
       <Row
-        label="Contexto enviado"
-        desc="Segundos de conversación que acompañan a cada pregunta."
+        label="Ventana de voz"
+        desc="Segundos de TRANSCRIPCIÓN que acompañan a cada pregunta. No afecta a la memoria del asistente: sus propias respuestas anteriores se envían siempre. Por debajo de 30 s se pierde el hilo de lo que dijo el interlocutor."
       >
         <input
           type="number"
