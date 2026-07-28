@@ -57,38 +57,71 @@ const modelPath = (id: string): string => join(whisperDir(), `ggml-${id}.bin`);
 const binDir = (): string => join(whisperDir(), 'bin');
 
 /**
- * Localiza el ejecutable. El nombre ha cambiado entre versiones de whisper.cpp
- * (`main.exe` → `whisper-cli.exe`), y el zip no tiene una estructura estable,
- * así que se busca en lugar de asumir una ruta.
+ * Nombres válidos del ejecutable, EN ORDEN DE PREFERENCIA. El nombre cambió
+ * entre versiones de whisper.cpp y el zip no tiene una estructura estable, así
+ * que se busca en lugar de asumir una ruta.
+ *
+ * `main.exe` NO está aquí a propósito: desde whisper.cpp 1.7 es un stub de
+ * deprecación que imprime "the binary 'main.exe' is deprecated" y sale con
+ * código 1. Como el zip lo sigue trayendo y ordena antes que `whisper-cli.exe`,
+ * una búsqueda por orden de directorio lo elegía y la transcripción local
+ * fallaba entera, con un `Command failed` por cada intervención.
  */
+const BINARY_CANDIDATES = ['whisper-cli.exe', 'whisper.exe'];
+
+/**
+ * El servidor viene en el mismo zip y mantiene el modelo cargado entre
+ * peticiones. Medido sobre el mismo audio: 2820 ms lanzando `whisper-cli` por
+ * turno frente a 2250 ms contra el servidor — unos 570 ms de proceso y carga de
+ * modelo que se pagaban en cada intervención.
+ */
+const SERVER_CANDIDATES = ['whisper-server.exe'];
+
 export function findWhisperBinary(): string | null {
+  return findExecutable(BINARY_CANDIDATES);
+}
+
+export function findWhisperServer(): string | null {
+  return findExecutable(SERVER_CANDIDATES);
+}
+
+function findExecutable(candidates: string[]): string | null {
   const dir = binDir();
   if (!existsSync(dir)) return null;
 
-  const candidates = ['whisper-cli.exe', 'main.exe', 'whisper.exe'];
-  const search = (current: string, depth: number): string | null => {
-    if (depth > 3) return null;
+  /** Todas las coincidencias, indexadas por nombre en minúsculas. */
+  const found = new Map<string, string>();
+
+  const search = (current: string, depth: number): void => {
+    if (depth > 3) return;
     // `Dirent[]` explícito: sin él TypeScript elige la sobrecarga de Buffer de
     // readdirSync y `entry.name` deja de ser string.
     let entries: Dirent[];
     try {
       entries = readdirSync(current, { withFileTypes: true });
     } catch {
-      return null;
+      return;
     }
 
     for (const entry of entries) {
       const full = join(current, entry.name);
-      if (entry.isFile() && candidates.includes(entry.name.toLowerCase())) return full;
-      if (entry.isDirectory()) {
-        const found = search(full, depth + 1);
-        if (found) return found;
+      const name = entry.name.toLowerCase();
+      if (entry.isFile() && candidates.includes(name) && !found.has(name)) {
+        found.set(name, full);
       }
+      if (entry.isDirectory()) search(full, depth + 1);
     }
-    return null;
   };
 
-  return search(dir, 0);
+  search(dir, 0);
+
+  // Se elige por prioridad del array, no por orden de directorio: es la única
+  // forma de que un nombre obsoleto que ordene antes no gane la partida.
+  for (const candidate of candidates) {
+    const path = found.get(candidate);
+    if (path) return path;
+  }
+  return null;
 }
 
 export function isModelInstalled(id: string): boolean {

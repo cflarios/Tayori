@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import type { Speaker, STTProviderId } from '@shared/types';
 import { EnergyVAD, type Utterance } from '../core/vad';
 import { findWhisperBinary, getModelPath, isModelInstalled } from './whisper-assets';
+import { whisperServer } from './whisper-server';
+import { toWav } from './wav';
 import type { STTProvider, STTStartOptions } from './types';
 
 /**
@@ -39,35 +41,24 @@ const HALLUCINATIONS = [
   '[silencio]',
   '[blank_audio]',
   '[sonido]',
-  'you',
 ];
+
+/**
+ * Alucinaciones que son una palabra corriente. Van aparte porque hay que
+ * compararlas con el texto ENTERO: whisper devuelve "you" a secas sobre
+ * silencio, pero buscarla como subcadena descartaba también cualquier frase que
+ * la contuviera ("what about your team", "youtube").
+ */
+const HALLUCINATION_EXACT = ['you', 'gracias', 'thank you', 'thanks', '¡gracias!'];
 
 function isLikelyHallucination(text: string): boolean {
   const normalized = text.toLowerCase().trim();
   if (normalized.length < 4) return true;
+
+  const bare = normalized.replace(/[.!?¡¿]/g, '').trim();
+  if (HALLUCINATION_EXACT.includes(bare)) return true;
+
   return HALLUCINATIONS.some((phrase) => normalized.includes(phrase));
-}
-
-/** Envuelve PCM16 mono en una cabecera WAV; whisper-cli lee archivos, no stdin. */
-function toWav(pcm: Int16Array, sampleRate: number): Buffer {
-  const dataBytes = pcm.length * 2;
-  const header = Buffer.alloc(44);
-
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + dataBytes, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16); // tamaño del bloque fmt
-  header.writeUInt16LE(1, 20); // PCM
-  header.writeUInt16LE(1, 22); // mono
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(sampleRate * 2, 28); // byte rate
-  header.writeUInt16LE(2, 32); // block align
-  header.writeUInt16LE(16, 34); // bits por muestra
-  header.write('data', 36);
-  header.writeUInt32LE(dataBytes, 40);
-
-  return Buffer.concat([header, Buffer.from(pcm.buffer, pcm.byteOffset, dataBytes)]);
 }
 
 /** Carril por hablante: su propio VAD y su propia cola de transcripción. */
@@ -78,6 +69,12 @@ class Lane {
    * CPU y ambas tardan más que ejecutadas en orden.
    */
   private queue: Promise<void> = Promise.resolve();
+  /**
+   * Turnos esperando a whisper. Si esto crece y no baja, la transcripción va
+   * más lenta que el habla y la latencia se acumula sin techo — otra forma de
+   * "deja de responder" que desde fuera es indistinguible de un cuelgue.
+   */
+  private pending = 0;
 
   constructor(
     private readonly speaker: Speaker,
@@ -89,7 +86,29 @@ class Lane {
   }
 
   push(pcm: Int16Array): void {
-    for (const utterance of this.vad.push(pcm)) this.enqueue(utterance);
+    for (const utterance of this.vad.push(pcm)) {
+      /*
+       * `forced` significa que el turno se cortó por llegar al máximo, no
+       * porque la persona dejara de hablar. Uno suelto es normal (alguien que
+       * se enrolla); varios seguidos son la firma del VAD enganchado en ruido,
+       * y hasta ahora ese dato existía en el tipo `Utterance` y no lo leía
+       * nadie. Es exactamente lo que hay que ver en el log cuando "deja de
+       * responder".
+       */
+      if (utterance.forced) {
+        console.warn(
+          `[vad:${this.speaker}] corte FORZADO a ${Math.round(utterance.durationMs / 1000)}s ` +
+            `(suelo de ruido ${this.vad.currentNoiseFloor.toFixed(4)}). ` +
+            'Si se repite, el detector está tomando ruido por voz.'
+        );
+      } else {
+        console.log(
+          `[vad:${this.speaker}] turno de ${Math.round(utterance.durationMs)}ms → a transcribir ` +
+            `(${this.pending} en cola)`
+        );
+      }
+      this.enqueue(utterance);
+    }
   }
 
   flush(): void {
@@ -98,10 +117,26 @@ class Lane {
   }
 
   private enqueue(utterance: Utterance): void {
+    this.pending += 1;
     this.queue = this.queue.then(async () => {
+      const startedAt = Date.now();
       try {
         const text = await this.transcribe(utterance);
-        if (text && !isLikelyHallucination(text)) {
+        const tookMs = Date.now() - startedAt;
+        // Más lento que tiempo real significa que la cola sólo puede crecer.
+        if (tookMs > utterance.durationMs) {
+          console.warn(
+            `[whisper:${this.speaker}] ${tookMs}ms para transcribir ${Math.round(utterance.durationMs)}ms ` +
+              'de audio: más lento que tiempo real. Prueba un modelo más pequeño.'
+          );
+        }
+
+        if (!text) {
+          console.log(`[whisper:${this.speaker}] sin texto (${tookMs}ms)`);
+        } else if (isLikelyHallucination(text)) {
+          console.log(`[whisper:${this.speaker}] descartado por alucinación: "${text}"`);
+        } else {
+          console.log(`[whisper:${this.speaker}] "${text}" (${tookMs}ms)`);
           this.emitter.emit('segment', { speaker: this.speaker, text, isFinal: true });
         }
       } catch (err) {
@@ -111,6 +146,8 @@ class Lane {
             `[whisper:${this.speaker}] ${err instanceof Error ? err.message : String(err)}`
           )
         );
+      } finally {
+        this.pending -= 1;
       }
     });
   }
@@ -128,6 +165,8 @@ export class WhisperLocalSTT implements STTProvider {
   private tempDir: string | null = null;
   private counter = 0;
   private stopped = false;
+  /** `false` cae al CLI, que arranca un proceso por intervención. */
+  private useServer = false;
 
   constructor(
     private readonly binaryPath: string,
@@ -157,6 +196,13 @@ export class WhisperLocalSTT implements STTProvider {
     await this.stop();
     this.stopped = false;
     this.tempDir = mkdtempSync(join(tmpdir(), 'ih-whisper-'));
+
+    // El servidor ahorra ~570 ms por turno frente a lanzar el CLI cada vez. Si
+    // no arranca se sigue con el CLI: más lento, pero la transcripción funciona.
+    this.useServer = await whisperServer.ensure(this.modelPath, options.language);
+    console.log(
+      `[whisper] transcribiendo con ${this.useServer ? 'whisper-server (modelo residente)' : 'whisper-cli (un proceso por turno)'}`
+    );
 
     for (const speaker of options.speakers) {
       this.lanes.set(
@@ -193,12 +239,28 @@ export class WhisperLocalSTT implements STTProvider {
     return Promise.resolve();
   }
 
-  /** Ejecuta whisper-cli sobre un WAV temporal y devuelve el texto plano. */
+  /** Transcribe un turno: por el servidor si está vivo, si no por el CLI. */
   private async runWhisper(utterance: Utterance, options: STTStartOptions): Promise<string> {
     if (!this.tempDir) return '';
 
+    const wav = toWav(utterance.pcm, options.sampleRate);
+
+    if (this.useServer && whisperServer.running) {
+      try {
+        return cleanOutput(await whisperServer.transcribe(wav, options.language));
+      } catch (err) {
+        // El servidor puede haberse caído entre turnos. Se degrada al CLI en
+        // lugar de perder la intervención, y se deja de intentarlo.
+        console.warn(
+          `[whisper-server] falló (${err instanceof Error ? err.message : String(err)}); ` +
+            'se continúa con whisper-cli.'
+        );
+        this.useServer = false;
+      }
+    }
+
     const wavPath = join(this.tempDir, `u${this.counter++}.wav`);
-    writeFileSync(wavPath, toWav(utterance.pcm, options.sampleRate));
+    writeFileSync(wavPath, wav);
 
     const args = [
       '-m', this.modelPath,
@@ -206,7 +268,10 @@ export class WhisperLocalSTT implements STTProvider {
       // Sin timestamps ni marcas: sólo queremos el texto.
       '--no-timestamps',
       '--no-prints',
-      '--output-txt', 'false',
+      // Ojo: `--output-txt` es un flag booleano SIN argumento. Pasarle "false"
+      // hacía que whisper-cli lo tomara por un fichero de entrada
+      // ("error: input file not found 'false'") y encima escribía un .txt al
+      // lado del WAV. Lo que queremos es no pasarlo en absoluto.
       // Hilos: dejamos un núcleo libre para no ahogar la captura de audio.
       '-t', String(Math.max(2, (cpus().length || 4) - 1)),
     ];
@@ -230,6 +295,54 @@ export class WhisperLocalSTT implements STTProvider {
     } finally {
       rmSync(wavPath, { force: true });
     }
+  }
+}
+
+/**
+ * Ejecuta whisper-cli sobre un WAV sintético para probar la instalación entera.
+ *
+ * Se ejecuta el binario de verdad, con el modelo de verdad, porque los dos
+ * fallos que se han dado aquí eran invisibles de otra forma: el stub `main.exe`
+ * (existe, pesa lo mismo que un ejecutable, y sale con código 1) y las DLL de
+ * ggml, que sólo revientan al cargar el modelo. Un `existsSync` no habría
+ * detectado ninguno de los dos.
+ */
+export async function testWhisperBinary(
+  modelId: string
+): Promise<{ ok: boolean; detail: string }> {
+  const binary = findWhisperBinary();
+  if (!binary) {
+    return { ok: false, detail: 'No se encuentra whisper-cli.exe. Descárgalo desde arriba.' };
+  }
+  if (!isModelInstalled(modelId)) {
+    return { ok: false, detail: `El modelo "${modelId}" no está descargado.` };
+  }
+
+  const dir = mkdtempSync(join(tmpdir(), 'ih-whisper-test-'));
+  const wavPath = join(dir, 'probe.wav');
+  // Medio segundo de tono bajo: suficiente para que cargue el modelo y corra la
+  // inferencia. No importa qué transcriba, sólo que llegue al final.
+  const samples = new Int16Array(8_000);
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = Math.round(1_500 * Math.sin((2 * Math.PI * 220 * i) / 16_000));
+  }
+  writeFileSync(wavPath, toWav(samples, 16_000));
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      execFile(
+        binary,
+        ['-m', getModelPath(modelId), '-f', wavPath, '--no-timestamps', '--no-prints', '-t', '2'],
+        { timeout: 90_000, maxBuffer: 1024 * 1024 },
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+    return { ok: true, detail: `Whisper funciona. Ejecutable: ${binary}` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, detail: `Falló al ejecutar ${binary}\n${message}` };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 

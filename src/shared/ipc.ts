@@ -21,6 +21,8 @@ export const IPC = {
   overlayHide: 'overlay:hide',
   overlayResize: 'overlay:resize',
   overlayMouseIgnore: 'overlay:mouse-ignore',
+  /** Vuelve el overlay enfocable para poder escribir en él. Ver `overlay.ts`. */
+  overlayInteractive: 'overlay:interactive',
   overlayDragStart: 'overlay:drag-start',
   overlayDragEnd: 'overlay:drag-end',
   overlayQuit: 'overlay:quit',
@@ -36,11 +38,24 @@ export const IPC = {
 
   screenshotTake: 'screenshot:take',
 
+  conversationNew: 'conversation:new',
+  historyList: 'history:list',
+  historyGet: 'history:get',
+  historyDelete: 'history:delete',
+  historyClear: 'history:clear',
+  historyLocation: 'history:location',
+
   llmListModels: 'llm:list-models',
   llmTestConnection: 'llm:test-connection',
 
   whisperGetStatus: 'whisper:get-status',
   whisperInstall: 'whisper:install',
+
+  /** Conecta de verdad con el motor de transcripción y dice qué falló. */
+  sttTestConnection: 'stt:test-connection',
+
+  logsRead: 'logs:read',
+  logsLocation: 'logs:location',
 
   ollamaGetStatus: 'ollama:get-status',
 
@@ -60,6 +75,10 @@ export const IPC = {
   onAudioLevels: 'event:audio-levels',
   onScreenshot: 'event:screenshot',
   onWhisperProgress: 'event:whisper-progress',
+  /** Se empezó una conversación nueva: los renderers deben limpiar su estado. */
+  onConversationReset: 'event:conversation-reset',
+  /** Fallo del motor de transcripción. La captura sigue viva; hay que enseñarlo. */
+  onSTTError: 'event:stt-error',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

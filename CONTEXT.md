@@ -79,17 +79,41 @@ bloquee salvo revisar los `require` implícitos del bundle.
 
 ## 4. Decisiones de arquitectura y su razón
 
-### La app escucha, no graba
+### La app escucha, no graba — matizado en julio de 2026
 
-Distinción que conviene no perder porque cambia lo que se le puede prometer al
-usuario, y el código ya la respeta: **no se persiste audio en ningún punto**.
-Los chunks del worklet van al motor de transcripción y se descartan; el
-`TranscriptBuffer` es una ventana rodante acotada en memoria; nada se escribe a
-disco. No hay archivos de audio, historial ni exportación.
+La versión original **no persistía nada**, y este apartado avisaba de que añadir
+un historial rompería esa promesa y obligaría a actualizar el README y las
+consideraciones legales *a la vez*. Eso es exactamente lo que pasó: el usuario
+pidió un historial de conversaciones que se guarde, eligiendo explícitamente
+incluir la transcripción y no sólo las respuestas.
 
-Si alguien añade en el futuro un "guardar la transcripción" o un log de sesión,
-esa promesa deja de ser cierta y hay que actualizar el README y las
-consideraciones legales a la vez. No es un detalle de redacción.
+Dónde queda la línea ahora, que es lo que hay que saber para no volver a moverla
+sin darse cuenta:
+
+- **El audio sigue sin tocar el disco. Nunca.** Los chunks del worklet van al
+  motor y se descartan. No hay archivos de audio ni temporales — la única
+  excepción es el WAV que Whisper local necesita para invocar `whisper-cli`, que
+  se borra en el `finally` de cada invocación y vive en un `mkdtemp` que se
+  destruye al parar. Esta parte **no se negocia**: es lo que separa la app de una
+  grabadora.
+- **El texto sí se guarda**, si `settings.historyEnabled` está activo: respuestas
+  y transcripción completa, un JSON por conversación en
+  `userData/conversations`. Ver `main/config/history.ts`.
+- **Es un interruptor, no una constante.** Apagarlo devuelve el comportamiento
+  antiguo por completo: `ensureConversation()` devuelve `null` y no se crea ni la
+  carpeta. Esa forma —que el punto de entrada devuelva `null` en lugar de repartir
+  comprobaciones por todo el orquestador— es lo que hace que no se pueda colar
+  una escritura por olvido.
+
+El cambio legal **no es cosmético**: en varias jurisdicciones un registro escrito
+de una conversación cuenta igual que una grabación a efectos de consentimiento.
+Por eso el README ya no dice "no graba nada" a secas, y «Consideraciones legales»
+separa ahora tres cosas que antes iban juntas: grabación, a dónde va el audio, y
+las políticas de la empresa en la que estés.
+
+**La regla de antes sigue en pie, sólo se movió el listón:** si alguien añade
+exportación, sincronización o cualquier salida nueva de estos datos, hay que
+volver a tocar el README y este apartado en el mismo commit.
 
 ### Ventanas
 
@@ -130,6 +154,65 @@ Dos detalles que parecen de más y no lo son:
   `focusable: false`, y renunciar a `focusable: false` no es opción. El
   seguimiento va por intervalo y no por los `mousemove` del renderer porque al
   arrastrar rápido el cursor se sale de la ventana.
+
+### Las dos pestañas: escucha y escritura
+
+El panel de entrada tiene dos pestañas. **Escucha** es la transcripción de
+siempre; **Escritura** es un textarea que llama a `askWithText`. La respuesta se
+pinta en «Sugerencia» en los dos casos: cambia de dónde sale la pregunta, no
+dónde aparece la respuesta.
+
+Escribir exige que la ventana sea enfocable, así que la pestaña de escritura es
+**la única situación en la que el overlay toma el foco**. Es aceptable porque la
+pide el usuario explícitamente, pero tiene tres consecuencias que van juntas y no
+se pueden separar:
+
+- **Revertir no es opcional.** El efecto de `OverlayApp` llama a
+  `setInteractive(false)` al cambiar de pestaña y al desmontar, y
+  `toggleOverlayVisibility` lo fuerza antes de ocultar. Una ventana que se queda
+  enfocable acaba robando el foco de la videollamada, que es exactamente lo que
+  la app existe para evitar.
+- **La guarda vive en el main, no en React.** `setOverlayMouseIgnore` sale antes
+  si `isOverlayInteractive()`. Sin ella los dos mecanismos se pelean: basta mover
+  el cursor sobre una zona no interactiva para que el hover de `useChromeMouse`
+  devuelva los clics atravesables a mitad de una frase y el botón de enviar deje
+  de responder. Se puso ahí y no en el orden de los efectos de React porque ese
+  orden es demasiado frágil para sostener una invariante.
+- **Envía `Enter`, no `Ctrl+Enter`.** `Ctrl+Enter` es un hotkey **global**: lo
+  intercepta el main y nunca llega al textarea. Si algún día se quiere que
+  `Ctrl+Enter` envíe el borrador, hay que desregistrar el acelerador al entrar en
+  la pestaña y volver a registrarlo al salir; no basta con un `onKeyDown`.
+
+El aviso de que el overlay toma el foco está **en la propia pestaña**, no sólo
+aquí: es una excepción a la promesa central del producto y callarla sería el tipo
+de verdad a medias que el README se esfuerza en no contar.
+
+### Qué salió a la superficie del overlay, y por qué
+
+El overlay pasó de tres controles a unos cuantos más. El criterio para decidir
+qué sube del dashboard al overlay es uno solo: **¿lo necesitarías a mitad de una
+llamada?** El dashboard hay que abrirlo con el engranaje y roba el foco, así que
+todo lo que esté allí es, en la práctica, inalcanzable mientras hablas.
+
+- **Chips de perfil.** `promptProfileId` ya existía; sólo estaba en un
+  desplegable del dashboard. Cambiar de registro es justo lo que quieres poder
+  hacer sin parar. `custom` no es un chip porque se edita con un textarea.
+- **Acciones rápidas** (Sigue / Más corto / Seguimiento / Resumen). Son prompts
+  enlatados que van por `askWithText`, la misma vía que la pestaña de escritura:
+  **no hay un camino nuevo hacia el LLM**. Sólo aparecen si hay una respuesta
+  sobre la que actuar; "amplía tu última respuesta" sin respuesta previa le pide
+  al modelo que amplíe el vacío.
+- **Tamaño S/M/L/XL.** Cuatro presets y no redimensionado libre: la ventana es
+  `frameless`, no hay bordes que arrastrar, y montar asas propias por un ajuste
+  que se toca dos veces no compensa. `setOverlaySize` **reancla al borde
+  derecho**: el overlay vive arriba a la derecha y crecer hacia fuera lo sacaría
+  de la pantalla.
+- **Marcas de tiempo relativas**, no la hora del reloj. Al repasar lo que importa
+  es "hace cuánto se dijo esto"; una hora absoluta obliga a restar mentalmente.
+- **Nueva conversación.** Aborta la respuesta en vuelo, vuelca la conversación,
+  limpia el `TranscriptBuffer` **y** emite `onConversationReset`. Lo último no es
+  opcional: el overlay tiene su propia copia de los segmentos en estado de React
+  y sin el evento seguiría enseñando la conversación anterior.
 
 ### Discreción en Windows: barra de tareas y nombre del proceso
 
@@ -193,6 +276,25 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
 
 ### Audio
 
+- **Filtro antialiasing antes de decimar.** La primera versión remuestreaba
+  48 kHz → 16 kHz con interpolación lineal y nada más, razonando que "el
+  aliasing por encima de 8 kHz no afecta a la inteligibilidad". **Ese
+  razonamiento estaba del revés y fue un bug real**: lo que hay por encima de
+  8 kHz no desaparece al decimar, se **pliega** hacia abajo y aterriza dentro de
+  la banda de la voz. Las sibilantes (s, f, z, ch) viven ahí, así que acababan
+  superpuestas sobre las vocales. El efecto perverso es que **vocalizar mejor lo
+  empeora**, porque mete más energía en la banda que se va a plegar. Se detectó
+  porque la transcripción era mediocre con los DOS motores a la vez, que es lo
+  que señaló que el fallo estaba aguas arriba de ambos.
+  Ahora va un Butterworth de **8º orden** a 7 kHz. El orden no es celo: con 4º
+  un tono de 12 kHz salía a -23 dB, audible de sobra para un reconocedor; con 8º
+  baja de -40 dB. `pcm-worklet.test.ts` ejecuta el worklet real en un sandbox y
+  fija ambos números.
+- **Ni un `push` dentro de `process()`.** Corre en el hilo de audio, con deadline
+  de tiempo real. La versión anterior usaba arrays JS con `push` por muestra y
+  `slice`/`splice` en cada llamada (~cada 2,7 ms): basura para el GC en el peor
+  sitio posible, y con Whisper y el LLM comiéndose la CPU se traduce en bloques
+  perdidos. Todo el estado son `Float32Array` con índices y `copyWithin`.
 - **Dos streams independientes** (mic = `me`, loopback = `them`) en lugar de
   diarización. El hablante se deduce del origen: más simple y exacto.
 - **`echoCancellation` y `noiseSuppression` desactivados en el micrófono.** Con
@@ -206,6 +308,36 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
 - **El worklet se compila desde un Blob URL**, no como archivo, para no depender
   del nombre con hash que Vite da a los assets en producción. Eso obliga a
   permitir `blob:` en `script-src` del audio-worker (ver §6).
+
+### Audio directo: saltarse la transcripción entera
+
+`gemini-audio` no es un motor de transcripción más. Manda el WAV del turno **al
+propio modelo de lenguaje** y recibe transcripción y respuesta en la misma
+llamada, con `responseSchema` para que la separación la garantice la API y no
+una expresión regular.
+
+Nació de un diagnóstico concreto: con el idioma forzado mal, el reconocedor
+devolvía *"Are y'all gonna eat?"* a partir de una frase en español y el modelo
+respondía impecablemente a algo que nadie dijo. Ese fallo tiene dos eslabones, y
+este motor elimina el primero: el modelo **oye** el audio en lugar de leer lo
+que otro entendió.
+
+Lo que cambia en el orquestador, y por qué:
+
+- **`STTProvider.answersDirectly`.** Con ese flag, `onFinalSegment` sale antes:
+  disparar el detector generaría una segunda respuesta, esta vez leyendo el
+  texto. Quien decide si algo merecía respuesta es el modelo que oyó el audio,
+  y por eso el aviso de `autoTriggerIsInert` tampoco aplica aquí.
+- **`AnswerEngine.present()`.** La respuesta no la pidió el motor de respuestas,
+  pero todo lo de después —difusión al overlay, memoria de la conversación,
+  historial en disco— tiene que ser idéntico. Por eso entra por el mismo sitio
+  en lugar de difundirse suelta desde el orquestador.
+- **El contexto se pasa como función, no como valor.** El motor lo consulta en
+  cada turno; entre el arranque y la tercera pregunta el perfil o la memoria ya
+  han cambiado.
+
+**Sigue haciendo falta el VAD.** Alguien tiene que decidir cuándo termina el
+turno; esto no es streaming. Para eso está Gemini Live.
 
 ### Transcripción
 
@@ -229,6 +361,26 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
 
 ### Respuestas
 
+- **El asistente recuerda sus propios turnos, y eso hubo que añadirlo.** La
+  primera versión mandaba cada consulta como un turno **único**: system prompt
+  más un mensaje de usuario. Las respuestas anteriores del modelo no volvían
+  nunca. El transcript no lo suplía, porque sólo contiene voz —micrófono y
+  sistema—, jamás lo generado.
+  El síntoma, sacado de una conversación real: a los 90 segundos de haber dicho
+  *"yo trabajo como comercial"*, el asistente contestaba *"no tengo información
+  sobre cuál es mi profesión en esta conversación"*. Y olvidaba un nombre que le
+  acababan de asignar en menos de un minuto.
+  Ahora `AnswerRequest.history` lleva los últimos 8 intercambios y **cada
+  proveedor los envía como mensajes reales** (`user`/`assistant`, o `model` en
+  Gemini), no resumidos dentro del prompt: es lo que hace que el modelo los trate
+  como cosas que dijo él. Se guardan sólo los turnos completados con texto —una
+  respuesta abortada no es algo que el modelo dijera— y "nueva conversación" los
+  borra, que es justamente para lo que existe ese botón.
+- **`manualContextSeconds` NO es la memoria**, aunque lo parezca. Es cuántos
+  segundos de transcripción acompañan a la pregunta. Con el valor en 10 el modelo
+  recibía poco más que la frase en curso; la memoria de la conversación es cosa
+  de `history`. La etiqueta del dashboard se cambió a "ventana de voz" porque
+  "contexto enviado" invitaba exactamente a esa confusión.
 - **`AbortSignal` es obligatorio en la firma de `LLMProvider`, no opcional.** Si
   el entrevistador pregunta otra cosa mientras se genera la respuesta anterior,
   hay que cancelarla: una respuesta obsoleta es **peor que ninguna**, porque el
@@ -262,6 +414,16 @@ el código parece "incompleto" en estos puntos, es deliberado:
 
 Model IDs correctos: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`.
 
+**Cuarto hecho, aprendido a golpes:** el punto 2 se verificó contra Opus 5 y se
+aplicó a los tres modelos. `output_config.effort` es de la **generación 5**, y
+Haiku 4.5 devuelve `400: "This model does not support the effort parameter"` —
+así que Haiku fallaba en TODAS las preguntas mientras Opus funcionaba, un patrón
+que desde fuera no tiene ningún sentido. `EFFORT_UNSUPPORTED` en `claude.ts`
+lleva la lista y además **aprende en caliente**: si un modelo futuro también lo
+rechaza, la primera petición lo detecta, reintenta sin el parámetro y las
+siguientes ya salen bien. La lección general es que un parámetro comprobado
+contra un modelo no está comprobado para su familia.
+
 Para Gemini Live, la documentación de Google listaba **tres model IDs distintos**
 en páginas diferentes. La forma de la API se verificó contra los tipos del SDK
 instalado (`node_modules/@google/genai/dist/genai.d.ts`), que es la fuente
@@ -294,6 +456,30 @@ una dependencia de unzip por una operación que se hace una vez.
 El ejecutable se **busca** en lugar de asumir su ruta: el nombre cambió entre
 versiones (`main.exe` → `whisper-cli.exe`) y el zip no tiene estructura estable.
 
+**Desde julio de 2026 se usa `whisper-server`, no el CLI por turno.** El mismo
+zip trae `whisper-server.exe`, que mantiene el modelo cargado entre peticiones y
+acepta WAV por HTTP. Medido con los mismos hilos y el mismo audio:
+
+| | por turno |
+|---|---|
+| `whisper-cli` (proceso nuevo cada vez) | ~1440 ms |
+| `whisper-server` (modelo residente) | ~825 ms |
+
+Los ~1440 ms del CLI coinciden con los tiempos reales del log de una sesión
+(1380–1540 ms), así que la medida es representativa y no de laboratorio.
+
+Dos cosas que conviene no confundir:
+
+- **El CLI sigue ahí y no es código muerto.** Si el servidor no arranca —puerto
+  ocupado, binario viejo sin `whisper-server.exe`— se cae al CLI. Una mejora de
+  latencia no puede tumbar la transcripción entera.
+- **Lo que NO arregla:** whisper.cpp procesa siempre una ventana de 30 segundos,
+  así que el paso del encoder cuesta lo mismo con 1,7 s de audio que con 8,2 s.
+  Ese suelo es del modelo, no del transporte, y es la razón de que los tiempos
+  del log fueran tan planos. Quien busque bajar de ahí tiene que tocar
+  `--audio-ctx`, a costa de precisión, o cambiar a un motor con streaming real
+  (Gemini Live).
+
 ### VAD: energía en TypeScript, no Silero
 
 Por el mismo criterio. El plan decía `@ricky0123/vad-web` + `onnxruntime-node`,
@@ -307,6 +493,16 @@ Detalles que no son opcionales en `core/vad.ts`:
   falla entre un micro de portátil y uno de diadema, que difieren en un orden de
   magnitud; y si se actualizara durante el habla, la propia voz arrastraría el
   suelo hacia arriba hasta dejar de detectarse.
+- **Rescate del enganche.** Actualizar el suelo *sólo* en silencio tiene un fallo
+  que aparece después de un rato: si el ruido de fondo sube por encima de 2,5×
+  el suelo aprendido —el ventilador acelerando porque Whisper y el LLM están
+  cargando la CPU, o el AGC del micrófono subiendo ganancia— todos los frames
+  pasan a contar como habla, y entonces el suelo **ya no vuelve a actualizarse
+  nunca**, porque sólo se actualizaba en silencio. El VAD se queda enganchado y
+  todo sale por corte forzado a 20 s. Por eso, pasados 30 s seguidos de "habla",
+  se asume que es ruido y se deja que el suelo lo aprenda. El campo `forced` de
+  `Utterance` existía desde el principio y no lo leía nadie; ahora se registra,
+  porque varios cortes forzados seguidos son la firma exacta de este fallo.
 - **Corte forzado a los 20 s**, o quien habla sin pausas nunca se transcribiría.
 - **Descarte de picos cortos** (< 250 ms): un golpe en la mesa supera el umbral
   un instante, y sin filtro se mandaría a Whisper, que devolvería una
@@ -333,6 +529,63 @@ momento posible, y el usuario **siempre** tiene el hotkey manual como red.
 - **Debounce de 2,5 s**: una pregunta larga puede cerrarse en varios segmentos
   seguidos, y sin él se dispararían varias respuestas abortándose entre sí.
 
+**Julio 2026: el equilibrio se volvió configurable, con datos.** La primera
+prueba de escucha real dio la medida: de cinco frases seguidas dictadas al
+micrófono, **sólo disparó una**, y desde fuera se vivió como "la app se quedó
+colgada". No estaba colgada — el detector las descartaba en silencio.
+
+Lo que enseñaron las transcripciones literales (recuperadas del historial, que
+para esto ya valió lo que costó) es que **el mismo motor puntúa de forma
+irregular en la misma sesión**:
+
+```
+"¿Qué tanto sabes de ingeniería software?"     ← con signos
+"que empresa creó Kotlin."                      ← sin signos ni acento
+"Si yo quiero programar una aplicación escritorio que lenguaje… deberiosa ahora."
+```
+
+Dos causas concretas, las dos arregladas:
+
+- **`normalize()` tira los acentos**, y en español el acento es lo único que
+  separa "qué" de "que" — la señal más fuerte del idioma se perdía antes de
+  mirarla. Ahora los interrogativos acentuados se buscan sobre el texto **crudo**
+  y **en cualquier posición**, no sólo en las dos primeras palabras.
+- **El filtro de muletillas sólo miraba el principio.** "Hola, ¿cómo estás?
+  ¿Me escuchas?" no empieza por muletilla y trae signo de interrogación, así que
+  disparaba. Ahora también se comprueba por contenido en frases cortas.
+
+Y como el equilibrio correcto **depende de para qué uses la app**, se añadió
+`autoTriggerSensitivity` (`strict` | `balanced` | `all`, default `balanced`).
+`all` existe porque el caso real del usuario era dictarle él las preguntas a
+propósito: ahí no hay ruido del que protegerse y cualquier heurística sobra.
+
+**Lo que se probó y se descartó:** meter variantes de "debería" entre los
+marcadores (`que deberia`, `deberia usar`…). Disparaban con subordinadas
+normales — *"creo que debería haber estudiado más"* no es una pregunta. Lo que
+distingue una pregunta no es el verbo, es el interrogativo. El test de falsos
+positivos de `question-detector.test.ts` fija esa decisión para que no vuelva.
+
+**Quién dispara es configurable, pero el default no cambia.**
+`settings.autoTriggerSpeaker` acepta `them` (default), `me` y `any`. El default
+sigue siendo el interlocutor por la razón de siempre: responder a lo que dices tú
+no tiene sentido en una entrevista. Se hizo configurable porque la combinación
+`audioSources: 'mic'` + disparo en `them` deja el auto-disparo **muerto en
+silencio** — el carril `them` ni siquiera se crea, así que `onFinalSegment`
+descartaba todos los segmentos sin emitir una sola traza, y desde fuera se veía
+exactamente igual que "el modelo no responde". Quien usa la app dictando las
+preguntas necesita `me`.
+
+Esa combinación imposible se detecta con `autoTriggerIsInert()` en
+`shared/types.ts`, que usan a la vez el main (avisa por consola al arrancar la
+transcripción) y el dashboard (banner rojo). Está en shared **a propósito**: la
+regla tiene que decir lo mismo en los dos sitios o el aviso deja de coincidir con
+el comportamiento.
+
+El hotkey manual (`session.lastRelevantSegment()`) sigue la misma preferencia,
+pero cae al otro hablante **sólo si el preferido ni se escucha**. Si sí se
+escucha y todavía no ha dicho nada, no hay fallback: mandar la última línea de
+otro como si fuera la pregunta es peor que dejar que el modelo la deduzca.
+
 ---
 
 ## 6. Bugs encontrados al verificar, y qué enseñó cada uno
@@ -350,6 +603,24 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | `session.bind()` resolvía a `Function.prototype.bind` | Colisión de nombre con el módulo `session` de Electron | TypeScript avisó con "Duplicate identifier"; sin él habría sido un fallo silencioso |
 | El selector mostraba los modelos del proveedor equivocado | `listModels()` lento del proveedor A resolviendo **después** de cambiar a B | Lo detectó la regla `set-state-in-effect` de eslint. Se arregló guardando el resultado junto al proveedor y descartándolo por comparación |
 | `EPERM` al empaquetar | **OneDrive** mantiene un lock sobre `release/` | Ver §7 |
+| El dashboard mostraba `llama3.2:3b` elegido y los settings guardaban `""` | Un `<select>` controlado cuyo `value` **no existe entre sus `<option>`**: el navegador pinta la primera opción como seleccionada pero **no dispara `onChange`** | Un select controlado tiene que tener siempre una `<option>` con su valor, aunque sea un hueco. Si no, la UI miente y el fallo aparece muy lejos de su causa |
+| Whisper local fallaba con `Command failed` en cada intervención | `findWhisperBinary()` recorría el directorio y devolvía la **primera** coincidencia; `main.exe` ordena antes que `whisper-cli.exe` y desde whisper.cpp 1.7 es un stub de deprecación que sale con **código 1** | Buscar por prioridad del array de candidatos, nunca por orden de directorio. Y que un ejecutable exista no significa que sirva |
+| Frases con "you" desaparecían del transcript | `'you'` estaba en la lista de alucinaciones y se comparaba con `includes()` | Un filtro de subcadenas necesita que las entradas sean lo bastante largas para no aparecer dentro de texto legítimo; las cortas van a comparación exacta |
+| `error: input file not found 'false'` en whisper-cli | `--output-txt false`: `-otxt` es un flag booleano SIN argumento, así que `false` se tomaba por un fichero de entrada | Verificar cada bandera contra el CLI real; whisper.cpp no falla, solo lo ignora y escribe un `.txt` de más |
+| Gemini Live no funcionaba y no había forma de saber por qué | `GEMINI_LIVE_MODELS` está ordenado por preferencia y este mismo documento decía que se probaba el siguiente si el primero fallaba — **pero nadie lo implementó**: el constructor cogía el `[0]` y ahí acababa | Documentar una intención no la implementa. Si CONTEXT dice que algo hace X, debe haber un test o una lectura del código que lo confirme |
+| "La app dejó de responder" sin ningún error | El detector descartaba las frases **en silencio**: no había log del descarte ni del motivo | Un camino que decide no actuar necesita dejar rastro tanto como uno que falla. El `return` mudo es el peor de los dos |
+| Ningún diagnóstico posible en el `.exe` empaquetado | Los `console.*` del main sólo existían arrancando desde una terminal | Si la app se usa empaquetada, el log tiene que ir a un archivo desde el primer día |
+| Transcripción mediocre con los DOS motores | Sin filtro antialiasing, el contenido sobre 8 kHz se plegaba dentro de la banda de voz al decimar a 16 kHz | Que un fallo afecte por igual a dos implementaciones independientes es la señal de que está aguas arriba de ambas |
+| "¿Qué tal es la idea de software?" descartada como muletilla | El filtro hacía `startsWith('que tal ')`, así que cualquier pregunta que empezara por una muletilla moría | Una lista de frases a ignorar debe compararse contra la frase ENTERA; un prefijo compartido no significa lo mismo |
+| Respuesta eternamente en "Pensando…" | No había ningún tiempo límite en la generación: un proveedor colgado dejaba el estado ahí para siempre | Todo lo que espera a un proceso ajeno necesita reloj. Sin él, "lento" y "muerto" son la misma pantalla |
+| Haiku 4.5 fallaba con 400 en cada pregunta | `output_config.effort` es de la generación Claude 5 y se enviaba a todos los modelos. La API lo dice claro: *"This model does not support the effort parameter"* | Un parámetro verificado contra UN modelo no está verificado para toda la familia. Ver `EFFORT_UNSUPPORTED` |
+| Respuestas sin relación con lo preguntado, mezclando idiomas | `settings.language` estaba en `en` con alguien hablando español. Whisper **no falla** al forzar idioma: devuelve texto plausible inventado a partir de los sonidos (*"Are y'all gonna eat?"*) | Un ajuste cuyo error no produce ningún error tiene que estar a la vista. Por eso el idioma forzado sale ahora en la barra del overlay |
+| "¿Podrías presentarte?" descartada | `MIN_WORDS = 3`, y en español abundan las preguntas completas de dos palabras | Un umbral de longitud necesita excepción cuando hay una señal inequívoca |
+| El asistente olvidaba lo que él mismo había dicho | Cada consulta era un turno único: sus respuestas anteriores no volvían al modelo, y el transcript sólo contiene voz | "Contexto" y "memoria" no son lo mismo. Un transcript no es un historial de conversación |
+| Gemini Live "no funcionaba" sin dejar rastro | `live.connect()` **no tiene tiempo límite**: si el handshake no llega a completarse, la promesa no resuelve ni rechaza nunca. `startTranscription` quedaba colgado, la captura seguía diciendo "Escuchando" y no había ni transcripción ni error | Lo detectó el log: `[capture] primer chunk` sin ningún `[stt] transcripción iniciada` detrás. Toda promesa de red necesita reloj, y una que cuelga es peor que una que falla |
+| El timeout decía "sin respuesta en 15s" y no servía de nada | La causa **sí llegaba**: el servidor cierra el socket con `1007` y un motivo legible (*"API key not valid"*), pero **sin enviar ningún mensaje**. El SDK espera un `setupComplete` que no va a llegar y el timeout tapaba el motivo | Se comprobó abriendo el WebSocket a mano con una clave falsa. Un timeout que sustituye a un error es un parche: hay que escuchar el canal por el que llega la causa —aquí, el `onclose` |
+| JSON cortado a media cadena en el audio directo | Gemini 2.5 razona por defecto y **los tokens de razonamiento se descuentan de `maxOutputTokens`**: se gastaban pensando y el JSON se truncaba | `thinkingConfig: { thinkingBudget: 0 }`. Un presupuesto de salida compartido con el razonamiento no es un presupuesto de salida |
+| ~1,3 s fijos por turno en Whisper local | `whisper-cli` **carga el modelo en cada invocación**: tarda lo mismo con 1,7 s que con 8,2 s de audio | Medir el coste contra el tamaño de la entrada delata al instante lo que es fijo y lo que es proporcional |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve
@@ -430,8 +701,18 @@ capturas de pantalla**, no solo compilando.
 - **Streaming real de tokens** de Claude/Gemini (necesita API key del usuario).
 - **Transcripción en vivo** con Gemini Live (ídem).
 - **Auto-disparo sobre habla real** (la heurística sí está cubierta por tests).
-- **Whisper local end-to-end**: los assets nunca se descargaron en esta sesión.
-- **Ollama**: no hay servidor corriendo en la máquina.
+- **Whisper local end-to-end**: los assets **ya están descargados** y se
+  comprobó, ejecutándolo, que `whisper-cli.exe` transcribe un WAV generado a
+  mano con la lista de argumentos exacta que usa la app, y que
+  `findWhisperBinary()` elige `whisper-cli.exe` y no el stub `main.exe`. Lo que
+  sigue sin probarse es la cadena completa con voz real: VAD → turno → texto.
+- **Ollama**: el servidor **sí corre** ahora, con `llama3.2:3b`. Lo verificado es
+  el listado de modelos; el streaming de tokens sobre una pregunta real no.
+- **Gemini Live sigue sin probarse contra la API real.** El fallback de modelo
+  está implementado y hay un botón "Probar" en Diagnóstico que abre una sesión
+  de verdad, pero requiere la API key del usuario. Hasta que alguien lo pulse,
+  **no sabemos qué modelo Live acepta la cuenta** — sólo que ya no se falla en
+  silencio sobre el primer candidato.
 - **La prueba en una videollamada real** (Meet / Teams / Zoom / OBS). La
   verificación se hizo con captura GDI/BitBlt.
   `WDA_EXCLUDEFROMCAPTURE` cubre también las rutas DXGI y Windows Graphics
@@ -445,15 +726,9 @@ capturas de pantalla**, no solo compilando.
 Cosas que existen a medias. No son bugs; son trabajo no terminado, y está mejor
 escrito aquí que descubierto por sorpresa.
 
-- **`setOverlayInteractive()` sigue siendo código muerto.** Existe en
-  `src/main/windows/overlay.ts` y resuelve bien el problema (volver el overlay
-  enfocable para escribir sin romper la regla de no robar foco), pero **nada la
-  llama**: falta el input de texto en el overlay y su handler IPC. Ahora que la
-  barra ya tiene botones funcionando, es el siguiente paso natural.
-- **`askWithText` está completo salvo la UI.** La cadena IPC → preload →
-  `session.askWithText()` funciona; ningún renderer la invoca.
 - **`resizeOverlay` no lo llama nadie.** El handler y el preload existen; la idea
-  era que el overlay se ajustara a la altura de la respuesta.
+  era que el overlay se ajustara a la altura de la respuesta. Ahora que la
+  pestaña de escritura cambia la altura útil del panel, es más visible que antes.
 - **`overlayOpacity` no se puede cambiar.** El overlay lo respeta; el dashboard
   no lo expone.
 - **Los hotkeys no se pueden remapear desde la UI.** `settings.hotkeys` y

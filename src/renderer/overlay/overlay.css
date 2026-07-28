@@ -104,6 +104,21 @@ body {
   flex: 1;
 }
 
+/*
+ * Ámbar y no gris: un idioma forzado que no coincide con el que se habla no da
+ * ningún error, sólo transcripciones inventadas. Tiene que verse.
+ */
+.statusbar__lang {
+  flex-shrink: 0;
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.14);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* Un medidor por hablante: valida de un vistazo que ambos streams llegan. */
 .levels {
   display: flex;
@@ -185,6 +200,232 @@ body {
   flex-shrink: 0;
 }
 
+/* ── Chips de perfil ── */
+
+.chips {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-family: inherit;
+  font-size: 10.5px;
+  color: #9aa0a6;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.chip:hover {
+  color: #e8eaed;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.chip--active {
+  color: #0e1015;
+  background: #93c5fd;
+  border-color: transparent;
+  font-weight: 550;
+}
+
+.chip--active:hover {
+  background: #bfdbfe;
+  color: #0e1015;
+}
+
+/* ── Acciones rápidas sobre la respuesta ── */
+
+.quick {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.quick__btn {
+  font-family: inherit;
+  font-size: 10.5px;
+  color: #b7bcc1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 4px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.quick__btn:hover {
+  color: #f1f3f4;
+  background: rgba(96, 165, 250, 0.14);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+/* ── Selector de tamaño ── */
+
+.sizes {
+  display: flex;
+  gap: 2px;
+}
+
+.sizes__btn {
+  font-family: inherit;
+  font-size: 9.5px;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  color: #6b7075;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 5px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.sizes__btn:hover {
+  color: #b7bcc1;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.sizes__btn--active {
+  color: #0e1015;
+  background: #7c8288;
+}
+
+/* ── Pestañas: escuchar o escribir ── */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.tab {
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* Mismo tono que `.section__title`: las pestañas OCUPAN su sitio, así que
+     deben leerse como el rótulo que sustituyen y no como dos botones más. */
+  color: #7c8288;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  padding: 2px 8px 5px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.tab:hover {
+  color: #b7bcc1;
+}
+
+.tab--active {
+  color: #e8eaed;
+  border-bottom-color: #60a5fa;
+}
+
+/* ── Pestaña de escritura ── */
+
+.compose {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+.compose__input {
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #f1f3f4;
+  /* `body` tiene `user-select: none` para que arrastrar el overlay no seleccione
+     texto; en un campo de escritura hay que devolverlo o no se puede ni
+     seleccionar lo que acabas de escribir. */
+  user-select: text;
+  resize: none;
+  height: 74px;
+  padding: 8px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.compose__input:focus {
+  border-color: rgba(96, 165, 250, 0.6);
+}
+
+.compose__input::placeholder {
+  color: #6b7075;
+  font-style: italic;
+}
+
+.compose__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compose__hint {
+  flex: 1;
+  font-size: 10px;
+  color: #6b7075;
+}
+
+.compose__btn {
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 550;
+  color: #0e1015;
+  background: #60a5fa;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    opacity 120ms ease;
+}
+
+.compose__btn:hover:not(:disabled) {
+  background: #93c5fd;
+}
+
+.compose__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/*
+ * Aviso del foco. Es la única situación en la que el overlay lo toma, y el
+ * resto de la app existe para evitarlo: callarlo sería justo el tipo de
+ * promesa a medias que el README se esfuerza en no hacer.
+ */
+.compose__warn {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #b98b2e;
+}
+
 .transcript {
   max-height: 132px;
   overflow-y: auto;
@@ -198,6 +439,16 @@ body {
 .transcript__line {
   display: flex;
   gap: 6px;
+}
+
+/* Tabular para que las marcas queden alineadas en columna y el ojo pueda
+   saltarse la columna entera al leer. */
+.transcript__time {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: #5c6166;
+  padding-top: 1px;
 }
 
 .transcript__who {
@@ -291,6 +542,46 @@ body {
   background: #fde68a;
 }
 
+/* ── Error del motor de transcripción ── */
+
+.sttError {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.26);
+}
+
+.sttError__text {
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #fca5a5;
+  /* Los mensajes de Gemini traen el modelo y la causa; poder copiarlos es
+     justamente el punto de enseñarlos. */
+  user-select: text;
+  max-height: 68px;
+  overflow-y: auto;
+}
+
+.sttError__close {
+  flex-shrink: 0;
+  display: flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #fca5a5;
+  cursor: pointer;
+}
+
+.sttError__close:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
 /* ── Thumbnail de captura adjunta ── */
 
 .shot {
@@ -321,12 +612,17 @@ body {
 
 .hints {
   display: flex;
+  align-items: center;
   gap: 10px;
   flex-shrink: 0;
   font-size: 10px;
   color: #6b7075;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 8px;
+}
+
+.hints__spacer {
+  flex: 1;
 }
 
 .hints kbd {

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { WhisperProgress } from '@shared/ipc';
+import { autoTriggerIsInert, speakersFor } from '@shared/types';
 import type {
   AudioLevels,
   CaptureStatus,
   ContextPack,
+  Conversation,
+  ConversationSummary,
   LLMProviderId,
   ModelInfo,
   OllamaStatus,
@@ -292,8 +295,264 @@ export function DashboardApp() {
       <ModelCard settings={settings} patch={patch} />
       <TranscriptionCard settings={settings} patch={patch} />
       <BehaviourCard settings={settings} patch={patch} />
+      <HistoryCard settings={settings} patch={patch} />
       <ContextCard settings={settings} patch={patch} />
+      <DiagnosticsCard />
     </div>
+  );
+}
+
+// ────────────────────────────── Diagnóstico ──────────────────────────────
+
+/**
+ * Logs y prueba del motor de transcripción.
+ *
+ * Existe porque en el `.exe` empaquetado **no había ningún sitio donde mirar**:
+ * los `console.*` del main sólo se veían arrancando desde una terminal. Un fallo
+ * de Gemini Live y una sala en silencio producían exactamente la misma pantalla.
+ */
+function DiagnosticsCard() {
+  const [log, setLog] = useState('');
+  const [location, setLocation] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; detail: string } | null>(null);
+
+  const refresh = useCallback((): void => {
+    void window.api.logs.read().then(setLog);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    void window.api.logs.location().then(setLocation);
+  }, [refresh]);
+
+  const runTest = async (): Promise<void> => {
+    setTesting(true);
+    setResult(null);
+    try {
+      // La prueba escribe en el log, así que se relee después: el detalle
+      // completo (qué modelos se probaron y qué contestó cada uno) está ahí.
+      setResult(await window.api.transcript.testConnection());
+      refresh();
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const copy = async (): Promise<void> => {
+    await navigator.clipboard.writeText(log);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1_500);
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card__title">Diagnóstico</h2>
+      <p className="card__hint">
+        Si algo no funciona, esto es lo que hay que mirar antes que nada. El registro se guarda en{' '}
+        <code>{location || 'tu carpeta de datos'}</code>.
+      </p>
+
+      <Row
+        label="Probar la transcripción"
+        desc="Conecta de verdad con el motor configurado: con Gemini Live negocia el modelo, con Whisper ejecuta el binario sobre un audio de prueba."
+      >
+        <button className="btn" disabled={testing} onClick={() => void runTest()}>
+          {testing ? 'Probando…' : 'Probar'}
+        </button>
+      </Row>
+
+      {result && (
+        <div className={result.ok ? 'diag diag--ok' : 'warn'}>
+          <strong>{result.ok ? 'Funciona.' : 'Falló.'}</strong> {result.detail}
+        </div>
+      )}
+
+      <div className="field" style={{ marginTop: 12 }}>
+        <button className="btn" onClick={refresh}>
+          Actualizar registro
+        </button>
+        <button className="btn" disabled={!log} onClick={() => void copy()}>
+          {copied ? 'Copiado' : 'Copiar'}
+        </button>
+      </div>
+
+      <pre className="logview">{log || 'Todavía no hay nada registrado en esta sesión.'}</pre>
+    </section>
+  );
+}
+
+// ────────────────────────────── Historial ──────────────────────────────
+
+const dateFormat = new Intl.DateTimeFormat('es-ES', {
+  day: '2-digit',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/**
+ * Historial de conversaciones.
+ *
+ * Esta tarjeta es la que hace visible que la app **sí** escribe en disco, algo
+ * que durante toda su vida anterior no hacía. Por eso enseña la ruta exacta y
+ * el botón de borrar todo está aquí y no escondido: si vas a guardar
+ * transcripciones de otras personas, tienes que poder ver qué hay y quitarlo.
+ */
+function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const [items, setItems] = useState<ConversationSummary[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Conversation | null>(null);
+  const [location, setLocation] = useState('');
+  const [confirmingClear, setConfirmingClear] = useState(false);
+
+  const refresh = useCallback((): void => {
+    void window.api.history.list().then(setItems);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    void window.api.history.location().then(setLocation);
+    // Empezar una conversación nueva desde el overlay debe verse aquí sin
+    // tener que cerrar y reabrir el dashboard.
+    return window.api.history.onReset(refresh);
+  }, [refresh]);
+
+  // El detalle se pide bajo demanda: la lista sólo trae cabeceras, y cargar
+  // cada transcripción completa para pintar una lista no tendría sentido.
+  useEffect(() => {
+    if (!openId) return;
+    let cancelled = false;
+    void window.api.history.get(openId).then((conversation) => {
+      if (!cancelled) setDetail(conversation);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [openId]);
+
+  const remove = async (id: string): Promise<void> => {
+    setItems(await window.api.history.remove(id));
+    if (openId === id) {
+      setOpenId(null);
+      setDetail(null);
+    }
+  };
+
+  const clearAll = async (): Promise<void> => {
+    setItems(await window.api.history.clear());
+    setOpenId(null);
+    setDetail(null);
+    setConfirmingClear(false);
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card__title">Historial de conversaciones</h2>
+      <p className="card__hint">
+        Se guardan en tu máquina, en texto plano, y no se envían a ningún sitio. Incluyen la
+        transcripción completa: eso significa lo que dijo la otra persona, no sólo lo que
+        preguntaste tú.
+      </p>
+
+      <Row
+        label="Guardar conversaciones"
+        desc={
+          settings.historyEnabled
+            ? `Activo. Se escriben en ${location || 'tu carpeta de datos'}.`
+            : 'Apagado. Nada toca el disco: la app vuelve a escuchar sin guardar.'
+        }
+      >
+        <Switch
+          on={settings.historyEnabled}
+          onChange={(v) => void patch({ historyEnabled: v })}
+        />
+      </Row>
+
+      {items.length === 0 && (
+        <p className="card__hint" style={{ marginBottom: 0 }}>
+          {settings.historyEnabled
+            ? 'Todavía no hay ninguna conversación guardada.'
+            : 'No hay nada guardado.'}
+        </p>
+      )}
+
+      {items.map((item) => (
+        <div key={item.id} className="conv">
+          <div className="conv__head">
+            <button
+              className="conv__title"
+              onClick={() => setOpenId(openId === item.id ? null : item.id)}
+            >
+              <span className="conv__name">{item.title}</span>
+              <span className="conv__meta">
+                {dateFormat.format(item.startedAt)} · {item.turnCount} respuesta
+                {item.turnCount === 1 ? '' : 's'} · {item.segmentCount} intervencion
+                {item.segmentCount === 1 ? '' : 'es'}
+              </span>
+            </button>
+            <button className="btn btn--danger" onClick={() => void remove(item.id)}>
+              Borrar
+            </button>
+          </div>
+
+          {openId === item.id && detail?.id === item.id && (
+            <div className="conv__body">
+              {detail.turns.map((turn) => (
+                <div key={turn.id} className="turn">
+                  <div className="turn__q">{turn.question || '(sin pregunta aislada)'}</div>
+                  <div className={`turn__a${turn.error ? ' turn__a--error' : ''}`}>
+                    {turn.error ?? turn.answer}
+                  </div>
+                  <div className="turn__meta">
+                    {turn.providerId} · {turn.model} · {turn.trigger}
+                  </div>
+                </div>
+              ))}
+
+              {detail.segments.length > 0 && (
+                <>
+                  <div className="conv__subtitle">Transcripción</div>
+                  <div className="conv__transcript">
+                    {detail.segments.map((seg) => (
+                      <div key={seg.id} className="conv__line">
+                        <span className={`transcript-who transcript-who--${seg.speaker}`}>
+                          {seg.speaker === 'me' ? 'Yo' : 'Ellos'}
+                        </span>
+                        <span>{seg.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {items.length > 0 && (
+        <div className="field">
+          {confirmingClear ? (
+            <>
+              <span className="row__desc" style={{ flex: 1 }}>
+                Se borran las {items.length} conversaciones. No hay deshacer.
+              </span>
+              <button className="btn btn--danger" onClick={() => void clearAll()}>
+                Sí, borrar todo
+              </button>
+              <button className="btn" onClick={() => setConfirmingClear(false)}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button className="btn btn--danger" onClick={() => setConfirmingClear(true)}>
+              Borrar todo el historial
+            </button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -323,8 +582,22 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
     let cancelled = false;
     window.api.llm
       .listModels()
-      .then((models) => {
-        if (!cancelled) setLoaded({ provider, models });
+      .then(async (models) => {
+        if (cancelled) return;
+        setLoaded({ provider, models });
+
+        // Si el modelo guardado no está entre los cargados, hay que PERSISTIR
+        // uno. Un <select> controlado cuyo `value` no existe entre sus <option>
+        // pinta la primera opción como elegida pero no dispara `onChange`: la
+        // UI decía "llama3.2:3b" mientras los settings seguían con "", y cada
+        // respuesta fallaba con "no hay ningún modelo seleccionado".
+        const stored = await window.api.settings.get();
+        const currentModel = stored.llmModels[provider];
+        const first = models[0];
+        if (!first || models.some((m) => m.id === currentModel)) return;
+        // Se relee del main en lugar de usar el `settings` del render: entre
+        // que se pidió la lista y llegó, el usuario ha podido tocar otro ajuste.
+        await patch({ llmModels: { ...stored.llmModels, [provider]: first.id } });
       })
       .catch(() => {
         if (!cancelled) setLoaded({ provider, models: [] });
@@ -332,10 +605,14 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
     return () => {
       cancelled = true;
     };
-  }, [provider]);
+  }, [provider, patch]);
 
   const models = loaded?.provider === provider ? loaded.models : [];
   const test = tested?.provider === provider ? tested.result : null;
+  const selectedModel = settings.llmModels[provider];
+  /** Mientras la lista carga (o si el modelo guardado ya no existe) el valor
+   *  no está entre las opciones; sin este hueco el select mentiría. */
+  const modelMissing = !models.some((m) => m.id === selectedModel);
 
   const runTest = async (): Promise<void> => {
     setBusy(true);
@@ -373,15 +650,17 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         }
       >
         <select
-          value={settings.llmModels[settings.llmProviderId]}
+          value={modelMissing ? '' : selectedModel}
           disabled={models.length === 0}
           onChange={(e) =>
             void patch({
-              llmModels: { ...settings.llmModels, [settings.llmProviderId]: e.target.value },
+              llmModels: { ...settings.llmModels, [provider]: e.target.value },
             })
           }
         >
-          {models.length === 0 && <option value="">—</option>}
+          {modelMissing && (
+            <option value="">{models.length === 0 ? '—' : '— elige un modelo —'}</option>
+          )}
           {models.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
@@ -562,11 +841,25 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
           }
         >
           <option value="gemini-live">Gemini Live (nube, más rápido)</option>
+          <option value="gemini-audio">Gemini audio directo (el modelo oye tu voz)</option>
           <option value="whisper-local">Whisper local (offline, privado)</option>
         </select>
       </Row>
 
-      <Row label="Idioma" desc="Automático detecta el idioma; fijarlo mejora la precisión.">
+      {settings.sttProviderId === 'gemini-audio' && (
+        <div className="diag diag--ok">
+          El audio va <strong>directo al modelo</strong>, sin pasar por un reconocedor. Una mala
+          transcripción deja de poder estropear la respuesta, porque el modelo oye tu voz en lugar
+          de leer lo que otro entendió. Usa el modelo de Gemini que elijas más arriba, y el
+          detector de preguntas no interviene: decide el propio modelo si lo que dijiste pedía
+          respuesta.
+        </div>
+      )}
+
+      <Row
+        label="Idioma"
+        desc="Automático detecta el idioma; fijarlo mejora la precisión cuando aciertas."
+      >
         <select value={settings.language} onChange={(e) => void patch({ language: e.target.value })}>
           <option value="auto">Automático</option>
           <option value="es">Español</option>
@@ -577,11 +870,32 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
         </select>
       </Row>
 
+      {/*
+        El aviso es fuerte porque el fallo es silencioso y muy desconcertante:
+        pasó de verdad con el idioma en inglés y alguien hablando español.
+        Whisper devolvía "Are y'all gonna eat?" y el modelo respondía a eso.
+      */}
+      {settings.language !== 'auto' && (
+        <div className="warn">
+          Estás forzando <strong>{LANGUAGE_LABEL[settings.language] ?? settings.language}</strong>.
+          Si hablas en otro idioma <strong>no verás ningún error</strong>: el reconocedor devuelve
+          texto plausible en el idioma que le impongas, inventado a partir de los sonidos. Si las
+          respuestas no tienen nada que ver con lo que preguntaste, esto es lo primero que hay que
+          mirar.
+        </div>
+      )}
+
       {settings.sttProviderId === 'whisper-local' && (
         <>
           <Row
             label="Modelo de Whisper"
-            desc="Modelos más grandes transcriben mejor y tardan más."
+            desc={
+              settings.language === 'en' || settings.language === 'auto'
+                ? 'Modelos más grandes transcriben mejor y tardan más.'
+                : 'Modelos más grandes transcriben mejor y tardan más. Fuera del inglés la ' +
+                  'diferencia entre Base y Small es grande: si las palabras salen cambiadas, ' +
+                  'es lo primero que conviene subir.'
+            }
           >
             <select
               value={settings.whisperModel}
@@ -633,26 +947,59 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
 }
 
 /**
- * El auto-disparo ya ignora tu propia voz (solo evalúa intervenciones del
- * interlocutor), así que esta opción decide qué entra en el CONTEXTO enviado al
- * modelo, no cuándo se dispara. Los textos lo dicen explícitamente porque es la
- * confusión natural.
+ * Por defecto el auto-disparo ignora tu propia voz (solo evalúa intervenciones
+ * del interlocutor), así que esta opción decide sobre todo qué entra en el
+ * CONTEXTO enviado al modelo. Los textos lo dicen explícitamente porque es la
+ * confusión natural — y avisan de la combinación que deja el disparo inerte.
  */
 const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], string> = {
   both:
     'El modelo sabe lo que ya has respondido, así que no te sugiere repetirlo. ' +
-    'El auto-disparo nunca reacciona a tu propia voz.',
+    'Por defecto el auto-disparo no reacciona a tu propia voz.',
   system:
     'Tu micrófono no se abre siquiera. Evita cualquier posibilidad de que tus ' +
     'respuestas entren en el contexto, a cambio de que el modelo no sepa qué has dicho ya.',
-  mic: 'Solo se transcribe lo que dices tú. Útil para dictar notas, no para una entrevista.',
+  mic:
+    'Solo se transcribe lo que dices tú. Útil para dictar notas, no para una entrevista: ' +
+    'el interlocutor no se escucha, así que el auto-disparo por defecto no puede saltar.',
+};
+
+/**
+ * El equilibrio correcto depende de para qué uses la app, así que los textos
+ * describen el caso de uso y no el algoritmo: nadie elige "recall" a ciegas.
+ */
+const SENSITIVITY_HINT: Record<Settings['autoTriggerSensitivity'], string> = {
+  strict:
+    'Solo dispara con interrogativo al principio, signo de interrogación o "cuéntame…". ' +
+    'Casi nunca molesta, pero se le escapan preguntas que el reconocedor entrega sin signos.',
+  balanced:
+    'Añade interrogativos acentuados en cualquier posición y fórmulas como "me recomiendas". ' +
+    'Recupera la mayoría de preguntas reales a cambio de algún disparo de más.',
+  all:
+    'Responde a todo lo que no sea un saludo o una prueba de audio. Es lo que quieres si eres ' +
+    'tú quien dicta las preguntas; en una entrevista real interrumpirá constantemente.',
+};
+
+/** Nombres de los hablantes en los avisos, para no repetirlos en cada texto. */
+const SPEAKER_LABEL: Record<'me' | 'them' | 'any', string> = {
+  me: 'tu micrófono',
+  them: 'el interlocutor',
+  any: 'cualquiera de los dos',
+};
+
+const LANGUAGE_LABEL: Record<string, string> = {
+  es: 'Español',
+  en: 'Inglés',
+  pt: 'Portugués',
+  fr: 'Francés',
+  de: 'Alemán',
 };
 
 /** Duplicado a propósito: el renderer no puede importar del proceso main. */
 const WHISPER_MODEL_OPTIONS = [
   { id: 'tiny', label: 'Tiny (74 MB) — el más rápido' },
-  { id: 'base', label: 'Base (141 MB) — recomendado' },
-  { id: 'small', label: 'Small (465 MB) — más preciso' },
+  { id: 'base', label: 'Base (141 MB) — justo en español' },
+  { id: 'small', label: 'Small (465 MB) — recomendado en español' },
 ];
 
 // ────────────────────────────── Comportamiento ──────────────────────────────
@@ -678,9 +1025,64 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
         </select>
       </Row>
 
+      {settings.autoTriggerMode !== 'off' && (
+        <>
+          <Row
+            label="Quién dispara la respuesta"
+            desc="Por defecto solo el interlocutor: responder a lo que dices tú no tiene sentido en una entrevista. Cámbialo si usas la app para dictar las preguntas tú mismo."
+          >
+            <select
+              value={settings.autoTriggerSpeaker}
+              onChange={(e) =>
+                void patch({
+                  autoTriggerSpeaker: e.target.value as Settings['autoTriggerSpeaker'],
+                })
+              }
+            >
+              <option value="them">El interlocutor</option>
+              <option value="me">Mi micrófono</option>
+              <option value="any">Cualquiera de los dos</option>
+            </select>
+          </Row>
+
+          <Row
+            label="Cuándo considera que es una pregunta"
+            desc={SENSITIVITY_HINT[settings.autoTriggerSensitivity]}
+          >
+            <select
+              value={settings.autoTriggerSensitivity}
+              onChange={(e) =>
+                void patch({
+                  autoTriggerSensitivity: e.target.value as Settings['autoTriggerSensitivity'],
+                })
+              }
+            >
+              <option value="strict">Estricto · solo señales claras</option>
+              <option value="balanced">Equilibrado · recomendado</option>
+              <option value="all">Todo · cualquier intervención</option>
+            </select>
+          </Row>
+
+          {/* La combinación imposible no da ningún síntoma: el audio llega, se
+              transcribe, y el disparo descarta todo en silencio. Por eso se
+              avisa aquí y no solo en el log del proceso principal. */}
+          {autoTriggerIsInert(settings) && (
+            <div className="warn">
+              El auto-disparo espera a <strong>{SPEAKER_LABEL[settings.autoTriggerSpeaker]}</strong>,
+              pero «Qué se escucha» solo abre{' '}
+              {speakersFor(settings.audioSources)
+                .map((s) => SPEAKER_LABEL[s])
+                .join(' y ')}
+              : <strong>nunca se disparará ninguna respuesta automática</strong>. Cambia una de las
+              dos cosas, o usa <kbd>Ctrl</kbd>+<kbd>Enter</kbd> para preguntar a mano.
+            </div>
+          )}
+        </>
+      )}
+
       <Row
-        label="Contexto enviado"
-        desc="Segundos de conversación que acompañan a cada pregunta."
+        label="Ventana de voz"
+        desc="Segundos de TRANSCRIPCIÓN que acompañan a cada pregunta. No afecta a la memoria del asistente: sus propias respuestas anteriores se envían siempre. Por debajo de 30 s se pierde el hilo de lo que dijo el interlocutor."
       >
         <input
           type="number"

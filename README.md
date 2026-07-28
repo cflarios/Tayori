@@ -7,11 +7,18 @@ cuando compartes pantalla**.
 Open source, MIT, sin monetización. Todo corre en tu máquina y las llamadas van
 directas al proveedor de IA que elijas — no hay servidor intermedio.
 
-**No graba nada.** El audio se procesa al vuelo: los fragmentos van al motor de
-transcripción y se descartan en el acto, sin tocar el disco. La transcripción
-vive en memoria como una ventana rodante de las últimas intervenciones y
-desaparece al cerrar la app. No hay archivos de audio, ni historial, ni
-exportación. Es un asistente que escucha, no una grabadora.
+**No guarda audio, pero sí guarda texto.** Los fragmentos de audio van al motor
+de transcripción y se descartan en el acto: **nunca se escribe un archivo de
+audio**, ni siquiera temporal. Lo que sí se guarda, si dejas activo el historial,
+es el **texto**: las respuestas del asistente y la transcripción de la
+conversación, incluido lo que dijo la otra persona. Van a un JSON por
+conversación en tu carpeta de datos, en tu máquina, y no se envían a ningún
+sitio.
+
+El historial se puede **apagar entero** desde el dashboard → *Historial de
+conversaciones*. Con el interruptor apagado nada toca el disco y la app vuelve a
+comportarse como antes: escucha y olvida. Ahí mismo puedes ver la ruta exacta,
+borrar una conversación o borrarlas todas.
 
 ## Qué hace
 
@@ -145,10 +152,16 @@ a propósito.** El nombre se cambia en `electron-builder.yml` (`productName` /
 
 ## Latencia y privacidad: el compromiso
 
-| Motor de transcripción | Latencia | Dónde va el audio |
+| Motor | Latencia | Dónde va el audio |
 |---|---|---|
 | Gemini Live | ~300 ms | A Google |
-| Whisper local | ~1–2 s | A ningún sitio |
+| Gemini audio directo | ~1–2 s, pero **sustituye también la llamada al modelo** | A Google |
+| Whisper local | ~0,8–1,5 s | A ningún sitio |
+
+**Gemini audio directo** no transcribe y luego pregunta: manda tu voz al propio
+modelo, que devuelve transcripción y respuesta a la vez. Una transcripción mala
+deja de poder estropear la respuesta, porque el modelo oye lo que dijiste en
+lugar de leer lo que otro entendió. A cambio, el audio sale de tu máquina.
 
 Whisper local descarga el binario oficial de whisper.cpp (7,6 MB) y un modelo
 GGML (74–465 MB según el que elijas) la primera vez que lo activas. No usa un
@@ -207,12 +220,22 @@ adjunta `Audio Helper-<versión>-portable.exe` junto a un `.zip` con el ejecutab
 
 ## Consideraciones legales
 
-La app no graba ni almacena nada (ver arriba), lo que la deja fuera de la mayoría
-de normativas sobre **grabación** de conversaciones. Aun así, el audio de la
-reunión sí se envía a un tercero para transcribirlo si usas Gemini Live, y
-muchas empresas restringen el uso de asistentes de IA en sus procesos de
-selección. Si eso te preocupa, **Whisper local + Ollama** no envía nada a
-ningún sitio.
+Hay tres cosas distintas aquí, y conviene no mezclarlas:
+
+**1. Grabación.** La app no graba audio en ningún caso. Pero con el historial
+activo **sí almacena la transcripción** de lo que dijo la otra persona, y en
+varias jurisdicciones un registro escrito de una conversación cuenta igual que
+una grabación a efectos de las normas de consentimiento (de una o de todas las
+partes, según el sitio). Si eso te afecta, **apaga el historial** en el
+dashboard: entonces sí es cierto que no queda nada.
+
+**2. Dónde va el audio.** Con Gemini Live, el audio de la reunión se envía a
+Google para transcribirlo. Con **Whisper local + Ollama** no sale nada de tu
+máquina.
+
+**3. Dónde vives esa conversación.** Muchas empresas restringen el uso de
+asistentes de IA en sus procesos de selección, con independencia de lo que
+guardes o dejes de guardar.
 
 Comprueba qué aplica en tu caso; la responsabilidad de usar esto es tuya.
 

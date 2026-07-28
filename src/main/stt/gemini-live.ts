@@ -19,14 +19,27 @@ import type { STTProvider, STTStartOptions } from './types';
  */
 
 /**
- * Modelos Live disponibles. La documentación de Google lista varios y no todos
- * están habilitados en toda cuenta, así que el orden es de preferencia y el
- * primero es el default. Si uno da 404/permission denied, probar el siguiente.
+ * Modelos Live, en orden de preferencia. No todos están habilitados en toda
+ * cuenta, así que se prueban en cadena (ver `resolveModel`).
+ *
+ * **El orden se corrigió con la fuente autoritativa, no con la documentación
+ * web.** El propio SDK trae un ejemplo de `live.connect` en sus typedefs que
+ * distingue los dos casos:
+ *
+ *     if (GOOGLE_GENAI_USE_VERTEXAI) model = 'gemini-2.0-flash-live-preview-04-09';
+ *     else                           model = 'gemini-live-2.5-flash-preview';
+ *
+ * Aquí se usa API key, o sea el Gemini Developer API, o sea la rama `else`.
+ * Antes encabezaba la lista `gemini-2.5-flash-native-audio-preview-12-2025`,
+ * que además de no aparecer en el SDK es un modelo de audio nativo: esos
+ * esperan `responseModalities: [AUDIO]` y aquí se pide TEXT, así que tenía dos
+ * motivos para fallar. Queda al final, por si alguna cuenta sólo tiene ése.
  */
 export const GEMINI_LIVE_MODELS = [
-  'gemini-2.5-flash-native-audio-preview-12-2025',
   'gemini-live-2.5-flash-preview',
+  'gemini-2.0-flash-live-preview-04-09',
   'gemini-3.1-flash-live-preview',
+  'gemini-2.5-flash-native-audio-preview-12-2025',
 ] as const;
 
 const SILENCE_INSTRUCTION =
@@ -35,6 +48,78 @@ const SILENCE_INSTRUCTION =
 
 /** Backoff de reconexión: la Live API cierra sesiones largas por diseño. */
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000];
+
+/**
+ * Tope para el handshake del WebSocket.
+ *
+ * `live.connect()` no trae ninguno: si el socket no llega a establecerse —red
+ * caída, modelo que no existe y el servidor deja la conexión abierta— la
+ * promesa **no resuelve ni rechaza nunca**. Eso dejaba `startTranscription`
+ * colgado para siempre: la captura seguía anunciando "Escuchando", el audio
+ * entraba, y no había ni transcripción ni error en el log. Es exactamente el
+ * fallo silencioso que este proyecto se toma en serio evitar.
+ */
+const CONNECT_TIMEOUT_MS = 15_000;
+
+/** Rechaza si la promesa no se resuelve a tiempo. */
+async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label}: sin respuesta en ${CONNECT_TIMEOUT_MS / 1000}s`)),
+          CONNECT_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Rechaza en cuanto el socket se cierra durante el handshake, con el motivo.
+ *
+ * Aquí estaba el fallo de verdad. Cuando el setup no se acepta, el servidor
+ * cierra con un código y un texto perfectamente legibles —`1007 · "API key not
+ * valid. Please pass a valid API key."`— **pero sin enviar ningún mensaje**. El
+ * SDK espera un `setupComplete` que no va a llegar y su promesa no se resuelve
+ * ni se rechaza jamás.
+ *
+ * El timeout de 15 s tapaba el síntoma pero tiraba la información: convertía un
+ * "tu API key no vale" en un "sin respuesta". Escuchando el cierre se recupera
+ * la causa exacta y se falla al instante.
+ */
+function rejectOnEarlyClose(): {
+  onclose: (event: { code?: number; reason?: string }) => void;
+  promise: Promise<never>;
+  settle: () => void;
+} {
+  let reject: (err: Error) => void = () => {};
+  let done = false;
+
+  const promise = new Promise<never>((_, rej) => {
+    reject = rej;
+  });
+
+  return {
+    onclose: (event) => {
+      if (done) return;
+      const reason = event.reason?.trim();
+      reject(
+        new Error(
+          reason ? `${reason} (código ${event.code ?? '?'})` : `cerrado con código ${event.code ?? '?'}`
+        )
+      );
+    },
+    promise,
+    settle: () => {
+      done = true;
+    },
+  };
+}
 
 /** Un carril = una sesión WebSocket dedicada a un hablante. */
 class Lane {
@@ -66,7 +151,8 @@ class Lane {
         ? { languageAuto: {} }
         : { languageHints: { languageCodes: [this.options.language] } };
 
-    this.session = await this.client.live.connect({
+    this.session = await withTimeout(
+      this.client.live.connect({
       model: this.model,
       config: {
         // TEXT es la salida más barata; de todas formas la descartamos.
@@ -98,7 +184,9 @@ class Lane {
           if (!this.closed) this.scheduleReconnect();
         },
       },
-    });
+      }),
+      `[gemini-live:${this.speaker}] handshake`
+    );
   }
 
   private handleMessage(message: LiveServerMessage): void {
@@ -194,26 +282,98 @@ export class GeminiLiveSTT implements STTProvider {
   readonly events = new EventEmitter();
 
   private lanes = new Map<Speaker, Lane>();
-  private client: GoogleGenAI | null = null;
+  /** Modelo que aceptó la cuenta. Se resuelve una vez y se reutiliza. */
+  private resolvedModel: string | null = null;
 
+  /** `model` fijo salta la negociación; sin él se prueban los candidatos. */
   constructor(
     private readonly apiKey: string,
-    private readonly model: string = GEMINI_LIVE_MODELS[0]
+    private readonly model?: string
   ) {}
 
   async start(options: STTStartOptions): Promise<void> {
     await this.stop();
-    this.client = new GoogleGenAI({ apiKey: this.apiKey });
+    // El cliente es de la sesión, no del provider: cada `start` abre el suyo y
+    // los carriles lo capturan, así que `stop` no tiene nada que limpiar.
+    const client = new GoogleGenAI({ apiKey: this.apiKey });
+    const model = await this.resolveModel(client, options);
 
     // Solo los hablantes que se escuchan: una sesión por hablante es cara.
     for (const speaker of options.speakers) {
-      const lane = new Lane(speaker, this.client, this.model, options, this.events);
+      const lane = new Lane(speaker, client, model, options, this.events);
       this.lanes.set(speaker, lane);
     }
 
     // Conectamos en paralelo: en serie se sumarían los handshakes y el primer
     // segundo de la reunión llegaría sin transcribir.
     await Promise.all([...this.lanes.values()].map((lane) => lane.connect()));
+  }
+
+  /**
+   * Negocia qué modelo Live acepta esta cuenta.
+   *
+   * `GEMINI_LIVE_MODELS` siempre estuvo ordenado por preferencia y CONTEXT.md
+   * decía que había que probar el siguiente si el primero daba 404 o permission
+   * denied — pero **eso nunca se implementó**: el constructor cogía el `[0]` y
+   * ahí se acababa. Si tu cuenta no tenía habilitado ese preview, la
+   * transcripción fallaba entera y el único rastro era un `console.error` que en
+   * el .exe empaquetado no se veía en ningún sitio.
+   *
+   * Se abre una sesión de sondeo y se cierra. Cuesta una conexión de más al
+   * arrancar, y a cambio el error final dice qué se probó y qué contestó cada
+   * uno, en lugar de un 404 pelado sobre un id que no elegiste.
+   */
+  private async resolveModel(client: GoogleGenAI, options: STTStartOptions): Promise<string> {
+    if (this.resolvedModel) return this.resolvedModel;
+
+    const candidates = this.model ? [this.model] : [...GEMINI_LIVE_MODELS];
+    const failures: string[] = [];
+
+    for (const candidate of candidates) {
+      const guard = rejectOnEarlyClose();
+      try {
+        const probe = await Promise.race([
+          withTimeout(
+            client.live.connect({
+              model: candidate,
+              config: {
+                responseModalities: [Modality.TEXT],
+                systemInstruction: SILENCE_INSTRUCTION,
+                inputAudioTranscription:
+                  options.language === 'auto'
+                    ? { languageAuto: {} }
+                    : { languageHints: { languageCodes: [options.language] } },
+              },
+              callbacks: {
+                onopen: () => {},
+                onmessage: () => {},
+                onerror: () => {},
+                // Si cierra antes de completar el setup, ese cierre trae el
+                // motivo real y es lo único que va a llegar.
+                onclose: guard.onclose,
+              },
+            }),
+            candidate
+          ),
+          guard.promise,
+        ]);
+        guard.settle();
+        probe.close();
+
+        this.resolvedModel = candidate;
+        console.log(`[gemini-live] modelo aceptado: "${candidate}"`);
+        return candidate;
+      } catch (err) {
+        guard.settle();
+        const message = err instanceof Error ? err.message : String(err);
+        failures.push(`  · ${candidate} → ${message}`);
+        console.warn(`[gemini-live] "${candidate}" rechazado: ${message}`);
+      }
+    }
+
+    throw new Error(
+      `Ningún modelo de Gemini Live está disponible para esta API key.\n${failures.join('\n')}`
+    );
   }
 
   push(speaker: Speaker, pcm: Buffer): void {
@@ -223,6 +383,23 @@ export class GeminiLiveSTT implements STTProvider {
   async stop(): Promise<void> {
     for (const lane of this.lanes.values()) lane.close();
     this.lanes.clear();
-    this.client = null;
+  }
+
+  /**
+   * Comprueba que la key y algún modelo Live funcionan, sin abrir carriles.
+   * Es lo que hay detrás del botón "Probar transcripción" del dashboard.
+   */
+  async testConnection(language: string): Promise<{ ok: boolean; detail: string }> {
+    try {
+      const client = new GoogleGenAI({ apiKey: this.apiKey });
+      const model = await this.resolveModel(client, {
+        sampleRate: 16_000,
+        language,
+        speakers: ['them'],
+      });
+      return { ok: true, detail: `Conectado con "${model}".` };
+    } catch (err) {
+      return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+    }
   }
 }

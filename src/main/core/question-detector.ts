@@ -10,6 +10,8 @@
  * un caso, el usuario todavía tiene el hotkey manual.
  */
 
+import type { AutoTriggerSensitivity } from '@shared/types';
+
 /** Marcadores de pregunta en español e inglés, al principio de la frase. */
 const INTERROGATIVE_OPENERS = [
   // Español
@@ -40,14 +42,72 @@ const IMPERATIVE_PROMPTS = [
 const MIN_WORDS = 3;
 
 /**
+ * Mínimo cuando hay una señal inequívoca de pregunta.
+ *
+ * En español muchas preguntas completas son de dos palabras: "¿Podrías
+ * presentarte?", "¿Qué recomiendas?", "¿Cómo funciona?". Con el mínimo fijo en
+ * tres se descartaban en silencio — pasó de verdad, y desde fuera parecía que
+ * la app había dejado de responder. Se baja sólo cuando hay signo de
+ * interrogación o interrogativo inicial, para no abrir la puerta a
+ * confirmaciones sueltas como "vale ya".
+ */
+const MIN_WORDS_WITH_MARKER = 2;
+
+/**
  * Muletillas y confirmaciones que la heurística marcaría por empezar con un
  * interrogativo pero que no piden respuesta.
  */
 const FILLERS = [
   'que tal', 'qué tal', 'como estas', 'cómo estás', 'como va', 'cómo va',
   'me escuchas', 'me oyes', 'se me escucha', 'puedes oirme', 'puedes oírme',
+  // Variantes de la comprobación de audio que faltaban. Salieron de una prueba
+  // real: "me puedes escuchar" no estaba y no lo cazaba ninguna otra regla.
+  'me puedes escuchar', 'puedes escucharme', 'me escuchan', 'se escucha',
+  'me oyen', 'probando',
+  'hola buenos dias', 'hola buenas', 'buenos dias', 'buenas tardes',
   'how are you', 'can you hear me', 'do you hear me', 'are you there',
   'is that ok', 'does that make sense', 'you know', 'right',
+];
+
+/**
+ * Interrogativos ACENTUADOS, buscados en el texto crudo y en cualquier posición.
+ *
+ * En español el acento es lo único que separa "qué" de "que", y `normalize()`
+ * lo tira para poder comparar de forma estable — con lo que la señal más fuerte
+ * del idioma se perdía antes de mirarla. Por eso esta comprobación va aparte y
+ * sobre el original.
+ *
+ * Buscar en cualquier posición importa: "si quiero X, **qué** lenguaje debería
+ * usar" es una pregunta de manual y las reglas de apertura no la ven, porque
+ * sólo miran las dos primeras palabras.
+ *
+ * `\p{L}` con la bandera `u` en lugar de `\b`: `\b` es ASCII, así que en "qué"
+ * vería un límite de palabra entre la "u" y la "é" y la regla no funcionaría.
+ */
+const ACCENTED_INTERROGATIVE =
+  /(^|[^\p{L}])(qué|cuál|cuáles|cómo|cuándo|dónde|quién|quiénes|cuánto|cuánta|cuántos|cuántas)([^\p{L}]|$)/u;
+
+/**
+ * Fórmulas que piden criterio, en cualquier posición.
+ *
+ * Un ASR no puntúa de forma fiable, así que muchas preguntas llegan como
+ * afirmaciones. Estas construcciones piden una respuesta aunque el texto acabe
+ * en punto.
+ *
+ * **Aquí NO hay ninguna variante de "debería"**, y no es un olvido. Se probaron
+ * (`que deberia`, `deberia usar`, …) y disparaban con subordinadas normales:
+ * "creo que debería haber estudiado más" no es una pregunta. Lo que distingue
+ * "¿qué lenguaje debería usar?" de esa frase no es el verbo, es el
+ * interrogativo — y de eso ya se encarga `ACCENTED_INTERROGATIVE`. El test de
+ * falsos positivos de `question-detector.test.ts` fija esta decisión.
+ */
+const EMBEDDED_MARKERS = [
+  'me recomiendas', 'que recomiendas', 'recomendarias', 'me aconsejas',
+  'que sugieres', 'que opinas', 'que piensas', 'que harias',
+  'cual es mejor', 'cual seria', 'que diferencia hay', 'cual es la diferencia',
+  'me puedes explicar', 'puedes explicarme', 'como puedo', 'como se hace',
+  'que tan',
+  'what would you', 'which one should', 'how would you', 'what do you think',
 ];
 
 /** Quita acentos y puntuación para comparar de forma estable. */
@@ -59,6 +119,34 @@ function normalize(text: string): string {
     .replace(/[¿?¡!.,;:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** Saludos que casi siempre van pegados delante de una prueba de audio. */
+const GREETINGS = ['hola', 'hey', 'oye', 'buenas', 'buenos dias', 'buenas tardes', 'hi', 'hello'];
+
+/**
+ * `true` si la intervención ENTERA es saludo y comprobación de audio.
+ *
+ * La regla anterior descartaba cualquier frase que **empezara** por una
+ * muletilla, y eso mataba preguntas de verdad: en una sesión real se descartó
+ * "¿Qué tal es la idea de software?" porque empieza por "qué tal". Una muletilla
+ * tiene que ser la frase entera, no su primera mitad.
+ *
+ * Se parte en oraciones porque en la práctica se dicen encadenadas —"Hola,
+ * ¿cómo estás? ¿Me escuchas?"— y sólo se descarta si **todas** las partes son
+ * saludo o comprobación. Basta con que una no lo sea para que valga la pena
+ * mirarla.
+ */
+function isAllFiller(raw: string): boolean {
+  const clauses = raw
+    .split(/[?¿!¡.,;]+/)
+    .map((clause) => normalize(clause))
+    .filter(Boolean);
+
+  if (clauses.length === 0) return false;
+  return clauses.every(
+    (clause) => GREETINGS.includes(clause) || FILLERS.includes(clause)
+  );
 }
 
 export interface QuestionVerdict {
@@ -73,7 +161,10 @@ export interface QuestionVerdict {
  * No requiere signo de interrogación porque muchos motores de STT no lo ponen
  * de forma fiable — apoyarse en él perdería la mayoría de las preguntas.
  */
-export function looksLikeQuestion(text: string): QuestionVerdict {
+export function looksLikeQuestion(
+  text: string,
+  sensitivity: AutoTriggerSensitivity = 'balanced'
+): QuestionVerdict {
   const raw = text.trim();
   if (!raw) return { isQuestion: false, reason: 'vacío' };
 
@@ -82,12 +173,25 @@ export function looksLikeQuestion(text: string): QuestionVerdict {
 
   // Las muletillas se comprueban antes que todo lo demás: "¿cómo estás?" tiene
   // signo de interrogación y empieza por interrogativo, y aun así no se responde.
-  if (FILLERS.some((filler) => normalized === filler || normalized.startsWith(`${filler} `))) {
+  if (isAllFiller(raw)) {
     return { isQuestion: false, reason: 'muletilla o comprobación de audio' };
   }
 
-  if (words.length < MIN_WORDS) {
+  const firstWord = words[0] ?? '';
+  const hasStrongMarker =
+    raw.includes('?') ||
+    INTERROGATIVE_OPENERS.includes(firstWord) ||
+    IMPERATIVE_PROMPTS.some((prompt) => normalized.startsWith(prompt));
+
+  const minWords = hasStrongMarker ? MIN_WORDS_WITH_MARKER : MIN_WORDS;
+  if (words.length < minWords) {
     return { isQuestion: false, reason: `demasiado corto (${words.length} palabras)` };
+  }
+
+  // Superado el filtro de muletillas y de longitud, en `all` ya no hay nada que
+  // decidir: si estás dictando tú las preguntas, no hay ruido del que protegerse.
+  if (sensitivity === 'all') {
+    return { isQuestion: true, reason: 'sensibilidad "todo"' };
   }
 
   for (const prompt of IMPERATIVE_PROMPTS) {
@@ -101,10 +205,27 @@ export function looksLikeQuestion(text: string): QuestionVerdict {
     return { isQuestion: true, reason: 'signo de interrogación' };
   }
 
-  const firstWord = words[0] ?? '';
   const firstTwo = words.slice(0, 2).join(' ');
   if (INTERROGATIVE_OPENERS.includes(firstWord) || INTERROGATIVE_OPENERS.includes(firstTwo)) {
     return { isQuestion: true, reason: `interrogativo inicial: "${firstWord}"` };
+  }
+
+  // A partir de aquí, sólo en `balanced`. Son las reglas que recuperan las
+  // preguntas que el ASR entrega sin signos, a cambio de algún disparo de más.
+  if (sensitivity === 'strict') {
+    return { isQuestion: false, reason: 'sin marcadores de pregunta (modo estricto)' };
+  }
+
+  // Sobre el texto CRUDO: el acento sobrevive aquí y no en `normalized`.
+  const accented = ACCENTED_INTERROGATIVE.exec(raw.toLowerCase());
+  if (accented) {
+    return { isQuestion: true, reason: `interrogativo acentuado: "${accented[2]}"` };
+  }
+
+  for (const marker of EMBEDDED_MARKERS) {
+    if (normalized.includes(marker)) {
+      return { isQuestion: true, reason: `fórmula de consulta: "${marker}"` };
+    }
   }
 
   return { isQuestion: false, reason: 'sin marcadores de pregunta' };

@@ -9,6 +9,8 @@ import type {
   Answer,
   AudioLevels,
   CaptureStatus,
+  Conversation,
+  ConversationSummary,
   ImageAttachment,
   ModelInfo,
   OllamaStatus,
@@ -65,6 +67,14 @@ const api = {
      */
     setMouseIgnore: (ignore: boolean): void =>
       ipcRenderer.send(IPC.overlayMouseIgnore, ignore),
+
+    /**
+     * Vuelve el overlay enfocable para poder escribir en él. Se envía con
+     * `invoke` y no con `send` porque el renderer necesita saber que ya se
+     * aplicó antes de enfocar el textarea.
+     */
+    setInteractive: (interactive: boolean): Promise<void> =>
+      ipcRenderer.invoke(IPC.overlayInteractive, interactive),
     startDrag: (): void => ipcRenderer.send(IPC.overlayDragStart),
     endDrag: (): void => ipcRenderer.send(IPC.overlayDragEnd),
     quit: (): Promise<void> => ipcRenderer.invoke(IPC.overlayQuit),
@@ -82,6 +92,15 @@ const api = {
   transcript: {
     onSegment: (cb: (s: TranscriptSegment) => void) =>
       subscribe<TranscriptSegment>(IPC.onTranscript, cb),
+    /** Fallos del motor de transcripción, para poder enseñarlos en la UI. */
+    onError: (cb: (message: string) => void) => subscribe<string>(IPC.onSTTError, cb),
+    testConnection: (): Promise<{ ok: boolean; detail: string }> =>
+      ipcRenderer.invoke(IPC.sttTestConnection),
+  },
+
+  logs: {
+    read: (): Promise<string> => ipcRenderer.invoke(IPC.logsRead),
+    location: (): Promise<string> => ipcRenderer.invoke(IPC.logsLocation),
   },
 
   ask: {
@@ -95,6 +114,18 @@ const api = {
     take: (): Promise<ImageAttachment | null> => ipcRenderer.invoke(IPC.screenshotTake),
     onCaptured: (cb: (img: ImageAttachment) => void) =>
       subscribe<ImageAttachment>(IPC.onScreenshot, cb),
+  },
+
+  history: {
+    /** Empieza una conversación nueva y limpia el contexto en curso. */
+    newConversation: (): Promise<void> => ipcRenderer.invoke(IPC.conversationNew),
+    list: (): Promise<ConversationSummary[]> => ipcRenderer.invoke(IPC.historyList),
+    get: (id: string): Promise<Conversation | null> => ipcRenderer.invoke(IPC.historyGet, id),
+    remove: (id: string): Promise<ConversationSummary[]> =>
+      ipcRenderer.invoke(IPC.historyDelete, id),
+    clear: (): Promise<ConversationSummary[]> => ipcRenderer.invoke(IPC.historyClear),
+    location: (): Promise<string> => ipcRenderer.invoke(IPC.historyLocation),
+    onReset: (cb: () => void) => subscribe<null>(IPC.onConversationReset, cb),
   },
 
   llm: {

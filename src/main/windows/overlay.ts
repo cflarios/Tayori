@@ -1,12 +1,11 @@
 import { BrowserWindow, screen } from 'electron';
+import { OVERLAY_SIZES, type OverlaySize } from '@shared/types';
 import { settingsStore } from '../config/store';
 import { setClickThrough, setStealth } from './stealth';
 import { loadRenderer, preloadPath } from './resolve';
 
 let overlay: BrowserWindow | null = null;
 
-const WIDTH = 460;
-const HEIGHT = 560;
 const MARGIN = 24;
 /** Píxeles que se desplaza el overlay con los hotkeys de movimiento. */
 const NUDGE = 40;
@@ -21,12 +20,13 @@ export function createOverlay(): BrowserWindow {
 
   const settings = settingsStore.get();
   const { workArea } = screen.getPrimaryDisplay();
+  const { width, height } = OVERLAY_SIZES[settings.overlaySize];
 
   overlay = new BrowserWindow({
-    width: WIDTH,
-    height: HEIGHT,
+    width,
+    height,
     // Arranca arriba a la derecha: la zona con menos UI en Meet/Teams/Zoom.
-    x: workArea.x + workArea.width - WIDTH - MARGIN,
+    x: workArea.x + workArea.width - width - MARGIN,
     y: workArea.y + MARGIN,
 
     frame: false,
@@ -86,18 +86,41 @@ export function toggleOverlayVisibility(): void {
   const win = getOverlay();
   if (!win) return;
   // El hook de `show` en stealth.ts re-aplica la protección de contenido.
-  if (win.isVisible()) win.hide();
-  else win.showInactive();
+  if (win.isVisible()) {
+    // Ocultarlo mientras está enfocable lo dejaría así al volver, y una ventana
+    // enfocable que reaparece puede robar el foco de la videollamada.
+    setOverlayInteractive(false);
+    win.hide();
+  } else win.showInactive();
+}
+
+/**
+ * `true` mientras el overlay está en modo escritura.
+ *
+ * Vive en el módulo y no en los settings porque es estado efímero de la ventana,
+ * no una preferencia: si la app se reinicia, el overlay debe volver a arrancar
+ * no enfocable pase lo que pase.
+ */
+let overlayInteractive = false;
+
+export function isOverlayInteractive(): boolean {
+  return overlayInteractive;
 }
 
 /**
  * Permite escribir en el overlay sin romper la regla de no robar foco:
  * lo vuelve enfocable, enfoca, y al terminar revierte.
+ *
+ * Es la única situación en la que el overlay toma el foco, y es aceptable
+ * porque la pide el usuario explícitamente al abrir la pestaña de escritura.
+ * Revertir NO es opcional: una ventana que se queda enfocable acaba robando el
+ * foco de Teams/Meet, que es justo lo que delata al asistente (ver CONTEXT §4).
  */
 export function setOverlayInteractive(interactive: boolean): void {
   const win = getOverlay();
   if (!win) return;
 
+  overlayInteractive = interactive;
   win.setFocusable(interactive);
   if (interactive) {
     setClickThrough(win, false);
@@ -119,6 +142,15 @@ export function setOverlayInteractive(interactive: boolean): void {
 export function setOverlayMouseIgnore(ignore: boolean): void {
   const win = getOverlay();
   if (!win) return;
+  /*
+   * En modo escritura manda `setOverlayInteractive` y esto no pinta nada. Sin
+   * esta guarda los dos mecanismos se pelean: basta mover el cursor sobre una
+   * zona no interactiva del panel para que el hover devuelva los clics
+   * atravesables a mitad de una frase, y el botón de enviar deje de responder.
+   * La autoridad está aquí, en el main, y no en el orden de los efectos de
+   * React, que es demasiado frágil para sostener una invariante.
+   */
+  if (overlayInteractive) return;
   // Si el usuario desactivó los clics atravesables, la ventana ya es
   // interactiva por completo y no hay nada que alternar.
   if (!settingsStore.get().clickThrough) return;
@@ -174,9 +206,32 @@ export function nudgeOverlay(dx: number, dy: number): void {
   win.setPosition((pos[0] ?? 0) + dx * NUDGE, (pos[1] ?? 0) + dy * NUDGE);
 }
 
+/**
+ * Aplica uno de los tamaños predefinidos.
+ *
+ * Se reancla al borde derecho en lugar de crecer hacia la derecha: el overlay
+ * arranca arriba a la derecha (la zona con menos UI en Meet/Teams/Zoom) y
+ * ensancharlo hacia fuera lo sacaría de la pantalla.
+ */
+export function setOverlaySize(size: OverlaySize): void {
+  const win = getOverlay();
+  if (!win) return;
+
+  const { width, height } = OVERLAY_SIZES[size];
+  const pos = win.getPosition();
+  const current = win.getSize();
+  const right = (pos[0] ?? 0) + (current[0] ?? width);
+
+  const { workArea } = screen.getPrimaryDisplay();
+  const x = Math.max(workArea.x, Math.min(right - width, workArea.x + workArea.width - width));
+  const y = Math.min(pos[1] ?? 0, workArea.y + workArea.height - height);
+
+  win.setBounds({ x, y: Math.max(workArea.y, y), width, height });
+}
+
 export function resizeOverlay(height: number): void {
   const win = getOverlay();
   if (!win) return;
-  const width = win.getSize()[0] ?? WIDTH;
+  const width = win.getSize()[0] ?? OVERLAY_SIZES.M.width;
   win.setSize(width, Math.round(Math.max(120, Math.min(height, 900))));
 }

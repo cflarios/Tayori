@@ -5,10 +5,19 @@ import type { Settings } from '@shared/types';
 import { settingsStore } from './config/store';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
 import {
+  clearHistory,
+  deleteConversation,
+  getConversation,
+  historyLocation,
+  listConversations,
+} from './config/history';
+import {
   createOverlay,
   getOverlay,
   resizeOverlay,
+  setOverlayInteractive,
   setOverlayMouseIgnore,
+  setOverlaySize,
   startOverlayDrag,
   stopOverlayDrag,
   toggleOverlayVisibility,
@@ -24,6 +33,9 @@ import { session as sessionOrchestrator } from './core/session';
 import { createLLMProvider, listModelsFor } from './llm';
 import { probeOllama } from './llm/ollama';
 import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
+import { testSTTConnection } from './stt';
+import { whisperServer } from './stt/whisper-server';
+import { initLogging, logLocation, readLogTail } from './logging';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -102,6 +114,14 @@ function registerIpcHandlers(): void {
     if (patch.hotkeys) {
       registerHotkeys(hotkeyActions);
     }
+    if (patch.overlaySize && patch.overlaySize !== previous.overlaySize) {
+      setOverlaySize(next.overlaySize);
+    }
+    // Apagar el historial a mitad de una conversación debe cortar también la que
+    // está en curso; si no, seguiría en memoria y volvería a disco al reactivarlo.
+    if (patch.historyEnabled === false && previous.historyEnabled) {
+      sessionOrchestrator.newConversation();
+    }
     return next;
   });
 
@@ -131,6 +151,12 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC.overlayHide, () => toggleOverlayVisibility());
+
+  // Modo escritura: la única vía por la que el overlay toma el foco, y siempre
+  // a petición explícita del usuario (abrir la pestaña de escritura).
+  ipcMain.handle(IPC.overlayInteractive, (_e, interactive: boolean) =>
+    setOverlayInteractive(interactive)
+  );
   ipcMain.handle(IPC.overlayResize, (_e, height: number) => resizeOverlay(height));
   ipcMain.handle(IPC.dashboardOpen, () => {
     openDashboard();
@@ -145,6 +171,8 @@ function registerIpcHandlers(): void {
   // ocultarla temporalmente está Ctrl+Shift+H.
   ipcMain.handle(IPC.overlayQuit, () => {
     audioCapture.stop();
+    // Volcar antes de salir: lo que quedara en el debounce se perdería.
+    sessionOrchestrator.flush();
     app.quit();
   });
 
@@ -168,6 +196,25 @@ function registerIpcHandlers(): void {
     return image;
   });
 
+  // ── Historial de conversaciones ──
+  ipcMain.handle(IPC.conversationNew, () => {
+    sessionOrchestrator.newConversation();
+  });
+  ipcMain.handle(IPC.historyList, () => listConversations());
+  ipcMain.handle(IPC.historyGet, (_e, id: string) => getConversation(id));
+  ipcMain.handle(IPC.historyDelete, (_e, id: string) => {
+    deleteConversation(id);
+    return listConversations();
+  });
+  ipcMain.handle(IPC.historyClear, () => {
+    // Se corta la conversación en curso antes de borrar: si no, el debounce
+    // pendiente volvería a escribir en disco justo después de vaciar la carpeta.
+    sessionOrchestrator.newConversation();
+    clearHistory();
+    return listConversations();
+  });
+  ipcMain.handle(IPC.historyLocation, () => historyLocation());
+
   // ── Modelos ──
   ipcMain.handle(IPC.llmListModels, () => {
     const settings = settingsStore.get();
@@ -184,6 +231,11 @@ function registerIpcHandlers(): void {
 
   // ── Ollama ──
   ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));
+
+  // ── Diagnóstico ──
+  ipcMain.handle(IPC.logsRead, () => readLogTail());
+  ipcMain.handle(IPC.logsLocation, () => logLocation());
+  ipcMain.handle(IPC.sttTestConnection, () => testSTTConnection(settingsStore.get()));
 
   // ── Whisper local ──
   ipcMain.handle(IPC.whisperGetStatus, () => getWhisperStatus(settingsStore.get().whisperModel));
@@ -226,6 +278,11 @@ const hotkeyActions = {
 // del productName del empaquetado. Sin este anclaje, un cambio de productName
 // podría mover userData y orfanar los settings y la API key cifrada con DPAPI.
 app.setName('interview-helper');
+
+// Inmediatamente después de fijar el nombre, porque la ruta del log sale de
+// `userData` y ésta deriva de `app.name`. Antes de esto no había ningún sitio
+// donde mirar en el .exe empaquetado.
+initLogging();
 
 // Una sola instancia: dos procesos peleando por los mismos hotkeys globales
 // y el mismo archivo de settings es una fuente de bugs difíciles de ver.
@@ -274,5 +331,11 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('will-quit', () => {
     unregisterHotkeys();
+    // El servidor de Whisper es un proceso hijo: si no se mata aquí sobrevive a
+    // la app con el modelo entero en memoria.
+    whisperServer.stop();
+    // Cerrar por cualquier vía (X de la barra, Alt+F4, apagado) debe consolidar
+    // el historial; `overlayQuit` no es el único camino de salida.
+    sessionOrchestrator.flush();
   });
 }
