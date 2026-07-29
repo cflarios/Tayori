@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WhisperProgress } from '@shared/ipc';
-import { autoTriggerIsInert, speakersFor } from '@shared/types';
+import {
+  autoTriggerIsInert,
+  CONTEXT_KIND_LABEL,
+  packsForProfile,
+  PROFILE_SLOTS,
+  speakersFor,
+} from '@shared/types';
 import type {
   AudioLevels,
   CaptureStatus,
@@ -13,6 +19,7 @@ import type {
   SecretKey,
   SecretsPresence,
   Settings,
+  ContextKind,
 } from '@shared/types';
 
 function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
@@ -1126,42 +1133,156 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
 
 // ──────────────────────────── Context packs ────────────────────────────
 
+const PROFILE_LABEL: Record<Settings['promptProfileId'], string> = {
+  interview: 'Entrevista de trabajo',
+  meeting: 'Reunión genérica',
+  lecture: 'Clase o charla',
+  support: 'Soporte técnico',
+  custom: 'Personalizado',
+};
+
+/** Qué pedirle al usuario en cada hueco, y por qué le conviene rellenarlo. */
+const SLOT_HELP: Record<ContextKind, { placeholder: string; hint: string }> = {
+  cv: {
+    placeholder: 'Pega tu CV, o un resumen de tu experiencia: empresas, años, tecnologías, logros con cifras…',
+    hint: 'La única fuente de datos concretos sobre ti. Sin esto las respuestas son correctas pero genéricas, y el modelo tiene prohibido inventarse experiencia.',
+  },
+  job: {
+    placeholder: 'Pega la oferta: responsabilidades, stack, requisitos…',
+    hint: 'Decide QUÉ destacar de tu experiencia y con qué vocabulario. No se usa para atribuirte nada que no esté en tu CV.',
+  },
+  qa: {
+    placeholder:
+      '¿Cuál es tu mayor debilidad?\n— Tiendo a meterme en el detalle; lo compenso con revisiones a mitad de sprint.\n\n¿Por qué dejaste tu último trabajo?\n— …',
+    hint: 'Preguntas que ya sabes que van a caer, con tu respuesta. Si la pregunta encaja, el modelo la reutiliza casi literal en vez de improvisar una versión aguada.',
+  },
+  vocabulary: {
+    placeholder: 'Kubernetes, Grafana, EmployeeBridge, Marta Ibáñez, CI/CD…',
+    hint: 'Separados por comas o saltos de línea. Van directos al reconocedor de voz: es lo que arregla los nombres propios y las siglas que salen mal transcritas.',
+  },
+  notes: {
+    placeholder: 'Cualquier cosa que convenga que el modelo sepa.',
+    hint: 'Notas de apoyo sin tratamiento especial.',
+  },
+};
+
+/**
+ * Contexto guiado por perfil.
+ *
+ * Antes esto era una lista de cajas de texto libre con nombre, todas activas a
+ * la vez en cualquier reunión. Funcionaba, pero dejaba dos cosas al usuario que
+ * no tenía por qué resolver: **qué** conviene preparar, y **acordarse de
+ * activar y desactivar** los packs al cambiar de tipo de reunión.
+ *
+ * Ahora el perfil activo manda: enseña sus huecos con nombre y sólo ese
+ * material llega al modelo. Por debajo siguen siendo packs, así que quien
+ * quiera algo distinto lo añade abajo.
+ */
 function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const packs = settings.contextPacks;
+  const profile = settings.promptProfileId;
+  const slots = PROFILE_SLOTS[profile];
 
-  const update = (id: string, changes: Partial<ContextPack>): void => {
-    void patch({ contextPacks: packs.map((p) => (p.id === id ? { ...p, ...changes } : p)) });
+  const write = (next: ContextPack[]): void => void patch({ contextPacks: next });
+
+  const update = (id: string, changes: Partial<ContextPack>): void =>
+    write(packs.map((p) => (p.id === id ? { ...p, ...changes } : p)));
+
+  const remove = (id: string): void => write(packs.filter((p) => p.id !== id));
+
+  /** El pack de este hueco para el perfil activo, si ya existe. */
+  const slotPack = (kind: ContextKind): ContextPack | undefined =>
+    packs.find((p) => p.kind === kind && p.profiles.includes(profile));
+
+  /**
+   * Escribe en un hueco, creándolo si hace falta. Se crea al primer carácter y
+   * no al renderizar: si no, abrir el dashboard dejaría packs vacíos sembrados.
+   */
+  const writeSlot = (kind: ContextKind, content: string): void => {
+    const existing = slotPack(kind);
+    if (existing) {
+      update(existing.id, { content });
+      return;
+    }
+    write([
+      ...packs,
+      {
+        id: crypto.randomUUID(),
+        name: CONTEXT_KIND_LABEL[kind],
+        content,
+        enabled: true,
+        kind,
+        profiles: [profile],
+      },
+    ]);
   };
 
-  const add = (): void => {
-    void patch({
-      contextPacks: [
-        ...packs,
-        { id: crypto.randomUUID(), name: 'Nuevo contexto', content: '', enabled: true },
-      ],
-    });
-  };
+  const addOwn = (): void =>
+    write([
+      ...packs,
+      {
+        id: crypto.randomUUID(),
+        name: 'Nuevo contexto',
+        content: '',
+        enabled: true,
+        kind: 'notes',
+        // Sin perfiles = se aplica siempre, que es como se comportaba todo
+        // antes de que los perfiles existieran.
+        profiles: [],
+      },
+    ]);
 
-  const remove = (id: string): void => {
-    void patch({ contextPacks: packs.filter((p) => p.id !== id) });
-  };
+  // Los que no ocupan un hueco del perfil activo: packs propios del usuario y
+  // los de otros perfiles, que conviene poder ver y editar sin cambiar de modo.
+  const others = packs.filter((p) => !slots.includes(p.kind) || !p.profiles.includes(profile));
+  const activeNow = packsForProfile(packs, profile).filter((p) => p.content.trim());
 
   return (
     <section className="card">
       <h2 className="card__title">Contexto</h2>
       <p className="card__hint">
-        Tu CV, la descripción del puesto, notas técnicas. Es la única fuente de datos concretos que
-        el modelo puede usar, y lo que evita que invente experiencia que no tienes. También sesga el
-        reconocedor de voz hacia los nombres propios y siglas que aparezcan aquí.
+        Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le
+        explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de
+        parafrasearse.
       </p>
 
-      {packs.length === 0 && (
+      <div className="ctxbar">
+        <span className="ctxbar__label">Preparando para</span>
+        <strong className="ctxbar__profile">{PROFILE_LABEL[profile]}</strong>
+        <span className="ctxbar__spacer" />
+        <span className="ctxbar__active">
+          {activeNow.length
+            ? `${activeNow.length} en uso: ${activeNow.map((p) => p.name).join(', ')}`
+            : 'nada activo todavía'}
+        </span>
+      </div>
+
+      {slots.map((kind) => (
+        <ContextSlot
+          key={kind}
+          kind={kind}
+          pack={slotPack(kind)}
+          onChange={(content) => writeSlot(kind, content)}
+          onToggle={(on) => {
+            const existing = slotPack(kind);
+            if (existing) update(existing.id, { enabled: on });
+          }}
+        />
+      ))}
+
+      <div className="ctxbar" style={{ marginTop: 18 }}>
+        <span className="ctxbar__label">Otros contextos</span>
+        <span className="ctxbar__spacer" />
+        <span className="ctxbar__active">Sin perfil marcado, se aplican siempre</span>
+      </div>
+
+      {others.length === 0 && (
         <p className="card__hint" style={{ marginBottom: 0 }}>
-          Sin contexto, las respuestas serán genéricas pero correctas.
+          Ninguno. Los huecos de arriba cubren lo habitual.
         </p>
       )}
 
-      {packs.map((pack) => (
+      {others.map((pack) => (
         <div key={pack.id} className="pack">
           <div className="pack__head">
             <input
@@ -1169,10 +1290,38 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
               value={pack.name}
               onChange={(e) => update(pack.id, { name: e.target.value })}
             />
+            <select
+              value={pack.kind}
+              onChange={(e) => update(pack.id, { kind: e.target.value as ContextKind })}
+            >
+              {(Object.keys(CONTEXT_KIND_LABEL) as ContextKind[]).map((k) => (
+                <option key={k} value={k}>
+                  {CONTEXT_KIND_LABEL[k]}
+                </option>
+              ))}
+            </select>
             <Switch on={pack.enabled} onChange={(v) => update(pack.id, { enabled: v })} />
             <button className="btn btn--danger" onClick={() => remove(pack.id)}>
               Quitar
             </button>
+          </div>
+          <div className="pack__profiles">
+            {(Object.keys(PROFILE_LABEL) as Settings['promptProfileId'][]).map((p) => (
+              <label key={p} className="pack__profile">
+                <input
+                  type="checkbox"
+                  checked={pack.profiles.includes(p)}
+                  onChange={(e) =>
+                    update(pack.id, {
+                      profiles: e.target.checked
+                        ? [...pack.profiles, p]
+                        : pack.profiles.filter((x) => x !== p),
+                    })
+                  }
+                />
+                {PROFILE_LABEL[p]}
+              </label>
+            ))}
           </div>
           <textarea
             placeholder="Pega aquí el texto…"
@@ -1183,10 +1332,66 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
       ))}
 
       <div className="field">
-        <button className="btn" onClick={add}>
-          Añadir contexto
+        <button className="btn" onClick={addOwn}>
+          Añadir contexto propio
         </button>
       </div>
     </section>
+  );
+}
+
+/** Un hueco con nombre del perfil activo, con importación de archivo. */
+function ContextSlot({
+  kind,
+  pack,
+  onChange,
+  onToggle,
+}: {
+  kind: ContextKind;
+  pack: ContextPack | undefined;
+  onChange: (content: string) => void;
+  onToggle: (on: boolean) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const help = SLOT_HELP[kind];
+
+  // Se lee en el renderer con FileReader: no hace falta cruzar el IPC ni pedirle
+  // al proceso principal acceso al disco para algo que el usuario acaba de
+  // elegir en un diálogo.
+  const importFile = (file: File): void => {
+    const reader = new FileReader();
+    reader.onload = () => onChange(String(reader.result ?? ''));
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="pack">
+      <div className="pack__head">
+        <strong className="slot__title">{CONTEXT_KIND_LABEL[kind]}</strong>
+        {pack && <Switch on={pack.enabled} onChange={onToggle} />}
+        <button className="btn" onClick={() => fileRef.current?.click()}>
+          Importar .txt / .md
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".txt,.md,text/plain,text/markdown"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) importFile(file);
+            // Se limpia para que elegir el MISMO archivo otra vez vuelva a
+            // disparar el evento.
+            e.target.value = '';
+          }}
+        />
+      </div>
+      <p className="slot__hint">{help.hint}</p>
+      <textarea
+        placeholder={help.placeholder}
+        value={pack?.content ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
   );
 }

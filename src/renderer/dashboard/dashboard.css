@@ -493,3 +493,76 @@ button.btn--danger {
   word-break: break-word;
   user-select: text;
 }
+
+/* ── Contexto guiado por perfil ── */
+
+/*
+ * Barra que dice para qué perfil se está preparando y qué hay activo ahora
+ * mismo. Existe porque el fallo natural es preparar material a conciencia y no
+ * darse cuenta de que está atado a otro perfil.
+ */
+.ctxbar {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 14px 0 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ctxbar__label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c8288;
+}
+
+.ctxbar__profile {
+  font-size: 13px;
+  color: #93c5fd;
+}
+
+.ctxbar__spacer {
+  flex: 1;
+}
+
+.ctxbar__active {
+  font-size: 11.5px;
+  color: #7c8288;
+  text-align: right;
+  /* Con muchos packs la lista se alarga; que no empuje la barra. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+.slot__title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eaed;
+}
+
+.slot__hint {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #7c8288;
+  margin: 6px 0 8px;
+}
+
+.pack__profiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pack__profile {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #9aa0a6;
+  cursor: pointer;
+}

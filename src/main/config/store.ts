@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { EventEmitter } from 'node:events';
-import { DEFAULT_SETTINGS, type Settings } from '@shared/types';
+import { DEFAULT_SETTINGS, type ContextPack, type Settings } from '@shared/types';
 
 /**
  * Persistencia de settings en un JSON dentro de userData.
@@ -28,7 +28,23 @@ function withDefaults(raw: unknown): Settings {
     ...stored,
     llmModels: { ...DEFAULT_SETTINGS.llmModels, ...(stored.llmModels ?? {}) },
     hotkeys: { ...DEFAULT_SETTINGS.hotkeys, ...(stored.hotkeys ?? {}) },
-    contextPacks: stored.contextPacks ?? DEFAULT_SETTINGS.contextPacks,
+    contextPacks: (stored.contextPacks ?? DEFAULT_SETTINGS.contextPacks).map(normalizePack),
+  };
+}
+
+/**
+ * Rellena los campos que un pack antiguo no tenía.
+ *
+ * `withDefaults` sólo mezcla el primer nivel, así que un `contextPacks` guardado
+ * antes de que existieran `kind` y `profiles` llegaría sin ellos y reventaría al
+ * leerlos. `notes` y `[]` reproducen exactamente el comportamiento anterior:
+ * texto libre que se aplica en todos los perfiles.
+ */
+function normalizePack(pack: ContextPack): ContextPack {
+  return {
+    ...pack,
+    kind: pack.kind ?? 'notes',
+    profiles: Array.isArray(pack.profiles) ? pack.profiles : [],
   };
 }
 

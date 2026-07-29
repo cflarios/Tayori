@@ -4,11 +4,14 @@ import { IPC } from '@shared/ipc';
 import {
   autoTriggerIsInert,
   conversationTitle,
+  packsForProfile,
   speakersFor,
   type Answer,
   type AnswerTrigger,
+  type ContextPack,
   type Conversation,
   type ImageAttachment,
+  type PromptProfileId,
   type Speaker,
   type TranscriptSegment,
 } from '@shared/types';
@@ -369,7 +372,7 @@ class SessionOrchestrator {
         sampleRate: 16_000,
         language: settings.language,
         speakers: speakersFor(settings.audioSources),
-        vocabulary: collectVocabulary(settings.contextPacks),
+        vocabulary: collectVocabulary(settings.contextPacks, settings.promptProfileId),
       });
 
       this.stt = provider;
@@ -622,11 +625,35 @@ function joinUtterance(parts: string[]): string {
  * tecnologías: justo lo que un ASR generalista transcribe mal. Nos quedamos con
  * los tokens capitalizados o en mayúsculas, que es donde están esos términos.
  */
-function collectVocabulary(packs: { content: string; enabled: boolean }[]): string[] {
+function collectVocabulary(packs: ContextPack[], profile: PromptProfileId): string[] {
   const terms = new Set<string>();
+  const active = packsForProfile(packs, profile);
 
-  for (const pack of packs) {
-    if (!pack.enabled) continue;
+  /*
+   * Lo declarado va PRIMERO y entero.
+   *
+   * Antes todo el vocabulario se adivinaba con una regex de palabras
+   * capitalizadas sobre el texto de los packs. Eso saca "Python" y "AWS", sí,
+   * pero también cada palabra que abre una frase, y se pierde justo lo que más
+   * falla: el apellido del entrevistador, el nombre del producto interno, una
+   * sigla que no va en mayúsculas. Con un pack de tipo `vocabulary` esos
+   * términos se escriben a mano y llegan tal cual.
+   *
+   * Importa más que antes porque este vocabulario ya no sólo va a Gemini Live:
+   * también alimenta el `--prompt` de Whisper.
+   */
+  for (const pack of active) {
+    if (pack.kind !== 'vocabulary') continue;
+    for (const term of pack.content.split(/[,\n]/)) {
+      const clean = term.trim();
+      if (clean) terms.add(clean);
+    }
+  }
+
+  // Del resto se sigue infiriendo: un CV pegado trae decenas de tecnologías que
+  // nadie va a copiar a mano a una lista.
+  for (const pack of active) {
+    if (pack.kind === 'vocabulary') continue;
     const matches = pack.content.match(/\b[A-Z][A-Za-z0-9+#.]{1,20}\b/g) ?? [];
     for (const term of matches) {
       if (term.length > 1) terms.add(term);
@@ -634,7 +661,8 @@ function collectVocabulary(packs: { content: string; enabled: boolean }[]): stri
   }
 
   // La API acota el vocabulario personalizado; mandar cientos de términos lo
-  // empeora en lugar de mejorarlo, así que nos quedamos con los primeros.
+  // empeora en lugar de mejorarlo, así que nos quedamos con los primeros. Los
+  // declarados van delante, así que son los que sobreviven al recorte.
   return [...terms].slice(0, 100);
 }
 

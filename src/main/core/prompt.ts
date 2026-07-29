@@ -1,4 +1,10 @@
-import type { PromptProfileId, Settings } from '@shared/types';
+import {
+  CONTEXT_KIND_LABEL,
+  packsForProfile,
+  type ContextKind,
+  type PromptProfileId,
+  type Settings,
+} from '@shared/types';
 
 /**
  * Construcción del system prompt.
@@ -76,6 +82,23 @@ confirmarla.
  * va al final porque es la parte más larga y porque así el prefijo de rol y
  * reglas se mantiene idéntico entre perfiles.
  */
+/**
+ * Qué se le dice al modelo sobre cada clase de contexto.
+ *
+ * Es la razón de ser de `ContextKind`. Antes todo caía bajo un `## Nombre` y el
+ * modelo tenía que adivinar si un bloque era experiencia real, un anuncio de
+ * empleo o una respuesta ya redactada. Tratarlos igual tenía un coste concreto:
+ * una respuesta preparada acababa parafraseada y aguada, en lugar de usarse.
+ */
+const KIND_INSTRUCTIONS: Record<ContextKind, string> = {
+  cv: 'Experiencia REAL de la persona a la que ayudas. Es la única fuente de datos concretos —empresas, cifras, tecnologías— que puedes citar sobre ella.',
+  job: 'Lo que busca quien entrevista. Úsalo para elegir QUÉ destacar de la experiencia y con qué vocabulario, nunca para atribuirle experiencia que no aparezca en su CV.',
+  qa: 'Respuestas que la persona YA preparó. Si la pregunta encaja con alguna, reutilízala casi literal: recórtala y adáptala al tono, pero no la reescribas ni la sustituyas por una versión genérica tuya.',
+  vocabulary:
+    'Términos que van a aparecer. Sirven para que los escribas bien; no son información que puedas atribuirle a nadie.',
+  notes: 'Notas de apoyo.',
+};
+
 export function buildSystemPrompt(settings: Settings): string {
   const profile =
     settings.promptProfileId === 'custom'
@@ -84,14 +107,28 @@ export function buildSystemPrompt(settings: Settings): string {
 
   const sections = [profile, BASE_RULES];
 
-  const context = settings.contextPacks
-    .filter((pack) => pack.enabled && pack.content.trim())
-    .map((pack) => `## ${pack.name}\n${pack.content.trim()}`)
-    .join('\n\n');
+  // Sólo el contexto del perfil activo: cambiar de "Entrevista" a "Reunión" en
+  // el overlay tiene que cambiar también con qué material se responde, sin que
+  // nadie active y desactive packs a mano.
+  const active = packsForProfile(settings.contextPacks, settings.promptProfileId).filter((pack) =>
+    pack.content.trim()
+  );
 
-  if (context) {
+  // El vocabulario no entra como prosa: su sitio es el reconocedor de voz. Aquí
+  // sólo ocuparía ventana de contexto con una lista que el modelo no necesita.
+  const forPrompt = active.filter((pack) => pack.kind !== 'vocabulary');
+
+  if (forPrompt.length) {
+    const blocks = forPrompt
+      .map(
+        (pack) =>
+          `## ${pack.name} · ${CONTEXT_KIND_LABEL[pack.kind]}\n` +
+          `${KIND_INSTRUCTIONS[pack.kind]}\n\n${pack.content.trim()}`
+      )
+      .join('\n\n');
+
     sections.push(
-      `<contexto>\nInformación real sobre la persona a la que ayudas. Es la única\nfuente de datos concretos que puedes usar.\n\n${context}\n</contexto>`
+      `<contexto>\nMaterial preparado por la persona a la que ayudas. Cada bloque dice\nqué es y cómo usarlo.\n\n${blocks}\n</contexto>`
     );
   }
 

@@ -197,15 +197,67 @@ export type AutoTriggerSpeaker = 'them' | 'me' | 'any';
  */
 export type AutoTriggerSensitivity = 'strict' | 'balanced' | 'all';
 
+/**
+ * Qué ES un contexto, no sólo cómo se llama.
+ *
+ * Antes todos los packs eran texto libre y el prompt los volcaba igual, bajo un
+ * `## Nombre`. Pero un CV, una oferta y una respuesta que has preparado piden
+ * instrucciones distintas: el CV es la fuente de verdad sobre ti, la oferta
+ * dice hacia dónde alinear el discurso, y una respuesta preparada hay que
+ * **reutilizarla**, no parafrasearla. Sin el tipo, el modelo no podía saberlo.
+ */
+export type ContextKind = 'cv' | 'job' | 'qa' | 'vocabulary' | 'notes';
+
 export interface ContextPack {
   id: string;
   name: string;
   /** Ej. el CV, la descripción del puesto, notas técnicas. */
   content: string;
   enabled: boolean;
+  /** Qué clase de contexto es. Los packs antiguos son `notes`. */
+  kind: ContextKind;
+  /**
+   * Perfiles en los que aplica. **Vacío significa siempre**, que es lo que
+   * mantiene funcionando a los packs creados antes de que esto existiera.
+   */
+  profiles: PromptProfileId[];
 }
 
 export type PromptProfileId = 'interview' | 'meeting' | 'lecture' | 'support' | 'custom';
+
+/** Etiquetas de los tipos, compartidas entre el prompt y el dashboard. */
+export const CONTEXT_KIND_LABEL: Record<ContextKind, string> = {
+  cv: 'Tu CV o experiencia',
+  job: 'Descripción del puesto',
+  qa: 'Respuestas preparadas',
+  vocabulary: 'Vocabulario',
+  notes: 'Notas',
+};
+
+/**
+ * Qué huecos ofrece el dashboard para cada perfil.
+ *
+ * No es una restricción: el usuario puede añadir cualquier tipo a cualquier
+ * perfil. Es lo que se le enseña relleno de antemano para que no tenga que
+ * adivinar qué conviene preparar para una entrevista.
+ */
+export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
+  interview: ['cv', 'job', 'qa', 'vocabulary'],
+  meeting: ['notes', 'vocabulary'],
+  lecture: ['notes', 'vocabulary'],
+  support: ['notes', 'vocabulary'],
+  custom: ['notes', 'vocabulary'],
+};
+
+/** Los packs que aplican al perfil activo. Vacío en `profiles` = siempre. */
+export function packsForProfile(
+  packs: ContextPack[],
+  profile: PromptProfileId
+): ContextPack[] {
+  return packs.filter(
+    (pack) => pack.enabled && (pack.profiles.length === 0 || pack.profiles.includes(profile))
+  );
+}
 
 /**
  * No hay atajo para el dashboard a propósito: se abre únicamente con el botón

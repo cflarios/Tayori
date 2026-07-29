@@ -355,6 +355,21 @@ turno; esto no es streaming. Para eso está Gemini Live.
 - **`finalizeOpen()` en el buffer** cierra segmentos que el motor dejó abiertos:
   Gemini no siempre marca `finished` cuando alguien simplemente se calla, y un
   segmento abierto para siempre bloquearía el auto-disparo.
+- **Los context packs tienen tipo y perfil, no sólo nombre.** La primera versión
+  eran cajas de texto libre: todas activas a la vez, todas volcadas al prompt
+  bajo un `## Nombre`. Eso dejaba dos cosas al usuario que no le tocaban.
+  La primera, **acordarse de activar y desactivar** al cambiar de tipo de
+  reunión. Ahora cada pack declara en qué perfiles aplica —vacío significa
+  siempre, que es lo que preserva los packs antiguos— y cambiar de «Entrevista»
+  a «Reunión» en el overlay cambia también el material.
+  La segunda, y más cara: **el modelo no podía distinguir qué era cada bloque**.
+  Un CV es la fuente de verdad sobre alguien; una oferta dice hacia dónde
+  alinear el discurso; una respuesta preparada hay que **reutilizarla**, no
+  parafrasearla. Sin esa distinción, una respuesta que el usuario había
+  redactado con cuidado salía aguada y genérica. `KIND_INSTRUCTIONS` en
+  `prompt.ts` le da a cada tipo su propia instrucción.
+  El tipo `vocabulary` es el único que **no entra en el prompt**: su sitio es el
+  reconocedor de voz, y en el prompt sólo gastaría ventana de contexto.
 - **`customVocabulary` alimentado desde los context packs.** Un CV y una
   descripción de puesto están llenos de nombres propios y siglas, que es justo lo
   que un ASR generalista transcribe mal. **Durante un tiempo sólo se le pasaba a
