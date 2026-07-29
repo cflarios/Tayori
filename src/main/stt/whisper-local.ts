@@ -199,7 +199,7 @@ export class WhisperLocalSTT implements STTProvider {
 
     // El servidor ahorra ~570 ms por turno frente a lanzar el CLI cada vez. Si
     // no arranca se sigue con el CLI: más lento, pero la transcripción funciona.
-    this.useServer = await whisperServer.ensure(this.modelPath, options.language);
+    this.useServer = await whisperServer.ensure(this.modelPath, options.language, options.vocabulary);
     console.log(
       `[whisper] transcribiendo con ${this.useServer ? 'whisper-server (modelo residente)' : 'whisper-cli (un proceso por turno)'}`
     );
@@ -275,6 +275,14 @@ export class WhisperLocalSTT implements STTProvider {
       // Hilos: dejamos un núcleo libre para no ahogar la captura de audio.
       '-t', String(Math.max(2, (cpus().length || 4) - 1)),
     ];
+
+    // Mismas dos palancas de calidad que en el servidor: búsqueda por haces y
+    // sesgo hacia el vocabulario del usuario. Aquí pesan más en tiempo, porque
+    // el CLI ya arrastra el arranque de proceso y la carga del modelo.
+    args.push('-bs', '5');
+    if (options.vocabulary?.length) {
+      args.push('--prompt', options.vocabulary.slice(0, 60).join(', '));
+    }
 
     if (options.language && options.language !== 'auto') {
       args.push('-l', options.language.split('-')[0] ?? options.language);

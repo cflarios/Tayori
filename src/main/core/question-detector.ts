@@ -222,6 +222,20 @@ export function looksLikeQuestion(
     return { isQuestion: true, reason: `interrogativo acentuado: "${accented[2]}"` };
   }
 
+  /*
+   * Aperturas imperativas en CUALQUIER posición, no sólo al principio.
+   *
+   * Al unir los fragmentos de una intervención titubeante, el imperativo deja
+   * de encabezar la frase: "Bueno... a ver, cuéntame sobre tu experiencia" es
+   * una petición de manual y la comprobación de prefijo no la veía. Pedir algo
+   * sigue siendo pedir algo aunque haya un titubeo delante.
+   */
+  for (const prompt of IMPERATIVE_PROMPTS) {
+    if (new RegExp(`(^|[^\\p{L}])${prompt}([^\\p{L}]|$)`, 'u').test(normalized)) {
+      return { isQuestion: true, reason: `petición: "${prompt}"` };
+    }
+  }
+
   for (const marker of EMBEDDED_MARKERS) {
     if (normalized.includes(marker)) {
       return { isQuestion: true, reason: `fórmula de consulta: "${marker}"` };

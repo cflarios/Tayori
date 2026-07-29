@@ -357,7 +357,16 @@ turno; esto no es streaming. Para eso está Gemini Live.
   segmento abierto para siempre bloquearía el auto-disparo.
 - **`customVocabulary` alimentado desde los context packs.** Un CV y una
   descripción de puesto están llenos de nombres propios y siglas, que es justo lo
-  que un ASR generalista transcribe mal.
+  que un ASR generalista transcribe mal. **Durante un tiempo sólo se le pasaba a
+  Gemini**: whisper.cpp acepta el mismo sesgo por `--prompt` y no se estaba
+  usando, desperdiciando la mitad del valor de una función que ya existía.
+- **Búsqueda por haces (`-bs 5`) en Whisper.** Es la palanca que más ayuda con
+  un acento marcado: en lugar de quedarse con el token más probable en cada
+  paso, mantiene varias hipótesis y elige la mejor frase completa. Se midió
+  antes de adoptarla, porque la intuición decía que sería cara: 494–611 ms con
+  haces frente a 498–563 ms voraz, o sea **dentro del ruido**. En turnos cortos
+  manda el paso del encoder —constante, ventana de 30 s— y la decodificación
+  apenas pesa.
 
 ### Respuestas
 
@@ -526,8 +535,23 @@ momento posible, y el usuario **siempre** tiene el hotkey manual como red.
   puntúan de forma fiable; depender de él perdería la mayoría de las preguntas.
 - **Las muletillas se comprueban ANTES que todo lo demás**: "¿me escuchas?" lleva
   signo *y* empieza por interrogativo, y aun así no se responde.
-- **Debounce de 2,5 s**: una pregunta larga puede cerrarse en varios segmentos
-  seguidos, y sin él se dispararían varias respuestas abortándose entre sí.
+- **Se acumula antes de decidir, no se descarta después.** El VAD cierra el
+  turno a los 700 ms de silencio, y quien titubea hace pausas más largas que eso
+  a mitad de frase: *"entonces… eh… lo que quería preguntarte es… ¿cómo lo
+  harías?"* llega como tres segmentos.
+  La primera versión disparaba con el **primer** fragmento y silenciaba 2,5 s
+  los siguientes. El comentario del código identificaba bien el problema —"una
+  pregunta larga puede cerrarse en varios segmentos"— y sacaba la conclusión
+  contraria: respondía al titubeo y **descartaba la pregunta**.
+  Ahora los fragmentos se acumulan y se juzga el conjunto tras `AUTO_SETTLE_MS`
+  (900 ms) sin habla nueva. Sumados a los 700 ms del VAD, hacen falta ~1,6 s de
+  silencio para dar la intervención por terminada: más de lo que dura una pausa
+  de duda, menos de lo que dura el final de una pregunta. El debounce de 2,5 s
+  sobrevive sólo como red contra dobles disparos por caminos distintos.
+- **Las aperturas imperativas se buscan en cualquier posición.** Consecuencia
+  directa de lo anterior: al unir fragmentos, "cuéntame" deja de encabezar la
+  frase y la comprobación de prefijo dejaba de verla. Pedir algo sigue siendo
+  pedir algo aunque haya un titubeo delante.
 
 **Julio 2026: el equilibrio se volvió configurable, con datos.** La primera
 prueba de escucha real dio la medida: de cinco frases seguidas dictadas al

@@ -52,6 +52,30 @@ class SessionOrchestrator {
   private static readonly AUTO_DEBOUNCE_MS = 2_500;
 
   /**
+   * Fragmentos cerrados que todavía pueden ser parte de la misma pregunta.
+   *
+   * El VAD cierra el turno tras 700 ms de silencio, y una persona que titubea
+   * hace pausas más largas que eso a mitad de frase: "entonces… eh… lo que
+   * quería preguntarte es… ¿cómo lo harías?". Eso llega como tres segmentos.
+   */
+  private pendingTrigger = new Map<
+    Speaker,
+    { parts: string[]; timer: NodeJS.Timeout; startedAt: number }
+  >();
+
+  /**
+   * Cuánto se espera, tras cerrarse un turno, por si la frase continúa.
+   *
+   * Se suma a los 700 ms que el VAD ya exigió, así que en total hacen falta
+   * ~1,6 s de silencio para dar la intervención por terminada. Una pausa de
+   * duda rara vez llega ahí; el final de una pregunta, casi siempre.
+   */
+  private static readonly AUTO_SETTLE_MS = 900;
+
+  /** Tope para quien encadena sin parar: se responde a lo que haya. */
+  private static readonly AUTO_MAX_ACCUMULATE_MS = 15_000;
+
+  /**
    * Conversación en curso. Se crea perezosamente al primer contenido: arrancar
    * la app y no decir nada no debe dejar una conversación vacía en el historial.
    */
@@ -184,6 +208,7 @@ class SessionOrchestrator {
   newConversation(): void {
     this.answers.abort();
     this.answers.resetHistory();
+    this.clearPendingTriggers();
     this.flush();
     this.conversation = null;
     this.recordedAnswers.clear();
@@ -384,6 +409,7 @@ class SessionOrchestrator {
 
   private async stopTranscription(): Promise<void> {
     this.stopWatchdog();
+    this.clearPendingTriggers();
     for (const timer of this.silenceTimers.values()) clearTimeout(timer);
     this.silenceTimers.clear();
 
@@ -448,27 +474,95 @@ class SessionOrchestrator {
     const wanted = settings.autoTriggerSpeaker;
     if (wanted !== 'any' && segment.speaker !== wanted) return;
 
-    const verdict = looksLikeQuestion(segment.text, settings.autoTriggerSensitivity);
+    const text = segment.text.trim();
+    if (!text) return;
+
+    /*
+     * NO se evalúa aquí, y ese es el arreglo.
+     *
+     * Antes se disparaba con el primer fragmento y se silenciaban 2,5 s los
+     * siguientes. El comentario decía "una pregunta larga puede cerrarse en
+     * varios segmentos", que es cierto, pero la conclusión era la contraria de
+     * la que tocaba: respondía al titubeo y descartaba la pregunta.
+     *
+     * Ahora se acumula y se decide cuando la persona termina de hablar de
+     * verdad. Cada fragmento nuevo reinicia la espera.
+     */
+    const pending = this.pendingTrigger.get(segment.speaker);
+    if (pending) {
+      clearTimeout(pending.timer);
+      pending.parts.push(text);
+      // Un tope para quien encadena sin pausas: en algún momento hay que
+      // contestar a lo que haya en lugar de esperar indefinidamente.
+      if (Date.now() - pending.startedAt >= SessionOrchestrator.AUTO_MAX_ACCUMULATE_MS) {
+        this.pendingTrigger.delete(segment.speaker);
+        this.evaluateTrigger(segment.speaker, pending.parts);
+        return;
+      }
+      pending.timer = this.armSettleTimer(segment.speaker);
+      return;
+    }
+
+    this.pendingTrigger.set(segment.speaker, {
+      parts: [text],
+      startedAt: Date.now(),
+      timer: this.armSettleTimer(segment.speaker),
+    });
+  }
+
+  /** Descarta lo acumulado sin responderlo. Al parar o al cambiar de tema. */
+  private clearPendingTriggers(): void {
+    for (const pending of this.pendingTrigger.values()) clearTimeout(pending.timer);
+    this.pendingTrigger.clear();
+  }
+
+  private armSettleTimer(speaker: Speaker): NodeJS.Timeout {
+    return setTimeout(() => {
+      const pending = this.pendingTrigger.get(speaker);
+      if (!pending) return;
+      this.pendingTrigger.delete(speaker);
+      this.evaluateTrigger(speaker, pending.parts);
+    }, SessionOrchestrator.AUTO_SETTLE_MS);
+  }
+
+  /**
+   * Decide sobre la intervención COMPLETA, ya unida.
+   *
+   * Juzgar el conjunto en vez de cada trozo también mejora la detección: un
+   * "entonces… eh…" suelto no tiene ningún marcador de pregunta, pero unido a
+   * lo que viene detrás sí lo tiene.
+   */
+  private evaluateTrigger(speaker: Speaker, parts: string[]): void {
+    const settings = settingsStore.get();
+    const full = joinUtterance(parts);
+    if (!full) return;
+
+    const verdict = looksLikeQuestion(full, settings.autoTriggerSensitivity);
     if (!verdict.isQuestion) {
       // Se registra el descarte: es la única forma de saber por qué la app "no
       // responde" sin ponerse a adivinar. Una prueba real gastó cinco frases
       // seguidas para descubrir que el detector las estaba tirando en silencio.
-      console.log(`[auto] descartado (${verdict.reason}): "${segment.text.slice(0, 60)}"`);
+      console.log(`[auto] descartado (${verdict.reason}): "${full.slice(0, 80)}"`);
       // Y además se enseña. El log sirve para depurar; el overlay, para que
       // quien está hablando entienda por qué no ha pasado nada.
-      this.broadcast(IPC.onAutoSkip, { text: segment.text, reason: verdict.reason });
+      this.broadcast(IPC.onAutoSkip, { text: full, reason: verdict.reason });
       return;
     }
 
-    // Debounce: una pregunta larga puede cerrarse en varios segmentos seguidos.
-    // Sin esto se dispararían dos o tres respuestas para la misma pregunta, y
-    // cada una abortaría la anterior a media generación.
+    // Red de seguridad contra dobles disparos por caminos distintos (el cierre
+    // del motor y el temporizador de silencio pueden coincidir).
     const now = Date.now();
-    if (now - this.lastAutoTrigger < SessionOrchestrator.AUTO_DEBOUNCE_MS) return;
+    if (now - this.lastAutoTrigger < SessionOrchestrator.AUTO_DEBOUNCE_MS) {
+      console.log(`[auto] ignorado por debounce: "${full.slice(0, 60)}"`);
+      return;
+    }
     this.lastAutoTrigger = now;
 
-    console.log(`[auto] disparando (${verdict.reason}): "${segment.text.slice(0, 60)}"`);
-    void this.answers.ask('auto', segment.text.trim());
+    const fragmentos = parts.length > 1 ? ` [${parts.length} fragmentos unidos]` : '';
+    console.log(
+      `[auto:${speaker}] disparando (${verdict.reason})${fragmentos}: "${full.slice(0, 80)}"`
+    );
+    void this.answers.ask('auto', full);
   }
 
   private armSilenceTimer(speaker: Speaker): void {
@@ -502,6 +596,23 @@ class SessionOrchestrator {
       }
     }
   }
+}
+
+/**
+ * Une fragmentos de una misma intervención en una frase legible.
+ *
+ * Los trozos vienen del reconocedor ya puntuados, así que pegarlos con un
+ * espacio produce cosas como "Entonces. ¿Cómo lo harías?" — correcto. Lo que
+ * hay que evitar es la puntuación duplicada y los trozos que acaban en coma,
+ * donde un punto de más rompería la frase.
+ */
+function joinUtterance(parts: string[]): string {
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**

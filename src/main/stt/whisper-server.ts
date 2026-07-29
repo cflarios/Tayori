@@ -46,15 +46,19 @@ export class WhisperServer {
    * Las llamadas concurrentes comparten la misma promesa: dos carriles
    * arrancando a la vez levantarían dos servidores peleándose por el puerto.
    */
-  async ensure(modelPath: string, language: string): Promise<boolean> {
+  async ensure(modelPath: string, language: string, vocabulary?: string[]): Promise<boolean> {
     if (this.running) return true;
-    this.starting ??= this.launch(modelPath, language).finally(() => {
+    this.starting ??= this.launch(modelPath, language, vocabulary).finally(() => {
       this.starting = null;
     });
     return this.starting;
   }
 
-  private async launch(modelPath: string, language: string): Promise<boolean> {
+  private async launch(
+    modelPath: string,
+    language: string,
+    vocabulary?: string[]
+  ): Promise<boolean> {
     const binary = findWhisperServer();
     if (!binary) {
       console.log('[whisper-server] no está en el zip descargado; se usará whisper-cli.');
@@ -72,6 +76,21 @@ export class WhisperServer {
           '-t', String(Math.max(2, (cpus().length || 4) - 1)),
           '-nt',
           '-l', language === 'auto' ? 'auto' : language.split('-')[0] || 'auto',
+          /*
+           * Búsqueda por haces en lugar de decodificación voraz.
+           *
+           * Es la palanca que más ayuda con un acento marcado o con audio
+           * regular: en lugar de quedarse con el token más probable en cada
+           * paso, mantiene varias hipótesis y elige la mejor frase completa.
+           * Con el modelo residente hay margen de sobra para pagarlo — el
+           * turno estaba en 230 ms, no en 1440.
+           */
+          '-bs', '5',
+          // Prompt inicial: sesga el decodificador hacia los nombres propios,
+          // siglas y tecnologías de los context packs, que es justo lo que un
+          // reconocedor generalista destroza. Se acota porque el prompt compite
+          // por la ventana de contexto con el audio.
+          ...(vocabulary?.length ? ['--prompt', vocabulary.slice(0, 60).join(', ')] : []),
         ],
         { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
       );
