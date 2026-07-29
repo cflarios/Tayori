@@ -302,8 +302,12 @@ export function DashboardApp() {
       <ModelCard settings={settings} patch={patch} />
       <TranscriptionCard settings={settings} patch={patch} />
       <BehaviourCard settings={settings} patch={patch} />
-      <HistoryCard settings={settings} patch={patch} />
+      {/* El contexto va ANTES del historial: es lo que se toca antes de cada
+          reunión, mientras que el historial se consulta de vez en cuando. Y
+          además el historial crece, así que dejarlo delante obligaba a bajar
+          media pantalla para llegar a lo que sí se edita a menudo. */}
       <ContextCard settings={settings} patch={patch} />
+      <HistoryCard settings={settings} patch={patch} />
       <DiagnosticsCard />
     </div>
   );
@@ -413,6 +417,15 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const [detail, setDetail] = useState<Conversation | null>(null);
   const [location, setLocation] = useState('');
   const [confirmingClear, setConfirmingClear] = useState(false);
+  /**
+   * Cuántas conversaciones se pintan de golpe.
+   *
+   * Pintarlas todas hacía que la página creciera sin techo: con cincuenta
+   * conversaciones, cualquier ajuste que estuviera debajo quedaba a media
+   * pantalla de scroll. Se enseñan las recientes, que son las que se consultan.
+   */
+  const [showAll, setShowAll] = useState(false);
+  const VISIBLE = 5;
 
   const refresh = useCallback((): void => {
     void window.api.history.list().then(setItems);
@@ -485,7 +498,7 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         </p>
       )}
 
-      {items.map((item) => (
+      {(showAll ? items : items.slice(0, VISIBLE)).map((item) => (
         <div key={item.id} className="conv">
           <div className="conv__head">
             <button
@@ -537,6 +550,16 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
           )}
         </div>
       ))}
+
+      {items.length > VISIBLE && (
+        <div className="field">
+          <button className="btn" onClick={() => setShowAll(!showAll)}>
+            {showAll
+              ? `Mostrar solo las ${VISIBLE} últimas`
+              : `Ver las ${items.length} conversaciones`}
+          </button>
+        </div>
+      )}
 
       {items.length > 0 && (
         <div className="field">
