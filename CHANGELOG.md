@@ -4,6 +4,29 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.3.0](https://github.com/cflarios/jarvis-job/compare/v0.2.0...v0.3.0) (2026-07-31)
+
+
+### Features
+
+* contexto con tipo y perfil, guiado desde el dashboard ([55af5cb](https://github.com/cflarios/jarvis-job/commit/55af5cb9fe568c337371275ae916bce37bfaf795))
+* escribir el id de un modelo de nube que no esté en la lista ([a5cdbb9](https://github.com/cflarios/jarvis-job/commit/a5cdbb9a64d15836acdc91528d71b454cb476d41))
+* estado central en el overlay, y arreglos de fuentes e idioma ([353d8d2](https://github.com/cflarios/jarvis-job/commit/353d8d27d16cc837fca58862d7968f170353f510))
+* guía de modelos como documento, con multimodales y precios de nube ([4506ee4](https://github.com/cflarios/jarvis-job/commit/4506ee43225039476171e967bc43f3314a557b8b))
+* historial en el overlay, modo compacto, atajos editables y guía inicial ([8623de9](https://github.com/cflarios/jarvis-job/commit/8623de9ec275d063d5a8d44470d852f0deadb523))
+* la escucha y las fuentes de audio, en el overlay ([4bf426c](https://github.com/cflarios/jarvis-job/commit/4bf426c03130e579e3b0b403fa26086c761b5c19))
+* modo test, modelo aparte para la pantalla y contexto de Ollama a la vista ([fcdd862](https://github.com/cflarios/jarvis-job/commit/fcdd862ab987b2c5db0b45c6cf45bd50212dca6e))
+* resolver el código que hay en pantalla, con Ctrl+Alt+C ([1d1663e](https://github.com/cflarios/jarvis-job/commit/1d1663ebe5b03b78b86c0c3580b77e34f58900f3))
+
+
+### Bug Fixes
+
+* el botón de copiar no podía funcionar desde el overlay ([5d8dd36](https://github.com/cflarios/jarvis-job/commit/5d8dd36a76e6c31698d3769844d648ee94be6ff4))
+* el contexto antes del historial, y el historial deja de crecer sin techo ([d43131b](https://github.com/cflarios/jarvis-job/commit/d43131b15dd50896bbc977d2ed4e0ae6bab608ab))
+* el modo test responde todas las preguntas, sin asteriscos y sin sermón ([eec4a56](https://github.com/cflarios/jarvis-job/commit/eec4a562c5b57752937081be62ecf7a4717c1f95))
+* negociar la modalidad de Gemini Live y explicar los descartes en pantalla ([7b2c02c](https://github.com/cflarios/jarvis-job/commit/7b2c02cda912d2e4f9bdc25d7f3f76436da64060))
+* responder a la pregunta completa, no al titubeo que la precede ([1464d45](https://github.com/cflarios/jarvis-job/commit/1464d45adcdebcf09debc827e6e59ba161f16fa2))
+
 ## [0.2.0](https://github.com/cflarios/jarvis-job/compare/interview-helper-v0.1.0...interview-helper-v0.2.0) (2026-07-28)
 
 
