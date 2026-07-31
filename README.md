@@ -69,7 +69,9 @@ El binario no está firmado, así que Windows SmartScreen avisará la primera ve
 
 1. Arranca la app. Aparece solo el overlay, arriba a la derecha.
 2. Pulsa el **engranaje** de su barra superior para abrir la configuración. Es
-   la única forma de abrirla: no hay atajo ni se abre sola.
+   la única forma de abrirla: no hay atajo ni se abre sola. Arriba del todo hay
+   una guía de **primeros pasos** con las cuatro cosas que hay que hacer; se
+   marca sola según las completas y desaparece al terminar.
 3. Pega tu API key de Anthropic o de Google.
 4. Elige **qué se escucha**. Por defecto son ambas fuentes; si prefieres que el
    asistente no procese tus propias respuestas, cambia a *Solo la salida del
@@ -92,6 +94,12 @@ configuración:
   configurada pero **no llegó a abrirse** — revisa el dispositivo o los permisos.
   Es el aviso que distingue "no se oye nada" de "no se está escuchando".
 - **`</>`**: resolver el código de la pantalla.
+- **Plegar**: modo compacto, deja sólo la respuesta. Esconde los perfiles, la
+  transcripción y el pie de atajos.
+- **`‹ 2/5 ›`**: junto a «Sugerencia», para volver a respuestas anteriores sin
+  abrir el historial. Mientras estés mirando una antigua no aparecen las
+  acciones rápidas: dicen «tu última respuesta» y la última para el modelo es la
+  suya, no la que tengas delante.
 - **Moverlo**: arrastra la barra superior con el botón izquierdo, o usa
   `Ctrl+Alt+flechas`.
 - **Configuración**: el botón del engranaje.
@@ -118,6 +126,11 @@ Todos son globales: funcionan aunque la ventana de la videollamada tenga el foco
 
 La configuración **no tiene atajo** a propósito: se abre solo con el engranaje
 del overlay.
+
+**Todos se pueden cambiar** desde el dashboard → *Atajos de teclado*: pulsa el
+campo y teclea la combinación. Si Windows rechaza alguno porque otra aplicación
+lo tiene tomado, aparece marcado en rojo — importa, porque un atajo tomado no da
+ningún error: simplemente no hace nada.
 
 ## Modo código
 

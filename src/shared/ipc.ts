@@ -68,6 +68,9 @@ export const IPC = {
   /** Conecta de verdad con el motor de transcripción y dice qué falló. */
   sttTestConnection: 'stt:test-connection',
 
+  /** Aceleradores que Windows rechazó, normalmente por estar ya en uso. */
+  hotkeysGetFailed: 'hotkeys:get-failed',
+
   logsRead: 'logs:read',
   logsLocation: 'logs:location',
 
@@ -111,6 +114,15 @@ export const IPC = {
    * equivocado, que es peor que no avisar: manda a depurar donde no es.
    */
   onNotice: 'event:notice',
+  /**
+   * Cambió el resultado de registrar los atajos.
+   *
+   * `registerHotkeys` ya devolvía los rechazados y nadie recogía la lista: sólo
+   * salía por el log, que en el `.exe` empaquetado no mira nadie. Un atajo que
+   * otra aplicación tiene tomado no falla al pulsarlo — simplemente no pasa
+   * nada, que es indistinguible de que la app esté rota.
+   */
+  onHotkeyFailures: 'event:hotkey-failures',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

@@ -286,6 +286,7 @@ te dice qué más hay que tocar — que es exactamente para lo que están.
 | Archivo | Frontera | Regla |
 |---|---|---|
 | `shared/types.ts` | main ↔ renderer | Si un tipo cruza el IPC, vive aquí |
+| `shared/accelerator.ts` | teclado ↔ Electron | El formato lo dicta `globalShortcut`, no la UI |
 | `shared/ipc.ts` | main ↔ renderer | Los nombres de canal, para que no se desincronicen con un string mal escrito |
 | `stt/types.ts` | orquestador ↔ motores | `STTProvider` |
 | `llm/types.ts` | motor ↔ proveedores | `LLMProvider`, con `AbortSignal` **obligatorio** |

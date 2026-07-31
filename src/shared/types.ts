@@ -304,6 +304,25 @@ export interface Settings {
   overlaySize: OverlaySize;
 
   /**
+   * Escala del texto de CONTENIDO del overlay: respuesta, código y transcripción.
+   *
+   * No toca la barra ni los chips a propósito. Los cuatro presets de tamaño
+   * agrandan la ventana, no la letra, así que en un monitor 4K el panel crecía y
+   * el texto seguía igual de pequeño. Escalar sólo el contenido es lo que
+   * resuelve eso sin que los controles se coman el panel.
+   */
+  overlayFontScale: number;
+
+  /**
+   * Modo compacto: sólo la respuesta.
+   *
+   * Pliega los chips de perfil, la transcripción y el pie de atajos. Es el
+   * estado que quieres cuando ya está todo configurado y el overlay sólo sirve
+   * para leer. Se guarda porque quien lo prefiere lo prefiere siempre.
+   */
+  overlayCompact: boolean;
+
+  /**
    * Si las conversaciones se guardan en disco.
    *
    * Rompe la promesa original de "la app no graba nada": mientras esté activo
@@ -351,6 +370,15 @@ export interface Settings {
 
   hotkeys: HotkeyMap;
   ollamaBaseUrl: string;
+
+  /**
+   * La guía de primeros pasos ya no hace falta.
+   *
+   * Se marca sola cuando los pasos están cumplidos, y también a mano: quien
+   * sabe lo que hace no tiene por qué cargar con una lista de tareas encima de
+   * su configuración para siempre.
+   */
+  onboardingDone: boolean;
 }
 
 /**
@@ -392,6 +420,8 @@ export const DEFAULT_SETTINGS: Settings = {
   // Opaco por defecto: la legibilidad manda. Se puede bajar desde el dashboard.
   overlayOpacity: 1,
   overlaySize: 'M',
+  overlayFontScale: 1,
+  overlayCompact: false,
   historyEnabled: true,
 
   llmProviderId: 'claude',
@@ -419,6 +449,33 @@ export const DEFAULT_SETTINGS: Settings = {
 
   hotkeys: DEFAULT_HOTKEYS,
   ollamaBaseUrl: 'http://127.0.0.1:11434',
+  onboardingDone: false,
+};
+
+/** Límites de la escala de texto, compartidos por el ajuste y quien lo aplica. */
+export const FONT_SCALE = { min: 0.8, max: 1.8, step: 0.05 } as const;
+
+/** Recorta la escala a un valor usable; un JSON editado a mano puede traer cualquier cosa. */
+export function clampFontScale(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(FONT_SCALE.max, Math.max(FONT_SCALE.min, value));
+}
+
+/**
+ * Etiquetas de los atajos, para poder listarlos sin repetir los textos en cada
+ * sitio que los enseñe. El orden es el de la tabla del README.
+ */
+export const HOTKEY_LABEL: Record<keyof HotkeyMap, string> = {
+  askNow: 'Responder ahora',
+  screenshotAndAsk: 'Capturar pantalla y responder',
+  solveOnScreen: 'Resolver el código de la pantalla',
+  toggleOverlay: 'Mostrar u ocultar el overlay',
+  toggleListening: 'Empezar o parar de escuchar',
+  toggleClickThrough: 'Alternar clics atravesables',
+  moveUp: 'Mover el overlay arriba',
+  moveDown: 'Mover el overlay abajo',
+  moveLeft: 'Mover el overlay a la izquierda',
+  moveRight: 'Mover el overlay a la derecha',
 };
 
 /** Estado del servidor local de Ollama, sondeado bajo demanda. */

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, type AnswerBlock } from './answer-format';
+import { clampFontScale } from '@shared/types';
 import type {
   Answer,
   AudioLevels,
@@ -56,6 +57,28 @@ function CodeIcon() {
         strokeLinejoin="round"
         fill="none"
         d="M6 11 3 8l3-3m4 0 3 3-3 3"
+      />
+    </svg>
+  );
+}
+
+/** Flechas hacia dentro y hacia fuera: plegar y desplegar el panel. */
+function CompactIcon({ compact }: { compact: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        d={
+          compact
+            ? // Desplegar: flechas separándose.
+              'M6.5 9.5 3 13m0 0h2.8M3 13v-2.8M9.5 6.5 13 3m0 0h-2.8M13 3v2.8'
+            : // Plegar: flechas juntándose.
+              'M3 13l3.5-3.5m0 0H3.7m2.8 0v2.8M13 3L9.5 6.5m0 0h2.8m-2.8 0V3.7'
+        }
       />
     </svg>
   );
@@ -278,6 +301,7 @@ function StatusBar({
   onNewConversation,
   onSolveScreen,
   onSourceBlocked,
+  onToggleCompact,
 }: {
   status: CaptureStatus;
   levels: AudioLevels;
@@ -286,8 +310,10 @@ function StatusBar({
   onNewConversation: () => void;
   onSolveScreen: () => void;
   onSourceBlocked: () => void;
+  onToggleCompact: () => void;
 }) {
   const language = settings?.language ?? 'auto';
+  const compact = settings?.overlayCompact ?? false;
 
   return (
     // `data-interactive` es lo que hace que la ventana deje de ignorar el ratón
@@ -345,6 +371,20 @@ function StatusBar({
           onClick={onSolveScreen}
         >
           <CodeIcon />
+        </button>
+        <button
+          type="button"
+          className="iconbtn"
+          title={
+            compact
+              ? 'Desplegar: vuelve la transcripción y los perfiles'
+              : 'Modo compacto: deja sólo la respuesta'
+          }
+          aria-label={compact ? 'Desplegar el panel' : 'Modo compacto'}
+          aria-pressed={compact}
+          onClick={onToggleCompact}
+        >
+          <CompactIcon compact={compact} />
         </button>
         <button
           type="button"
@@ -804,6 +844,57 @@ function AnswerPane({
   return <AnswerBody text={answer.text} />;
 }
 
+/**
+ * Navegación por las respuestas de esta conversación.
+ *
+ * Hasta ahora una respuesta la borraba la siguiente y sólo se recuperaba
+ * abriendo el historial del dashboard — con lo que eso implica: engranaje,
+ * ventana nueva y foco robado. Es la última cosa frecuente que obligaba a salir
+ * del overlay.
+ */
+function AnswerNav({
+  total,
+  index,
+  onGo,
+}: {
+  total: number;
+  index: number;
+  onGo: (next: number) => void;
+}) {
+  if (total < 2) return null;
+
+  return (
+    <div className="nav" data-interactive>
+      <button
+        type="button"
+        className="nav__btn"
+        disabled={index === 0}
+        title="Respuesta anterior"
+        aria-label="Respuesta anterior"
+        onClick={() => onGo(index - 1)}
+      >
+        ‹
+      </button>
+      <span className="nav__count">
+        {index + 1}/{total}
+      </span>
+      <button
+        type="button"
+        className="nav__btn"
+        disabled={index === total - 1}
+        title="Respuesta siguiente"
+        aria-label="Respuesta siguiente"
+        onClick={() => onGo(index + 1)}
+      >
+        ›
+      </button>
+    </div>
+  );
+}
+
+/** Cuántas respuestas se guardan para poder volver atrás. */
+const ANSWER_MEMORY = 20;
+
 export function OverlayApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [status, setStatus] = useState<CaptureStatus>({
@@ -813,7 +904,14 @@ export function OverlayApp() {
   });
   const [levels, setLevels] = useState<AudioLevels>({ me: 0, them: 0 });
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
-  const [answer, setAnswer] = useState<Answer | null>(null);
+  /**
+   * Las respuestas de la conversación, de la más antigua a la más reciente, y
+   * cuál se está mirando. `null` en `viewing` significa "la última", que es lo
+   * que hace que una respuesta en streaming se siga sola sin saltar de sitio
+   * cuando el usuario está leyendo una anterior.
+   */
+  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [viewing, setViewing] = useState<number | null>(null);
   const [shot, setShot] = useState<ImageAttachment | null>(null);
   const [configured, setConfigured] = useState(true);
   const [tab, setTab] = useState<InputTab>('listen');
@@ -866,7 +964,19 @@ export function OverlayApp() {
       // Un descarte deja de importar en cuanto llega una respuesta de verdad.
       api.transcript.onAutoSkip(setSkip),
       api.ask.onAnswer((next) => {
-        setAnswer(next);
+        // `answer` se emite en CADA actualización del streaming, así que la
+        // misma respuesta llega decenas de veces: se sustituye por id en lugar
+        // de acumularse. Una abortada se queda en la lista sólo si llegó a
+        // escribir algo; si no, sería un hueco vacío por el que navegar.
+        setAnswers((prev) => {
+          const idx = prev.findIndex((a) => a.id === next.id);
+          if (idx !== -1) {
+            const copy = [...prev];
+            copy[idx] = next;
+            return copy;
+          }
+          return [...prev, next].slice(-ANSWER_MEMORY);
+        });
         setSkip(null);
         // La captura se consume con la respuesta: dejar el thumbnail visible
         // haría creer que sigue adjunta a la siguiente pregunta.
@@ -887,7 +997,8 @@ export function OverlayApp() {
       // de React y se quedaría enseñando la conversación anterior.
       api.history.onReset(() => {
         setSegments([]);
-        setAnswer(null);
+        setAnswers([]);
+        setViewing(null);
         setShot(null);
       }),
       // Un motor que falla carril a carril se veía exactamente igual que una
@@ -899,8 +1010,24 @@ export function OverlayApp() {
     return () => unsubs.forEach((off) => off());
   }, []);
 
+  const compact = settings?.overlayCompact ?? false;
+
+  // Qué respuesta se enseña: la que se esté mirando, o la última. Seguir a la
+  // última por defecto es lo que mantiene el comportamiento de siempre — una
+  // respuesta nueva sustituye a la anterior — sin perder las de antes.
+  const index = viewing ?? answers.length - 1;
+  const answer = answers[index] ?? null;
+
   return (
-    <div className="panel" style={{ opacity: settings?.overlayOpacity ?? 1 }}>
+    <div
+      className="panel"
+      style={{
+        opacity: settings?.overlayOpacity ?? 1,
+        // Sólo escala el CONTENIDO: la barra y los chips se quedan como están,
+        // o con la letra grande los controles se comerían el panel entero.
+        ['--font-scale' as string]: clampFontScale(settings?.overlayFontScale ?? 1),
+      }}
+    >
       <StatusBar
         status={status}
         levels={levels}
@@ -912,6 +1039,9 @@ export function OverlayApp() {
           setNotice(
             'Tiene que quedar al menos una fuente de audio. Para no escuchar nada, usa el botón «Escuchando».'
           )
+        }
+        onToggleCompact={() =>
+          void window.api.settings.update({ overlayCompact: !compact })
         }
       />
 
@@ -945,21 +1075,30 @@ export function OverlayApp() {
         </div>
       )}
 
-      {settings && (
+      {/*
+        Lo que el modo compacto pliega: perfiles, transcripción y pie de atajos.
+        Es todo lo que sirve para PREPARAR o COMPROBAR; lo que se deja es lo que
+        sirve para leer. La barra se queda entera porque desde ella se despliega
+        otra vez —esconder el botón que devuelve lo escondido sería una trampa—,
+        y porque parar la escucha tiene que estar siempre a mano.
+      */}
+      {!compact && settings && (
         <ProfileChips
           active={settings.promptProfileId}
           onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
         />
       )}
 
-      <div className="section">
-        <Tabs tab={tab} onChange={setTab} />
-        {tab === 'listen' ? (
-          <TranscriptPane segments={segments} />
-        ) : (
-          <ComposePane onSend={(text) => void window.api.ask.withText(text)} />
-        )}
-      </div>
+      {!compact && (
+        <div className="section">
+          <Tabs tab={tab} onChange={setTab} />
+          {tab === 'listen' ? (
+            <TranscriptPane segments={segments} />
+          ) : (
+            <ComposePane onSend={(text) => void window.api.ask.withText(text)} />
+          )}
+        </div>
+      )}
 
       {shot && (
         <div className="shot">
@@ -971,6 +1110,13 @@ export function OverlayApp() {
       <div className="section" style={{ flex: 1 }}>
         <div className="section__head">
           <span className="section__title">Sugerencia</span>
+          <AnswerNav
+            total={answers.length}
+            index={index}
+            // Volver a la última desengancha la navegación: a partir de ahí las
+            // respuestas nuevas vuelven a seguirse solas.
+            onGo={(next) => setViewing(next === answers.length - 1 ? null : next)}
+          />
           {/*
             Con qué se está respondiendo. Vale un renglón y ahorra el viaje al
             dashboard: al leer una respuesta floja, lo primero que se quiere
@@ -999,10 +1145,17 @@ export function OverlayApp() {
         <AnswerPane answer={answer} skip={skip} listening={status.state === 'listening'} />
       </div>
 
-      {/* Sólo tienen sentido cuando hay una respuesta sobre la que actuar:
-          "Sigue" o "Más corto" sin nada previo pedirían al modelo que ampliara
-          el vacío. */}
-      {answer && (answer.status === 'done' || answer.status === 'streaming') && (
+      {/*
+        Sólo tienen sentido cuando hay una respuesta sobre la que actuar:
+        "Sigue" o "Más corto" sin nada previo pedirían al modelo que ampliara el
+        vacío.
+
+        Y desaparecen mientras se navega hacia atrás, aunque haya respuesta en
+        pantalla: estos prompts dicen "tu última respuesta", y la última para el
+        modelo es la suya, no la que se esté mirando. Ofrecerlos ahí prometería
+        actuar sobre lo que se lee y actuaría sobre otra cosa.
+      */}
+      {viewing === null && answer && (answer.status === 'done' || answer.status === 'streaming') && (
         <QuickActions
           onAsk={(prompt) => void window.api.ask.withText(prompt)}
           // Manda lo que se acaba de responder, no el perfil configurado: tras
@@ -1012,19 +1165,21 @@ export function OverlayApp() {
         />
       )}
 
-      <div className="hints">
-        <span>
-          <kbd>Ctrl</kbd>+<kbd>Enter</kbd> preguntar
-        </span>
-        <span>
-          <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver pantalla
-        </span>
-        <span className="hints__spacer" />
-        <SizePicker
-          active={settings?.overlaySize ?? 'M'}
-          onChange={(overlaySize) => void window.api.settings.update({ overlaySize })}
-        />
-      </div>
+      {!compact && (
+        <div className="hints">
+          <span>
+            <kbd>Ctrl</kbd>+<kbd>Enter</kbd> preguntar
+          </span>
+          <span>
+            <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver pantalla
+          </span>
+          <span className="hints__spacer" />
+          <SizePicker
+            active={settings?.overlaySize ?? 'M'}
+            onChange={(overlaySize) => void window.api.settings.update({ overlaySize })}
+          />
+        </div>
+      )}
     </div>
   );
 }

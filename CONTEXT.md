@@ -247,6 +247,25 @@ todo lo que esté allí es, en la práctica, inalcanzable mientras hablas.
 - **Parar la generación.** `ask.abort` existía en el IPC desde el principio y no
   tenía ningún botón: la única forma de cortar una respuesta era preguntar otra
   cosa, que es una manera cara de decir "para".
+- **Historial de respuestas, con flechas.** Una respuesta la borraba la
+  siguiente y sólo se recuperaba abriendo el dashboard. El overlay guarda las
+  últimas 20 y las navega. Dos detalles que no son evidentes: la lista se
+  actualiza **por id**, porque `answer` se emite en cada tick del streaming y si
+  no se acumularían decenas de copias de la misma; y mientras se mira una
+  antigua **desaparecen las acciones rápidas**, porque esos prompts dicen "tu
+  última respuesta" y la última para el modelo es la suya, no la que hay en
+  pantalla — ofrecerlas ahí prometería actuar sobre lo que se lee y actuaría
+  sobre otra cosa.
+- **Escala de texto sólo para el contenido.** Los cuatro presets agrandan la
+  ventana, no la letra, así que en un 4K el panel crecía y el texto seguía
+  minúsculo. `--font-scale` multiplica respuesta, código y transcripción; la
+  barra y los chips se quedan fijos, porque unos controles al 180 % dejarían el
+  panel sin sitio para lo que se quería leer.
+- **Modo compacto.** Pliega lo que sirve para *preparar* o *comprobar* —perfiles,
+  transcripción, pie de atajos— y deja lo que sirve para *leer*. La barra no se
+  toca: desde ahí se despliega otra vez, y esconder el botón que devuelve lo
+  escondido sería una trampa; además parar la escucha tiene que estar siempre a
+  mano.
 - **La barra envuelve, no recorta.** Al meter escucha y fuentes ya no cabía todo
   a tamaño S: medido, 407 px de contenido en 354 disponibles, y con el aviso
   "VISIBLE" y el idioma forzado, 496. Lo que se salía del recorte era el grupo de
@@ -255,6 +274,53 @@ todo lo que esté allí es, en la práctica, inalcanzable mientras hablas.
   controles inalcanzables. A tamaño S se esconde además el nombre de la fuente:
   el icono ya distingue micrófono de altavoz. El ancho de la ventana **es** el
   viewport, así que una media query equivale a "qué preset está puesto".
+
+### Lo que el dashboard tenía guardado y no enseñaba
+
+Tres ajustes existían en `Settings`, el código los aplicaba, y **no había ninguna
+forma de tocarlos** salvo editar `settings.json` a mano. No es lo mismo que un
+ajuste que falta: el que está a medias parece implementado hasta que alguien lo
+busca.
+
+- **`overlayOpacity` y `overlayFontScale`.** El overlay ya los leía. El segundo
+  ni siquiera existía como ajuste, y su ausencia se notaba en pantallas grandes.
+- **`HotkeyMap`.** Los diez atajos eran configurables por diseño y sólo por
+  JSON. Y hay que cambiarlos: un acelerador **global** se lo quita a la
+  aplicación que tenga el foco, así que cualquier valor por defecto choca con el
+  editor, el juego o la distribución de teclado de alguien.
+
+Sobre el campo de atajos, dos decisiones:
+
+- **Se captura la pulsación, no se escribe el texto.** El formato es de Electron
+  (`Control+Shift+S`) y nadie tiene por qué conocerlo; y un acelerador mal
+  escrito no da error, sólo un atajo que no se registra.
+- **Se exige al menos un modificador.** No es purismo: un atajo global sin
+  modificador secuestra esa tecla en **todo el sistema**. Ligar `S` a "capturar
+  pantalla" haría imposible escribir la letra ese en cualquier aplicación
+  mientras el asistente estuviera abierto. Está en `acceleratorFromEvent` y tiene
+  test.
+
+Y dos avisos que antes no existían, los dos sobre fallos mudos:
+`registerHotkeys` **ya devolvía** los aceleradores rechazados y nadie recogía la
+lista —sólo salía por el log, que en el `.exe` no mira nadie—, y dos acciones con
+el mismo atajo no dan error: `globalShortcut` registra la primera y devuelve
+`false` para la segunda, dejando una acción muerta sin decirlo.
+
+### La guía de primeros pasos
+
+El overlay ya avisaba de que faltaba un proveedor, pero eso cubre **uno de
+cuatro** pasos y no dice cuáles son los otros tres. Los dos que se saltaba la
+gente son justo los que más se notan luego:
+
+- **Probar la conexión.** Una clave mal pegada no da ningún síntoma hasta la
+  primera pregunta, y entonces el fallo parece de la app.
+- **Pegar el CV.** Sin él las respuestas salen correctas pero genéricas, porque
+  el modelo tiene prohibido inventarse experiencia. Es la diferencia entre que la
+  app sirva y que parezca que no vale para nada.
+
+Se marca sola, desaparece al completarse y se puede ocultar a mano — pero el
+botón para recuperarla se queda al final del dashboard: esconder algo no debería
+ser irreversible.
 
 ### Discreción en Windows: barra de tareas y nombre del proceso
 

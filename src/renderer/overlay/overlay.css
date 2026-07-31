@@ -26,6 +26,15 @@ body {
 }
 
 .panel {
+  /*
+   * Escala del texto de contenido. La fija el ajuste `overlayFontScale` como
+   * variable en línea; el 1 de aquí es sólo la red de seguridad si el estilo no
+   * llegara. Se aplica al contenido y NO a la barra ni a los chips: los cuatro
+   * presets de tamaño agrandan la ventana, así que con la letra grande unos
+   * controles igual de grandes dejarían el panel sin sitio para leer.
+   */
+  --font-scale: 1;
+
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -373,6 +382,42 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Navegación por las respuestas anteriores. Sólo aparece si hay más de una. */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.nav__btn {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  color: #9aa0a6;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 5px;
+  cursor: pointer;
+}
+
+.nav__btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8eaed;
+}
+
+.nav__btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.nav__count {
+  font-size: 9.5px;
+  color: #7c8288;
+  font-variant-numeric: tabular-nums;
+}
+
 .section__stop {
   font-family: inherit;
   font-size: 10px;
@@ -544,7 +589,7 @@ body {
 
 .compose__input {
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--font-scale));
   line-height: 1.5;
   color: #f1f3f4;
   /* `body` tiene `user-select: none` para que arrastrar el overlay no seleccione
@@ -620,7 +665,7 @@ body {
 .transcript {
   max-height: 132px;
   overflow-y: auto;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   line-height: 1.5;
   display: flex;
   flex-direction: column;
@@ -645,7 +690,7 @@ body {
 .transcript__who {
   flex-shrink: 0;
   font-weight: 600;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale));
 }
 
 .transcript__who--me {
@@ -669,7 +714,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--font-scale));
   line-height: 1.55;
   color: #f1f3f4;
   user-select: text;
@@ -751,7 +796,7 @@ body {
   overflow-x: auto;
   white-space: pre;
   font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   line-height: 1.5;
   color: #e8eaed;
   tab-size: 2;
@@ -763,7 +808,7 @@ body {
 }
 
 .empty {
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   color: #6b7075;
   font-style: italic;
 }
@@ -780,13 +825,13 @@ body {
 }
 
 .skip__what {
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   color: #b7bcc1;
   font-style: italic;
 }
 
 .skip__why {
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--font-scale));
   line-height: 1.45;
   color: #7c8288;
 }

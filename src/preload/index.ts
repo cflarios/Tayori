@@ -114,6 +114,13 @@ const api = {
     on: (cb: (message: string) => void) => subscribe<string>(IPC.onNotice, cb),
   },
 
+  hotkeys: {
+    /** Aceleradores que Windows rechazó; el dashboard los marca en rojo. */
+    getFailed: (): Promise<string[]> => ipcRenderer.invoke(IPC.hotkeysGetFailed),
+    onFailures: (cb: (failed: string[]) => void) =>
+      subscribe<string[]>(IPC.onHotkeyFailures, cb),
+  },
+
   logs: {
     read: (): Promise<string> => ipcRenderer.invoke(IPC.logsRead),
     location: (): Promise<string> => ipcRenderer.invoke(IPC.logsLocation),

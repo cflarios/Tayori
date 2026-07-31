@@ -2,17 +2,23 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WhisperProgress } from '@shared/ipc';
 import {
   autoTriggerIsInert,
+  clampFontScale,
   CONTEXT_KIND_LABEL,
+  DEFAULT_HOTKEYS,
+  FONT_SCALE,
+  HOTKEY_LABEL,
   packsForProfile,
   PROFILE_SLOTS,
   speakersFor,
 } from '@shared/types';
+import { acceleratorFromEvent, duplicateAccelerators, formatAccelerator } from '@shared/accelerator';
 import type {
   AudioLevels,
   CaptureStatus,
   ContextPack,
   Conversation,
   ConversationSummary,
+  HotkeyMap,
   LLMProviderId,
   ModelInfo,
   OllamaStatus,
@@ -141,7 +147,7 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
   };
 
   return (
-    <section className="card">
+    <section className="card" id="capture">
       <h2 className="card__title">Captura de audio</h2>
       <p className="card__hint">
         Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es lo
@@ -229,6 +235,17 @@ export function DashboardApp() {
         Asistente de IA en tiempo real. Configuración local; nada se sube a ningún servidor propio.
       </p>
 
+      {/* Arriba del todo mientras haga falta: es lo que hay que hacer ANTES de
+          tocar nada de lo demás. */}
+      {!settings.onboardingDone && (
+        <OnboardingCard
+          settings={settings}
+          presence={presence}
+          status={status}
+          patch={patch}
+        />
+      )}
+
       <CaptureCard status={status} levels={levels} />
 
       <section className="card">
@@ -261,6 +278,57 @@ export function DashboardApp() {
           />
         </Row>
 
+        {/*
+          La opacidad y el tamaño de letra existían en `Settings` y sólo se
+          podían tocar editando el JSON: el overlay los aplicaba pero nadie
+          tenía cómo cambiarlos.
+        */}
+        <Row
+          label="Opacidad del overlay"
+          desc="Bajarla deja entrever lo que hay debajo. Por debajo del 60 % el texto empieza a costar de leer sobre fondos claros."
+        >
+          <div className="slider">
+            <input
+              type="range"
+              min={0.3}
+              max={1}
+              step={0.05}
+              value={settings.overlayOpacity}
+              onChange={(e) => void patch({ overlayOpacity: Number(e.target.value) })}
+            />
+            <span className="slider__value">{Math.round(settings.overlayOpacity * 100)} %</span>
+          </div>
+        </Row>
+
+        <Row
+          label="Tamaño del texto"
+          desc="Afecta a la respuesta, al código y a la transcripción; los controles se quedan igual. Los tamaños S/M/L/XL agrandan la ventana, no la letra: esto es lo que hace falta en un monitor 4K."
+        >
+          <div className="slider">
+            <input
+              type="range"
+              min={FONT_SCALE.min}
+              max={FONT_SCALE.max}
+              step={FONT_SCALE.step}
+              value={settings.overlayFontScale}
+              onChange={(e) =>
+                void patch({ overlayFontScale: clampFontScale(Number(e.target.value)) })
+              }
+            />
+            <span className="slider__value">{Math.round(settings.overlayFontScale * 100)} %</span>
+          </div>
+        </Row>
+
+        <Row
+          label="Modo compacto"
+          desc="Deja sólo la respuesta: pliega los perfiles, la transcripción y el pie de atajos. También se activa con el botón de plegar del overlay."
+        >
+          <Switch
+            on={settings.overlayCompact}
+            onChange={(v) => void patch({ overlayCompact: v })}
+          />
+        </Row>
+
         {!settings.stealthEnabled && (
           <div className="warn">
             El modo invisible está desactivado: el overlay <strong>sí</strong> aparecerá si
@@ -276,7 +344,7 @@ export function DashboardApp() {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card" id="keys">
         <h2 className="card__title">API keys</h2>
         <p className="card__hint">
           Se guardan cifradas con DPAPI en tu perfil de Windows y sólo las lee el proceso principal.
@@ -308,8 +376,304 @@ export function DashboardApp() {
           media pantalla para llegar a lo que sí se edita a menudo. */}
       <ContextCard settings={settings} patch={patch} />
       <HistoryCard settings={settings} patch={patch} />
+      <HotkeysCard settings={settings} patch={patch} />
       <DiagnosticsCard />
+
+      {/* La guía se puede recuperar: esconderla no debería ser irreversible. */}
+      {settings.onboardingDone && (
+        <button
+          className="btn btn--ghost"
+          onClick={() => void patch({ onboardingDone: false })}
+        >
+          Volver a ver los primeros pasos
+        </button>
+      )}
     </div>
+  );
+}
+
+// ──────────────────────────── Primeros pasos ────────────────────────────
+
+/**
+ * Qué hay que hacer para que la app sirva de algo, en orden y con su estado.
+ *
+ * El overlay ya avisaba de que faltaba un proveedor, pero eso sólo cubre el
+ * primer paso de cuatro y no dice cuáles son los otros tres. Los dos que se
+ * saltaba la gente son los que más se notan: **probar la conexión** —una clave
+ * mal pegada no da síntomas hasta la primera pregunta, y entonces parece que
+ * falla la app— y **pegar el CV**, sin el cual las respuestas salen correctas
+ * pero genéricas, porque el modelo tiene prohibido inventarse experiencia.
+ *
+ * Desaparece sola al completarse, y se puede descartar: quien ya sabe lo que
+ * hace no tiene por qué cargar con una lista de tareas encima de su
+ * configuración para siempre.
+ */
+function OnboardingCard({
+  settings,
+  presence,
+  status,
+  patch,
+}: {
+  settings: Settings;
+  presence: SecretsPresence;
+  status: CaptureStatus;
+  patch: PatchFn;
+}) {
+  const [testing, setTesting] = useState(false);
+  const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
+
+  const hasProvider =
+    (settings.llmProviderId === 'ollama' && Boolean(settings.llmModels.ollama)) ||
+    (settings.llmProviderId === 'claude' && presence.anthropic) ||
+    (settings.llmProviderId === 'gemini' && presence.google);
+
+  const hasContext = settings.contextPacks.some(
+    (pack) => pack.enabled && pack.kind !== 'vocabulary' && pack.content.trim().length > 40
+  );
+
+  const listening = status.state === 'listening';
+  const steps = [
+    {
+      done: hasProvider,
+      title: 'Configura un proveedor de IA',
+      desc: 'Pega tu clave de Anthropic o de Google. Ollama no necesita clave, pero sí que elijas un modelo.',
+      action: { label: 'Ir a las claves', run: () => scrollToCard('keys') },
+    },
+    {
+      done: tested?.ok === true,
+      title: 'Comprueba que la clave funciona',
+      desc:
+        tested && !tested.ok
+          ? (tested.error ?? 'Falló la conexión.')
+          : 'Una clave mal pegada no da ningún síntoma hasta la primera pregunta, y entonces parece que la app está rota.',
+      action: {
+        label: testing ? 'Probando…' : 'Probar ahora',
+        run: () => {
+          setTesting(true);
+          void window.api.llm
+            .testConnection()
+            .then(setTested)
+            .finally(() => setTesting(false));
+        },
+      },
+    },
+    {
+      done: hasContext,
+      title: 'Pega tu CV o tus notas',
+      desc: 'Es la única fuente de datos concretos sobre ti. Sin esto las respuestas son correctas pero genéricas: el modelo tiene prohibido inventarse experiencia.',
+      action: { label: 'Ir al contexto', run: () => scrollToCard('context') },
+    },
+    {
+      done: listening,
+      title: 'Empieza a escuchar',
+      desc: 'Comprueba que los medidores se mueven al hablar y al reproducir audio. Puedes hacerlo desde el propio overlay.',
+      action: { label: 'Ir a la captura', run: () => scrollToCard('capture') },
+    },
+  ];
+
+  const pending = steps.filter((step) => !step.done).length;
+
+  return (
+    <section className="card card--onboarding">
+      <h2 className="card__title">
+        Primeros pasos {pending === 0 ? '· todo listo' : `· faltan ${pending}`}
+      </h2>
+      <p className="card__hint">
+        Cuatro cosas y ya está. Esta tarjeta desaparece cuando las completes.
+      </p>
+
+      <ol className="steps">
+        {steps.map((step) => (
+          <li key={step.title} className={`step${step.done ? ' step--done' : ''}`}>
+            <span className="step__mark" aria-hidden="true">
+              {step.done ? '✓' : ''}
+            </span>
+            <div className="step__body">
+              <div className="step__title">{step.title}</div>
+              <div className="step__desc">{step.desc}</div>
+            </div>
+            {!step.done && (
+              <button className="btn btn--small" onClick={step.action.run}>
+                {step.action.label}
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      <div className="row">
+        <div>
+          <div className="row__label">Ocultar esta guía</div>
+          <div className="row__desc">
+            Puedes volver a verla desde aquí mismo si algún día hace falta.
+          </div>
+        </div>
+        <button className="btn" onClick={() => void patch({ onboardingDone: true })}>
+          {pending === 0 ? 'Hecho' : 'Ocultar de todas formas'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Lleva a la tarjeta correspondiente; el dashboard es una columna larga. */
+function scrollToCard(id: string): void {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─────────────────────────────── Atajos ───────────────────────────────
+
+/**
+ * Un atajo, capturado pulsándolo.
+ *
+ * Se captura en lugar de escribirse porque el formato es de Electron
+ * (`Control+Shift+S`) y nadie tiene por qué conocerlo; y porque teclear un
+ * acelerador inválido no da error, sólo un atajo que no se registra.
+ *
+ * El `input` es de sólo lectura a propósito: lo que vale es la pulsación, no lo
+ * que se pueda pegar dentro.
+ */
+function HotkeyField({
+  action,
+  accelerator,
+  failed,
+  duplicated,
+  onChange,
+}: {
+  action: keyof HotkeyMap;
+  accelerator: string;
+  failed: boolean;
+  duplicated: boolean;
+  onChange: (accelerator: string) => void;
+}) {
+  const [capturing, setCapturing] = useState(false);
+  const [rejected, setRejected] = useState(false);
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    event.preventDefault();
+
+    // Escape sale sin cambiar nada: hace falta una salida que no sea asignar
+    // algo, porque el campo se traga todas las pulsaciones mientras captura.
+    if (event.key === 'Escape') {
+      setCapturing(false);
+      setRejected(false);
+      event.currentTarget.blur();
+      return;
+    }
+
+    const next = acceleratorFromEvent(event);
+    if (!next) {
+      // Sólo se avisa si la tecla no era un modificador suelto: al componer
+      // Ctrl+Shift+X pasas por "Ctrl" y por "Ctrl+Shift", y marcar eso como
+      // error haría parpadear el aviso en cada intento legítimo.
+      if (!['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) setRejected(true);
+      return;
+    }
+
+    setRejected(false);
+    setCapturing(false);
+    onChange(next);
+    event.currentTarget.blur();
+  };
+
+  return (
+    <Row
+      label={HOTKEY_LABEL[action]}
+      desc={
+        rejected
+          ? 'Un atajo global necesita al menos Ctrl, Alt o Shift: sin modificador, esa tecla dejaría de funcionar en todo el sistema.'
+          : failed
+            ? 'Windows rechazó este atajo: otra aplicación ya lo tiene tomado. Elige otro.'
+            : duplicated
+              ? 'Repetido: dos acciones con el mismo atajo hacen que sólo funcione una.'
+              : undefined
+      }
+    >
+      <input
+        type="text"
+        readOnly
+        className={`hotkey${failed || duplicated || rejected ? ' hotkey--bad' : ''}`}
+        style={{ width: 190, flex: 'none' }}
+        value={capturing ? 'Pulsa la combinación…' : formatAccelerator(accelerator)}
+        onFocus={() => setCapturing(true)}
+        onBlur={() => {
+          setCapturing(false);
+          setRejected(false);
+        }}
+        onKeyDown={onKeyDown}
+      />
+    </Row>
+  );
+}
+
+/**
+ * Los atajos, editables.
+ *
+ * `HotkeyMap` existía desde el principio y sólo se podía cambiar editando
+ * `settings.json` a mano. No es un lujo: un acelerador global se lo quita a la
+ * aplicación que tenga el foco, así que cualquier elección por defecto choca
+ * con el editor, el juego o la distribución de teclado de alguien.
+ */
+function HotkeysCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const [failed, setFailed] = useState<string[]>([]);
+
+  useEffect(() => {
+    void window.api.hotkeys.getFailed().then(setFailed);
+    return window.api.hotkeys.onFailures(setFailed);
+  }, []);
+
+  const duplicated = duplicateAccelerators(settings.hotkeys);
+  const actions = Object.keys(HOTKEY_LABEL) as (keyof HotkeyMap)[];
+
+  return (
+    <section className="card">
+      <h2 className="card__title">Atajos de teclado</h2>
+      <p className="card__hint">
+        Son <strong>globales</strong>: funcionan con el foco en la videollamada, y por eso se los
+        quitan a la aplicación que lo tenga. Pulsa un campo y teclea la combinación que quieras.
+      </p>
+
+      {failed.length > 0 && (
+        <div className="warn">
+          {failed.length === 1 ? (
+            <>
+              Windows rechazó este atajo:{' '}
+              <strong>{formatAccelerator(failed[0] ?? '')}</strong>. Otra aplicación lo tiene
+              tomado, así que <strong>no hará nada</strong> hasta que elijas otro.
+            </>
+          ) : (
+            <>
+              Windows rechazó estos atajos:{' '}
+              <strong>{failed.map(formatAccelerator).join(', ')}</strong>. Otra aplicación los
+              tiene tomados, así que <strong>no harán nada</strong> hasta que elijas otros.
+            </>
+          )}
+        </div>
+      )}
+
+      {actions.map((action) => (
+        <HotkeyField
+          key={action}
+          action={action}
+          accelerator={settings.hotkeys[action]}
+          failed={failed.includes(settings.hotkeys[action])}
+          duplicated={duplicated.has(settings.hotkeys[action])}
+          onChange={(accelerator) =>
+            void patch({ hotkeys: { ...settings.hotkeys, [action]: accelerator } })
+          }
+        />
+      ))}
+
+      <div className="row">
+        <div>
+          <div className="row__label">Restablecer</div>
+          <div className="row__desc">Devuelve los diez atajos a sus valores de fábrica.</div>
+        </div>
+        <button className="btn" onClick={() => void patch({ hotkeys: DEFAULT_HOTKEYS })}>
+          Valores por defecto
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -1282,7 +1646,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const activeNow = packsForProfile(packs, profile).filter((p) => p.content.trim());
 
   return (
-    <section className="card">
+    <section className="card" id="context">
       <h2 className="card__title">Contexto</h2>
       <p className="card__hint">
         Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le

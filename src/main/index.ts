@@ -112,7 +112,7 @@ function registerIpcHandlers(): void {
       if (overlay) setClickThrough(overlay, next.clickThrough);
     }
     if (patch.hotkeys) {
-      registerHotkeys(hotkeyActions);
+      applyHotkeys();
     }
     if (patch.overlaySize && patch.overlaySize !== previous.overlaySize) {
       setOverlaySize(next.overlaySize);
@@ -256,6 +256,9 @@ function registerIpcHandlers(): void {
   // ── Ollama ──
   ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));
 
+  // ── Atajos ──
+  ipcMain.handle(IPC.hotkeysGetFailed, () => failedHotkeys);
+
   // ── Diagnóstico ──
   ipcMain.handle(IPC.logsRead, () => readLogTail());
   ipcMain.handle(IPC.logsLocation, () => logLocation());
@@ -274,6 +277,21 @@ function registerIpcHandlers(): void {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
+}
+
+/**
+ * Aceleradores que Windows no aceptó en el último registro.
+ *
+ * Se guarda en lugar de descartarse porque es la única forma de que el usuario
+ * se entere: un atajo que otra aplicación tiene tomado no da ningún error al
+ * pulsarlo, simplemente no hace nada.
+ */
+let failedHotkeys: string[] = [];
+
+/** Registra los atajos y difunde qué se quedó fuera. */
+function applyHotkeys(): void {
+  failedHotkeys = registerHotkeys(hotkeyActions);
+  broadcast(IPC.onHotkeyFailures, failedHotkeys);
 }
 
 const hotkeyActions = {
@@ -344,7 +362,7 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     createOverlay();
-    registerHotkeys(hotkeyActions);
+    applyHotkeys();
 
     // El dashboard NO se abre solo, ni siquiera en el primer arranque: solo con
     // el engranaje del overlay. Cuando faltan las keys, el overlay muestra una
