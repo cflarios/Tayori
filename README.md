@@ -81,6 +81,17 @@ El binario no está firmado, así que Windows SmartScreen avisará la primera ve
 
 ### Manejar el overlay
 
+Todo lo que se usa a mitad de una llamada está en la barra superior, sin abrir la
+configuración:
+
+- **Escuchar / Escuchando**: empieza y para la escucha. Si algo falla, el botón
+  pasa a «Reintentar» y su tooltip dice qué pasó.
+- **Yo / Ellos**: qué fuentes se escuchan. Pulsa para apagar tu micrófono y dejar
+  sólo la salida del sistema, o al revés. La barra de cada chip es el nivel real
+  de entrada, y si un chip se pone **ámbar** significa que esa fuente está
+  configurada pero **no llegó a abrirse** — revisa el dispositivo o los permisos.
+  Es el aviso que distingue "no se oye nada" de "no se está escuchando".
+- **`</>`**: resolver el código de la pantalla.
 - **Moverlo**: arrastra la barra superior con el botón izquierdo, o usa
   `Ctrl+Alt+flechas`.
 - **Configuración**: el botón del engranaje.

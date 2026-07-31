@@ -4,6 +4,7 @@ import { parseAnswerBlocks, type AnswerBlock } from './answer-format';
 import type {
   Answer,
   AudioLevels,
+  AudioSourceMode,
   CaptureStatus,
   ImageAttachment,
   OverlaySize,
@@ -13,13 +14,6 @@ import type {
 
 /** Cuántas líneas de transcript mostramos; el overlay debe ocupar poco espacio. */
 const VISIBLE_LINES = 6;
-
-const STATUS_LABEL: Record<CaptureStatus['state'], string> = {
-  idle: 'En pausa',
-  starting: 'Iniciando…',
-  listening: 'Escuchando',
-  error: 'Error',
-};
 
 /** Engranaje y X, dibujados en línea para no depender de una fuente de iconos. */
 function GearIcon() {
@@ -89,40 +83,236 @@ function NewChatIcon() {
   );
 }
 
+/**
+ * El interruptor de escucha, en el overlay.
+ *
+ * Antes sólo existía en el dashboard y en `Ctrl+Shift+M`. Eso obligaba a abrir
+ * la configuración —que roba el foco, que es justo lo que la app evita— para lo
+ * más frecuente que se hace con ella. El estado y el mando son el mismo control
+ * a propósito: el punto verde ya decía si escuchaba, pero no se podía pulsar, y
+ * dos elementos distintos para "qué pasa" y "cámbialo" cuestan sitio en una
+ * barra que ya va llena.
+ */
+function ListenButton({ status }: { status: CaptureStatus }) {
+  const [busy, setBusy] = useState(false);
+  const listening = status.state === 'listening';
+  const starting = status.state === 'starting' || busy;
+
+  const toggle = (): void => {
+    setBusy(true);
+    const done = listening ? window.api.capture.stop() : window.api.capture.start();
+    void done.finally(() => setBusy(false));
+  };
+
+  // El estado de error es accionable: se pulsa y se reintenta. Dejarlo como una
+  // etiqueta muerta obligaría a ir al dashboard para volver a arrancar.
+  const label = starting
+    ? 'Iniciando…'
+    : status.state === 'error'
+      ? 'Reintentar'
+      : listening
+        ? 'Escuchando'
+        : 'Escuchar';
+
+  const state = starting ? 'starting' : status.state;
+
+  return (
+    <button
+      type="button"
+      className={`listen listen--${state}`}
+      disabled={starting}
+      title={
+        status.state === 'error'
+          ? (status.error ?? 'Error de captura')
+          : 'Empezar o parar de escuchar (Ctrl+Shift+M)'
+      }
+      onClick={toggle}
+    >
+      <span className="listen__dot" />
+      {label}
+    </button>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M8 1.8a1.9 1.9 0 0 0-1.9 1.9v4a1.9 1.9 0 0 0 3.8 0v-4A1.9 1.9 0 0 0 8 1.8Z"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        fill="none"
+        d="M3.8 7.2a4.2 4.2 0 0 0 8.4 0M8 11.5v2.2"
+      />
+    </svg>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+      <path fill="currentColor" d="M7.4 2.6 4.3 5.1H2.2v5.8h2.1l3.1 2.5V2.6Z" />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        fill="none"
+        d="M10.3 5.9a3 3 0 0 1 0 4.2M12.4 3.8a6 6 0 0 1 0 8.4"
+      />
+    </svg>
+  );
+}
+
+/** Qué hablantes implica cada modo, y a qué modo lleva encender o apagar uno. */
+const SOURCE_STATE: Record<AudioSourceMode, { me: boolean; them: boolean }> = {
+  both: { me: true, them: true },
+  mic: { me: true, them: false },
+  system: { me: false, them: true },
+};
+
+function modeFor(me: boolean, them: boolean): AudioSourceMode | null {
+  if (me && them) return 'both';
+  if (me) return 'mic';
+  if (them) return 'system';
+  // Ninguna fuente activa no es un modo: para eso está el botón de escucha.
+  return null;
+}
+
+/**
+ * Las dos fuentes, como interruptores con su medidor dentro.
+ *
+ * Sustituyen a los medidores de sólo lectura de antes, y responden a dos
+ * preguntas que estaban en sitios distintos —y una de ellas, en el dashboard—:
+ * *qué se supone que escucha* (el chip encendido o apagado) y *qué está
+ * entrando de verdad* (la barra moviéndose, y el aviso ámbar si el stream no
+ * llegó a abrirse).
+ *
+ * Esa distinción no es cosmética: un micrófono configurado pero que el sistema
+ * no concedió da exactamente la misma pantalla que una sala en silencio.
+ */
+function SourceToggles({
+  mode,
+  levels,
+  status,
+  onChange,
+  onBlocked,
+}: {
+  mode: AudioSourceMode;
+  levels: AudioLevels;
+  status: CaptureStatus;
+  onChange: (next: AudioSourceMode) => void;
+  onBlocked: () => void;
+}) {
+  const wanted = SOURCE_STATE[mode];
+  const listening = status.state === 'listening';
+
+  const sources = [
+    {
+      key: 'me' as const,
+      icon: <MicIcon />,
+      label: 'Yo',
+      on: wanted.me,
+      live: status.micActive,
+      level: levels.me,
+      hint: 'Tu micrófono',
+    },
+    {
+      key: 'them' as const,
+      icon: <SpeakerIcon />,
+      label: 'Ellos',
+      on: wanted.them,
+      live: status.loopbackActive,
+      level: levels.them,
+      hint: 'La salida del sistema: la voz del interlocutor',
+    },
+  ];
+
+  return (
+    <div className="sources">
+      {sources.map((source) => {
+        // Se avisa en lugar de dejar el clic sin efecto: un botón que no hace
+        // nada es indistinguible de uno roto.
+        const next = modeFor(
+          source.key === 'me' ? !wanted.me : wanted.me,
+          source.key === 'them' ? !wanted.them : wanted.them
+        );
+        const mute = source.on && listening && !source.live;
+
+        return (
+          <button
+            key={source.key}
+            type="button"
+            className={`source${source.on ? ' source--on' : ''}${mute ? ' source--mute' : ''}`}
+            aria-pressed={source.on}
+            title={
+              mute
+                ? `${source.hint}: configurado pero NO se abrió. Revisa el dispositivo o los permisos.`
+                : `${source.hint}. Pulsa para ${source.on ? 'dejar de escucharla' : 'escucharla'}.`
+            }
+            onClick={() => (next ? onChange(next) : onBlocked())}
+          >
+            {source.icon}
+            <span className="source__label">{source.label}</span>
+            <span className="source__bar">
+              <span
+                className={`source__fill source__fill--${source.key}`}
+                style={{ width: source.on && listening ? `${Math.min(source.level * 140, 100)}%` : 0 }}
+              />
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatusBar({
   status,
   levels,
-  stealth,
-  language,
+  settings,
   onDragStart,
   onNewConversation,
   onSolveScreen,
+  onSourceBlocked,
 }: {
   status: CaptureStatus;
   levels: AudioLevels;
-  stealth: boolean;
-  language: string;
+  settings: Settings | null;
   onDragStart: (event: React.MouseEvent) => void;
   onNewConversation: () => void;
   onSolveScreen: () => void;
+  onSourceBlocked: () => void;
 }) {
-  const dotClass =
-    status.state === 'listening'
-      ? 'statusbar__dot statusbar__dot--listening'
-      : status.state === 'error'
-        ? 'statusbar__dot statusbar__dot--error'
-        : 'statusbar__dot';
+  const language = settings?.language ?? 'auto';
 
   return (
     // `data-interactive` es lo que hace que la ventana deje de ignorar el ratón
     // mientras el cursor está aquí; sin él, con los clics atravesables activos
     // no se podría ni arrastrar ni pulsar los botones.
     <div className="statusbar" data-interactive onMouseDown={onDragStart}>
-      <span className={dotClass} />
-      <span className="statusbar__label">{STATUS_LABEL[status.state]}</span>
+      <ListenButton status={status} />
+
+      <SourceToggles
+        mode={settings?.audioSources ?? 'both'}
+        levels={levels}
+        status={status}
+        onChange={(audioSources) => void window.api.settings.update({ audioSources })}
+        onBlocked={onSourceBlocked}
+      />
+
+      <span className="statusbar__spacer" />
+
       {/* Aviso explícito cuando el overlay SÍ es visible en una captura:
           es el estado peligroso, así que no puede pasar desapercibido. */}
-      {!stealth && <span className="statusbar__label">· visible</span>}
+      {settings && !settings.stealthEnabled && (
+        <span className="statusbar__flag" title="El overlay SÍ aparece al compartir pantalla">
+          VISIBLE
+        </span>
+      )}
       {/*
         Un idioma forzado que no coincide con lo que se habla no produce ningún
         error: el reconocedor devuelve texto inventado en ese idioma. Al no estar
@@ -134,66 +324,56 @@ function StatusBar({
           {language.toUpperCase()}
         </span>
       )}
-      <span className="statusbar__spacer" />
 
-      <div className="levels">
-        <div className="level">
-          <span>Yo</span>
-          <div className="level__bar">
-            <div className="level__fill" style={{ width: `${levels.me * 100}%` }} />
-          </div>
-        </div>
-        <div className="level">
-          <span>Ellos</span>
-          <div className="level__bar">
-            <div
-              className="level__fill level__fill--them"
-              style={{ width: `${levels.them * 100}%` }}
-            />
-          </div>
-        </div>
+      {/*
+        Los cuatro botones van agrupados y no sueltos en la barra: con el
+        interruptor de escucha y las dos fuentes delante, a tamaño S el
+        contenido no cabe (medido: 407 px en 354 disponibles) y lo primero que
+        se salía del recorte era la X. Agrupados, la barra los baja enteros a
+        una segunda línea en vez de cortarlos.
+      */}
+      <div className="statusbar__actions">
+        {/* Va en la barra y no entre las acciones rápidas porque tiene que estar
+            disponible SIEMPRE: el caso normal es un ejercicio en pantalla sin
+            ninguna llamada abierta, así que no hay respuesta previa bajo la que
+            colgarlo ni audio que esperar. */}
+        <button
+          type="button"
+          className="iconbtn"
+          title="Resolver el problema de código que hay en pantalla (Ctrl+Alt+C)"
+          aria-label="Resolver el código de la pantalla"
+          onClick={onSolveScreen}
+        >
+          <CodeIcon />
+        </button>
+        <button
+          type="button"
+          className="iconbtn"
+          title="Nueva conversación (limpia la transcripción y el contexto)"
+          aria-label="Nueva conversación"
+          onClick={onNewConversation}
+        >
+          <NewChatIcon />
+        </button>
+        <button
+          type="button"
+          className="iconbtn"
+          title="Configuración"
+          aria-label="Abrir configuración"
+          onClick={() => void window.api.window.openDashboard()}
+        >
+          <GearIcon />
+        </button>
+        <button
+          type="button"
+          className="iconbtn iconbtn--close"
+          title="Cerrar Interview Helper (Ctrl+Shift+H solo lo oculta)"
+          aria-label="Cerrar"
+          onClick={() => void window.api.window.quit()}
+        >
+          <CloseIcon />
+        </button>
       </div>
-
-      {/* Va en la barra y no entre las acciones rápidas porque tiene que estar
-          disponible SIEMPRE: el caso normal es un ejercicio en pantalla sin
-          ninguna llamada abierta, así que no hay respuesta previa bajo la que
-          colgarlo ni audio que esperar. */}
-      <button
-        type="button"
-        className="iconbtn"
-        title="Resolver el problema de código que hay en pantalla (Ctrl+Alt+C)"
-        aria-label="Resolver el código de la pantalla"
-        onClick={onSolveScreen}
-      >
-        <CodeIcon />
-      </button>
-      <button
-        type="button"
-        className="iconbtn"
-        title="Nueva conversación (limpia la transcripción y el contexto)"
-        aria-label="Nueva conversación"
-        onClick={onNewConversation}
-      >
-        <NewChatIcon />
-      </button>
-      <button
-        type="button"
-        className="iconbtn"
-        title="Configuración"
-        aria-label="Abrir configuración"
-        onClick={() => void window.api.window.openDashboard()}
-      >
-        <GearIcon />
-      </button>
-      <button
-        type="button"
-        className="iconbtn iconbtn--close"
-        title="Cerrar Interview Helper (Ctrl+Shift+H solo lo oculta)"
-        aria-label="Cerrar"
-        onClick={() => void window.api.window.quit()}
-      >
-        <CloseIcon />
-      </button>
     </div>
   );
 }
@@ -580,9 +760,11 @@ function AnswerBody({ text }: { text: string }) {
 function AnswerPane({
   answer,
   skip,
+  listening,
 }: {
   answer: Answer | null;
   skip: { text: string; reason: string } | null;
+  listening: boolean;
 }) {
   if (!answer) {
     // El descarte sólo se enseña mientras no haya respuesta: si ya hay una en
@@ -595,7 +777,16 @@ function AnswerPane({
         </div>
       );
     }
-    return <p className="empty">Ctrl+Enter para pedir una respuesta.</p>;
+    // El estado vacío dice lo que se puede hacer AHORA. Antes decía siempre
+    // "Ctrl+Enter para pedir una respuesta", que con la escucha parada no sirve
+    // de nada: no hay transcripción de la que sacar una pregunta.
+    return (
+      <p className="empty">
+        {listening
+          ? 'Ctrl+Enter para pedir una respuesta · Ctrl+Alt+C para resolver la pantalla.'
+          : 'Pulsa «Escuchar» para que siga la conversación, o Ctrl+Alt+C para resolver lo que tengas en pantalla.'}
+      </p>
+    );
   }
   if (answer.status === 'thinking') {
     // El modo código tarda más y por una razón distinta —la imagen se sube y se
@@ -713,11 +904,15 @@ export function OverlayApp() {
       <StatusBar
         status={status}
         levels={levels}
-        stealth={settings?.stealthEnabled ?? true}
-        language={settings?.language ?? 'auto'}
+        settings={settings}
         onDragStart={onDragStart}
         onNewConversation={() => void window.api.history.newConversation()}
         onSolveScreen={() => void window.api.ask.solveOnScreen()}
+        onSourceBlocked={() =>
+          setNotice(
+            'Tiene que quedar al menos una fuente de audio. Para no escuchar nada, usa el botón «Escuchando».'
+          )
+        }
       />
 
       {!configured && <SetupPrompt />}
@@ -774,8 +969,34 @@ export function OverlayApp() {
       )}
 
       <div className="section" style={{ flex: 1 }}>
-        <span className="section__title">Sugerencia</span>
-        <AnswerPane answer={answer} skip={skip} />
+        <div className="section__head">
+          <span className="section__title">Sugerencia</span>
+          {/*
+            Con qué se está respondiendo. Vale un renglón y ahorra el viaje al
+            dashboard: al leer una respuesta floja, lo primero que se quiere
+            saber es con qué modelo salió, y con tres proveedores configurables
+            es fácil creer que estás en uno y estar en otro.
+          */}
+          {settings && (
+            <span className="section__meta" title={`Respondiendo con ${settings.llmProviderId}`}>
+              {settings.llmModels[settings.llmProviderId] || settings.llmProviderId}
+            </span>
+          )}
+          {/* Parar una generación ya existía en el IPC pero no tenía botón: sólo
+              se cancelaba preguntando otra cosa, que es una forma cara de decir
+              "para". */}
+          {answer && (answer.status === 'thinking' || answer.status === 'streaming') && (
+            <button
+              type="button"
+              className="section__stop"
+              data-interactive
+              onClick={() => void window.api.ask.abort()}
+            >
+              Parar
+            </button>
+          )}
+        </div>
+        <AnswerPane answer={answer} skip={skip} listening={status.state === 'listening'} />
       </div>
 
       {/* Sólo tienen sentido cuando hay una respuesta sobre la que actuar:

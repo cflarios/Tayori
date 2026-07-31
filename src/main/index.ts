@@ -117,6 +117,23 @@ function registerIpcHandlers(): void {
     if (patch.overlaySize && patch.overlaySize !== previous.overlaySize) {
       setOverlaySize(next.overlaySize);
     }
+    /*
+     * Cambiar qué se escucha exige reabrir los streams.
+     *
+     * `audioSources` sólo se lee dentro de `capture.start()`, y los hablantes
+     * del motor de STT se fijan al arrancar la transcripción. Sin esto, cambiar
+     * la fuente en mitad de una sesión no hacía absolutamente nada: la UI se
+     * actualizaba, el ajuste se guardaba, y se seguía escuchando lo de antes
+     * hasta que alguien parase y volviese a arrancar a mano.
+     */
+    if (
+      patch.audioSources &&
+      patch.audioSources !== previous.audioSources &&
+      audioCapture.getStatus().state === 'listening'
+    ) {
+      audioCapture.stop();
+      void audioCapture.start();
+    }
     // Apagar el historial a mitad de una conversación debe cortar también la que
     // está en curso; si no, seguiría en memoria y volvería a disco al reactivarlo.
     if (patch.historyEnabled === false && previous.historyEnabled) {

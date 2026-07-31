@@ -225,6 +225,36 @@ todo lo que esté allí es, en la práctica, inalcanzable mientras hablas.
   limpia el `TranscriptBuffer` **y** emite `onConversationReset`. Lo último no es
   opcional: el overlay tiene su propia copia de los segmentos en estado de React
   y sin el evento seguiría enseñando la conversación anterior.
+- **El interruptor de escucha.** Es el control más usado de la app y vivía sólo
+  en el dashboard y en `Ctrl+Shift+M`. Fallaba el propio criterio de esta lista:
+  para empezar a escuchar había que abrir la ventana que roba el foco. Ahora el
+  indicador **es** el mando —el punto verde ya estaba ahí, sólo que no se podía
+  pulsar—, porque dos elementos separados para "qué pasa" y "cámbialo" cuestan
+  sitio en una barra que va justa. El estado de error también se pulsa: reintenta.
+- **Las dos fuentes de audio, como interruptores.** Sustituyen a los medidores de
+  sólo lectura y responden a dos preguntas distintas que antes estaban repartidas
+  entre el overlay y el dashboard: *qué se supone que se escucha* (el chip
+  encendido) y *qué está entrando de verdad* (la barra moviéndose). El tercer
+  estado es el que no existía en ninguna parte y es el importante: **configurado
+  pero sin abrirse** — chip en ámbar. Un micrófono que el sistema no concedió
+  producía exactamente la misma pantalla que una sala en silencio.
+  Apagar la última fuente activa no se ignora en silencio: se explica que para
+  no escuchar nada está el botón de escucha. Un control que no hace nada al
+  pulsarlo es indistinguible de uno roto.
+- **Con qué modelo se está respondiendo**, junto al título "Sugerencia". Al leer
+  una respuesta floja lo primero que se quiere saber es con qué salió, y con tres
+  proveedores configurables es fácil creer que estás en uno y estar en otro.
+- **Parar la generación.** `ask.abort` existía en el IPC desde el principio y no
+  tenía ningún botón: la única forma de cortar una respuesta era preguntar otra
+  cosa, que es una manera cara de decir "para".
+- **La barra envuelve, no recorta.** Al meter escucha y fuentes ya no cabía todo
+  a tamaño S: medido, 407 px de contenido en 354 disponibles, y con el aviso
+  "VISIBLE" y el idioma forzado, 496. Lo que se salía del recorte era el grupo de
+  botones, la X incluida. Los botones van agrupados y la barra tiene
+  `flex-wrap`, así que el coste se paga en alto —que es lo que sobra— y nunca en
+  controles inalcanzables. A tamaño S se esconde además el nombre de la fuente:
+  el icono ya distingue micrófono de altavoz. El ancho de la ventana **es** el
+  viewport, así que una media query equivale a "qué preset está puesto".
 
 ### Discreción en Windows: barra de tareas y nombre del proceso
 
@@ -733,6 +763,7 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | Gemini Live "no funcionaba" sin dejar rastro | `live.connect()` **no tiene tiempo límite**: si el handshake no llega a completarse, la promesa no resuelve ni rechaza nunca. `startTranscription` quedaba colgado, la captura seguía diciendo "Escuchando" y no había ni transcripción ni error | Lo detectó el log: `[capture] primer chunk` sin ningún `[stt] transcripción iniciada` detrás. Toda promesa de red necesita reloj, y una que cuelga es peor que una que falla |
 | El timeout decía "sin respuesta en 15s" y no servía de nada | La causa **sí llegaba**: el servidor cierra el socket con `1007` y un motivo legible (*"API key not valid"*), pero **sin enviar ningún mensaje**. El SDK espera un `setupComplete` que no va a llegar y el timeout tapaba el motivo | Se comprobó abriendo el WebSocket a mano con una clave falsa. Un timeout que sustituye a un error es un parche: hay que escuchar el canal por el que llega la causa —aquí, el `onclose` |
 | JSON cortado a media cadena en el audio directo | Gemini 2.5 razona por defecto y **los tokens de razonamiento se descuentan de `maxOutputTokens`**: se gastaban pensando y el JSON se truncaba | `thinkingConfig: { thinkingBudget: 0 }`. Un presupuesto de salida compartido con el razonamiento no es un presupuesto de salida |
+| Cambiar "Qué se escucha" en mitad de una sesión no cambiaba nada | `audioSources` sólo se lee dentro de `capture.start()`, y los hablantes del motor de STT se fijan al arrancar la transcripción. El ajuste se guardaba, la UI se actualizaba y se seguía escuchando lo de antes | Un ajuste que sólo se lee al arrancar necesita que quien lo cambia reinicie lo que depende de él. Se hace en el handler de `settingsUpdate`, no en la UI, para que valga igual desde el overlay y desde el dashboard |
 | El botón "Copiar" de un bloque de código no hacía nada | `navigator.clipboard.writeText()` exige que el documento tenga el **foco**, y el overlay es `focusable: false` a propósito para no robárselo a la videollamada: rechazaba siempre con *"Document is not focused"*. Y el `.then()` sin `.catch()` se tragaba el rechazo | Dos lecciones. Una: en el overlay, cualquier API del navegador que dependa del foco está descartada por diseño, no por casualidad — se hace desde el main (`clipboard.writeText`), que además se salta el `setPermissionRequestHandler` que sólo concede `clipboard-read`. Otra: una promesa sin `catch` en un manejador de click convierte un error en "no pasa nada", que es el síntoma más caro de diagnosticar |
 | ~1,3 s fijos por turno en Whisper local | `whisper-cli` **carga el modelo en cada invocación**: tarda lo mismo con 1,7 s que con 8,2 s de audio | Medir el coste contra el tamaño de la entrada delata al instante lo que es fijo y lo que es proporcional |
 

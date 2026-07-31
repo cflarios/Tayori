@@ -52,6 +52,15 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  /*
+   * Envuelve en lugar de recortar. El contenido de la barra ya no cabe a
+   * tamaño S —se midió: 407 px de contenido en 354 disponibles, y con el aviso
+   * "VISIBLE" y el idioma forzado sube a 496—, y lo que se perdía por el borde
+   * era el grupo de botones, la X incluida. Envolver reparte el coste en alto,
+   * que es lo que sobra en el panel, y no en controles inalcanzables.
+   */
+  flex-wrap: wrap;
+  row-gap: 6px;
   flex-shrink: 0;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -68,7 +77,44 @@ body {
   cursor: grabbing;
 }
 
-.statusbar__dot {
+/*
+ * El interruptor de escucha: estado y mando en el mismo control.
+ *
+ * El punto de color ya existía como indicador; ahora vive dentro del botón. Es
+ * el control más usado de la app y estaba sólo en el dashboard, que hay que
+ * abrir con el engranaje y roba el foco.
+ */
+.listen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: #c8ccd0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 3px 10px 3px 8px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.listen:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.11);
+  color: #f1f3f4;
+}
+
+.listen:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.listen__dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -76,28 +122,153 @@ body {
   flex-shrink: 0;
 }
 
-.statusbar__dot--listening {
+.listen--listening {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.listen--listening .listen__dot {
   background: #34d399;
   box-shadow: 0 0 8px rgba(52, 211, 153, 0.7);
   animation: pulse 2s ease-in-out infinite;
 }
 
-.statusbar__dot--error {
+.listen--listening:hover:not(:disabled) {
+  color: #a7f3d0;
+  background: rgba(52, 211, 153, 0.2);
+}
+
+.listen--error {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.listen--error .listen__dot {
   background: #f87171;
+}
+
+.listen--starting .listen__dot {
+  background: #fbbf24;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+/*
+ * Las dos fuentes de audio, como interruptores.
+ *
+ * Sustituyen a los medidores de sólo lectura: la barra sigue diciendo qué entra
+ * de verdad, y ahora el mismo control dice qué se ESPERA escuchar y permite
+ * cambiarlo sin abrir el dashboard.
+ */
+.sources {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.source {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: inherit;
+  font-size: 10px;
+  color: #6b7075;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+/* Apagada: se ve que existe y que está apagada, sin competir por atención. */
+.source:not(.source--on) {
+  opacity: 0.5;
+}
+
+.source:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8eaed;
+  opacity: 1;
+}
+
+.source--on {
+  color: #c8ccd0;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/*
+ * Configurada pero sin abrirse. Es el estado que antes no se veía en ninguna
+ * parte: la app decía "Escuchando" con el micrófono cerrado, y por fuera eso
+ * es idéntico a una sala en silencio.
+ */
+.source--mute {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.source__label {
+  white-space: nowrap;
+}
+
+.source__bar {
+  width: 26px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.source__fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: #60a5fa;
+  transition: width 80ms linear;
+}
+
+.source__fill--them {
+  background: #fbbf24;
+}
+
+/*
+ * A tamaño S el nombre de la fuente es lo primero que sobra: el icono ya
+ * distingue micrófono de altavoz, y así el caso normal sigue cabiendo en una
+ * sola línea. El ancho de la ventana ES el viewport, así que una media query
+ * equivale aquí a "qué preset de tamaño está puesto".
+ */
+@media (max-width: 420px) {
+  .statusbar {
+    gap: 6px;
+  }
+
+  .source__label {
+    display: none;
+  }
+}
+
+/* Aviso de que el overlay SÍ sale en una captura: el estado peligroso. */
+.statusbar__flag {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.16);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 @keyframes pulse {
   50% {
     opacity: 0.45;
   }
-}
-
-.statusbar__label {
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #9aa0a6;
-  white-space: nowrap;
 }
 
 .statusbar__spacer {
@@ -119,10 +290,15 @@ body {
   padding: 1px 5px;
 }
 
-/* Un medidor por hablante: valida de un vistazo que ambos streams llegan. */
-.levels {
+/*
+ * El grupo de botones se mantiene junto y pegado a la derecha, esté en la
+ * primera línea o haya bajado a la segunda.
+ */
+.statusbar__actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
 }
 
 /* ── Botones de la barra (engranaje y cerrar) ── */
@@ -156,39 +332,20 @@ body {
   color: #fca5a5;
 }
 
-.level {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #9aa0a6;
-}
-
-.level__bar {
-  width: 34px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-
-.level__fill {
-  height: 100%;
-  border-radius: 2px;
-  background: #60a5fa;
-  transition: width 80ms linear;
-}
-
-.level__fill--them {
-  background: #fbbf24;
-}
-
 /* ── Paneles de contenido ── */
 
 .section {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.section__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .section__title {
@@ -198,6 +355,40 @@ body {
   color: #7c8288;
   margin-bottom: 6px;
   flex-shrink: 0;
+}
+
+/* Dentro de la cabecera el margen lo pone el contenedor. */
+.section__head .section__title {
+  margin-bottom: 0;
+}
+
+/* Con qué modelo se está respondiendo. Dato, no adorno: ver el comentario del componente. */
+.section__meta {
+  flex: 1;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  color: #5f6368;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.section__stop {
+  font-family: inherit;
+  font-size: 10px;
+  color: #b7bcc1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  padding: 1px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.section__stop:hover {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.12);
 }
 
 /* ── Chips de perfil ── */
