@@ -622,12 +622,62 @@ está; en las acciones de pantalla la captura **es** el enunciado, así que el
 modelo se inventaría el ejercicio entero y la respuesta parecería perfecta. Por
 eso ahí se falla con mensaje, y por eso el selector marca cuáles ven imágenes.
 
+### Dos fallos del modo test que eran del prompt, no del modelo
+
+Salieron en la primera prueba de verdad, y conviene registrar el diagnóstico
+porque la conclusión intuitiva era la contraria:
+
+- **"Qwen sólo responde una pregunta."** Se le pedía exactamente eso: la
+  instrucción decía *"si hay varias preguntas visibles, responde la que está en
+  primer plano o la primera sin contestar"*. Obedecía. Quien tiene un
+  cuestionario delante lo quiere entero, así que ahora se piden todas, una línea
+  cada una, en el orden en que aparecen.
+- **"Se extiende demasiado."** También pedido: el formato tenía un punto para el
+  porqué y otro para los distractores. Con un modelo grande eso sale corto; con
+  uno local pequeño, que cumple mal los topes de longitud, se desborda. La única
+  defensa que funciona de verdad no es pedir menos palabras, es **no pedir la
+  explicación**. Ahora la respuesta es sólo la respuesta, y el porqué se pide con
+  un botón cuando hace falta.
+
+La lección general, que aplica a cualquier ajuste futuro de estos prompts:
+**antes de culpar al modelo, leer lo que se le pidió**. Los dos síntomas
+parecían límites de un modelo local pequeño y ninguno lo era.
+
+Un tercer detalle de la misma prueba: **un modelo pequeño necesita reglas más
+cortas**. Las de test se reescribieron en frases imperativas de una línea, sin
+la prosa explicativa que llevaban antes; lo que en un modelo grande es matiz, en
+uno pequeño es ruido que compite con el formato.
+
+### Los asteriscos de la negrita: se ataca por los dos lados
+
+Claude marcaba en negrita la opción correcta de cada test y el overlay enseñaba
+`**B)** El índice...`, asteriscos incluidos, porque el panel pinta texto plano.
+
+La corrección va **en los dos sitios a la vez**, y ninguno sobra:
+
+- **El prompt prohíbe el markdown de énfasis** en los tres perfiles que se leen
+  en el panel. Sin esto, las marcas seguirían llegando y gastando tokens y ancho.
+- **`parseInline` las interpreta igualmente.** Porque los modelos las ponen hagas
+  lo que hagas, y depender de que obedezcan una instrucción de formato es
+  exactamente el tipo de suposición que este documento existe para desmentir.
+
+Sigue **sin** ser un renderizador de Markdown: sólo negrita y código en línea, y
+una marca sin cerrar se queda como texto literal — condición necesaria durante el
+streaming, donde `**B` llega antes que su pareja y no puede desaparecer nada de
+la pantalla.
+
 ### El modo test y la regla de la duda
 
 Un test no se responde como un algoritmo, de ahí un perfil aparte y no un
-parámetro del de código. Lo que gobierna `QUIZ_RULES` es que **la primera línea
-es la respuesta y nada más**: la letra y el texto de la opción, sin preámbulo.
-Lo demás —el porqué, los distractores— va detrás y muchas veces ni se mira.
+parámetro del de código. Lo que gobierna `QUIZ_RULES` es que **cada línea es una
+respuesta y nada más**: número, letra y texto de la opción, sin preámbulo. Lo
+demás —el porqué, los distractores— se pide con un botón, por lo que cuenta la
+sección anterior.
+
+Hay dos marcas de línea, y las dos existen porque cambian lo que hace quien lee:
+`DUDA:` cuando el modelo no está seguro, y `NO SE VE:` cuando de esa pregunta no
+se leían todas las opciones en la captura. La segunda evita el peor resultado
+posible, que es una respuesta segura basada en media pregunta.
 
 La regla que más importa es la de la incertidumbre. Un modelo que contesta "C"
 con la misma seguridad cuando lo sabe y cuando lo adivina es **peor que uno que

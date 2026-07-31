@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseAnswerBlocks } from '../src/renderer/overlay/answer-format';
+import { parseAnswerBlocks, parseInline } from '../src/renderer/overlay/answer-format';
 
 /**
  * El parser se ejercita contra lo que de verdad llega: texto en streaming, con
@@ -61,5 +61,63 @@ describe('parseAnswerBlocks', () => {
   it('no deja bloques de texto vacíos entre dos vallas seguidas', () => {
     const blocks = parseAnswerBlocks('```py\na\n```\n\n```py\nb\n```');
     expect(blocks.map((b) => b.type)).toEqual(['code', 'code']);
+  });
+});
+
+/**
+ * La negrita y el código en línea se interpretan porque los modelos los ponen
+ * hagas lo que hagas: Claude marcaba así la opción correcta de cada test y el
+ * panel enseñaba "**B)** El índice…" con los asteriscos a la vista.
+ */
+describe('parseInline', () => {
+  it('deja el texto sin marcas en un solo trozo', () => {
+    expect(parseInline('B) El índice se recalcula')).toEqual([
+      { type: 'plain', text: 'B) El índice se recalcula' },
+    ]);
+  });
+
+  it('reconoce la negrita y se queda con lo de dentro', () => {
+    expect(parseInline('**B)** El índice')).toEqual([
+      { type: 'bold', text: 'B)' },
+      { type: 'plain', text: ' El índice' },
+    ]);
+  });
+
+  it('reconoce el código en línea', () => {
+    expect(parseInline('usa `num_ctx` para eso')).toEqual([
+      { type: 'plain', text: 'usa ' },
+      { type: 'code', text: 'num_ctx' },
+      { type: 'plain', text: ' para eso' },
+    ]);
+  });
+
+  it('admite varias marcas en la misma línea', () => {
+    const spans = parseInline('**1. A)** verdadero · **2. C)** falso');
+    expect(spans.map((s) => s.type)).toEqual(['bold', 'plain', 'bold', 'plain']);
+  });
+
+  it('una marca sin cerrar se queda como texto', () => {
+    // Es el caso del streaming: mientras llega "**B" no puede desaparecer nada
+    // de la pantalla.
+    expect(parseInline('**B')).toEqual([{ type: 'plain', text: '**B' }]);
+    expect(parseInline('valor `num_ctx')).toEqual([{ type: 'plain', text: 'valor `num_ctx' }]);
+  });
+
+  it('no se come un asterisco suelto de multiplicación', () => {
+    expect(parseInline('n * 2 elementos')).toEqual([{ type: 'plain', text: 'n * 2 elementos' }]);
+  });
+
+  it('no cruza saltos de línea', () => {
+    // Dos respuestas de test seguidas no deben fundirse en una negrita gigante
+    // porque una línea abriera y la siguiente cerrara.
+    const spans = parseInline('**A)** uno\n**B)** dos');
+    expect(spans.map((s) => s.type)).toEqual(['bold', 'plain', 'bold', 'plain']);
+    expect(spans[1]?.text).toBe(' uno\n');
+  });
+
+  it('la marca vacía o con espacio no cuenta como negrita', () => {
+    expect(parseInline('** no es negrita **')).toEqual([
+      { type: 'plain', text: '** no es negrita **' },
+    ]);
   });
 });

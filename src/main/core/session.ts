@@ -47,11 +47,11 @@ const SOLVE_INSTRUCTION: Record<ScreenTask, string> = {
     'Si hay varias cosas visibles, quédate con el ejercicio, el error o el test que ' +
     'está en primer plano.',
   quiz:
-    'Responde la pregunta de test que se ve en la captura de mi pantalla. ' +
-    'Lee el enunciado y TODAS las opciones antes de decidir, incluidas las que ' +
-    'queden a media altura, y respeta lo que pida la pregunta (una sola opción, ' +
-    'varias, la falsa…). Si hay varias preguntas visibles, responde la que está ' +
-    'en primer plano o la primera sin contestar.',
+    'Responde TODAS las preguntas de test que se vean en la captura de mi pantalla, ' +
+    'una línea por pregunta y en el orden en que aparecen. Lee el enunciado y todas ' +
+    'las opciones antes de decidir cada una, incluidas las que queden a media altura, ' +
+    'y respeta lo que pida cada pregunta (una sola opción, varias, la falsa…). ' +
+    'Sólo las respuestas: sin explicaciones.',
 };
 
 /** Qué se registra en el log por cada acción de pantalla. */

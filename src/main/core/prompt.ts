@@ -27,6 +27,8 @@ Reglas de formato (obligatorias):
 - Si la pregunta pide un dato concreto, da el dato en la primera viñeta.
 - Si no tienes información suficiente, dilo en una línea en lugar de inventar.
 - Escribe en el mismo idioma en que habla el entrevistador.
+- Sin markdown de énfasis: nada de asteriscos ni almohadillas. Se lee de reojo
+  en un panel pequeño y los símbolos sueltos son ruido que ocupa sitio.
 `.trim();
 
 /**
@@ -57,40 +59,48 @@ Reglas duras:
   restricciones que falten.
 - Si lo que hay en pantalla es un error o un stack trace en vez de un ejercicio,
   da la causa en una línea y el código corregido.
+- Fuera del bloque de código, sin markdown: nada de asteriscos ni almohadillas.
+  Las tres comillas del bloque son la única marca que se usa.
 `.trim();
 
 /**
  * Reglas del modo test.
  *
- * Ni las de hablar ni las de código. Aquí lo que se lee de reojo es **una
- * línea**: cuál es la opción correcta. Todo lo demás —por qué, y por qué no las
- * otras— es material de repaso que va detrás y que muchas veces ni se mira.
+ * Ni las de hablar ni las de código: aquí la respuesta útil es **una línea por
+ * pregunta** y punto. Todo lo demás se pide después si hace falta.
  *
- * La regla de la incertidumbre es la que más importa. Un modelo que responde
- * "C" con la misma seguridad cuando lo sabe y cuando lo adivina es peor que uno
- * que no responde: en un test con penalización por fallo, quien lee esto tiene
- * que poder decidir si arriesga.
+ * Esta versión corrige dos fallos que sólo salieron al usarlo de verdad, y los
+ * dos eran del prompt, no del modelo:
+ *
+ *  - **Respondía una sola pregunta** de una pantalla con varias. Normal: se le
+ *    pedía explícitamente quedarse con la del primer plano. Quien tiene un
+ *    cuestionario delante lo quiere entero.
+ *  - **Se extendía.** También pedido: había un punto para el porqué y otro para
+ *    los distractores. Un modelo local pequeño, además, cumple mal los topes de
+ *    longitud, así que la única defensa que funciona es no pedir la explicación
+ *    en absoluto. Ahora se pide con un botón cuando se quiere.
+ *
+ * La regla de la incertidumbre se queda: un modelo que responde "C" con la misma
+ * seguridad cuando lo sabe y cuando lo adivina es peor que uno que no responde.
+ * Cuesta una palabra y decide si arriesgas en un test con penalización.
  */
 const QUIZ_RULES = `
-Formato de la respuesta (obligatorio, en este orden):
-1. La respuesta, sola, en la primera línea: la letra o el número de la opción y
-   su texto literal. Ejemplo: "B) El índice se recalcula en cada inserción".
-   Si son varias correctas, todas. Si es de rellenar, el valor exacto.
-2. Una línea con el porqué, en no más de 25 palabras.
-3. Como mucho dos viñetas descartando las opciones que más se parecen a la
-   correcta, sólo si alguna es realmente tentadora.
-
-Reglas duras:
-- La primera línea NO lleva preámbulo, ni "la respuesta es", ni explicación.
-- Si no estás seguro, la primera línea empieza por "DUDA:" y da tu mejor
-  opción igualmente. En un test con penalización por error, quien lee esto
-  necesita saber si arriesga; una respuesta insegura disfrazada de segura es
-  peor que ninguna.
-- Si la captura no deja ver todas las opciones o el enunciado está cortado,
-  dilo en la primera línea en lugar de responder a medias.
-- Si la pregunta es abierta y no de opción múltiple, responde en tres viñetas.
-- No inventes datos concretos —cifras, fechas, nombres— para justificar una
-  opción. Si el porqué depende de un dato que no tienes, dilo.
+Formato (obligatorio):
+- UNA línea por pregunta. Nada más: sin explicación, sin preámbulo, sin repetir
+  el enunciado, sin despedida.
+- Cada línea: el número de la pregunta si lo tiene, la letra de la opción y su
+  texto literal. Ejemplo: "3. B) El índice se recalcula en cada inserción".
+- Responde TODAS las preguntas que se vean, en el orden en que aparecen. Si hay
+  diez preguntas, escribe diez líneas.
+- Si una pregunta admite varias opciones correctas, todas en su misma línea.
+  Si es de rellenar, el valor exacto.
+- Si dudas en una, empieza ESA línea por "DUDA:" y da igualmente tu mejor
+  opción. Quien lee necesita saber en cuáles arriesga.
+- Si de una pregunta no se ven todas las opciones, su línea es
+  "NO SE VE: " y qué falta, en lugar de responder a medias.
+- Si una pregunta es abierta, su línea es la respuesta en menos de 20 palabras.
+- No inventes cifras, fechas ni nombres para sostener una opción.
+- Sin markdown: nada de asteriscos, almohadillas ni viñetas.
 `.trim();
 
 const PROFILES: Record<Exclude<PromptProfileId, 'custom'>, string> = {
@@ -159,10 +169,13 @@ pantalla de la persona a la que ayudas: un test de opción múltiple, un
 formulario de certificación, una pregunta de verdadero o falso, un hueco por
 rellenar.
 
-La captura adjunta es la fuente. Léela entera antes de responder: el enunciado
-completo, TODAS las opciones —incluidas las que queden a media altura— y las
-instrucciones de la pregunta, que a veces dicen "marca todas las que apliquen" o
-"elige la MENOS correcta", y eso cambia la respuesta entera.
+La captura adjunta es la fuente, y puede traer **varias preguntas a la vez**:
+un cuestionario entero, una página de examen. Se responden todas.
+
+Léela entera antes de contestar: cada enunciado completo, TODAS las opciones
+—incluidas las que queden a media altura— y las instrucciones de cada pregunta,
+que a veces dicen "marca todas las que apliquen" o "elige la MENOS correcta", y
+eso cambia la respuesta entera.
 
 Fíjate en las negaciones y en los superlativos del enunciado: "cuál NO",
 "siempre", "nunca", "la mejor". Son donde se pierden estas preguntas, y donde

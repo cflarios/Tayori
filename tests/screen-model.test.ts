@@ -72,10 +72,29 @@ describe('perfil de test', () => {
   it('trae sus propias reglas, no las de hablar ni las de código', () => {
     const prompt = buildSystemPrompt(settings(), 'quiz');
 
-    expect(prompt).toContain('la letra o el número de la opción');
+    expect(prompt).toContain('UNA línea por pregunta');
     expect(prompt).toContain('DUDA:');
     expect(prompt).not.toContain('Máximo 4 viñetas');
     expect(prompt).not.toContain('El código COMPLETO');
+  });
+
+  it('pide TODAS las preguntas y ninguna explicación', () => {
+    // Las dos cosas que salieron mal al usarlo de verdad, y las dos eran del
+    // prompt: pedía quedarse con una sola pregunta y pedía el porqué.
+    const prompt = buildSystemPrompt(settings(), 'quiz');
+
+    expect(prompt).toContain('Responde TODAS las preguntas');
+    expect(prompt).toContain('sin explicación');
+    expect(prompt).not.toMatch(/línea con el porqué/);
+  });
+
+  it('prohíbe el markdown en los tres perfiles que se leen en el panel', () => {
+    // Los modelos marcan en negrita por su cuenta y el overlay enseñaba los
+    // asteriscos. Se ataca por prompt Y por render; esto cubre la mitad del
+    // prompt.
+    for (const profile of ['interview', 'coding', 'quiz'] as const) {
+      expect(buildSystemPrompt(settings(), profile).toLowerCase()).toContain('asterisco');
+    }
   });
 
   it('avisa de las negaciones del enunciado, que es donde se falla', () => {

@@ -95,3 +95,47 @@ function trimBlankEdges(lines: string[]): string {
 export function hasCode(text: string): boolean {
   return text.includes('```');
 }
+
+/** Un trozo de texto con su marca, dentro de una línea. */
+export interface InlineSpan {
+  type: 'plain' | 'bold' | 'code';
+  text: string;
+}
+
+/**
+ * Negrita `**así**` y código `` `así` `` dentro de un párrafo.
+ *
+ * Esto NO es abrir la puerta a un renderizador de Markdown —siguen sin
+ * soportarse enlaces, títulos, listas ni cursivas— sino tapar un agujero
+ * concreto que se vio usándolo: **los modelos ponen asteriscos hagas lo que
+ * hagas**. Claude marcaba en negrita la opción correcta de cada test y el panel
+ * enseñaba `**B)** El índice...` con los asteriscos a la vista.
+ *
+ * Se ataca por los dos lados: el prompt pide que no los use, y esto los
+ * interpreta cuando los usa igualmente. La primera mitad sola no basta, porque
+ * depende de que el modelo obedezca; la segunda sola tampoco, porque el texto
+ * seguiría llegando lleno de marcas que gastan tokens y ancho de panel.
+ *
+ * Una marca sin cerrar se queda como texto literal, que es lo que hace falta
+ * durante el streaming: mientras llega `**B` no debe desaparecer nada.
+ */
+const INLINE = /\*\*(?!\s)([^\n]+?)\*\*|`([^`\n]+?)`/g;
+
+export function parseInline(text: string): InlineSpan[] {
+  const spans: InlineSpan[] = [];
+  let last = 0;
+
+  for (const match of text.matchAll(INLINE)) {
+    const at = match.index;
+    if (at > last) spans.push({ type: 'plain', text: text.slice(last, at) });
+
+    const bold = match[1];
+    if (bold !== undefined) spans.push({ type: 'bold', text: bold });
+    else spans.push({ type: 'code', text: match[2] ?? '' });
+
+    last = at + match[0].length;
+  }
+
+  if (last < text.length) spans.push({ type: 'plain', text: text.slice(last) });
+  return spans;
+}

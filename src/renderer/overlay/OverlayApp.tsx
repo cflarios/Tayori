@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
-import { parseAnswerBlocks, type AnswerBlock } from './answer-format';
+import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-format';
 import { clampFontScale } from '@shared/types';
 import type {
   Answer,
@@ -572,16 +572,39 @@ const CODE_ACTIONS: readonly QuickAction[] = [
   ['Tests', 'Escribe tests para tu última solución, en el mismo lenguaje.'],
 ] as const;
 
+/**
+ * Las de test, y son la contrapartida de que la respuesta ya no explique nada.
+ *
+ * El modo test devuelve una línea por pregunta y punto, porque es lo que hace
+ * falta con el examen delante. El porqué no desaparece: se pide aquí, cuando ya
+ * has contestado y quieres entender —o comprobar— lo que marcaste.
+ */
+const QUIZ_ACTIONS: readonly QuickAction[] = [
+  ['¿Por qué?', 'Explica en una línea por qué cada respuesta que diste es la correcta.'],
+  [
+    'Las descartadas',
+    'Para cada pregunta, di en una línea por qué la opción más tentadora de las que descartaste es incorrecta.',
+  ],
+  [
+    'Revisa las dudas',
+    'Vuelve sobre las preguntas que marcaste con DUDA. Para cada una, di si mantienes la opción o la cambias, y por cuál.',
+  ],
+  ['Repasa todo', 'Revisa tus respuestas anteriores. Di sólo las que cambiarías y por cuál.'],
+];
+
 function QuickActions({
   onAsk,
-  coding,
+  kind,
 }: {
   onAsk: (prompt: string) => void;
-  coding: boolean;
+  kind: 'chat' | 'code' | 'quiz';
 }) {
+  const actions =
+    kind === 'code' ? CODE_ACTIONS : kind === 'quiz' ? QUIZ_ACTIONS : QUICK_ACTIONS;
+
   return (
     <div className="quick" data-interactive>
-      {(coding ? CODE_ACTIONS : QUICK_ACTIONS).map(([label, prompt]) => (
+      {actions.map(([label, prompt]) => (
         <button key={label} type="button" className="quick__btn" onClick={() => onAsk(prompt)}>
           {label}
         </button>
@@ -806,15 +829,35 @@ function CodeBlock({ block }: { block: AnswerBlock }) {
   );
 }
 
-/** El cuerpo de una respuesta: texto plano, salvo lo que venga entre vallas. */
+/**
+ * Texto de una respuesta, con la negrita y el código en línea interpretados.
+ *
+ * Los modelos marcan en negrita hagas lo que hagas —Claude subrayaba así la
+ * opción correcta de cada test— y sin esto el panel enseñaba los asteriscos.
+ */
+function InlineText({ text }: { text: string }) {
+  const spans = parseInline(text);
+
+  return (
+    <div className="answer__text">
+      {spans.map((span, index) =>
+        span.type === 'bold' ? (
+          <strong key={index}>{span.text}</strong>
+        ) : span.type === 'code' ? (
+          <code className="answer__code" key={index}>
+            {span.text}
+          </code>
+        ) : (
+          <span key={index}>{span.text}</span>
+        )
+      )}
+    </div>
+  );
+}
+
+/** El cuerpo de una respuesta: texto, salvo lo que venga entre vallas. */
 function AnswerBody({ text }: { text: string }) {
   const blocks = parseAnswerBlocks(text);
-
-  // Sin código, exactamente lo de antes: un único div con `pre-wrap`. Es el
-  // camino del 90% de las respuestas y no debe pagar nada por esta función.
-  if (blocks.every((block) => block.type === 'text')) {
-    return <div className="answer">{text}</div>;
-  }
 
   return (
     <div className="answer">
@@ -822,9 +865,7 @@ function AnswerBody({ text }: { text: string }) {
         block.type === 'code' ? (
           <CodeBlock key={index} block={block} />
         ) : (
-          <div className="answer__text" key={index}>
-            {block.content}
-          </div>
+          <InlineText key={index} text={block.content} />
         )
       )}
     </div>
@@ -975,6 +1016,19 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
       {done ? 'olvidado' : `memoria ${turns}/${max}`}
     </button>
   );
+}
+
+/**
+ * Qué acciones rápidas tocan según lo que hay en pantalla.
+ *
+ * Manda la respuesta que se está mirando y no el perfil configurado: un
+ * Ctrl+Alt+Q con el perfil en "Entrevista" deja delante una lista de respuestas
+ * de test, y lo que se querrá pedir es sobre ellas.
+ */
+function quickActionKind(answer: Answer, settings: Settings | null): 'chat' | 'code' | 'quiz' {
+  if (answer.trigger === 'code' || settings?.promptProfileId === 'coding') return 'code';
+  if (answer.trigger === 'quiz' || settings?.promptProfileId === 'quiz') return 'quiz';
+  return 'chat';
 }
 
 /** Cuántas respuestas se guardan para poder volver atrás. */
@@ -1262,7 +1316,7 @@ export function OverlayApp() {
           // Manda lo que se acaba de responder, no el perfil configurado: tras
           // un Ctrl+Alt+C con el perfil en "Entrevista", lo que hay en pantalla
           // es una solución y lo que se quiere pedir es sobre ella.
-          coding={answer.trigger === 'code' || settings?.promptProfileId === 'coding'}
+          kind={quickActionKind(answer, settings)}
         />
       )}
 

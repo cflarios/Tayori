@@ -143,10 +143,21 @@ todo el camino —captura de alta calidad, perfil propio, modelo con visión— 
 separan sólo en cómo responden, porque un algoritmo y una pregunta de opción
 múltiple no se contestan igual. Los dos tienen su botón en la barra del overlay.
 
-En el modo test, la primera línea es la respuesta y nada más: la letra y el
-texto de la opción. Si el modelo no está seguro, esa línea empieza por `DUDA:` y
-da igualmente su mejor opción — en un examen con penalización por fallo, una
-respuesta insegura disfrazada de segura es peor que ninguna.
+El modo test responde **todas las preguntas que se vean**, una línea por
+pregunta y nada más: el número, la letra y el texto de la opción. Sin
+explicaciones — con el examen delante lo que hace falta es la respuesta.
+
+Dos marcas que sí aparecen, porque cambian lo que haces con ellas:
+
+- **`DUDA:`** al principio de una línea significa que el modelo no está seguro,
+  y da igualmente su mejor opción. En un examen con penalización por fallo, una
+  respuesta insegura disfrazada de segura es peor que ninguna.
+- **`NO SE VE:`** significa que de esa pregunta no se leían todas las opciones en
+  la captura. Repite el disparo con la pregunta entera a la vista.
+
+El porqué no desaparece: con la respuesta en pantalla salen los botones
+**¿Por qué?**, **Las descartadas** y **Revisa las dudas**, que lo piden cuando
+lo quieres.
 
 ### Con qué modelo
 
