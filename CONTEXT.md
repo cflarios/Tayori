@@ -1,11 +1,23 @@
 # CONTEXT.md — por qué el código es así
 
-Este documento no explica **cómo usar** la app (eso es el [README](README.md)) ni
+Este documento no explica **cómo usar** la app (eso es el [README](README.md)),
+ni **dónde vive cada cosa** (eso es [ARCHITECTURE.md](ARCHITECTURE.md)), ni
 **qué hace** cada archivo (eso lo dicen los comentarios). Registra el
 **razonamiento**: qué se verificó, qué se descartó y por qué, y qué salió mal al
 probarlo. Sin esto, la próxima persona que toque el proyecto —incluido tu yo de
 dentro de tres meses— vuelve a tomar las mismas decisiones desde cero, o peor,
 las revierte sin saber qué las motivó.
+
+**Los tres documentos, y cuándo abrir cada uno:**
+
+| | Responde a | Ábrelo cuando |
+|---|---|---|
+| [README.md](README.md) | Qué hace y cómo se usa | Quieres ejecutarlo |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Qué es y cómo circulan los datos | Vas a tocar código y no sabes dónde |
+| CONTEXT.md | Por qué está así | Algo te parece raro y vas a "arreglarlo" |
+
+Ese último caso es el importante. Buena parte de lo que hay aquí documenta cosas
+que **parecen** errores y no lo son.
 
 Escrito al final de la sesión de construcción inicial (26 de julio de 2026,
 commits `8093c25`..`baa4e29`) y actualizado en la primera ronda de ajustes.
@@ -857,3 +869,37 @@ Version bumps require Conventional Commits on `main`: `fix:` bumps patch,
 `feat:` bumps minor, and `feat!:` (or `BREAKING CHANGE`) marks a breaking
 change. The base version is tracked in `.release-please-manifest.json`; do not
 manually edit it except for an intentional bootstrap.
+
+### Lo que costó la primera publicación de verdad
+
+Los dos workflows estaban bien escritos desde el principio y **aun así el
+repositorio pasó semanas sin un solo release**, con los runs en verde. Tres
+trampas encadenadas, las tres silenciosas:
+
+1. **Ningún commit de `main` seguía Conventional Commits.** El historial entero
+   era `Workflow added`, `Controles en el overlay…`. Release Please busca
+   `feat:`/`fix:`, no encuentra nada que publicar, y **termina correctamente**.
+   Verde y sin resultado, que es el peor tipo de fallo.
+2. **GitHub prohíbe por defecto que Actions cree pull requests.** Con esa opción
+   apagada, release-please calcula la versión, genera el CHANGELOG, crea la
+   rama y el commit... y muere en el último paso con
+   `GitHub Actions is not permitted to create or approve pull requests`. Se
+   arregla en Settings → Actions → General → Workflow permissions.
+3. **Release Please identifica su PR por una etiqueta que pone él.** Al crearla
+   a mano para desbloquear la publicación, al fusionarla no la reconoció como
+   release: no creó el tag y se puso a calcular la versión siguiente. Si alguna
+   vez hay que desbloquearlo a mano, es mejor crear el tag y el release
+   directamente que falsificar su PR.
+
+De ahí salió **`publish.yml`**: reconstruye y publica el `.exe` de un tag que ya
+existe, sólo por `workflow_dispatch`. Crear un *release* sí está permitido con
+`contents: write` —lo único bloqueado son las PRs—, así que no depende de
+ninguna configuración del repositorio. **No** se engancha a `push: tags` a
+propósito: con `release.yml` funcionando, ambos compilarían el mismo binario en
+paralelo, unos ocho minutos de runner de Windows para nada.
+
+**El formato del tag tiene que coincidir en los dos sitios.**
+`include-component-in-tag: false` deja los tags en `v{version}`. Sin eso,
+release-please los nombraba `interview-helper-v{version}`, no reconocía como
+publicado un tag `v0.2.0` creado a mano, y volvía a empaquetar todo lo anterior
+en la versión siguiente.

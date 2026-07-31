@@ -239,6 +239,20 @@ guardes o dejes de guardar.
 
 Comprueba qué aplica en tu caso; la responsabilidad de usar esto es tuya.
 
+## Documentación
+
+Tres archivos, con trabajos distintos:
+
+| | Responde a | Ábrelo cuando |
+|---|---|---|
+| README.md | Qué hace y cómo se usa | Quieres ejecutarlo |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Qué es y cómo circulan los datos, con diagramas | Vas a tocar código y no sabes dónde |
+| [CONTEXT.md](CONTEXT.md) | Por qué está así: qué se probó, qué se descartó y qué salió mal | Algo te parece raro y vas a "arreglarlo" |
+
+El tercero es el que más ahorra: buena parte de lo que registra son cosas que
+**parecen** errores y no lo son, con la medición o el mensaje de error que lo
+demuestra.
+
 ## Licencia
 
 MIT.
