@@ -1,4 +1,4 @@
-import type { LLMProviderId, ModelInfo, Settings } from '@shared/types';
+import { screenModelFor, type LLMProviderId, type ModelInfo, type Settings } from '@shared/types';
 import { getSecret } from '../config/secrets';
 import { ClaudeProvider, CLAUDE_MODELS } from './claude';
 import { GeminiProvider, GEMINI_MODELS } from './gemini';
@@ -13,11 +13,20 @@ export type { AnswerRequest, LLMProvider } from './types';
  *
  * Añadir OpenAI, Groq o cualquier otro es: un archivo que implemente
  * `LLMProvider` más un `case` aquí. Nada más del sistema cambia.
+ *
+ * @param forScreen Usa el proveedor de las acciones de pantalla (código y
+ *        test), que puede ser distinto del de conversar: lo hablado necesita
+ *        latencia y lo de la pantalla necesita vista. Con `screenProviderId` en
+ *        `same` —el valor por defecto— las dos ramas dan exactamente lo mismo.
  */
-export function createLLMProvider(settings: Settings): LLMProvider {
-  const model = settings.llmModels[settings.llmProviderId];
+export function createLLMProvider(settings: Settings, forScreen = false): LLMProvider {
+  const target = forScreen
+    ? screenModelFor(settings)
+    : { providerId: settings.llmProviderId, model: settings.llmModels[settings.llmProviderId] };
 
-  switch (settings.llmProviderId) {
+  const model = target.model;
+
+  switch (target.providerId) {
     case 'claude': {
       const apiKey = getSecret('anthropic');
       if (!apiKey) {
@@ -41,11 +50,11 @@ export function createLLMProvider(settings: Settings): LLMProvider {
     }
 
     case 'ollama':
-      return new OllamaProvider(settings.ollamaBaseUrl, model);
+      return new OllamaProvider(settings.ollamaBaseUrl, model, settings.ollamaContextTokens);
 
     default: {
       // Añadir un id al tipo sin manejarlo aquí rompe el build.
-      const exhaustive: never = settings.llmProviderId;
+      const exhaustive: never = target.providerId;
       throw new LLMError(`Proveedor desconocido: ${String(exhaustive)}`, 'claude');
     }
   }

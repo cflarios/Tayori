@@ -30,7 +30,19 @@ export class OllamaProvider implements LLMProvider {
 
   constructor(
     baseUrl: string,
-    readonly model: string
+    readonly model: string,
+    /**
+     * Ventana de contexto en tokens (`num_ctx`).
+     *
+     * Hay que enviarla explícitamente: Ollama **no usa la del modelo**, aplica
+     * su propio valor por defecto de 2048 tokens y **descarta en silencio** lo
+     * que no quepa, empezando por el principio. Con un system prompt con CV,
+     * la transcripción y ocho turnos de memoria, esos 2048 se agotan enseguida
+     * y el síntoma es que el modelo "olvida" lo que se le acaba de decir —
+     * exactamente el bug que ya se documentó una vez y que aquí no venía del
+     * historial, sino de la ventana.
+     */
+    private readonly contextTokens = 8192
   ) {
     this.client = new Ollama({ host: baseUrl });
     this.supportsVision = looksLikeVisionModel(model);
@@ -86,7 +98,7 @@ export class OllamaProvider implements LLMProvider {
               : {}),
           },
         ],
-        options: { num_predict: request.maxTokens },
+        options: { num_predict: request.maxTokens, num_ctx: this.contextTokens },
       });
 
       for await (const chunk of stream) {

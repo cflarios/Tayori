@@ -697,3 +697,39 @@ button.btn--ghost {
   border-color: rgba(248, 113, 113, 0.5);
   color: #fca5a5;
 }
+
+/* ── Especificaciones de la máquina ── */
+
+.specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.specs__item {
+  font-size: 11.5px;
+  color: #9aa0a6;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 5px 9px;
+}
+
+.specs__item strong {
+  color: #e8eaed;
+}
+
+/* Los comandos de `ollama pull` van en monoespaciada: se copian y se pegan. */
+#local-models button.btn--small {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+}
+
+kbd {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+}

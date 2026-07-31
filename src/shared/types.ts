@@ -86,7 +86,12 @@ export type AnswerStatus = 'idle' | 'thinking' | 'streaming' | 'done' | 'aborted
  * programación y un tope de tokens mayor, porque un algoritmo no cabe en las
  * cuatro viñetas que sirven para hablar.
  */
-export type AnswerTrigger = 'hotkey' | 'auto' | 'manual-input' | 'code';
+export type AnswerTrigger = 'hotkey' | 'auto' | 'manual-input' | 'code' | 'quiz';
+
+/** `true` si el disparo viene de resolver la pantalla. */
+export function isScreenTrigger(trigger: AnswerTrigger): trigger is ScreenTask {
+  return trigger === 'code' || trigger === 'quiz';
+}
 
 export interface Answer {
   id: string;
@@ -235,7 +240,17 @@ export type PromptProfileId =
   | 'lecture'
   | 'support'
   | 'coding'
+  | 'quiz'
   | 'custom';
+
+/**
+ * Las acciones que resuelven lo que hay en la pantalla.
+ *
+ * Comparten camino —captura de alta calidad, perfil forzado, modelo con visión—
+ * y se diferencian en el prompt: un test de opción múltiple no se responde como
+ * un ejercicio de programación.
+ */
+export type ScreenTask = 'code' | 'quiz';
 
 /** Etiquetas de los tipos, compartidas entre el prompt y el dashboard. */
 export const CONTEXT_KIND_LABEL: Record<ContextKind, string> = {
@@ -259,6 +274,7 @@ export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
   lecture: ['notes', 'vocabulary'],
   support: ['notes', 'vocabulary'],
   coding: ['notes', 'vocabulary'],
+  quiz: ['notes', 'vocabulary'],
   custom: ['notes', 'vocabulary'],
 };
 
@@ -282,6 +298,8 @@ export interface HotkeyMap {
   screenshotAndAsk: string;
   /** Captura la pantalla y resuelve el problema de código que haya en ella. */
   solveOnScreen: string;
+  /** Captura la pantalla y responde la pregunta de test que haya en ella. */
+  solveQuiz: string;
   toggleOverlay: string;
   toggleListening: string;
   toggleClickThrough: string;
@@ -336,6 +354,31 @@ export interface Settings {
   /** Modelo elegido por provider, para no perder la selección al cambiar. */
   llmModels: Record<LLMProviderId, string>;
 
+  /**
+   * Proveedor para las acciones de pantalla (código y test), o `same` para usar
+   * el de arriba.
+   *
+   * Existe porque las dos tareas piden cosas distintas y antes compartían un
+   * único modelo. Lo hablado necesita **latencia**: la respuesta se lee mientras
+   * alguien te mira. Lo de la pantalla necesita **vista y cabeza**: leer un
+   * enunciado en una captura y no equivocarse. Un modelo local pequeño vale para
+   * lo primero y no para lo segundo; uno grande de pago, al revés, es caro para
+   * cada frase suelta de una reunión.
+   *
+   * El default es `same`, que reproduce exactamente el comportamiento anterior.
+   */
+  screenProviderId: LLMProviderId | 'same';
+
+  /**
+   * Modelo de las acciones de pantalla. Se ignora con `screenProviderId: same`.
+   *
+   * Es un campo suelto y no otro `Record` por provider: al elegir "Ollama para
+   * la pantalla" lo que se quiere es un modelo **concreto** —el multimodal que
+   * tengas descargado—, distinto del que uses para conversar aunque el
+   * proveedor sea el mismo.
+   */
+  screenModel: string;
+
   sttProviderId: STTProviderId;
   /** Código BCP-47; `auto` deja que el provider decida. */
   language: string;
@@ -372,6 +415,20 @@ export interface Settings {
   ollamaBaseUrl: string;
 
   /**
+   * Ventana de contexto de Ollama, en tokens (`num_ctx`).
+   *
+   * Ollama **no usa la del modelo**: aplica su propio valor por defecto, 2048
+   * tokens, y lo que no cabe se descarta por el principio **sin ningún error**.
+   * Con un system prompt con CV, la transcripción y ocho turnos de memoria, esos
+   * 2048 se agotan enseguida y el síntoma es que el modelo "olvida" cosas que
+   * acabas de decirle.
+   *
+   * Sube memoria: el caché de atención crece con este número, así que no se pone
+   * al máximo por defecto.
+   */
+  ollamaContextTokens: number;
+
+  /**
    * La guía de primeros pasos ya no hace falta.
    *
    * Se marca sola cuando los pasos están cumplidos, y también a mano: quien
@@ -405,6 +462,8 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
   // acelerador global gana al de la app que tenga el foco, y quien usa esto
   // suele tener el editor delante.
   solveOnScreen: 'Control+Alt+C',
+  // Q de "quiz", en la misma familia que el de código.
+  solveQuiz: 'Control+Alt+Q',
   toggleOverlay: 'Control+Shift+H',
   toggleListening: 'Control+Shift+M',
   toggleClickThrough: 'Control+Shift+C',
@@ -430,6 +489,9 @@ export const DEFAULT_SETTINGS: Settings = {
     gemini: 'gemini-2.5-flash',
     ollama: '',
   },
+  // `same` reproduce el comportamiento de antes de que esto existiera.
+  screenProviderId: 'same',
+  screenModel: '',
 
   sttProviderId: 'gemini-live',
   language: 'auto',
@@ -449,8 +511,41 @@ export const DEFAULT_SETTINGS: Settings = {
 
   hotkeys: DEFAULT_HOTKEYS,
   ollamaBaseUrl: 'http://127.0.0.1:11434',
+  // 8192 y no 2048: es el mínimo con el que caben prompt, transcripción y
+  // memoria sin que Ollama empiece a tirar contexto en silencio.
+  ollamaContextTokens: 8192,
   onboardingDone: false,
 };
+
+/**
+ * Qué proveedor y modelo resuelven la pantalla.
+ *
+ * Vive aquí y no en el main porque lo necesitan los dos lados: el main para
+ * construir el proveedor, y el dashboard y el overlay para enseñar con qué se
+ * está respondiendo. Si `screenProviderId` es `same`, todo se resuelve como
+ * antes de que este ajuste existiera.
+ */
+export function screenModelFor(settings: Settings): {
+  providerId: LLMProviderId;
+  model: string;
+  /** `true` si hereda del proveedor principal. */
+  inherited: boolean;
+} {
+  if (settings.screenProviderId === 'same') {
+    return {
+      providerId: settings.llmProviderId,
+      model: settings.llmModels[settings.llmProviderId],
+      inherited: true,
+    };
+  }
+  return {
+    providerId: settings.screenProviderId,
+    // Sin modelo elegido se cae al del proveedor: es mejor responder con algo
+    // que fallar por un campo vacío que el usuario no sabe que existe.
+    model: settings.screenModel || settings.llmModels[settings.screenProviderId],
+    inherited: false,
+  };
+}
 
 /** Límites de la escala de texto, compartidos por el ajuste y quien lo aplica. */
 export const FONT_SCALE = { min: 0.8, max: 1.8, step: 0.05 } as const;
@@ -469,6 +564,7 @@ export const HOTKEY_LABEL: Record<keyof HotkeyMap, string> = {
   askNow: 'Responder ahora',
   screenshotAndAsk: 'Capturar pantalla y responder',
   solveOnScreen: 'Resolver el código de la pantalla',
+  solveQuiz: 'Responder el test de la pantalla',
   toggleOverlay: 'Mostrar u ocultar el overlay',
   toggleListening: 'Empezar o parar de escuchar',
   toggleClickThrough: 'Alternar clics atravesables',
@@ -477,6 +573,96 @@ export const HOTKEY_LABEL: Record<keyof HotkeyMap, string> = {
   moveLeft: 'Mover el overlay a la izquierda',
   moveRight: 'Mover el overlay a la derecha',
 };
+
+/**
+ * La máquina donde corre la app, para recomendar un modelo local con criterio.
+ *
+ * No incluye VRAM a propósito: es el número que de verdad decide si un modelo
+ * cabe en la GPU y no hay forma fiable de leerlo desde Electron. Dar una cifra
+ * inventada sería peor que no darla.
+ */
+export interface SystemSpecs {
+  totalMemoryGB: number;
+  cpuModel: string;
+  cpuCores: number;
+  /** Nombre comercial de la GPU, si se pudo averiguar. */
+  gpu?: string;
+}
+
+/**
+ * Recomendación de modelos locales para una máquina.
+ *
+ * Se calcula en el renderer porque es una tabla, no una medida: la parte que sí
+ * es medir vive en `system-specs.ts`.
+ */
+export interface LocalModelAdvice {
+  /** Cómo se resume esta máquina en una línea. */
+  tier: string;
+  /** Para conversar: el que responde a lo que se oye. Prima la latencia. */
+  chat: { model: string; note: string };
+  /** Para la pantalla: tiene que VER. Prima la capacidad de leer una captura. */
+  vision: { model: string; note: string };
+  /** Advertencia honesta sobre lo que va a costar en esta máquina. */
+  caveat: string;
+}
+
+/**
+ * Qué recomendar según la RAM, que es lo único que se mide con certeza.
+ *
+ * Los tramos salen de una regla sencilla: un modelo cuantizado a 4 bits ocupa
+ * más o menos 0,6 GB por cada mil millones de parámetros, y hace falta dejarle
+ * sitio al sistema y a la ventana de contexto. De ahí que un 7B pida ~8 GB
+ * libres y un 14B ronde los 16 GB.
+ *
+ * Los nombres son de la biblioteca de Ollama y pueden cambiar con el tiempo;
+ * por eso el dashboard enseña también el comando y enlaza a la biblioteca en
+ * lugar de prometer que existen para siempre.
+ */
+export function adviseLocalModels(specs: SystemSpecs): LocalModelAdvice {
+  const ram = specs.totalMemoryGB;
+
+  if (ram < 8) {
+    return {
+      tier: `${ram} GB de RAM: justo para modelos locales`,
+      chat: { model: 'llama3.2:1b', note: 'Lo más pequeño que sigue siendo útil.' },
+      vision: { model: 'moondream', note: 'Visión mínima; lee capturas simples, no enunciados largos.' },
+      caveat:
+        'Con esta memoria, un modelo local va a ir lento y a equivocarse en las capturas. ' +
+        'Para las acciones de pantalla merece la pena usar un modelo en la nube y dejar lo local para conversar.',
+    };
+  }
+
+  if (ram < 16) {
+    return {
+      tier: `${ram} GB de RAM: alcanza para modelos de 3B–7B`,
+      chat: { model: 'llama3.2:3b', note: 'Rápido de verdad en CPU; suficiente para sugerir respuestas.' },
+      vision: { model: 'qwen2.5vl:3b', note: 'Multimodal pequeño. Lee un enunciado con buena captura.' },
+      caveat:
+        'Cabe, pero con la ventana de contexto grande la memoria se va enseguida. ' +
+        'Si el equipo no tiene GPU dedicada, cuenta con varios segundos por respuesta.',
+    };
+  }
+
+  if (ram < 32) {
+    return {
+      tier: `${ram} GB de RAM: cómodo para 7B–8B, justo para 14B`,
+      chat: { model: 'llama3.1:8b', note: 'El equilibrio habitual entre calidad y velocidad.' },
+      vision: { model: 'qwen2.5vl:7b', note: 'Lee capturas de código y tests con soltura.' },
+      caveat:
+        'Sin GPU dedicada, un 8B en CPU ronda los 5–15 s por respuesta: sirve para la pantalla, ' +
+        'se queda corto para seguir una conversación en directo.',
+    };
+  }
+
+  return {
+    tier: `${ram} GB de RAM: da para modelos grandes`,
+    chat: { model: 'qwen2.5:14b', note: 'Calidad alta manteniendo una latencia razonable.' },
+    vision: { model: 'qwen2.5vl:32b', note: 'De lo mejor que se puede tener en local para leer pantallas.' },
+    caveat:
+      'La RAM sobra; el límite pasa a ser la GPU. Si el modelo no cabe en la VRAM, Ollama lo reparte ' +
+      'con la CPU y la velocidad se desploma — ahí conviene bajar de tamaño aunque quepa en memoria.',
+  };
+}
 
 /** Estado del servidor local de Ollama, sondeado bajo demanda. */
 export interface OllamaStatus {

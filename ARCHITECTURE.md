@@ -220,30 +220,37 @@ Dos cosas que no son obvias:
 
 ---
 
-## 5 bis. El modo código
+## 5 bis. Las acciones de pantalla
 
-Un camino aparte que entra al mismo `AnswerEngine`, y el único disparo que
-cambia **cómo** se responde y no sólo qué.
+Dos botones —código y test— que comparten camino y entran al mismo
+`AnswerEngine`. Son los únicos disparos que cambian **cómo** se responde y con
+**qué modelo**, no sólo qué se pregunta.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant K as Ctrl+Alt+C · botón &lt;/&gt;
+    participant K as Ctrl+Alt+C / Ctrl+Alt+Q
     participant S as SessionOrchestrator
     participant C as captureScreen
     participant A as AnswerEngine
-    participant P as buildSystemPrompt
+    participant M as screenModelFor
     participant O as Overlay
 
-    K->>S: solveOnScreen()
+    K->>S: solveOnScreen('code' | 'quiz')
     S->>C: captureScreen({ forCode: true })
     C-->>S: JPEG q92 · 1600 px
-    S->>A: attachImage + ask('code', SOLVE_INSTRUCTION)
-    A->>P: buildSystemPrompt(settings, 'coding')
-    Note over A: maxTokens 2200, no 700
+    S->>A: attachImage + ask(task, SOLVE_INSTRUCTION[task])
+    A->>M: ¿qué modelo resuelve la pantalla?
+    M-->>A: proveedor + modelo (o el de siempre, si `same`)
+    Note over A: perfil forzado coding/quiz<br/>maxTokens 2200 sólo en código<br/>sin visión → error, no respuesta
     A-->>O: streaming
     Note over O: parseAnswerBlocks:<br/>vallas ``` → &lt;pre&gt; + Copiar
 ```
+
+| Tarea | Perfil | Tope | Forma de la respuesta |
+|---|---|---|---|
+| `code` | `coding` | 2200 | Enfoque + código completo + 3 apuntes |
+| `quiz` | `quiz` | 700 | La opción, sola, en la primera línea |
 
 Cuatro decisiones que no se ven en el diagrama:
 
@@ -253,6 +260,7 @@ Cuatro decisiones que no se ven en el diagrama:
 | Funciona con la escucha parada | El caso normal es un ejercicio delante y ninguna llamada abierta |
 | Fuerza el perfil sin persistirlo | Se resuelve la pantalla en mitad de una entrevista y la siguiente pregunta hablada sigue saliendo en viñetas |
 | Sin captura, **no** pregunta | Al revés que `Ctrl+Shift+S`: sin imagen no hay enunciado que leer |
+| Pueden usar **otro modelo** | Conversar pide latencia; leer una captura pide vista. `screenModelFor` decide, y con `same` todo queda como antes |
 
 ---
 
@@ -371,6 +379,7 @@ npm run typecheck && npm run lint && npm test
 | `main/config/*` | Settings, secretos DPAPI, historial |
 | `main/windows/*` | Ventanas, stealth, arrastre manual |
 | `main/logging.ts` | Log a archivo del proceso principal |
+| `main/system-specs.ts` | RAM, CPU y GPU, para recomendar un modelo local |
 | `renderer/audio-worker/pcm-worklet.ts` | Filtro antialias y remuestreo, en el hilo de audio |
 | `renderer/overlay/answer-format.ts` | Parte la respuesta en texto y bloques de código |
 | `renderer/overlay/*` | El panel flotante |

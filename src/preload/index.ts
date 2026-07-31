@@ -12,11 +12,14 @@ import type {
   Conversation,
   ConversationSummary,
   ImageAttachment,
+  LLMProviderId,
   ModelInfo,
   OllamaStatus,
+  ScreenTask,
   SecretKey,
   SecretsPresence,
   Settings,
+  SystemSpecs,
   TranscriptSegment,
 } from '@shared/types';
 
@@ -114,6 +117,13 @@ const api = {
     on: (cb: (message: string) => void) => subscribe<string>(IPC.onNotice, cb),
   },
 
+  /** Cuántos intercambios reenvía el asistente en cada consulta. */
+  memory: {
+    get: (): Promise<{ turns: number; max: number }> => ipcRenderer.invoke(IPC.memoryGet),
+    onChange: (cb: (m: { turns: number; max: number }) => void) =>
+      subscribe<{ turns: number; max: number }>(IPC.onMemory, cb),
+  },
+
   hotkeys: {
     /** Aceleradores que Windows rechazó; el dashboard los marca en rojo. */
     getFailed: (): Promise<string[]> => ipcRenderer.invoke(IPC.hotkeysGetFailed),
@@ -130,8 +140,12 @@ const api = {
     now: (): Promise<void> => ipcRenderer.invoke(IPC.askNow),
     withText: (text: string): Promise<void> => ipcRenderer.invoke(IPC.askWithText, text),
     abort: (): Promise<void> => ipcRenderer.invoke(IPC.askAbort),
-    /** Captura la pantalla y resuelve el problema de código que haya en ella. */
-    solveOnScreen: (): Promise<void> => ipcRenderer.invoke(IPC.askSolveScreen),
+    /** Captura la pantalla y resuelve lo que haya en ella: código o test. */
+    solveOnScreen: (task: ScreenTask = 'code'): Promise<void> =>
+      ipcRenderer.invoke(IPC.askSolveScreen, task),
+    /** Vacía la memoria del asistente sin tocar la conversación. */
+    forgetContext: (): Promise<{ turns: number; max: number }> =>
+      ipcRenderer.invoke(IPC.askForgetContext),
     onAnswer: (cb: (a: Answer) => void) => subscribe<Answer>(IPC.onAnswer, cb),
   },
 
@@ -155,6 +169,9 @@ const api = {
 
   llm: {
     listModels: (): Promise<ModelInfo[]> => ipcRenderer.invoke(IPC.llmListModels),
+    /** Modelos de un proveedor concreto, aunque no sea el activo. */
+    listModelsFor: (providerId: LLMProviderId): Promise<ModelInfo[]> =>
+      ipcRenderer.invoke(IPC.llmListModels, providerId),
     testConnection: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.llmTestConnection),
   },
@@ -170,6 +187,11 @@ const api = {
 
   ollama: {
     getStatus: (): Promise<OllamaStatus> => ipcRenderer.invoke(IPC.ollamaGetStatus),
+  },
+
+  /** RAM, CPU y GPU: lo que necesita la guía de modelos locales. */
+  system: {
+    getSpecs: (): Promise<SystemSpecs> => ipcRenderer.invoke(IPC.systemGetSpecs),
   },
 
   /**

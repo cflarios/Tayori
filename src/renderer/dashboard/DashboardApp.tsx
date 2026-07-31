@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WhisperProgress } from '@shared/ipc';
 import {
+  adviseLocalModels,
   autoTriggerIsInert,
   clampFontScale,
   CONTEXT_KIND_LABEL,
@@ -9,6 +10,7 @@ import {
   HOTKEY_LABEL,
   packsForProfile,
   PROFILE_SLOTS,
+  screenModelFor,
   speakersFor,
 } from '@shared/types';
 import { acceleratorFromEvent, duplicateAccelerators, formatAccelerator } from '@shared/accelerator';
@@ -25,6 +27,7 @@ import type {
   SecretKey,
   SecretsPresence,
   Settings,
+  SystemSpecs,
   ContextKind,
 } from '@shared/types';
 
@@ -368,6 +371,10 @@ export function DashboardApp() {
       </section>
 
       <ModelCard settings={settings} patch={patch} />
+      {/* Justo detrás del modelo de respuestas: se lee como "y para la pantalla,
+          esto otro", que es exactamente la decisión que hay que tomar ahí. */}
+      <ScreenModelCard settings={settings} patch={patch} />
+      <LocalModelGuide />
       <TranscriptionCard settings={settings} patch={patch} />
       <BehaviourCard settings={settings} patch={patch} />
       {/* El contexto va ANTES del historial: es lo que se toca antes de cada
@@ -389,6 +396,220 @@ export function DashboardApp() {
         </button>
       )}
     </div>
+  );
+}
+
+// ───────────────────── Modelo para las acciones de pantalla ─────────────────────
+
+/**
+ * Con qué se resuelven el código y los tests de la pantalla.
+ *
+ * Antes había un solo modelo para todo, y las dos tareas piden cosas opuestas:
+ * lo hablado necesita **latencia**, porque la respuesta se lee mientras alguien
+ * te mira; lo de la pantalla necesita **vista y cabeza**, porque hay que leer un
+ * enunciado en una captura y no equivocarse. Un modelo local pequeño sirve para
+ * lo primero y no para lo segundo; uno grande de pago, al revés, es caro para
+ * cada frase suelta de una reunión.
+ */
+function ScreenModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  /*
+   * El resultado se guarda JUNTO al proveedor que lo pidió, y se descarta por
+   * comparación al pintar. Es el mismo patrón que el selector principal, y por
+   * la misma razón: la lista de Ollama viaja por red, el usuario puede cambiar
+   * de proveedor mientras llega, y una respuesta lenta del anterior pintaría
+   * los modelos equivocados. Guardar el par también evita tener que limpiar el
+   * estado dentro del efecto, que es lo que caza `set-state-in-effect`.
+   */
+  const [loaded, setLoaded] = useState<{ providerId: string; list: ModelInfo[] }>({
+    providerId: '',
+    list: [],
+  });
+  const provider = settings.screenProviderId;
+  const target = screenModelFor(settings);
+
+  useEffect(() => {
+    if (provider === 'same') return;
+    let live = true;
+    void window.api.llm
+      .listModelsFor(provider)
+      .then((list) => {
+        if (live) setLoaded({ providerId: provider, list });
+      })
+      .catch(() => {
+        if (live) setLoaded({ providerId: provider, list: [] });
+      });
+    return () => {
+      live = false;
+    };
+  }, [provider]);
+
+  const models = loaded.providerId === provider ? loaded.list : [];
+
+  const chosen = models.find((m) => m.id === target.model);
+  const blind = chosen && !chosen.supportsVision;
+
+  return (
+    <section className="card" id="screen-model">
+      <h2 className="card__title">Modelo para la pantalla</h2>
+      <p className="card__hint">
+        El que resuelve <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> (código) y{' '}
+        <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd> (tests). Puede ser distinto del que responde a
+        lo que se habla: aquello pide rapidez, y esto pide leer bien una captura.{' '}
+        <strong>Tiene que admitir imágenes.</strong>
+      </p>
+
+      <Row
+        label="Proveedor"
+        desc="«El mismo» usa el modelo de respuestas de arriba, que es como funcionaba antes."
+      >
+        <select
+          value={provider}
+          onChange={(e) =>
+            void patch({
+              screenProviderId: e.target.value as Settings['screenProviderId'],
+              // Cambiar de proveedor invalida el modelo elegido: los ids no se
+              // parecen en nada entre Claude, Gemini y Ollama.
+              screenModel: '',
+            })
+          }
+        >
+          <option value="same">El mismo que para responder</option>
+          <option value="claude">Claude (nube)</option>
+          <option value="gemini">Gemini (nube)</option>
+          <option value="ollama">Ollama (local)</option>
+        </select>
+      </Row>
+
+      {provider !== 'same' && (
+        <Row
+          label="Modelo"
+          desc={
+            models.length === 0
+              ? 'Sin modelos disponibles. Si es Ollama, comprueba que el servidor está corriendo.'
+              : 'Sólo los que admiten imágenes pueden leer tu pantalla.'
+          }
+        >
+          <select
+            value={target.model}
+            onChange={(e) => void patch({ screenModel: e.target.value })}
+          >
+            {/* Un select controlado necesita SIEMPRE una option con su valor, o
+                el navegador pinta la primera como elegida sin disparar onChange
+                y la UI miente. Ya costó un rato una vez. */}
+            {!models.some((m) => m.id === target.model) && (
+              <option value={target.model}>{target.model || '— elige un modelo —'}</option>
+            )}
+            {models.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.label}
+                {model.supportsVision ? ' · ve imágenes' : ' · sin visión'}
+              </option>
+            ))}
+          </select>
+        </Row>
+      )}
+
+      {blind && (
+        <div className="warn">
+          <strong>{target.model}</strong> no admite imágenes, así que no puede leer la pantalla:
+          los botones de código y de test fallarán con un aviso en lugar de responder. Elige un
+          multimodal — con Ollama, <code>qwen2.5vl</code>, <code>llava</code> o{' '}
+          <code>gemma3</code>.
+        </div>
+      )}
+
+      {provider === 'same' && settings.llmProviderId === 'ollama' && (
+        <div className="warn">
+          Estás usando Ollama para todo. Si el modelo elegido no ve imágenes, las acciones de
+          pantalla no funcionarán: aquí es donde conviene separarlas y dejar un multimodal sólo
+          para esto.
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─────────────────────── Guía de modelos locales ───────────────────────
+
+/**
+ * Qué modelo local pedirle a esta máquina.
+ *
+ * La pregunta no tiene respuesta genérica —el mismo modelo es instantáneo con
+ * GPU y tarda un minuto sin ella— y equivocarse cuesta una descarga de varios
+ * gigas. Se mide lo que se puede medir y se dice claramente lo que no: la VRAM,
+ * que es lo que de verdad decide si un modelo cabe en la tarjeta, no se puede
+ * leer de forma fiable desde aquí.
+ */
+function LocalModelGuide() {
+  const [specs, setSpecs] = useState<SystemSpecs | null>(null);
+  const [copied, setCopied] = useState('');
+
+  useEffect(() => {
+    void window.api.system.getSpecs().then(setSpecs);
+  }, []);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(''), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  if (!specs) return null;
+
+  const advice = adviseLocalModels(specs);
+  const pull = (model: string): void => {
+    void window.api.clipboard.write(`ollama pull ${model}`).then(() => setCopied(model));
+  };
+
+  return (
+    <section className="card" id="local-models">
+      <h2 className="card__title">Qué modelo local le pega a tu equipo</h2>
+      <p className="card__hint">
+        Ollama no cuesta dinero y no envía nada fuera de tu máquina, pero elegir mal cuesta una
+        descarga de varios gigas para acabar con respuestas de un minuto. Esto es lo que encaja con
+        lo que tienes.
+      </p>
+
+      <div className="specs">
+        <span className="specs__item">
+          <strong>{specs.totalMemoryGB} GB</strong> de RAM
+        </span>
+        <span className="specs__item">
+          {specs.cpuCores} núcleos · {specs.cpuModel}
+        </span>
+        {specs.gpu && (
+          <span className="specs__item">
+            GPU: <strong>{specs.gpu}</strong>
+          </span>
+        )}
+      </div>
+
+      <p className="card__hint" style={{ marginTop: 12, marginBottom: 4 }}>
+        {advice.tier}
+      </p>
+
+      <Row label="Para conversar" desc={advice.chat.note}>
+        <button className="btn btn--small" onClick={() => pull(advice.chat.model)}>
+          {copied === advice.chat.model ? '¡copiado!' : `ollama pull ${advice.chat.model}`}
+        </button>
+      </Row>
+
+      <Row label="Para leer la pantalla" desc={advice.vision.note}>
+        <button className="btn btn--small" onClick={() => pull(advice.vision.model)}>
+          {copied === advice.vision.model ? '¡copiado!' : `ollama pull ${advice.vision.model}`}
+        </button>
+      </Row>
+
+      <div className="warn">{advice.caveat}</div>
+
+      <p className="card__hint" style={{ marginTop: 12, marginBottom: 0 }}>
+        La VRAM de la tarjeta gráfica —el dato que de verdad decide si un modelo va rápido— no se
+        puede leer de forma fiable desde aquí, así que <strong>no se estima</strong>: estas
+        recomendaciones se basan en la RAM. Si el modelo no cabe en la GPU, Ollama lo reparte con
+        la CPU y va mucho más lento, aunque quepa en memoria. Los nombres pueden cambiar con el
+        tiempo; la lista viva está en <code>ollama.com/library</code>.
+      </p>
+    </section>
   );
 }
 
@@ -1074,6 +1295,29 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         )}
       </div>
 
+      {/*
+        La ventana de contexto se enseña si Ollama se usa PARA ALGO, aunque sea
+        sólo para la pantalla: el recorte silencioso es igual de dañino ahí, y
+        más difícil de sospechar, porque una captura ocupa muchos tokens.
+      */}
+      {(provider === 'ollama' || settings.screenProviderId === 'ollama') && (
+        <Row
+          label="Ventana de contexto de Ollama"
+          desc="Ollama NO usa la del modelo: aplica 2048 tokens por defecto y descarta lo que no cabe SIN dar ningún error, empezando por el principio. El síntoma es que el modelo olvida lo que le acabas de decir. Subirlo gasta más memoria."
+        >
+          <select
+            value={settings.ollamaContextTokens}
+            onChange={(e) => void patch({ ollamaContextTokens: Number(e.target.value) })}
+          >
+            <option value={2048}>2048 · el defecto de Ollama</option>
+            <option value={4096}>4096</option>
+            <option value={8192}>8192 · recomendado</option>
+            <option value={16384}>16384 · con CV largo o capturas</option>
+            <option value={32768}>32768 · pide bastante memoria</option>
+          </select>
+        </Row>
+      )}
+
       {provider === 'ollama' && <OllamaStatusPanel />}
     </section>
   );
@@ -1503,6 +1747,7 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
           <option value="lecture">Clase o charla</option>
           <option value="support">Soporte técnico</option>
           <option value="coding">Código (resolver ejercicios)</option>
+          <option value="quiz">Test (opción múltiple)</option>
           <option value="custom">Personalizado</option>
         </select>
       </Row>
@@ -1546,6 +1791,7 @@ const PROFILE_LABEL: Record<Settings['promptProfileId'], string> = {
   lecture: 'Clase o charla',
   support: 'Soporte técnico',
   coding: 'Código',
+  quiz: 'Test',
   custom: 'Personalizado',
 };
 

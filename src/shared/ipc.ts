@@ -35,8 +35,12 @@ export const IPC = {
   askNow: 'ask:now',
   askAbort: 'ask:abort',
   askWithText: 'ask:with-text',
-  /** Captura la pantalla y resuelve el problema de código que haya en ella. */
+  /** Captura la pantalla y resuelve lo que haya en ella: código o test. */
   askSolveScreen: 'ask:solve-screen',
+  /** Vacía la memoria de la conversación sin tocar nada más. */
+  askForgetContext: 'ask:forget-context',
+  /** Cuántos intercambios lleva el modelo en la cabeza. */
+  memoryGet: 'memory:get',
 
   screenshotTake: 'screenshot:take',
 
@@ -75,6 +79,9 @@ export const IPC = {
   logsLocation: 'logs:location',
 
   ollamaGetStatus: 'ollama:get-status',
+
+  /** RAM, CPU y GPU de la máquina, para recomendar un modelo local. */
+  systemGetSpecs: 'system:get-specs',
 
   // ── send (renderer → main, sin respuesta) ──
   audioChunk: 'audio:chunk',
@@ -123,6 +130,14 @@ export const IPC = {
    * nada, que es indistinguible de que la app esté rota.
    */
   onHotkeyFailures: 'event:hotkey-failures',
+  /**
+   * Cambió la memoria de la conversación.
+   *
+   * Se difunde porque es lo único del coste de cada consulta que el usuario
+   * puede controlar: cada turno recordado se reenvía entero en la siguiente
+   * pregunta, y con Ollama eso choca contra `num_ctx` sin dar ningún error.
+   */
+  onMemory: 'event:memory',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

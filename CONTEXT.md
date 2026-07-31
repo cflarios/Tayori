@@ -591,6 +591,105 @@ de estilo a mitad de respuesta. De ahí el flag `open`, que abre la caja en cuan
 llega la valla de apertura y esconde el botón "Copiar" hasta que el bloque cierra
 — copiar una función sin cerrar es peor que no poder copiarla.
 
+### Un modelo para hablar y otro para mirar
+
+Había un solo modelo para todo, y las dos tareas piden cosas **opuestas**:
+
+| | Necesita | Porque |
+|---|---|---|
+| Conversar | Latencia | La respuesta se lee mientras alguien te mira a la cara |
+| Pantalla | Vista y cabeza | Hay que leer un enunciado en una captura y no equivocarse |
+
+Un modelo local pequeño cumple lo primero y falla lo segundo; uno grande de pago
+al revés, es caro para cada frase suelta de una reunión. `screenProviderId` +
+`screenModel` los separan, y el default `same` reproduce **exactamente** el
+comportamiento anterior — nadie que no toque nada nota el cambio.
+
+Dos detalles del diseño:
+
+- **`screenModel` es un campo suelto, no otro `Record` por proveedor.** Al
+  elegir "Ollama para la pantalla" lo que se quiere es un modelo **concreto** —el
+  multimodal que tengas descargado— distinto del de conversar aunque el
+  proveedor sea el mismo. Ése es justo el caso interesante: `llama3.2:3b` para
+  hablar y `qwen2.5vl:7b` para mirar, los dos locales.
+- **La etiqueta del overlay sigue a la respuesta, no a los ajustes.** Con dos
+  modelos en juego, "con qué se generó esto" deja de ser deducible de la
+  configuración: se lee de `answer.model`, que es el que de verdad la escribió.
+
+El fallo a vigilar es el de siempre en este proyecto: **un modelo sin visión
+descarta las imágenes en silencio**. Para una pregunta hablada eso degrada y ya
+está; en las acciones de pantalla la captura **es** el enunciado, así que el
+modelo se inventaría el ejercicio entero y la respuesta parecería perfecta. Por
+eso ahí se falla con mensaje, y por eso el selector marca cuáles ven imágenes.
+
+### El modo test y la regla de la duda
+
+Un test no se responde como un algoritmo, de ahí un perfil aparte y no un
+parámetro del de código. Lo que gobierna `QUIZ_RULES` es que **la primera línea
+es la respuesta y nada más**: la letra y el texto de la opción, sin preámbulo.
+Lo demás —el porqué, los distractores— va detrás y muchas veces ni se mira.
+
+La regla que más importa es la de la incertidumbre. Un modelo que contesta "C"
+con la misma seguridad cuando lo sabe y cuando lo adivina es **peor que uno que
+no contesta**: en un test con penalización por fallo, quien lee tiene que poder
+decidir si arriesga. De ahí el prefijo `DUDA:`, que además da igualmente la
+mejor opción — negarse a responder tampoco ayuda a nadie.
+
+El prompt avisa explícitamente de las negaciones y los superlativos del
+enunciado ("cuál NO", "siempre", "la mejor"). Es donde se pierden estas
+preguntas incluso sabiendo la materia, y un modelo con prisa cae igual que una
+persona con prisa.
+
+### Ollama recorta el contexto sin decirlo, y la memoria ahora se ve
+
+**Ollama no usa la ventana de contexto del modelo.** Aplica la suya, `num_ctx`,
+por defecto **2048 tokens**, y lo que no cabe lo descarta por el principio **sin
+ningún error**. Con el system prompt con CV, la transcripción y ocho turnos de
+memoria, esos 2048 se agotan enseguida.
+
+El síntoma es exactamente el que ya se documentó una vez —el asistente "olvida"
+lo que le acabas de decir— pero la causa es **otra**: aquella vez era que el
+historial no se enviaba; ésta es que sí se envía y Ollama lo tira. Que dos
+causas distintas produzcan el mismo síntoma es la razón de que esto esté
+escrito aquí. Ahora se envía `num_ctx` explícitamente, configurable, con 8192
+por defecto.
+
+De ahí sale también el chip `memoria n/8` del overlay. Cada turno recordado se
+reenvía **entero** en la siguiente consulta, y eso no se veía en ninguna parte;
+es lo único del coste de una consulta sobre lo que el usuario puede decidir.
+Vaciarla es distinto de "nueva conversación": aquélla aborta la respuesta en
+vuelo, limpia la transcripción y cierra la conversación en disco. Esto sólo tira
+lo que se reenvía al modelo.
+
+Un detalle de implementación que costó una lectura: el "olvidado" del chip se
+marca **antes** de llamar al IPC, no en el `.then`. Vaciar la memoria deja el
+contador a cero, y con cero el chip no se pinta — para cuando llegaba la
+respuesta el componente ya estaba desmontado y el aviso no se veía nunca.
+
+### Recomendar un modelo local sin inventarse los datos
+
+"¿Qué modelo de Ollama me irá bien?" no tiene respuesta genérica: el mismo
+modelo es instantáneo con GPU y tarda un minuto sin ella, y equivocarse cuesta
+una descarga de varios gigas. La guía mide RAM, CPU y GPU y recomienda dos
+modelos, uno para conversar y otro para la pantalla.
+
+**Lo que no hace es estimar la VRAM**, y es deliberado. Es el número que de
+verdad decide si un modelo cabe en la tarjeta, y no hay forma fiable de leerlo
+desde Electron sin invocar utilidades del sistema. Una recomendación apoyada en
+una cifra inventada es peor que una recomendación con un hueco reconocido, así
+que el hueco se reconoce en pantalla.
+
+El nombre de la GPU sí se saca, y por una vía poco evidente: `app.getGPUInfo`
+devuelve identificadores numéricos, pero `auxAttributes.glRenderer` trae la
+cadena de ANGLE —`"ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 …)"`— de la
+que se puede extraer el nombre comercial sin depender de nada externo.
+
+Los tramos salen de una regla sencilla: un modelo cuantizado a 4 bits ocupa
+~0,6 GB por cada mil millones de parámetros, más el sistema y la ventana de
+contexto. De ahí que un 7B pida ~8 GB libres y un 14B ronde los 16 GB. Los
+nombres de modelo envejecen, así que el dashboard enseña el comando y apunta a
+la biblioteca de Ollama en lugar de prometer que existirán siempre.
+
 ### Hechos de la API de Claude, verificados contra la referencia
 
 Tres salieron **distintos** de lo que se habría escrito de memoria. Si algún día

@@ -59,6 +59,40 @@ Reglas duras:
   da la causa en una línea y el código corregido.
 `.trim();
 
+/**
+ * Reglas del modo test.
+ *
+ * Ni las de hablar ni las de código. Aquí lo que se lee de reojo es **una
+ * línea**: cuál es la opción correcta. Todo lo demás —por qué, y por qué no las
+ * otras— es material de repaso que va detrás y que muchas veces ni se mira.
+ *
+ * La regla de la incertidumbre es la que más importa. Un modelo que responde
+ * "C" con la misma seguridad cuando lo sabe y cuando lo adivina es peor que uno
+ * que no responde: en un test con penalización por fallo, quien lee esto tiene
+ * que poder decidir si arriesga.
+ */
+const QUIZ_RULES = `
+Formato de la respuesta (obligatorio, en este orden):
+1. La respuesta, sola, en la primera línea: la letra o el número de la opción y
+   su texto literal. Ejemplo: "B) El índice se recalcula en cada inserción".
+   Si son varias correctas, todas. Si es de rellenar, el valor exacto.
+2. Una línea con el porqué, en no más de 25 palabras.
+3. Como mucho dos viñetas descartando las opciones que más se parecen a la
+   correcta, sólo si alguna es realmente tentadora.
+
+Reglas duras:
+- La primera línea NO lleva preámbulo, ni "la respuesta es", ni explicación.
+- Si no estás seguro, la primera línea empieza por "DUDA:" y da tu mejor
+  opción igualmente. En un test con penalización por error, quien lee esto
+  necesita saber si arriesga; una respuesta insegura disfrazada de segura es
+  peor que ninguna.
+- Si la captura no deja ver todas las opciones o el enunciado está cortado,
+  dilo en la primera línea en lugar de responder a medias.
+- Si la pregunta es abierta y no de opción múltiple, responde en tres viñetas.
+- No inventes datos concretos —cifras, fechas, nombres— para justificar una
+  opción. Si el porqué depende de un dato que no tienes, dilo.
+`.trim();
+
 const PROFILES: Record<Exclude<PromptProfileId, 'custom'>, string> = {
   interview: `
 Estás ayudando a la persona que está siendo entrevistada, en tiempo real y en
@@ -118,6 +152,22 @@ Prioridades, en este orden: que compile, que pase los casos del enunciado, y que
 tenga la complejidad que las restricciones exigen. Si el tamaño de la entrada
 descarta la solución obvia, dilo y da directamente la buena.
 `.trim(),
+
+  quiz: `
+Respondes preguntas de examen o cuestionario a partir de lo que hay en la
+pantalla de la persona a la que ayudas: un test de opción múltiple, un
+formulario de certificación, una pregunta de verdadero o falso, un hueco por
+rellenar.
+
+La captura adjunta es la fuente. Léela entera antes de responder: el enunciado
+completo, TODAS las opciones —incluidas las que queden a media altura— y las
+instrucciones de la pregunta, que a veces dicen "marca todas las que apliquen" o
+"elige la MENOS correcta", y eso cambia la respuesta entera.
+
+Fíjate en las negaciones y en los superlativos del enunciado: "cuál NO",
+"siempre", "nunca", "la mejor". Son donde se pierden estas preguntas, y donde
+un lector con prisa se equivoca aunque sepa la materia.
+`.trim(),
 };
 
 /**
@@ -132,6 +182,7 @@ const RULES: Record<PromptProfileId, string> = {
   lecture: BASE_RULES,
   support: BASE_RULES,
   coding: CODE_RULES,
+  quiz: QUIZ_RULES,
   custom: BASE_RULES,
 };
 

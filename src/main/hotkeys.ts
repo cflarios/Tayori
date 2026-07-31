@@ -9,6 +9,7 @@ export interface HotkeyActions {
   askNow: () => void;
   screenshotAndAsk: () => void;
   solveOnScreen: () => void;
+  solveQuiz: () => void;
   toggleListening: () => void;
 }
 
@@ -40,6 +41,7 @@ export function registerHotkeys(actions: HotkeyActions): string[] {
   bind(keys.askNow, actions.askNow);
   bind(keys.screenshotAndAsk, actions.screenshotAndAsk);
   bind(keys.solveOnScreen, actions.solveOnScreen);
+  bind(keys.solveQuiz, actions.solveQuiz);
   bind(keys.toggleListening, actions.toggleListening);
   bind(keys.toggleOverlay, toggleOverlayVisibility);
   // Sin atajo para el dashboard: se abre solo con el engranaje del overlay.

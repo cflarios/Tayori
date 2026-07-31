@@ -33,6 +33,9 @@ borrar una conversación o borrarlas todas.
 - **Resuelve el código que tengas delante**: `Ctrl+Alt+C` lee la pantalla —un
   ejercicio de LeetCode, un test que falla, un stack trace— y devuelve la
   solución completa en un bloque que se copia de un clic.
+- **Responde cuestionarios**: `Ctrl+Alt+Q` lee la pregunta de test que haya en
+  pantalla y da la opción correcta en la primera línea. Si no lo tiene claro lo
+  dice, porque en un examen con penalización hay que saber si arriesgas.
 - **Se oculta de la captura de pantalla**, con un switch para volverlo visible.
 
 ## Requisitos
@@ -119,6 +122,7 @@ Todos son globales: funcionan aunque la ventana de la videollamada tenga el foco
 | `Ctrl+Enter` | Responder ahora |
 | `Ctrl+Shift+S` | Capturar pantalla y responder |
 | `Ctrl+Alt+C` | Resolver el código que hay en pantalla |
+| `Ctrl+Alt+Q` | Responder el test que hay en pantalla |
 | `Ctrl+Shift+H` | Mostrar u ocultar el overlay |
 | `Ctrl+Shift+M` | Empezar o parar de escuchar |
 | `Ctrl+Shift+C` | Alternar clics atravesables |
@@ -131,6 +135,31 @@ del overlay.
 campo y teclea la combinación. Si Windows rechaza alguno porque otra aplicación
 lo tiene tomado, aparece marcado en rojo — importa, porque un atajo tomado no da
 ningún error: simplemente no hace nada.
+
+## Las dos acciones de pantalla
+
+`Ctrl+Alt+C` resuelve **código** y `Ctrl+Alt+Q` responde **tests**. Comparten
+todo el camino —captura de alta calidad, perfil propio, modelo con visión— y se
+separan sólo en cómo responden, porque un algoritmo y una pregunta de opción
+múltiple no se contestan igual. Los dos tienen su botón en la barra del overlay.
+
+En el modo test, la primera línea es la respuesta y nada más: la letra y el
+texto de la opción. Si el modelo no está seguro, esa línea empieza por `DUDA:` y
+da igualmente su mejor opción — en un examen con penalización por fallo, una
+respuesta insegura disfrazada de segura es peor que ninguna.
+
+### Con qué modelo
+
+Puedes usar **uno distinto** del que responde a lo que se habla:
+*dashboard → Modelo para la pantalla*. Las dos tareas piden cosas opuestas —
+conversar necesita latencia, leer una captura necesita vista y cabeza — así que
+una combinación razonable es un modelo local pequeño para hablar y uno grande
+para la pantalla, o al revés si te preocupa que las capturas salgan de tu
+máquina. Por defecto se usa el mismo para todo, como antes.
+
+**Tiene que admitir imágenes.** Si eliges uno sin visión, los dos botones fallan
+con un aviso en lugar de inventarse el enunciado. El dashboard marca cuáles ven
+imágenes y avisa antes de que lo descubras a mitad de examen.
 
 ## Modo código
 
@@ -223,6 +252,33 @@ a propósito.** El nombre se cambia en `electron-builder.yml` (`productName` /
 modelo, que devuelve transcripción y respuesta a la vez. Una transcripción mala
 deja de poder estropear la respuesta, porque el modelo oye lo que dijiste en
 lugar de leer lo que otro entendió. A cambio, el audio sale de tu máquina.
+
+### Modelos locales: cuál le pega a tu equipo
+
+El dashboard mide tu RAM, tu CPU y tu GPU y recomienda dos modelos: uno para
+conversar y otro para leer la pantalla, con el comando `ollama pull` listo para
+copiar. Elegir a ciegas cuesta una descarga de varios gigas para acabar con
+respuestas de un minuto.
+
+Lo que **no** hace es estimar la VRAM de la tarjeta gráfica, que es el dato que
+de verdad decide si un modelo va rápido: no hay forma fiable de leerla desde la
+app, y dar una cifra inventada sería peor que no darla. Si el modelo no cabe en
+la GPU, Ollama lo reparte con la CPU y la velocidad se desploma aunque quepa en
+memoria.
+
+### Ollama recorta el contexto sin avisar
+
+Ollama **no usa la ventana de contexto del modelo**: aplica la suya, 2048
+tokens por defecto, y lo que no cabe lo descarta por el principio **sin ningún
+error**. Con el CV, la transcripción y la memoria de la conversación, esos 2048
+se agotan enseguida, y el síntoma es que el modelo olvida lo que le acabas de
+decir. Se ajusta en *dashboard → Transcripción → Ventana de contexto de Ollama*;
+por defecto la app pide 8192.
+
+Relacionado: el overlay muestra un chip **`memoria n/8`** junto a «Sugerencia»
+con los intercambios que el asistente reenvía en cada consulta. Se pulsa para
+que los olvide, y **no** es lo mismo que «nueva conversación»: la transcripción
+y el historial se quedan como están.
 
 Whisper local descarga el binario oficial de whisper.cpp (7,6 MB) y un modelo
 GGML (74–465 MB según el que elijas) la primera vez que lo activas. No usa un

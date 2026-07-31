@@ -12,6 +12,7 @@ import {
   type Conversation,
   type ImageAttachment,
   type PromptProfileId,
+  type ScreenTask,
   type Speaker,
   type TranscriptSegment,
 } from '@shared/types';
@@ -40,10 +41,21 @@ import { getAudioWorker } from '../windows/audio-worker';
  * navegador y editor incluidos, y sin esta línea el modelo a veces comenta la
  * interfaz en lugar de resolver el ejercicio.
  */
-const SOLVE_INSTRUCTION =
-  'Resuelve el problema de programación que se ve en la captura de mi pantalla. ' +
-  'Si hay varias cosas visibles, quédate con el ejercicio, el error o el test que ' +
-  'está en primer plano.';
+const SOLVE_INSTRUCTION: Record<ScreenTask, string> = {
+  code:
+    'Resuelve el problema de programación que se ve en la captura de mi pantalla. ' +
+    'Si hay varias cosas visibles, quédate con el ejercicio, el error o el test que ' +
+    'está en primer plano.',
+  quiz:
+    'Responde la pregunta de test que se ve en la captura de mi pantalla. ' +
+    'Lee el enunciado y TODAS las opciones antes de decidir, incluidas las que ' +
+    'queden a media altura, y respeta lo que pida la pregunta (una sola opción, ' +
+    'varias, la falsa…). Si hay varias preguntas visibles, responde la que está ' +
+    'en primer plano o la primera sin contestar.',
+};
+
+/** Qué se registra en el log por cada acción de pantalla. */
+const TASK_LABEL: Record<ScreenTask, string> = { code: 'código', quiz: 'test' };
 
 /**
  * Une captura de audio, transcripción y (desde la fase 4) generación de
@@ -137,6 +149,9 @@ class SessionOrchestrator {
       this.broadcast(IPC.onAnswer, answer);
       this.recordAnswer(answer);
       this.logAnswerStage(answer);
+      // La memoria sólo cambia al cerrarse un turno con texto, así que se
+      // difunde ahí y no en cada tick del streaming.
+      if (answer.status === 'done') this.broadcast(IPC.onMemory, this.answers.memory);
     });
   }
 
@@ -232,6 +247,7 @@ class SessionOrchestrator {
     this.recordedAnswers.clear();
     this.transcript.clear();
     this.broadcast(IPC.onConversationReset, null);
+    this.broadcast(IPC.onMemory, this.answers.memory);
   }
 
   /** Vuelca ya lo pendiente. Se llama al cerrar y al cambiar de conversación. */
@@ -345,7 +361,8 @@ class SessionOrchestrator {
   }
 
   /**
-   * Captura la pantalla y resuelve el problema de programación que haya en ella.
+   * Captura la pantalla y resuelve lo que haya en ella: un ejercicio de
+   * programación o una pregunta de test.
    *
    * No pasa por `ask('hotkey')` a propósito, por dos razones:
    *
@@ -353,17 +370,23 @@ class SessionOrchestrator {
    *    coger la última intervención como pregunta metería una frase suelta de la
    *    llamada ("vale, dime cuando lo tengas") compitiendo con el enunciado.
    *  - **Funciona con la escucha parada.** Es el caso normal: alguien con un
-   *    LeetCode delante y sin ninguna llamada abierta. La transcripción se envía
-   *    igual si existe, porque a veces la aclaración importante se dijo en voz
-   *    alta, pero no hace falta que exista.
+   *    LeetCode o un formulario delante y sin ninguna llamada abierta. La
+   *    transcripción se envía igual si existe, porque a veces la aclaración
+   *    importante se dijo en voz alta, pero no hace falta que exista.
+   *
+   * Las dos tareas comparten todo el camino y se separan sólo en el prompt: lo
+   * que cambia entre resolver un algoritmo y marcar la opción correcta es cómo
+   * se responde, no cómo se llega hasta ahí.
    */
-  async solveOnScreen(): Promise<void> {
+  async solveOnScreen(task: ScreenTask = 'code'): Promise<void> {
     const image = await captureScreen({ forCode: true });
 
     if (!image) {
       // Sin captura no hay enunciado: aquí no vale el "responde igual" del
       // hotkey normal, porque el modelo no tendría absolutamente nada que leer.
-      console.error('[code] no se pudo capturar la pantalla; no hay nada que resolver.');
+      console.error(
+        `[${task}] no se pudo capturar la pantalla; no hay ningún ${TASK_LABEL[task]} que resolver.`
+      );
       this.broadcast(
         IPC.onNotice,
         'No se pudo capturar la pantalla, así que no hay nada que resolver.'
@@ -374,7 +397,22 @@ class SessionOrchestrator {
     this.answers.attachImage(image);
     this.broadcast(IPC.onScreenshot, image);
 
-    await this.answers.ask('code', SOLVE_INSTRUCTION);
+    await this.answers.ask(task, SOLVE_INSTRUCTION[task]);
+  }
+
+  /**
+   * Olvida la memoria del asistente sin tocar la conversación.
+   *
+   * Va aparte de `newConversation` porque son cosas distintas: aquélla corta con
+   * todo —transcripción, historial en disco, respuesta en vuelo—, y esto sólo
+   * vacía lo que se reenvía al modelo en cada consulta. Es lo que hace falta
+   * cuando la ventana de contexto se llena a mitad de una sesión que se quiere
+   * conservar.
+   */
+  forgetContext(): { turns: number; max: number } {
+    this.answers.forgetContext();
+    this.broadcast(IPC.onMemory, this.answers.memory);
+    return this.answers.memory;
   }
 
   abortAnswer(): void {

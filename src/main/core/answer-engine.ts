@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import type {
-  Answer,
-  AnswerTrigger,
-  ImageAttachment,
-  LLMProviderId,
-  Settings,
+import {
+  isScreenTrigger,
+  screenModelFor,
+  type Answer,
+  type AnswerTrigger,
+  type ImageAttachment,
+  type LLMProviderId,
+  type PromptProfileId,
+  type Settings,
 } from '@shared/types';
 import { settingsStore } from '../config/store';
 import { createLLMProvider, LLMError } from '../llm';
@@ -36,6 +39,28 @@ const MAX_ANSWER_TOKENS = 700;
  * (Java, C++) sin llegar a permitir un ensayo.
  */
 const MAX_CODE_TOKENS = 2_200;
+
+/**
+ * Qué perfil impone cada disparo, si impone alguno.
+ *
+ * Los botones de pantalla resuelven en su modo **sin cambiar los ajustes**: se
+ * usa el de código en mitad de una entrevista y la siguiente pregunta hablada
+ * sigue saliendo en viñetas.
+ */
+const PROFILE_BY_TRIGGER: Partial<Record<AnswerTrigger, PromptProfileId>> = {
+  code: 'coding',
+  quiz: 'quiz',
+};
+
+/**
+ * Tope de salida por perfil. El que no aparece usa `MAX_ANSWER_TOKENS`.
+ *
+ * Sólo el de código lo sube: una respuesta de test cabe de sobra en el tope
+ * normal —es una línea y dos viñetas— y subírselo sólo invita a divagar.
+ */
+const TOKENS_BY_PROFILE: Partial<Record<PromptProfileId, number>> = {
+  coding: MAX_CODE_TOKENS,
+};
 
 /** Cada cuántos ms se difunde el texto acumulado durante el streaming. */
 const FLUSH_INTERVAL_MS = 60;
@@ -134,6 +159,34 @@ export class AnswerEngine extends EventEmitter {
     this.history = [];
   }
 
+  /**
+   * Cuántos intercambios lleva el modelo en la cabeza, y cuántos caben.
+   *
+   * Se enseña porque es lo único del coste de una consulta que el usuario puede
+   * controlar, y no había forma de saberlo: cada turno guardado se reenvía
+   * entero en la siguiente pregunta. Con Ollama eso además choca contra
+   * `num_ctx`, y lo que no cabe se descarta **sin ningún error** — el síntoma es
+   * que el modelo "olvida" algo que le acabas de decir.
+   */
+  get memory(): { turns: number; max: number } {
+    return { turns: this.history.length, max: AnswerEngine.MAX_HISTORY };
+  }
+
+  /**
+   * Olvida la memoria de la conversación SIN tocar nada más.
+   *
+   * Es más fino que "nueva conversación", y por eso existe: aquélla aborta la
+   * respuesta en vuelo, vacía la transcripción, cierra la conversación en disco
+   * y empieza otra. Aquí se tira sólo lo que se reenvía al modelo en cada
+   * consulta, que es lo que hincha el prompt y lo que hace que un modelo local
+   * con la ventana pequeña empiece a perder el principio.
+   */
+  forgetContext(): void {
+    const had = this.history.length;
+    this.history = [];
+    console.log(`[answer] contexto olvidado a petición: ${had} intercambios fuera.`);
+  }
+
   /** Cancela la generación en curso, si hay alguna. */
   abort(): void {
     this.controller?.abort();
@@ -161,11 +214,22 @@ export class AnswerEngine extends EventEmitter {
 
     const settings = settingsStore.get();
 
-    // Dos caminos llegan al modo código: el hotkey de pantalla (que no cambia
-    // los ajustes) y el perfil "Código" puesto a mano. El segundo también tiene
-    // que subir el tope de tokens, o la solución sale cortada a media función
-    // por un límite pensado para leer en voz alta.
-    const isCode = trigger === 'code' || settings.promptProfileId === 'coding';
+    /*
+     * Dos caminos llevan a un perfil especial: el botón de pantalla, que lo
+     * impone sólo para esta consulta, y el chip del overlay, que lo deja puesto.
+     * Los dos tienen que llegar al mismo sitio — cuando sólo se miraba el
+     * disparo, elegir "Código" a mano dejaba el tope en 700 tokens y la solución
+     * salía cortada a media función.
+     */
+    const forced = PROFILE_BY_TRIGGER[trigger];
+    const profile = forced ?? settings.promptProfileId;
+    const onScreen = isScreenTrigger(trigger);
+
+    // Las acciones de pantalla pueden tener su propio modelo: lo hablado pide
+    // latencia y lo de la pantalla pide vista. Ver `screenModelFor`.
+    const target = onScreen
+      ? screenModelFor(settings)
+      : { providerId: settings.llmProviderId, model: settings.llmModels[settings.llmProviderId] };
     const controller = new AbortController();
     this.controller = controller;
 
@@ -178,8 +242,8 @@ export class AnswerEngine extends EventEmitter {
       trigger,
       question: question ?? '',
       text: '',
-      providerId: settings.llmProviderId,
-      model: settings.llmModels[settings.llmProviderId],
+      providerId: target.providerId,
+      model: target.model,
       createdAt: Date.now(),
     };
     this.emitCurrent();
@@ -196,12 +260,12 @@ export class AnswerEngine extends EventEmitter {
       if (!gotFirstToken && !controller.signal.aborted) {
         console.error(
           `[answer] ${this.current?.id.slice(0, 8)} sin respuesta de ` +
-            `${settings.llmProviderId} tras ${FIRST_TOKEN_TIMEOUT_MS / 1000}s: se cancela.`
+            `${target.providerId} tras ${FIRST_TOKEN_TIMEOUT_MS / 1000}s: se cancela.`
         );
         controller.abort();
         this.update({
           status: 'error',
-          error: `${settings.llmProviderId} no respondió en ${FIRST_TOKEN_TIMEOUT_MS / 1000}s. Si es Ollama, comprueba que el servidor sigue vivo (ollama ps).`,
+          error: `${target.providerId} no respondió en ${FIRST_TOKEN_TIMEOUT_MS / 1000}s. Si es Ollama, comprueba que el servidor sigue vivo (ollama ps).`,
         });
       }
     }, FIRST_TOKEN_TIMEOUT_MS);
@@ -219,26 +283,26 @@ export class AnswerEngine extends EventEmitter {
     }, GENERATION_TIMEOUT_MS);
 
     try {
-      const provider = createLLMProvider(settings);
+      const provider = createLLMProvider(settings, onScreen);
 
       /*
        * Con un modelo sin visión, una captura se descarta en silencio. Para una
        * pregunta hablada eso degrada y ya está —la pregunta sigue en el audio—,
-       * pero en modo código la captura ES el enunciado: sin ella el modelo se
-       * inventaría un ejercicio entero y la respuesta parecería perfecta. Es
-       * mejor gastar la pulsación en decir qué falta.
+       * pero en las acciones de pantalla la captura ES el enunciado: sin ella el
+       * modelo se inventaría el ejercicio entero y la respuesta parecería
+       * perfecta. Es mejor gastar la pulsación en decir qué falta.
        */
-      if (isCode && images.length && !provider.supportsVision) {
+      if (onScreen && images.length && !provider.supportsVision) {
         this.update({
           status: 'error',
-          error: `El modelo "${provider.model}" no admite imágenes, así que no puede leer tu pantalla. Elige uno con visión (Claude, Gemini, o un modelo de Ollama tipo llava) en el dashboard.`,
+          error: `El modelo "${provider.model}" no admite imágenes, así que no puede leer tu pantalla. Elige uno con visión en el dashboard → Modelo para la pantalla (Claude, Gemini, o un multimodal de Ollama como qwen2.5vl o llava).`,
         });
         return;
       }
 
       const stream = provider.streamAnswer(
         {
-          systemPrompt: buildSystemPrompt(settings, isCode ? 'coding' : undefined),
+          systemPrompt: buildSystemPrompt(settings, forced),
           transcript: this.transcript.format(
             this.transcript.recent(settings.manualContextSeconds)
           ),
@@ -249,7 +313,7 @@ export class AnswerEngine extends EventEmitter {
           // Un modelo sin visión ignoraría las imágenes silenciosamente; mejor
           // no enviarlas y ahorrar el ancho de banda.
           ...(provider.supportsVision && images.length ? { images } : {}),
-          maxTokens: isCode ? MAX_CODE_TOKENS : MAX_ANSWER_TOKENS,
+          maxTokens: TOKENS_BY_PROFILE[profile] ?? MAX_ANSWER_TOKENS,
         },
         controller.signal
       );

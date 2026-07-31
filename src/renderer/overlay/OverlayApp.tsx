@@ -9,6 +9,7 @@ import type {
   CaptureStatus,
   ImageAttachment,
   OverlaySize,
+  ScreenTask,
   Settings,
   TranscriptSegment,
 } from '@shared/types';
@@ -58,6 +59,23 @@ function CodeIcon() {
         fill="none"
         d="M6 11 3 8l3-3m4 0 3 3-3 3"
       />
+    </svg>
+  );
+}
+
+/** Interrogación en un círculo: responder el test de la pantalla. */
+function QuizIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.2" stroke="currentColor" strokeWidth="1.3" fill="none" />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        fill="none"
+        d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.3"
+      />
+      <circle cx="8" cy="11.4" r="0.85" fill="currentColor" />
     </svg>
   );
 }
@@ -308,7 +326,7 @@ function StatusBar({
   settings: Settings | null;
   onDragStart: (event: React.MouseEvent) => void;
   onNewConversation: () => void;
-  onSolveScreen: () => void;
+  onSolveScreen: (task: ScreenTask) => void;
   onSourceBlocked: () => void;
   onToggleCompact: () => void;
 }) {
@@ -368,9 +386,21 @@ function StatusBar({
           className="iconbtn"
           title="Resolver el problema de código que hay en pantalla (Ctrl+Alt+C)"
           aria-label="Resolver el código de la pantalla"
-          onClick={onSolveScreen}
+          onClick={() => onSolveScreen('code')}
         >
           <CodeIcon />
+        </button>
+        {/* Hermano del anterior: mismo camino, prompt distinto. Un test no se
+            responde como un algoritmo, y mezclarlos en un solo botón obligaría
+            al modelo a adivinar cuál de las dos cosas está mirando. */}
+        <button
+          type="button"
+          className="iconbtn"
+          title="Responder la pregunta de test que hay en pantalla (Ctrl+Alt+Q)"
+          aria-label="Responder el test de la pantalla"
+          onClick={() => onSolveScreen('quiz')}
+        >
+          <QuizIcon />
         </button>
         <button
           type="button"
@@ -477,6 +507,10 @@ const PROFILE_CHIPS = [
   ['lecture', 'Clase'],
   ['support', 'Soporte'],
   ['coding', 'Código'],
+  // También como chip, no sólo como botón de pantalla: sirve para un examen
+  // oral o una certificación que alguien lee en voz alta, y sus reglas ya
+  // contemplan la pregunta abierta.
+  ['quiz', 'Test'],
 ] as const;
 
 function ProfileChips({
@@ -892,6 +926,57 @@ function AnswerNav({
   );
 }
 
+/**
+ * La memoria del asistente, con su botón para vaciarla.
+ *
+ * Cada turno recordado se reenvía **entero** en la siguiente consulta, y eso no
+ * se veía en ninguna parte. Importa sobre todo con un modelo local: Ollama
+ * aplica su propia ventana de contexto y descarta lo que no cabe **sin dar
+ * ningún error**, así que el síntoma de haberla llenado es que el modelo empieza
+ * a olvidar cosas recientes, que es justo lo que no hace sospechar del contexto.
+ *
+ * Es distinto de "nueva conversación", que además vacía la transcripción y
+ * cierra la conversación en disco. Aquí se conserva todo eso.
+ */
+function MemoryChip({ turns, max }: { turns: number; max: number }) {
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!done) return;
+    const timer = setTimeout(() => setDone(false), 1_400);
+    return () => clearTimeout(timer);
+  }, [done]);
+
+  // Sin memoria no hay nada que enseñar ni que olvidar: el chip sólo aparece
+  // cuando el asistente ya recuerda algo. La excepción es el instante posterior
+  // a vaciarla — si no, al pulsar el chip se desvanece sin decir nada y el
+  // "olvidado" no llega a verse nunca.
+  if (turns === 0 && !done) return null;
+
+  return (
+    <button
+      type="button"
+      className={`memory${turns >= max ? ' memory--full' : ''}`}
+      data-interactive
+      title={
+        `El asistente recuerda ${turns} de ${max} intercambios y los reenvía en cada consulta. ` +
+        'Pulsa para que los olvide; la transcripción y el historial se quedan como están.'
+      }
+      onClick={() => {
+        // Se marca ANTES de llamar, y no en el `.then`. Vaciar la memoria deja
+        // el contador a cero, y con cero el chip no se pinta: para cuando
+        // llegara la respuesta, este componente ya estaría desmontado y el
+        // aviso no se vería nunca. Ambos cambios de estado caen en el mismo
+        // render, así que el chip sobrevive para decir que lo hizo.
+        setDone(true);
+        void window.api.ask.forgetContext().catch(() => setDone(false));
+      }}
+    >
+      {done ? 'olvidado' : `memoria ${turns}/${max}`}
+    </button>
+  );
+}
+
 /** Cuántas respuestas se guardan para poder volver atrás. */
 const ANSWER_MEMORY = 20;
 
@@ -917,6 +1002,7 @@ export function OverlayApp() {
   const [tab, setTab] = useState<InputTab>('listen');
   const [sttError, setSttError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [memory, setMemory] = useState({ turns: 0, max: 8 });
   const [skip, setSkip] = useState<{ text: string; reason: string } | null>(null);
 
   useChromeMouse();
@@ -943,6 +1029,7 @@ export function OverlayApp() {
 
     void api.settings.get().then(setSettings);
     void api.capture.getStatus().then(setStatus);
+    void api.memory.get().then(setMemory);
     // Ollama no necesita clave, pero SÍ un modelo elegido: sin él cada consulta
     // falla con "no hay ningún modelo seleccionado", y antes ese caso pasaba por
     // configurado y no mostraba ningún aviso. Claude y Gemini exigen su clave.
@@ -1005,6 +1092,7 @@ export function OverlayApp() {
       // sala en silencio: el overlay decía "Escuchando" y no llegaba nada.
       api.transcript.onError(setSttError),
       api.notices.on(setNotice),
+      api.memory.onChange(setMemory),
     ];
 
     return () => unsubs.forEach((off) => off());
@@ -1034,7 +1122,7 @@ export function OverlayApp() {
         settings={settings}
         onDragStart={onDragStart}
         onNewConversation={() => void window.api.history.newConversation()}
-        onSolveScreen={() => void window.api.ask.solveOnScreen()}
+        onSolveScreen={(task) => void window.api.ask.solveOnScreen(task)}
         onSourceBlocked={() =>
           setNotice(
             'Tiene que quedar al menos una fuente de audio. Para no escuchar nada, usa el botón «Escuchando».'
@@ -1124,10 +1212,23 @@ export function OverlayApp() {
             es fácil creer que estás en uno y estar en otro.
           */}
           {settings && (
-            <span className="section__meta" title={`Respondiendo con ${settings.llmProviderId}`}>
-              {settings.llmModels[settings.llmProviderId] || settings.llmProviderId}
+            <span
+              className="section__meta"
+              title={
+                // Con modelo propio para la pantalla, saber cuál respondió deja
+                // de ser evidente: la etiqueta sigue a la respuesta que hay
+                // delante, no a los ajustes.
+                answer
+                  ? `Esta respuesta la generó ${answer.providerId} · ${answer.model}`
+                  : `Respondiendo con ${settings.llmProviderId}`
+              }
+            >
+              {answer?.model ||
+                settings.llmModels[settings.llmProviderId] ||
+                settings.llmProviderId}
             </span>
           )}
+          <MemoryChip turns={memory.turns} max={memory.max} />
           {/* Parar una generación ya existía en el IPC pero no tenía botón: sólo
               se cancelaba preguntando otra cosa, que es una forma cara de decir
               "para". */}

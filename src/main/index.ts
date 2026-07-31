@@ -1,7 +1,7 @@
 import { app, BrowserWindow, clipboard, desktopCapturer, ipcMain, session } from 'electron';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { IPC } from '@shared/ipc';
-import type { Settings } from '@shared/types';
+import type { LLMProviderId, ScreenTask, Settings } from '@shared/types';
 import { settingsStore } from './config/store';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
 import {
@@ -36,6 +36,7 @@ import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
 import { testSTTConnection } from './stt';
 import { whisperServer } from './stt/whisper-server';
 import { initLogging, logLocation, readLogTail } from './logging';
+import { getSystemSpecs } from './system-specs';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -202,7 +203,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.askNow, () => sessionOrchestrator.ask('hotkey'));
   ipcMain.handle(IPC.askWithText, (_e, text: string) => sessionOrchestrator.askWithText(text));
   ipcMain.handle(IPC.askAbort, () => sessionOrchestrator.abortAnswer());
-  ipcMain.handle(IPC.askSolveScreen, () => sessionOrchestrator.solveOnScreen());
+  ipcMain.handle(IPC.askSolveScreen, (_e, task: ScreenTask = 'code') =>
+    sessionOrchestrator.solveOnScreen(task)
+  );
+  ipcMain.handle(IPC.askForgetContext, () => sessionOrchestrator.forgetContext());
+  ipcMain.handle(IPC.memoryGet, () => sessionOrchestrator.answers.memory);
 
   // ── Screenshots ──
   ipcMain.handle(IPC.screenshotTake, async () => {
@@ -240,9 +245,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.historyLocation, () => historyLocation());
 
   // ── Modelos ──
-  ipcMain.handle(IPC.llmListModels, () => {
+  // Con `providerId` se puede poblar el selector de un proveedor que NO es el
+  // activo, que es lo que necesita el modelo aparte para la pantalla.
+  ipcMain.handle(IPC.llmListModels, (_e, providerId?: LLMProviderId) => {
     const settings = settingsStore.get();
-    return listModelsFor(settings.llmProviderId, settings);
+    return listModelsFor(providerId ?? settings.llmProviderId, settings);
   });
 
   ipcMain.handle(IPC.llmTestConnection, async () => {
@@ -255,6 +262,9 @@ function registerIpcHandlers(): void {
 
   // ── Ollama ──
   ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));
+
+  // ── Máquina ──
+  ipcMain.handle(IPC.systemGetSpecs, () => getSystemSpecs());
 
   // ── Atajos ──
   ipcMain.handle(IPC.hotkeysGetFailed, () => failedHotkeys);
@@ -310,7 +320,10 @@ const hotkeyActions = {
     });
   },
   solveOnScreen: () => {
-    void sessionOrchestrator.solveOnScreen();
+    void sessionOrchestrator.solveOnScreen('code');
+  },
+  solveQuiz: () => {
+    void sessionOrchestrator.solveOnScreen('quiz');
   },
   toggleListening: () => {
     void audioCapture.toggle();

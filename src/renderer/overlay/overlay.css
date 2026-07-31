@@ -418,6 +418,32 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Memoria del asistente. Dato discreto que además se puede pulsar para vaciar. */
+.memory {
+  font-family: inherit;
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  color: #7c8288;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 1px 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.memory:hover {
+  color: #e8eaed;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Llena: cada consulta reenvía ocho intercambios y el prompt ya no crece más. */
+.memory--full {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
 .section__stop {
   font-family: inherit;
   font-size: 10px;
