@@ -35,6 +35,20 @@ body {
    */
   --font-scale: 1;
 
+  /*
+   * Paleta, en tres niveles y un acento.
+   *
+   * La jerarquía del panel es de contraste, no de tamaño: lo que importa ahora
+   * es blanco, lo que acompaña es gris, y el azul aparece SÓLO en lo que se
+   * puede pulsar o está activo. Esa última regla es la que mantiene el panel
+   * calmado — en cuanto el azul decora, deja de significar "aquí".
+   */
+  --text: #f4f5f7;
+  --text-dim: #9aa0a6;
+  --text-faint: #6b7075;
+  --accent: #4c8dff;
+  --line: rgba(255, 255, 255, 0.08);
+
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -51,8 +65,218 @@ body {
    * La ventana sigue siendo `transparent: true` para que las esquinas
    * redondeadas no dejen un rectángulo negro.
    */
-  background: #0e1015;
+  background: #111317;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Estado central ── */
+
+/*
+ * El vacío, cuando todavía no hay nada que leer.
+ *
+ * Ocupa todo el hueco libre y centra en los dos ejes: el espacio en blanco es
+ * el que hace que un icono de 26 px se lea como el elemento principal de la
+ * pantalla. Si esto fuera una caja de altura fija con el resto del panel debajo,
+ * el mismo icono parecería un adorno en una interfaz a medio hacer.
+ */
+.hero {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  /*
+   * El relleno inferior de más es centrado óptico, no un descuido: centrado a
+   * la perfección dentro de su banda, el grupo caía 25 px por debajo del medio
+   * del panel —medido— y se leía como "hundido". Subirlo un poco es lo que hace
+   * que el hueco de arriba y el de abajo parezcan iguales aunque no lo sean.
+   */
+  padding: 16px 20px 44px;
+  text-align: center;
+  /* Aparece al terminar una conversación, no sólo al arrancar: sin la entrada
+     suave el panel daría un salto al vaciarse. */
+  animation: heroIn 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes heroIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/*
+ * El micrófono ES el botón. Único elemento con relleno de color del overlay, y
+ * por eso el ojo va ahí antes que a ningún otro sitio.
+ */
+.hero__mic {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: rgba(76, 141, 255, 0.14);
+  color: #bcd4ff;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.hero__mic:hover:not(:disabled) {
+  background: rgba(76, 141, 255, 0.22);
+  color: #ffffff;
+  transform: scale(1.04);
+}
+
+/* El clic responde en el sitio: sin esto el botón parece una imagen. */
+.hero__mic:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.hero__mic:disabled {
+  cursor: default;
+}
+
+/* Escuchando: relleno pleno y latido. Es el único estado que se anima. */
+.hero__mic--listening {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 6px 24px rgba(76, 141, 255, 0.35);
+}
+
+.hero__mic--listening:hover {
+  background: #6ba0ff;
+}
+
+.hero__mic--starting {
+  background: rgba(76, 141, 255, 0.14);
+  color: #bcd4ff;
+  opacity: 0.75;
+}
+
+.hero__mic--error {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.hero__mic--setup {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--text-dim);
+}
+
+.hero__mic--setup:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+/*
+ * El latido.
+ *
+ * Un anillo aparte que escala y se desvanece, en lugar de animar el botón: así
+ * el círculo no se mueve ni un píxel. La diferencia entre "la app está viva" y
+ * "algo late en la pantalla mientras intentas leer" es exactamente ésa.
+ */
+.hero__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero__mic--listening .hero__ring {
+  background: var(--accent);
+  animation: heroPulse 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes heroPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  70%,
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+.hero__title {
+  font-size: calc(20px * var(--font-scale));
+  font-weight: 550;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--text);
+  margin: 0;
+}
+
+.hero__sub {
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.5;
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 30ch;
+}
+
+/* La segunda vía, deliberadamente en voz baja: existe, pero no compite. */
+.hero__alt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 22px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.hero__link {
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.2);
+  text-underline-offset: 3px;
+  transition: color 140ms ease;
+}
+
+.hero__link:hover {
+  color: var(--text);
+}
+
+.hero__sep {
+  opacity: 0.5;
+}
+
+/*
+ * Un panel que respira no puede tener nada parpadeando para quien no lo tolera.
+ * El estado sigue leyéndose entero sin una sola animación.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .hero,
+  .hero__mic--listening .hero__ring,
+  .listen--listening .listen__dot,
+  .listen--starting .listen__dot {
+    animation: none;
+  }
+
+  .hero__mic {
+    transition: none;
+  }
 }
 
 /* ── Barra de estado ── */
@@ -93,6 +317,14 @@ body {
  * el control más usado de la app y estaba sólo en el dashboard, que hay que
  * abrir con el engranaje y roba el foco.
  */
+/*
+ * Sin relleno ni borde: la barra acompaña, no manda.
+ *
+ * Cuando el mando de escucha era una píldora con fondo y borde, competía con el
+ * botón central por ser "lo que hay que pulsar", y en el estado vacío eran dos
+ * cosas azules diciendo lo mismo. Ahora es texto con un punto de color, y el
+ * relleno sólido existe en un único sitio del overlay: el círculo del centro.
+ */
 .listen {
   display: flex;
   align-items: center;
@@ -101,9 +333,9 @@ body {
   font-family: inherit;
   font-size: 11px;
   letter-spacing: 0.03em;
-  color: #c8ccd0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 3px 10px 3px 8px;
   cursor: pointer;
@@ -114,8 +346,8 @@ body {
 }
 
 .listen:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.11);
-  color: #f1f3f4;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
 }
 
 .listen:disabled {
@@ -133,8 +365,6 @@ body {
 
 .listen--listening {
   color: #6ee7b7;
-  background: rgba(52, 211, 153, 0.12);
-  border-color: rgba(52, 211, 153, 0.35);
 }
 
 .listen--listening .listen__dot {
@@ -145,9 +375,11 @@ body {
 
 .listen--listening:hover:not(:disabled) {
   color: #a7f3d0;
-  background: rgba(52, 211, 153, 0.2);
+  background: rgba(52, 211, 153, 0.14);
 }
 
+/* El error sí conserva el marco: es el único estado de la barra que hay que ver
+   sin buscarlo. */
 .listen--error {
   color: #fca5a5;
   background: rgba(248, 113, 113, 0.12);
@@ -252,14 +484,51 @@ body {
  * sola línea. El ancho de la ventana ES el viewport, así que una media query
  * equivale aquí a "qué preset de tamaño está puesto".
  */
+/*
+ * Hasta L, las fuentes concretas van sólo con su icono.
+ *
+ * El selector pasó de dos segmentos a tres, y con los tres rótulos la barra
+ * envolvía a dos líneas ya en el tamaño M —que es el de por defecto—, robándole
+ * 28 px al panel para no decir nada nuevo. Un micrófono y un altavoz se
+ * distinguen sin leerlos; "Ambos" no tiene icono, así que conserva su texto.
+ */
+@media (max-width: 520px) {
+  .source__label:not(.source__label--keep) {
+    display: none;
+  }
+
+  /* Sólo con esconder los rótulos faltaban 10 px medidos para que la barra
+     cupiera en una línea a tamaño M; el resto sale de apretar el propio
+     selector, que es lo último que se ha ensanchado. */
+  .sources {
+    gap: 2px;
+  }
+
+  .source {
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  .source__bar {
+    width: 20px;
+  }
+}
+
 @media (max-width: 420px) {
   .statusbar {
     gap: 6px;
   }
 
-  .source__label {
-    display: none;
-  }
+  /*
+   * Aquí NO se retoca el centrado del estado central, y es una decisión.
+   *
+   * A tamaño S el grupo cae 26 px bajo el centro en lugar de 12, pero la causa
+   * no es el panel más corto: es que la barra superior envuelve a dos líneas
+   * (medido: 60 px contra 32) y empuja la banda hacia abajo. Compensarlo con
+   * más relleno dejaría el grupo demasiado alto en cuanto la barra NO envuelva
+   * —lo hace o no según haya aviso de "visible" o idioma forzado—, y una
+   * corrección que sólo acierta a veces es peor que una desviación constante.
+   */
 }
 
 /* Aviso de que el overlay SÍ sale en una captura: el estado peligroso. */
@@ -312,6 +581,14 @@ body {
 
 /* ── Botones de la barra (engranaje y cerrar) ── */
 
+/*
+ * En reposo son apenas visibles y se encienden al pasar el ratón.
+ *
+ * Son seis, y seis iconos a pleno contraste en la esquina superior tiran del
+ * ojo tanto como el estado central. Bajarlos a gris apagado no los esconde
+ * —siguen ahí y siguen teniendo su tooltip— pero los saca de la competición
+ * hasta que alguien los busca, que es cuando importan.
+ */
 .iconbtn {
   display: flex;
   align-items: center;
@@ -323,7 +600,7 @@ body {
   border: none;
   border-radius: 5px;
   background: transparent;
-  color: #9aa0a6;
+  color: var(--text-faint);
   cursor: pointer;
   /* El cursor de arrastre de la barra no debe heredarse en los botones. */
   transition:
@@ -333,7 +610,7 @@ body {
 
 .iconbtn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #e8eaed;
+  color: var(--text);
 }
 
 .iconbtn--close:hover {
@@ -492,16 +769,24 @@ body {
   background: rgba(255, 255, 255, 0.09);
 }
 
+/*
+ * El activo se marca con color, no con un bloque relleno.
+ *
+ * Un chip azul sólido en una fila de seis era la mancha más fuerte del panel
+ * después del contenido, y competía con el centro sin ser nunca la acción
+ * principal: el perfil se elige una vez y se olvida. Con el texto en azul y un
+ * fondo apenas insinuado se lee igual de rápido y pesa la mitad.
+ */
 .chip--active {
-  color: #0e1015;
-  background: #93c5fd;
-  border-color: transparent;
+  color: #a8c7ff;
+  background: rgba(76, 141, 255, 0.14);
+  border-color: rgba(76, 141, 255, 0.3);
   font-weight: 550;
 }
 
 .chip--active:hover {
-  background: #bfdbfe;
-  color: #0e1015;
+  background: rgba(76, 141, 255, 0.22);
+  color: #ffffff;
 }
 
 /* ── Acciones rápidas sobre la respuesta ── */
@@ -563,9 +848,16 @@ body {
   background: rgba(255, 255, 255, 0.07);
 }
 
+/*
+ * Marcado con texto claro, no con un bloque relleno.
+ *
+ * Era el otro relleno sólido del panel además del botón central, y en el pie:
+ * una mancha gris compitiendo desde la esquina por una preferencia que se toca
+ * dos veces en la vida.
+ */
 .sizes__btn--active {
-  color: #0e1015;
-  background: #7c8288;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.09);
 }
 
 /* ── Pestañas: escuchar o escribir ── */

@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { IPC } from '@shared/ipc';
+import { alignAutoTrigger } from '@shared/types';
 import { renderModelGuide } from '@shared/model-guide';
 import type { LLMProviderId, ScreenTask, Settings } from '@shared/types';
 import { settingsStore } from './config/store';
@@ -113,9 +114,24 @@ function registerIpcHandlers(): void {
   // ── Settings ──
   ipcMain.handle(IPC.settingsGet, () => settingsStore.get());
 
-  ipcMain.handle(IPC.settingsUpdate, (_e, patch: Partial<Settings>) => {
+  ipcMain.handle(IPC.settingsUpdate, (_e, rawPatch: Partial<Settings>) => {
     const previous = settingsStore.get();
+    // Cambiar de fuente no puede dejar el disparo automático mudo; ver
+    // `alignAutoTrigger`. Se hace aquí y no en la UI para que valga igual desde
+    // el overlay y desde el dashboard.
+    const patch = alignAutoTrigger(previous, rawPatch);
     const next = settingsStore.update(patch);
+
+    if (patch.autoTriggerSpeaker && patch.autoTriggerSpeaker !== previous.autoTriggerSpeaker) {
+      const quien = patch.autoTriggerSpeaker === 'them' ? 'el interlocutor' : 'ti';
+      console.log(
+        `[auto] el disparo pasa a "${patch.autoTriggerSpeaker}" para seguir a ` +
+          `audioSources="${next.audioSources}"`
+      );
+      // Se dice: es un ajuste que el usuario no pidió, aunque sea el que hace
+      // que lo que sí pidió funcione.
+      broadcast(IPC.onNotice, `Ahora respondo a lo que diga ${quien}.`);
+    }
 
     if (patch.stealthEnabled !== undefined && patch.stealthEnabled !== previous.stealthEnabled) {
       setStealthForAll(next.stealthEnabled);

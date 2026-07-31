@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildSystemPrompt } from '../src/main/core/prompt';
 import {
   adviseLocalModels,
+  alignAutoTrigger,
   DEFAULT_SETTINGS,
   isScreenTrigger,
   normalizeModelId,
@@ -162,5 +163,90 @@ describe('normalizeModelId', () => {
   it('un campo vacío o con sólo espacios queda vacío', () => {
     expect(normalizeModelId('   ')).toBe('');
     expect(normalizeModelId('')).toBe('');
+  });
+});
+
+/**
+ * El idioma, visto en una conversación real: pregunta y respuesta en inglés,
+ * pero los rótulos de la estructura en español, copiados literalmente del
+ * prompt ("**Situación:** I manage a web application…"). Estas pruebas fijan
+ * las dos mitades del arreglo — la regla existe en TODOS los perfiles, y ya no
+ * se le dan al modelo etiquetas en español que copiar.
+ */
+describe('idioma de la respuesta', () => {
+  const perfiles = ['interview', 'meeting', 'lecture', 'support', 'coding', 'quiz'] as const;
+
+  it('todos los perfiles llevan la regla de idioma', () => {
+    // Antes vivía dentro de las reglas de hablar, así que código y test —que
+    // las sustituyen enteras— se quedaban sin ninguna.
+    for (const profile of perfiles) {
+      const prompt = buildSystemPrompt(settings(), profile);
+      expect(prompt, profile).toContain('idioma de la conversación');
+      expect(prompt, profile).toContain('ENTERA en ese idioma');
+    }
+  });
+
+  it('avisa de que las instrucciones estén en español no obliga a nada', () => {
+    // Es la confusión concreta del modelo: prompt en español, luego respondo
+    // con trozos en español.
+    expect(buildSystemPrompt(settings())).toContain('no en el de estas');
+  });
+
+  it('el perfil de entrevista ya no dicta rótulos copiables', () => {
+    const prompt = buildSystemPrompt(settings(), 'interview');
+    expect(prompt).not.toMatch(/situación → acción → resultado/i);
+    expect(prompt).toContain('No escribas rótulos');
+  });
+
+  it('el modo test manda traducir sus dos marcas fijas', () => {
+    const prompt = buildSystemPrompt(settings(), 'quiz');
+    expect(prompt).toContain('UNSURE:');
+    expect(prompt).toContain("CAN'T SEE:");
+  });
+});
+
+/**
+ * Pulsar "Ellos" tiene que dar respuestas, no silencio. Es el fallo que se
+ * arregló a mano desde el dashboard sin que la relación fuera evidente.
+ */
+describe('alignAutoTrigger', () => {
+  it('elegir sólo la salida del sistema pasa el disparo al interlocutor', () => {
+    const current = settings({ audioSources: 'both', autoTriggerSpeaker: 'me' });
+    expect(alignAutoTrigger(current, { audioSources: 'system' })).toEqual({
+      audioSources: 'system',
+      autoTriggerSpeaker: 'them',
+    });
+  });
+
+  it('elegir sólo el micrófono pasa el disparo a ti', () => {
+    const current = settings({ audioSources: 'both', autoTriggerSpeaker: 'them' });
+    expect(alignAutoTrigger(current, { audioSources: 'mic' })).toEqual({
+      audioSources: 'mic',
+      autoTriggerSpeaker: 'me',
+    });
+  });
+
+  it('no toca nada si la combinación ya podía disparar', () => {
+    const current = settings({ audioSources: 'mic', autoTriggerSpeaker: 'them' });
+    // Con las dos fuentes se oye a todo el mundo: no hay nada que realinear.
+    expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({ audioSources: 'both' });
+  });
+
+  it('respeta "cualquiera" y el disparo apagado', () => {
+    // Ninguno de los dos puede quedar inerte, así que cambiarlos sería tocar un
+    // ajuste sin motivo.
+    const any = settings({ autoTriggerSpeaker: 'any' });
+    expect(alignAutoTrigger(any, { audioSources: 'mic' })).toEqual({ audioSources: 'mic' });
+
+    const off = settings({ autoTriggerMode: 'off', autoTriggerSpeaker: 'them' });
+    expect(alignAutoTrigger(off, { audioSources: 'mic' })).toEqual({ audioSources: 'mic' });
+  });
+
+  it('no se mete cuando el patch no cambia las fuentes', () => {
+    // Cambiar el hablante a mano desde el dashboard es una elección explícita.
+    const current = settings({ audioSources: 'system' });
+    expect(alignAutoTrigger(current, { autoTriggerSpeaker: 'me' })).toEqual({
+      autoTriggerSpeaker: 'me',
+    });
   });
 });

@@ -208,102 +208,100 @@ function SpeakerIcon() {
   );
 }
 
-/** Qué hablantes implica cada modo, y a qué modo lleva encender o apagar uno. */
-const SOURCE_STATE: Record<AudioSourceMode, { me: boolean; them: boolean }> = {
-  both: { me: true, them: true },
-  mic: { me: true, them: false },
-  system: { me: false, them: true },
-};
-
-function modeFor(me: boolean, them: boolean): AudioSourceMode | null {
-  if (me && them) return 'both';
-  if (me) return 'mic';
-  if (them) return 'system';
-  // Ninguna fuente activa no es un modo: para eso está el botón de escucha.
-  return null;
-}
-
 /**
- * Las dos fuentes, como interruptores con su medidor dentro.
+ * Qué se escucha: uno de tres, no dos interruptores.
  *
- * Sustituyen a los medidores de sólo lectura de antes, y responden a dos
- * preguntas que estaban en sitios distintos —y una de ellas, en el dashboard—:
- * *qué se supone que escucha* (el chip encendido o apagado) y *qué está
- * entrando de verdad* (la barra moviéndose, y el aviso ámbar si el stream no
- * llegó a abrirse).
+ * Antes eran dos botones independientes, y pulsar "Ellos" con las dos fuentes
+ * activas **apagaba** esa fuente. Nadie lo lee así: se lee como "escucha a
+ * ellos". El resultado era el peor posible — el usuario pulsaba para oír al
+ * interlocutor y conseguía justo lo contrario, quedarse sólo con su micrófono,
+ * y encima en silencio, porque el disparo automático espera a "ellos" y sin ese
+ * carril no salta nunca.
  *
- * Esa distinción no es cosmética: un micrófono configurado pero que el sistema
- * no concedió da exactamente la misma pantalla que una sala en silencio.
+ * `AudioSourceMode` siempre fue un enum de tres valores; pintarlo como dos
+ * interruptores era la fuente de la ambigüedad. Con tres segmentos, pulsar
+ * "Ellos" sólo puede significar una cosa.
+ *
+ * Lo que sí se conserva es la doble lectura que tenían los chips: qué se
+ * *supone* que se escucha (el segmento activo) y qué está entrando *de verdad*
+ * (la barra, y el ámbar cuando la fuente estaba pedida pero no llegó a abrirse
+ * — que da exactamente la misma pantalla que una sala en silencio).
  */
-function SourceToggles({
+const SOURCE_MODES: { mode: AudioSourceMode; label: string; hint: string }[] = [
+  { mode: 'mic', label: 'Yo', hint: 'Sólo tu micrófono' },
+  { mode: 'system', label: 'Ellos', hint: 'Sólo la salida del sistema: la voz del interlocutor' },
+  { mode: 'both', label: 'Ambos', hint: 'Tu micrófono y la salida del sistema' },
+];
+
+function SourcePicker({
   mode,
   levels,
   status,
   onChange,
-  onBlocked,
 }: {
   mode: AudioSourceMode;
   levels: AudioLevels;
   status: CaptureStatus;
   onChange: (next: AudioSourceMode) => void;
-  onBlocked: () => void;
 }) {
-  const wanted = SOURCE_STATE[mode];
   const listening = status.state === 'listening';
 
-  const sources = [
-    {
-      key: 'me' as const,
-      icon: <MicIcon />,
-      label: 'Yo',
-      on: wanted.me,
-      live: status.micActive,
-      level: levels.me,
-      hint: 'Tu micrófono',
-    },
-    {
-      key: 'them' as const,
-      icon: <SpeakerIcon />,
-      label: 'Ellos',
-      on: wanted.them,
-      live: status.loopbackActive,
-      level: levels.them,
-      hint: 'La salida del sistema: la voz del interlocutor',
-    },
-  ];
+  /** Pedida pero sin abrirse: el estado que de otro modo no se ve en ninguna parte. */
+  const mute =
+    listening &&
+    ((mode !== 'system' && !status.micActive) || (mode !== 'mic' && !status.loopbackActive));
 
   return (
-    <div className="sources">
-      {sources.map((source) => {
-        // Se avisa en lugar de dejar el clic sin efecto: un botón que no hace
-        // nada es indistinguible de uno roto.
-        const next = modeFor(
-          source.key === 'me' ? !wanted.me : wanted.me,
-          source.key === 'them' ? !wanted.them : wanted.them
-        );
-        const mute = source.on && listening && !source.live;
+    <div className="sources" role="group" aria-label="Qué se escucha">
+      {SOURCE_MODES.map((source) => {
+        const active = source.mode === mode;
+        const level =
+          source.mode === 'mic' ? levels.me : source.mode === 'system' ? levels.them : 0;
 
         return (
           <button
-            key={source.key}
+            key={source.mode}
             type="button"
-            className={`source${source.on ? ' source--on' : ''}${mute ? ' source--mute' : ''}`}
-            aria-pressed={source.on}
+            className={`source${active ? ' source--on' : ''}${active && mute ? ' source--mute' : ''}`}
+            aria-pressed={active}
             title={
-              mute
-                ? `${source.hint}: configurado pero NO se abrió. Revisa el dispositivo o los permisos.`
-                : `${source.hint}. Pulsa para ${source.on ? 'dejar de escucharla' : 'escucharla'}.`
+              active && mute
+                ? `${source.hint}: pedido pero NO se abrió. Revisa el dispositivo o los permisos.`
+                : source.hint
             }
-            onClick={() => (next ? onChange(next) : onBlocked())}
+            onClick={() => onChange(source.mode)}
           >
-            {source.icon}
-            <span className="source__label">{source.label}</span>
-            <span className="source__bar">
-              <span
-                className={`source__fill source__fill--${source.key}`}
-                style={{ width: source.on && listening ? `${Math.min(source.level * 140, 100)}%` : 0 }}
-              />
+            {source.mode === 'mic' ? (
+              <MicIcon />
+            ) : source.mode === 'system' ? (
+              <SpeakerIcon />
+            ) : null}
+            {/*
+              El rótulo de "Ambos" no se esconde nunca: es el único segmento
+              sin icono, y sin texto sería un botón vacío. Los otros dos se
+              quedan en icono cuando falta ancho — un micrófono y un altavoz se
+              distinguen sin leerlos.
+            */}
+            <span
+              className={`source__label${source.mode === 'both' ? ' source__label--keep' : ''}`}
+            >
+              {source.label}
             </span>
+            {/* El medidor sólo en las fuentes concretas: en "Ambos" habría que
+                enseñar dos y la barra dejaría de decir cuál se mueve. */}
+            {source.mode !== 'both' && (
+              <span className="source__bar">
+                <span
+                  className={`source__fill source__fill--${source.mode === 'mic' ? 'me' : 'them'}`}
+                  style={{
+                    width:
+                      listening && (active || mode === 'both')
+                        ? `${Math.min(level * 140, 100)}%`
+                        : 0,
+                  }}
+                />
+              </span>
+            )}
           </button>
         );
       })}
@@ -318,7 +316,6 @@ function StatusBar({
   onDragStart,
   onNewConversation,
   onSolveScreen,
-  onSourceBlocked,
   onToggleCompact,
 }: {
   status: CaptureStatus;
@@ -327,7 +324,6 @@ function StatusBar({
   onDragStart: (event: React.MouseEvent) => void;
   onNewConversation: () => void;
   onSolveScreen: (task: ScreenTask) => void;
-  onSourceBlocked: () => void;
   onToggleCompact: () => void;
 }) {
   const language = settings?.language ?? 'auto';
@@ -340,12 +336,11 @@ function StatusBar({
     <div className="statusbar" data-interactive onMouseDown={onDragStart}>
       <ListenButton status={status} />
 
-      <SourceToggles
+      <SourcePicker
         mode={settings?.audioSources ?? 'both'}
         levels={levels}
         status={status}
         onChange={(audioSources) => void window.api.settings.update({ audioSources })}
-        onBlocked={onSourceBlocked}
       />
 
       <span className="statusbar__spacer" />
@@ -640,10 +635,174 @@ function SizePicker({
   );
 }
 
+/** El micrófono del estado central. Grande y de un solo trazo, sin relleno. */
+function MicGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <rect
+        x="9"
+        y="2.5"
+        width="6"
+        height="11"
+        rx="3"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        fill="none"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        fill="none"
+        d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"
+      />
+    </svg>
+  );
+}
+
+/** Llave inglesa: falta configurar un proveedor. */
+function SetupGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        d="M14.7 6.3a4 4 0 0 0 5.2 5.2l-8 8a2.3 2.3 0 0 1-3.3-3.3l8-8Z"
+      />
+      <circle cx="6.5" cy="17.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * El estado del panel cuando todavía no hay nada que leer.
+ *
+ * Sustituye a los dos vacíos que había antes —"Esperando audio…" en la
+ * transcripción y "Ctrl+Enter para pedir una respuesta" en la sugerencia—, que
+ * eran dos textos pequeños en cursiva compitiendo por decir lo mismo: que no
+ * pasa nada todavía. Ahora lo dice una sola cosa, en el centro y en grande.
+ *
+ * El micrófono **es** el botón principal, no un adorno encima de él. Fundirlos
+ * quita un elemento de la pantalla y elimina la ambigüedad de "¿pulso el icono
+ * o el botón?": sólo hay una cosa que pulsar, y es la única con relleno de color
+ * en todo el overlay.
+ */
+function IdleHero({
+  status,
+  configured,
+  onWrite,
+}: {
+  status: CaptureStatus;
+  configured: boolean;
+  onWrite: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const listening = status.state === 'listening';
+  const starting = status.state === 'starting' || busy;
+  const state = !configured
+    ? 'setup'
+    : starting
+      ? 'starting'
+      : status.state === 'error'
+        ? 'error'
+        : listening
+          ? 'listening'
+          : 'idle';
+
+  const copy = {
+    // Sin proveedor no hay nada que escuchar: el sitio del estado lo ocupa lo
+    // único que se puede hacer, en lugar de un aviso aparte encima del panel.
+    setup: {
+      title: 'Falta configurar la IA',
+      sub: 'Pega una API key de Anthropic o de Google para empezar',
+      action: 'Abrir configuración',
+    },
+    idle: {
+      title: 'Listo para escuchar',
+      sub: 'Pulsa el micrófono para comenzar',
+      action: 'Escuchar',
+    },
+    starting: {
+      title: 'Conectando…',
+      sub: 'Abriendo el micrófono y la salida del sistema',
+      action: 'Iniciando',
+    },
+    listening: {
+      title: 'Esperando que hables',
+      sub: 'Habla cuando quieras',
+      action: 'Parar de escuchar',
+    },
+    error: {
+      title: 'No se pudo escuchar',
+      sub: status.error ?? 'Revisa el dispositivo de entrada y vuelve a intentarlo',
+      action: 'Reintentar',
+    },
+  }[state];
+
+  const press = (): void => {
+    if (state === 'setup') {
+      void window.api.window.openDashboard();
+      return;
+    }
+    setBusy(true);
+    const done = listening ? window.api.capture.stop() : window.api.capture.start();
+    void done.finally(() => setBusy(false));
+  };
+
+  return (
+    <div className="hero" data-interactive>
+      <button
+        type="button"
+        className={`hero__mic hero__mic--${state}`}
+        disabled={starting}
+        aria-label={copy.action}
+        title={copy.action}
+        onClick={press}
+      >
+        {/*
+          El anillo es un elemento aparte y no un `box-shadow` animado: así puede
+          escalar y desvanecerse sin mover ni un píxel del botón, que es lo que
+          diferencia un latido tranquilo de un elemento que da saltos.
+        */}
+        <span className="hero__ring" aria-hidden="true" />
+        {state === 'setup' ? <SetupGlyph /> : <MicGlyph />}
+      </button>
+
+      <h1 className="hero__title">{copy.title}</h1>
+      <p className="hero__sub">{copy.sub}</p>
+
+      {/*
+        La segunda vía, en voz baja. Se puede usar la app entera sin micrófono
+        —escribiendo, o resolviendo lo que hay en pantalla— y sin esto no habría
+        forma de saberlo desde aquí. Va en texto plano y no en botones para que
+        no compita con el círculo.
+      */}
+      {state !== 'setup' && (
+        <div className="hero__alt">
+          <button type="button" className="hero__link" onClick={onWrite}>
+            Escribir la pregunta
+          </button>
+          <span className="hero__sep">·</span>
+          <span>
+            <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver la pantalla
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Estado de primer arranque. El dashboard ya no se abre solo, así que sin esto
  * un usuario nuevo se quedaría mirando un overlay que no hace nada y sin pista
  * de dónde configurar las claves.
+ *
+ * Sigue existiendo para cuando YA hay contenido en pantalla: ahí el estado
+ * central no se muestra, y el aviso tiene que caber en una línea.
  */
 function SetupPrompt() {
   return (
@@ -1160,6 +1319,16 @@ export function OverlayApp() {
   const index = viewing ?? answers.length - 1;
   const answer = answers[index] ?? null;
 
+  /*
+   * El estado central manda mientras no haya nada que leer.
+   *
+   * "Nada que leer" es literal: ni transcripción ni respuestas. En cuanto llega
+   * lo primero, el panel vuelve a su reparto normal y el contenido ocupa el
+   * sitio — el vacío es un estado, no una pantalla aparte. La pestaña de
+   * escritura lo desactiva porque ahí el usuario ya eligió qué hacer.
+   */
+  const hero = tab === 'listen' && segments.length === 0 && answers.length === 0;
+
   return (
     <div
       className="panel"
@@ -1177,17 +1346,15 @@ export function OverlayApp() {
         onDragStart={onDragStart}
         onNewConversation={() => void window.api.history.newConversation()}
         onSolveScreen={(task) => void window.api.ask.solveOnScreen(task)}
-        onSourceBlocked={() =>
-          setNotice(
-            'Tiene que quedar al menos una fuente de audio. Para no escuchar nada, usa el botón «Escuchando».'
-          )
-        }
         onToggleCompact={() =>
           void window.api.settings.update({ overlayCompact: !compact })
         }
       />
 
-      {!configured && <SetupPrompt />}
+      {/* Con el estado central visible, el aviso de configuración vive dentro
+          de él: dos sitios diciendo lo mismo es exactamente el ruido que este
+          rediseño quita. */}
+      {!configured && !hero && <SetupPrompt />}
 
       {sttError && (
         <div className="sttError" data-interactive>
@@ -1231,15 +1398,29 @@ export function OverlayApp() {
         />
       )}
 
-      {!compact && (
-        <div className="section">
-          <Tabs tab={tab} onChange={setTab} />
-          {tab === 'listen' ? (
-            <TranscriptPane segments={segments} />
-          ) : (
-            <ComposePane onSend={(text) => void window.api.ask.withText(text)} />
-          )}
-        </div>
+      {/*
+        Con el estado central no se pintan las pestañas: en ese momento hay una
+        sola cosa que hacer, y una fila de pestañas encima de un panel vacío es
+        justo lo que hace que un vacío parezca sin terminar en lugar de
+        deliberado. La otra vía —escribir— la ofrece el propio estado central.
+      */}
+      {hero ? (
+        <IdleHero
+          status={status}
+          configured={configured}
+          onWrite={() => setTab('write')}
+        />
+      ) : (
+        !compact && (
+          <div className="section">
+            <Tabs tab={tab} onChange={setTab} />
+            {tab === 'listen' ? (
+              <TranscriptPane segments={segments} />
+            ) : (
+              <ComposePane onSend={(text) => void window.api.ask.withText(text)} />
+            )}
+          </div>
+        )
       )}
 
       {shot && (
@@ -1249,6 +1430,9 @@ export function OverlayApp() {
         </div>
       )}
 
+      {/* La sección de respuesta desaparece con el estado central: su cabecera
+          y su texto de "todavía nada" eran el segundo vacío que competía. */}
+      {!hero && (
       <div className="section" style={{ flex: 1 }}>
         <div className="section__head">
           <span className="section__title">Sugerencia</span>
@@ -1299,6 +1483,7 @@ export function OverlayApp() {
         </div>
         <AnswerPane answer={answer} skip={skip} listening={status.state === 'listening'} />
       </div>
+      )}
 
       {/*
         Sólo tienen sentido cuando hay una respuesta sobre la que actuar:
@@ -1322,12 +1507,19 @@ export function OverlayApp() {
 
       {!compact && (
         <div className="hints">
-          <span>
-            <kbd>Ctrl</kbd>+<kbd>Enter</kbd> preguntar
-          </span>
-          <span>
-            <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver pantalla
-          </span>
+          {/* Con el estado central los atajos ya están dichos ahí arriba, y
+              repetirlos abajo es la clase de relleno que hace que un panel
+              parezca un formulario. Queda sólo el tamaño. */}
+          {!hero && (
+            <>
+              <span>
+                <kbd>Ctrl</kbd>+<kbd>Enter</kbd> preguntar
+              </span>
+              <span>
+                <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver pantalla
+              </span>
+            </>
+          )}
           <span className="hints__spacer" />
           <SizePicker
             active={settings?.overlaySize ?? 'M'}

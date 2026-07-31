@@ -18,6 +18,33 @@ import {
  * NO debe contener nada variable: ni la hora, ni la pregunta, ni el transcript.
  */
 
+/**
+ * El idioma, y por qué merece una regla propia repetida en los tres perfiles.
+ *
+ * Todo este prompt está en español. El modelo traduce el CONTENIDO al idioma de
+ * la conversación sin problema, pero copia literalmente las palabras que le has
+ * dado como estructura. Visto en una conversación real, con la pregunta y la
+ * respuesta en inglés:
+ *
+ *   1. **Situación:** I manage a web application with multiple services.
+ *   2. **Acción:** I create Dockerfiles for each service…
+ *
+ * El contenido está en inglés y los rótulos en español, porque el prompt decía
+ * "usa situación → acción → resultado" y el modelo se los tomó como etiquetas
+ * que hay que escribir. De ahí las dos mitades de la regla: **responder entero**
+ * en el idioma, rótulos incluidos, y **no anunciar la estructura** — la que
+ * mejor evita que se copie una etiqueta es no imprimir ninguna.
+ */
+const LANGUAGE_RULE = `
+Idioma (regla que manda sobre todas las demás):
+- Responde SIEMPRE en el idioma de la conversación, no en el de estas
+  instrucciones. Estas instrucciones están en español; eso no dice nada sobre
+  cómo tienes que responder tú.
+- La respuesta va ENTERA en ese idioma: el contenido, los rótulos, los
+  encabezados y cualquier marca. Nunca mezcles dos idiomas en una respuesta.
+- Si la conversación está en inglés, cada palabra que escribas va en inglés.
+`.trim();
+
 const BASE_RULES = `
 Reglas de formato (obligatorias):
 - Máximo 4 viñetas cortas. Sin párrafos, sin introducciones, sin despedidas.
@@ -26,7 +53,6 @@ Reglas de formato (obligatorias):
 - Cada viñeta debe poder leerse en voz alta de un tirón, como si fuera tuya.
 - Si la pregunta pide un dato concreto, da el dato en la primera viñeta.
 - Si no tienes información suficiente, dilo en una línea en lugar de inventar.
-- Escribe en el mismo idioma en que habla el entrevistador.
 - Sin markdown de énfasis: nada de asteriscos ni almohadillas. Se lee de reojo
   en un panel pequeño y los símbolos sueltos son ruido que ocupa sitio.
 `.trim();
@@ -61,6 +87,9 @@ Reglas duras:
   da la causa en una línea y el código corregido.
 - Fuera del bloque de código, sin markdown: nada de asteriscos ni almohadillas.
   Las tres comillas del bloque son la única marca que se usa.
+- El texto que rodea al código —el enfoque, las viñetas, los comentarios— va en
+  el idioma del enunciado que se ve en la pantalla. Un ejercicio en inglés se
+  comenta en inglés.
 `.trim();
 
 /**
@@ -98,6 +127,10 @@ Formato (obligatorio):
   opción. Quien lee necesita saber en cuáles arriesga.
 - Si de una pregunta no se ven todas las opciones, su línea es
   "NO SE VE: " y qué falta, en lugar de responder a medias.
+- Esas dos marcas van traducidas al idioma del test: en un examen en inglés se
+  escriben "UNSURE:" y "CAN'T SEE:". Son las únicas dos palabras fijas de este
+  formato, y son justo por donde se colaría el español en una respuesta que
+  debería estar entera en inglés.
 - Si una pregunta es abierta, su línea es la respuesta en menos de 20 palabras.
 - No inventes cifras, fechas ni nombres para sostener una opción.
 - Sin markdown: nada de asteriscos, almohadillas ni viñetas.
@@ -112,8 +145,13 @@ pregunta, "YO" es la persona a la que ayudas.
 Tu trabajo es darle el esqueleto de una buena respuesta, no un ensayo:
 - Ancla la respuesta en su experiencia real de <contexto> siempre que exista.
   Si el contexto no cubre lo que se pregunta, da la estructura genérica correcta.
-- En preguntas de comportamiento, usa situación → acción → resultado, una viñeta
-  cada una, con el resultado cuantificado si el contexto lo permite.
+- En preguntas de comportamiento, que las viñetas recorran qué pasó, qué hiciste
+  y qué se consiguió, con el resultado cuantificado si el contexto lo permite.
+  **No escribas rótulos** delante de cada viñeta: la estructura se nota al
+  leerla, y anunciarla gasta la mitad de la línea. Ese hueco es además por donde
+  se cuela el español en una respuesta en inglés.
+- Distingue el tipo de pregunta: una técnica ("cómo funciona X") se responde
+  explicando, no con una anécdota personal.
 - En preguntas técnicas, primero la respuesta correcta y directa; después, si
   cabe, un matiz que demuestre profundidad.
 - Nunca inventes datos, empresas, cifras ni tecnologías que no estén en
@@ -236,7 +274,15 @@ export function buildSystemPrompt(settings: Settings, force?: PromptProfileId): 
       ? settings.customPrompt.trim() || PROFILES.interview
       : PROFILES[profileId];
 
-  const sections = [profile, RULES[profileId]];
+  /*
+   * El idioma va en todos los perfiles y va PRIMERO entre las reglas.
+   *
+   * Antes vivía como una línea más al final de las reglas de hablar, así que
+   * los perfiles de código y de test —que sustituyen esas reglas enteras— se
+   * quedaron sin ninguna instrucción de idioma. Con un prompt en español, eso
+   * es pedirle al modelo que adivine.
+   */
+  const sections = [profile, LANGUAGE_RULE, RULES[profileId]];
 
   if (profileId === 'coding') {
     const language = settings.codeLanguage.trim();

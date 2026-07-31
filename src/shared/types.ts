@@ -454,6 +454,39 @@ export function autoTriggerIsInert(
   return !speakersFor(settings.audioSources).includes(settings.autoTriggerSpeaker);
 }
 
+/**
+ * Ajusta el patch para que cambiar de fuente no deje el disparo mudo.
+ *
+ * Elegir "Ellos" significa una cosa: quiero oír al interlocutor y que me
+ * responda. Pero el disparo automático espera a un hablante concreto, y si ese
+ * hablante deja de escucharse la combinación queda **inerte**: todo el pipeline
+ * funciona, la transcripción entra, y la última puerta se cierra sin dejar
+ * rastro. Le pasó a alguien de verdad: pulsó "Ellos", no llegó ninguna
+ * respuesta, y sólo se arregló entrando al dashboard a cambiar a mano un ajuste
+ * cuya relación con el botón que había pulsado no es evidente.
+ *
+ * Así que el hablante del disparo sigue a la fuente. Es cambiar un ajuste que
+ * el usuario no pidió, sí — pero la alternativa es un silencio que se ve igual
+ * que una app rota, y el cambio se le dice por pantalla.
+ *
+ * Sólo actúa en esa dirección. Cambiar el hablante a mano desde el dashboard NO
+ * toca las fuentes: ahí el usuario está eligiendo el hablante a propósito, y el
+ * propio dashboard ya avisa si la combinación no puede saltar.
+ */
+export function alignAutoTrigger(
+  current: Settings,
+  patch: Partial<Settings>
+): Partial<Settings> {
+  if (!patch.audioSources || patch.audioSources === current.audioSources) return patch;
+
+  const merged = { ...current, ...patch };
+  if (!autoTriggerIsInert(merged)) return patch;
+
+  // Inerte implica que sólo se escucha un hablante y no es el esperado.
+  const heard = speakersFor(merged.audioSources)[0];
+  return heard ? { ...patch, autoTriggerSpeaker: heard } : patch;
+}
+
 export const DEFAULT_HOTKEYS: HotkeyMap = {
   askNow: 'Control+Enter',
   screenshotAndAsk: 'Control+Shift+S',
