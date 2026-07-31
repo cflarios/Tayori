@@ -433,6 +433,68 @@ turno; esto no es streaming. Para eso está Gemini Live.
   prohibición de preámbulos, y la regla de no inventar datos fuera de
   `<contexto>` — una respuesta genérica es recuperable, una mentira detectada no.
 
+### Modo código: por qué es un camino aparte y no un prompt más
+
+El pedido era simple —"si tengo LeetCode en pantalla, dame la solución"— y la
+tentación era resolverlo con un perfil nuevo en `PROFILES` y ya. No basta, y
+conviene saber por qué antes de "simplificarlo":
+
+- **Las reglas de formato del proyecto entero lo impedían.** `BASE_RULES` dice
+  máximo cuatro viñetas, sin párrafos, y que cada viñeta se pueda leer en voz
+  alta de un tirón. Todo eso es correcto para hablar y letal para un algoritmo:
+  con esas reglas puestas el modelo devuelve el enfoque resumido y **ninguna
+  implementación**. Por eso `RULES` pasó a ser un `Record<PromptProfileId,…>`:
+  `coding` sustituye las reglas, no se suma a ellas. Si algún día alguien
+  "unifica" eso en una constante única, el modo código deja de dar código.
+- **El tope de tokens también.** 700 corta una solución de Java a media función,
+  y una implementación truncada no vale para nada. `MAX_CODE_TOKENS` son 2200.
+  El tope se elige por el modo, y el modo se activa por **dos** caminos: el
+  disparo `code` y el perfil `coding` puesto a mano. Olvidar el segundo dejaba
+  el caso más obvio —el usuario elige el chip "Código"— cortando respuestas.
+- **La pregunta no está en el audio.** `ask('hotkey')` toma la última
+  intervención cerrada como pregunta. Aquí el enunciado está en la pantalla, así
+  que eso sólo mete una frase suelta de la llamada compitiendo con él.
+  `solveOnScreen()` manda una instrucción fija y deja la transcripción como
+  contexto secundario, que es su papel real: a veces la aclaración importante se
+  dijo en voz alta.
+- **Tiene que funcionar con la escucha parada**, que es el caso normal: un
+  ejercicio delante y ninguna llamada abierta. Nada en ese camino toca el STT.
+- **No persiste el perfil.** Ctrl+Alt+C fuerza `coding` sólo en esa consulta. Si
+  lo guardara, quien lo usa en mitad de una entrevista se quedaría respondiendo
+  las preguntas habladas en bloques de código hasta que se acordara de
+  desactivarlo, y acordarse es justo lo que no puede hacer en ese momento.
+- **Al revés que `Ctrl+Shift+S`, sin captura no se pregunta.** El hotkey de
+  captura normal responde igual si la captura falla, porque la pregunta venía del
+  audio. Aquí no hay nada que leer, así que preguntar sería gastar una llamada
+  para que el modelo confiese que no ve nada.
+
+**Calidad de la captura: 92, no 72.** El JPEG a 72 vale para "hay un diagrama en
+pantalla" y se come exactamente lo que aquí importa: `l` contra `1`, `;` contra
+`:`, los subíndices de un enunciado. Una firma mal leída produce una solución que
+no compila, y el síntoma es desconcertante porque la respuesta parece perfecta.
+No se subió a PNG porque los modelos escalan a ~1,5k px de todas formas.
+
+**El atajo es `Ctrl+Alt+C` y no `Ctrl+Shift+X`.** Un acelerador global gana al de
+la aplicación que tenga el foco, y quien usa esto tiene VS Code delante:
+`Ctrl+Shift+X` le habría robado el panel de extensiones. `Ctrl+Shift+C` ya estaba
+tomado por los clics atravesables, y `Ctrl+Alt+` es la familia de las flechas que
+mueven el overlay.
+
+**El overlay tuvo que aprender a pintar código.** Pintaba `answer.text` en un
+`div` con `pre-wrap`; con una solución dentro eso deja las tres comillas a la
+vista, parte las líneas largas a mitad de expresión —que es lo contrario de lo
+que se quiere en código— y obliga a seleccionar a mano dentro de una ventana sin
+foco y con los clics atravesándola. `answer-format.ts` es un parser mínimo de
+vallas ``` y nada más: **no es un renderizador de Markdown y no debe convertirse
+en uno**; meter una librería de 40 KB en una ventana que arranca en cada sesión
+no sale a cuenta para el único formato que el prompt promete.
+
+Su caso difícil no es parsear: es el **streaming**. La valla de cierre tarda
+segundos en llegar, así que un bloque a medias se pintaría como párrafo y saltaría
+de estilo a mitad de respuesta. De ahí el flag `open`, que abre la caja en cuanto
+llega la valla de apertura y esconde el botón "Copiar" hasta que el bloque cierra
+— copiar una función sin cerrar es peor que no poder copiarla.
+
 ### Hechos de la API de Claude, verificados contra la referencia
 
 Tres salieron **distintos** de lo que se habría escrito de memoria. Si algún día
@@ -764,6 +826,15 @@ capturas de pantalla**, no solo compilando.
   de verdad, pero requiere la API key del usuario. Hasta que alguien lo pulse,
   **no sabemos qué modelo Live acepta la cuenta** — sólo que ya no se falla en
   silencio sobre el primer candidato.
+- **El modo código contra una pantalla real.** Lo cubierto por tests es lo que se
+  puede cubrir sin clave: que `coding` sustituye las reglas de formato, que el
+  perfil forzado no toca los ajustes, y el parser de vallas con su caso de
+  streaming. Lo que falta es el bucle entero —captura de un LeetCode de verdad →
+  modelo con visión → solución que compile—, que necesita API key y una prueba a
+  ojo. Lo primero que hay que mirar ahí es si a calidad 92 el modelo lee bien la
+  **firma** del método: es el fallo silencioso del modo, porque una respuesta
+  perfecta sobre una firma mal leída no se distingue de una buena hasta que el
+  evaluador la rechaza.
 - **La prueba en una videollamada real** (Meet / Teams / Zoom / OBS). La
   verificación se hizo con captura GDI/BitBlt.
   `WDA_EXCLUDEFROMCAPTURE` cubre también las rutas DXGI y Windows Graphics

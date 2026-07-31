@@ -22,12 +22,27 @@ const MAX_WIDTH = 1600;
 const JPEG_QUALITY = 72;
 
 /**
+ * Calidad para el modo código.
+ *
+ * 72 vale de sobra para "hay un diagrama en pantalla", pero el artefacto de JPEG
+ * a esa calidad se come justo lo que aquí importa: la diferencia entre `l` y
+ * `1`, entre `;` y `:`, y los subíndices de un enunciado. Una firma mal leída
+ * produce una solución que no compila, así que el coste extra en tokens está
+ * pagado. No se sube a PNG porque el modelo escala a ~1,5k px de todas formas.
+ */
+const CODE_JPEG_QUALITY = 92;
+
+/**
  * Captura la pantalla que contiene el cursor.
  *
  * Con varios monitores, la pantalla del cursor es la que el usuario está mirando
  * — mucho mejor heurística que coger siempre la principal.
+ *
+ * @param options.forCode Sube la calidad para que el texto pequeño se lea.
  */
-export async function captureScreen(): Promise<ImageAttachment | null> {
+export async function captureScreen(
+  options: { forCode?: boolean } = {}
+): Promise<ImageAttachment | null> {
   const cursor = screen.getCursorScreenPoint();
   const target = screen.getDisplayNearestPoint(cursor);
 
@@ -55,6 +70,8 @@ export async function captureScreen(): Promise<ImageAttachment | null> {
 
   return {
     mime: 'image/jpeg',
-    base64: resized.toJPEG(JPEG_QUALITY).toString('base64'),
+    base64: resized
+      .toJPEG(options.forCode ? CODE_JPEG_QUALITY : JPEG_QUALITY)
+      .toString('base64'),
   };
 }

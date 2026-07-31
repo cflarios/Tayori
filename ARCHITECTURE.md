@@ -186,8 +186,10 @@ conversación: una respuesta abortada no es algo que el modelo dijera.
 ```mermaid
 flowchart TB
     SYS["System prompt"]
-    SYS --> P["Perfil activo<br/>interview · meeting · lecture · support · custom"]
-    SYS --> R["Reglas de formato<br/>máx. 4 viñetas, sin preámbulos"]
+    SYS --> P["Perfil activo<br/>interview · meeting · lecture · support · coding · custom"]
+    SYS --> R["Reglas de formato<br/>RULES[perfil]"]
+    R --> RA["Los cinco perfiles hablados:<br/>máx. 4 viñetas, sin preámbulos"]
+    R --> RB["coding:<br/>bloque de código completo"]
     SYS --> CTX["Bloque contexto"]
 
     CTX --> CV["kind: cv<br/>fuente de verdad"]
@@ -211,6 +213,46 @@ Dos cosas que no son obvias:
 - **El historial de la conversación viaja como mensajes de verdad**, no
   resumido dentro del prompt. Es lo que hace que el modelo trate sus respuestas
   anteriores como cosas que dijo él.
+- **`RULES` es un mapa perfil → reglas, no una constante.** `coding` es el único
+  que **sustituye** las reglas de formato en vez de heredarlas: las cuatro
+  viñetas existen porque la respuesta se lee de reojo, y un algoritmo no se lee,
+  se copia.
+
+---
+
+## 5 bis. El modo código
+
+Un camino aparte que entra al mismo `AnswerEngine`, y el único disparo que
+cambia **cómo** se responde y no sólo qué.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant K as Ctrl+Alt+C · botón &lt;/&gt;
+    participant S as SessionOrchestrator
+    participant C as captureScreen
+    participant A as AnswerEngine
+    participant P as buildSystemPrompt
+    participant O as Overlay
+
+    K->>S: solveOnScreen()
+    S->>C: captureScreen({ forCode: true })
+    C-->>S: JPEG q92 · 1600 px
+    S->>A: attachImage + ask('code', SOLVE_INSTRUCTION)
+    A->>P: buildSystemPrompt(settings, 'coding')
+    Note over A: maxTokens 2200, no 700
+    A-->>O: streaming
+    Note over O: parseAnswerBlocks:<br/>vallas ``` → &lt;pre&gt; + Copiar
+```
+
+Cuatro decisiones que no se ven en el diagrama:
+
+| Qué | Por qué |
+|---|---|
+| No pasa por `ask('hotkey')` | El enunciado está en la pantalla, no en el audio: coger la última intervención como pregunta metería una frase suelta compitiendo con él |
+| Funciona con la escucha parada | El caso normal es un ejercicio delante y ninguna llamada abierta |
+| Fuerza el perfil sin persistirlo | Se resuelve la pantalla en mitad de una entrevista y la siguiente pregunta hablada sigue saliendo en viñetas |
+| Sin captura, **no** pregunta | Al revés que `Ctrl+Shift+S`: sin imagen no hay enunciado que leer |
 
 ---
 
@@ -273,7 +315,9 @@ El orquestador no cambia.
 3. Renderizar `request.history` como mensajes reales, no dentro del prompt.
 
 **Un perfil de prompt nuevo:** una entrada en `PROFILES` (`core/prompt.ts`), su
-id en `PromptProfileId`, sus huecos en `PROFILE_SLOTS` y una `<option>`.
+id en `PromptProfileId`, sus reglas de formato en `RULES`, sus huecos en
+`PROFILE_SLOTS` y una `<option>`. Los tres mapas son `Record<PromptProfileId, …>`
+a propósito: añadir el id sin decidir el resto rompe el build.
 
 ---
 
@@ -327,6 +371,7 @@ npm run typecheck && npm run lint && npm test
 | `main/windows/*` | Ventanas, stealth, arrastre manual |
 | `main/logging.ts` | Log a archivo del proceso principal |
 | `renderer/audio-worker/pcm-worklet.ts` | Filtro antialias y remuestreo, en el hilo de audio |
+| `renderer/overlay/answer-format.ts` | Parte la respuesta en texto y bloques de código |
 | `renderer/overlay/*` | El panel flotante |
 | `renderer/dashboard/*` | Configuración, historial, diagnóstico |
 | `shared/*` | Tipos y canales IPC |

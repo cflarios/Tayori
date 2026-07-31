@@ -185,6 +185,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.askNow, () => sessionOrchestrator.ask('hotkey'));
   ipcMain.handle(IPC.askWithText, (_e, text: string) => sessionOrchestrator.askWithText(text));
   ipcMain.handle(IPC.askAbort, () => sessionOrchestrator.abortAnswer());
+  ipcMain.handle(IPC.askSolveScreen, () => sessionOrchestrator.solveOnScreen());
 
   // ── Screenshots ──
   ipcMain.handle(IPC.screenshotTake, async () => {
@@ -266,6 +267,9 @@ const hotkeyActions = {
       // responder sin ella que no responder nada.
       return sessionOrchestrator.ask('hotkey');
     });
+  },
+  solveOnScreen: () => {
+    void sessionOrchestrator.solveOnScreen();
   },
   toggleListening: () => {
     void audioCapture.toggle();

@@ -489,6 +489,88 @@ body {
   color: #fca5a5;
 }
 
+/*
+ * Bloque de código dentro de una respuesta.
+ *
+ * Dos cosas que no son cosméticas:
+ *
+ *  - `white-space: pre` y NO `pre-wrap`. En prosa partir una línea larga es lo
+ *    correcto; en código es lo contrario, porque una expresión partida se lee
+ *    como otra cosa y la indentación deja de alinear. Se paga con scroll
+ *    horizontal, que es justo el trato que se quiere.
+ *  - `user-select: text` en el padre ya estaba, pero el botón de copiar existe
+ *    igualmente: seleccionar a mano dentro de una ventana sin foco, con los
+ *    clics atravesándola, es más difícil de lo que parece.
+ */
+.code {
+  margin: 8px 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+}
+
+.code__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.code__lang {
+  flex: 1;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c8288;
+}
+
+.code__writing {
+  font-size: 10px;
+  color: #7c8288;
+  font-style: italic;
+}
+
+.code__copy {
+  font-family: inherit;
+  font-size: 10.5px;
+  color: #b7bcc1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.code__copy:hover {
+  color: #f1f3f4;
+  background: rgba(96, 165, 250, 0.14);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.code__body {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e8eaed;
+  tab-size: 2;
+}
+
+/* La prosa que rodea al código sí sigue partiendo líneas. */
+.answer__text {
+  white-space: pre-wrap;
+}
+
 .empty {
   font-size: 12px;
   color: #6b7075;

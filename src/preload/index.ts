@@ -101,6 +101,11 @@ const api = {
       ipcRenderer.invoke(IPC.sttTestConnection),
   },
 
+  /** Avisos que no vienen del audio (fallo de captura de pantalla, etc.). */
+  notices: {
+    on: (cb: (message: string) => void) => subscribe<string>(IPC.onNotice, cb),
+  },
+
   logs: {
     read: (): Promise<string> => ipcRenderer.invoke(IPC.logsRead),
     location: (): Promise<string> => ipcRenderer.invoke(IPC.logsLocation),
@@ -110,6 +115,8 @@ const api = {
     now: (): Promise<void> => ipcRenderer.invoke(IPC.askNow),
     withText: (text: string): Promise<void> => ipcRenderer.invoke(IPC.askWithText, text),
     abort: (): Promise<void> => ipcRenderer.invoke(IPC.askAbort),
+    /** Captura la pantalla y resuelve el problema de código que haya en ella. */
+    solveOnScreen: (): Promise<void> => ipcRenderer.invoke(IPC.askSolveScreen),
     onAnswer: (cb: (a: Answer) => void) => subscribe<Answer>(IPC.onAnswer, cb),
   },
 

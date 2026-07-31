@@ -9,7 +9,10 @@
     // El worklet vive en el renderer pero no toca el DOM: sólo exporta su
     // código fuente como string. Se incluye aquí para que `pcm-worklet.test.ts`
     // pueda importarlo y ejercitar el worklet de verdad en lugar de una copia.
-    "src/renderer/audio-worker/pcm-worklet.ts"
+    "src/renderer/audio-worker/pcm-worklet.ts",
+    // Mismo caso: parsear las vallas de código es lógica pura sin DOM, y su
+    // test vive con los demás.
+    "src/renderer/overlay/answer-format.ts"
   ],
   "compilerOptions": {
     "composite": true,

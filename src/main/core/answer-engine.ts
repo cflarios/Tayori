@@ -27,6 +27,16 @@ import type { TranscriptBuffer } from './transcript-buffer';
 /** Tope de salida. Corto a propósito: hay que poder leerlo de un vistazo. */
 const MAX_ANSWER_TOKENS = 700;
 
+/**
+ * Tope del modo código.
+ *
+ * Con 700 la solución sale cortada a media función, y una implementación
+ * truncada no vale para nada: no se puede pegar ni razonar sobre ella. 2200
+ * cubre un algoritmo completo con su explicación en cualquier lenguaje verboso
+ * (Java, C++) sin llegar a permitir un ensayo.
+ */
+const MAX_CODE_TOKENS = 2_200;
+
 /** Cada cuántos ms se difunde el texto acumulado durante el streaming. */
 const FLUSH_INTERVAL_MS = 60;
 
@@ -138,6 +148,11 @@ export class AnswerEngine extends EventEmitter {
    *
    * @param question Pregunta concreta si se pudo aislar; si no, el modelo la
    *                 deduce de la transcripción.
+   *
+   * El disparo `code` no es sólo una etiqueta para el log: cambia el perfil y el
+   * tope de tokens de ESTA consulta sin tocar los ajustes. Es lo que permite
+   * resolver lo que hay en pantalla en mitad de una entrevista y que la
+   * siguiente pregunta hablada siga saliendo en cuatro viñetas.
    */
   async ask(trigger: AnswerTrigger, question?: string): Promise<void> {
     // Abortar antes de arrancar es lo que garantiza la invariante de "una sola
@@ -145,6 +160,12 @@ export class AnswerEngine extends EventEmitter {
     this.abort();
 
     const settings = settingsStore.get();
+
+    // Dos caminos llegan al modo código: el hotkey de pantalla (que no cambia
+    // los ajustes) y el perfil "Código" puesto a mano. El segundo también tiene
+    // que subir el tope de tokens, o la solución sale cortada a media función
+    // por un límite pensado para leer en voz alta.
+    const isCode = trigger === 'code' || settings.promptProfileId === 'coding';
     const controller = new AbortController();
     this.controller = controller;
 
@@ -199,9 +220,25 @@ export class AnswerEngine extends EventEmitter {
 
     try {
       const provider = createLLMProvider(settings);
+
+      /*
+       * Con un modelo sin visión, una captura se descarta en silencio. Para una
+       * pregunta hablada eso degrada y ya está —la pregunta sigue en el audio—,
+       * pero en modo código la captura ES el enunciado: sin ella el modelo se
+       * inventaría un ejercicio entero y la respuesta parecería perfecta. Es
+       * mejor gastar la pulsación en decir qué falta.
+       */
+      if (isCode && images.length && !provider.supportsVision) {
+        this.update({
+          status: 'error',
+          error: `El modelo "${provider.model}" no admite imágenes, así que no puede leer tu pantalla. Elige uno con visión (Claude, Gemini, o un modelo de Ollama tipo llava) en el dashboard.`,
+        });
+        return;
+      }
+
       const stream = provider.streamAnswer(
         {
-          systemPrompt: buildSystemPrompt(settings),
+          systemPrompt: buildSystemPrompt(settings, isCode ? 'coding' : undefined),
           transcript: this.transcript.format(
             this.transcript.recent(settings.manualContextSeconds)
           ),
@@ -212,7 +249,7 @@ export class AnswerEngine extends EventEmitter {
           // Un modelo sin visión ignoraría las imágenes silenciosamente; mejor
           // no enviarlas y ahorrar el ancho de banda.
           ...(provider.supportsVision && images.length ? { images } : {}),
-          maxTokens: MAX_ANSWER_TOKENS,
+          maxTokens: isCode ? MAX_CODE_TOKENS : MAX_ANSWER_TOKENS,
         },
         controller.signal
       );

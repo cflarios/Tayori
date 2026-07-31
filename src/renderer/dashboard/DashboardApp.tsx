@@ -1138,8 +1138,28 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
           <option value="meeting">Reunión genérica</option>
           <option value="lecture">Clase o charla</option>
           <option value="support">Soporte técnico</option>
+          <option value="coding">Código (resolver ejercicios)</option>
           <option value="custom">Personalizado</option>
         </select>
+      </Row>
+
+      {/*
+        Se enseña siempre, no sólo con el perfil "Código" puesto: el camino
+        normal al modo código es Ctrl+Alt+C, que resuelve la pantalla SIN tocar
+        el perfil. Esconder este ajuste detrás del perfil lo dejaría invisible
+        justo para quien más lo va a usar.
+      */}
+      <Row
+        label="Lenguaje del modo código"
+        desc="En qué lenguaje se escriben las soluciones de Ctrl+Alt+C. Con «auto» lo deduce de lo que se vea en la pantalla, que es lo correcto si el editor ya tiene uno elegido."
+      >
+        <input
+          type="text"
+          placeholder="auto"
+          style={{ width: 140, flex: 'none' }}
+          value={settings.codeLanguage}
+          onChange={(e) => void patch({ codeLanguage: e.target.value })}
+        />
       </Row>
 
       {settings.promptProfileId === 'custom' && (
@@ -1161,6 +1181,7 @@ const PROFILE_LABEL: Record<Settings['promptProfileId'], string> = {
   meeting: 'Reunión genérica',
   lecture: 'Clase o charla',
   support: 'Soporte técnico',
+  coding: 'Código',
   custom: 'Personalizado',
 };
 

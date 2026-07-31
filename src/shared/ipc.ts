@@ -35,6 +35,8 @@ export const IPC = {
   askNow: 'ask:now',
   askAbort: 'ask:abort',
   askWithText: 'ask:with-text',
+  /** Captura la pantalla y resuelve el problema de código que haya en ella. */
+  askSolveScreen: 'ask:solve-screen',
 
   screenshotTake: 'screenshot:take',
 
@@ -88,6 +90,15 @@ export const IPC = {
    * respondía, cuando cada descarte había sido correcto.
    */
   onAutoSkip: 'event:auto-skip',
+  /**
+   * Algo falló fuera del audio y hay que enseñarlo tal cual.
+   *
+   * Existe porque el único canal para "avisar de un fallo" era `onSTTError`, y
+   * el overlay lo pinta con el prefijo "Transcripción:". Mandar por ahí un fallo
+   * de captura de pantalla habría producido un mensaje que culpa al motor
+   * equivocado, que es peor que no avisar: manda a depurar donde no es.
+   */
+  onNotice: 'event:notice',
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

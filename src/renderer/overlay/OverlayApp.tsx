@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
+import { parseAnswerBlocks, type AnswerBlock } from './answer-format';
 import type {
   Answer,
   AudioLevels,
@@ -50,6 +51,22 @@ function CloseIcon() {
   );
 }
 
+/** Los clásicos corchetes angulares: resolver lo que hay en pantalla. */
+function CodeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        d="M6 11 3 8l3-3m4 0 3 3-3 3"
+      />
+    </svg>
+  );
+}
+
 /** Hoja en blanco: empezar una conversación nueva. */
 function NewChatIcon() {
   return (
@@ -79,6 +96,7 @@ function StatusBar({
   language,
   onDragStart,
   onNewConversation,
+  onSolveScreen,
 }: {
   status: CaptureStatus;
   levels: AudioLevels;
@@ -86,6 +104,7 @@ function StatusBar({
   language: string;
   onDragStart: (event: React.MouseEvent) => void;
   onNewConversation: () => void;
+  onSolveScreen: () => void;
 }) {
   const dotClass =
     status.state === 'listening'
@@ -135,6 +154,19 @@ function StatusBar({
         </div>
       </div>
 
+      {/* Va en la barra y no entre las acciones rápidas porque tiene que estar
+          disponible SIEMPRE: el caso normal es un ejercicio en pantalla sin
+          ninguna llamada abierta, así que no hay respuesta previa bajo la que
+          colgarlo ni audio que esperar. */}
+      <button
+        type="button"
+        className="iconbtn"
+        title="Resolver el problema de código que hay en pantalla (Ctrl+Alt+C)"
+        aria-label="Resolver el código de la pantalla"
+        onClick={onSolveScreen}
+      >
+        <CodeIcon />
+      </button>
       <button
         type="button"
         className="iconbtn"
@@ -224,6 +256,7 @@ const PROFILE_CHIPS = [
   ['meeting', 'Reunión'],
   ['lecture', 'Clase'],
   ['support', 'Soporte'],
+  ['coding', 'Código'],
 ] as const;
 
 function ProfileChips({
@@ -258,17 +291,43 @@ function ProfileChips({
  * de escritura: no hay un camino nuevo hacia el LLM que mantener. Cada una es
  * algo que si no tendrías que teclear entero mientras alguien te mira.
  */
-const QUICK_ACTIONS = [
+/** Etiqueta del botón y prompt enlatado que envía. */
+type QuickAction = readonly [label: string, prompt: string];
+
+const QUICK_ACTIONS: readonly QuickAction[] = [
   ['Sigue', 'Amplía tu última respuesta con un ejemplo concreto y breve.'],
   ['Más corto', 'Reformula tu última respuesta en dos viñetas, más directa.'],
   ['Seguimiento', 'Dame 3 preguntas de seguimiento que YO pueda hacer ahora.'],
   ['Resumen', 'Resume la conversación hasta ahora en 4 viñetas.'],
 ] as const;
 
-function QuickActions({ onAsk }: { onAsk: (prompt: string) => void }) {
+/**
+ * Las mismas acciones, pero para código.
+ *
+ * "Más corto" o "Seguimiento" no significan nada frente a una solución; lo que
+ * se pide a continuación es siempre lo mismo: explicarla en voz alta —que es
+ * justo lo que te van a pedir después de escribirla—, optimizarla, o probarla.
+ */
+const CODE_ACTIONS: readonly QuickAction[] = [
+  [
+    'Explícalo',
+    'Explica tu última solución en 4 viñetas, como si se lo contara en voz alta a un entrevistador.',
+  ],
+  ['Optimiza', '¿Se puede mejorar la complejidad de tu última solución? Si sí, dame el código.'],
+  ['Casos límite', 'Dame los casos límite que romperían tu última solución y cómo los cubre.'],
+  ['Tests', 'Escribe tests para tu última solución, en el mismo lenguaje.'],
+] as const;
+
+function QuickActions({
+  onAsk,
+  coding,
+}: {
+  onAsk: (prompt: string) => void;
+  coding: boolean;
+}) {
   return (
     <div className="quick" data-interactive>
-      {QUICK_ACTIONS.map(([label, prompt]) => (
+      {(coding ? CODE_ACTIONS : QUICK_ACTIONS).map(([label, prompt]) => (
         <button key={label} type="button" className="quick__btn" onClick={() => onAsk(prompt)}>
           {label}
         </button>
@@ -437,6 +496,76 @@ function explainSkip(reason: string): string {
   return 'No parecía una pregunta. Si quieres que responda a todo, pon la sensibilidad en «Todo».';
 }
 
+/**
+ * Un bloque de código con su botón de copiar.
+ *
+ * Copiar es la acción principal aquí: nadie transcribe a mano una solución
+ * desde un overlay mientras le miran. `data-interactive` no es opcional — sin
+ * él el botón sería inclicable con los clics atravesables activos, que es el
+ * modo recomendado durante una llamada.
+ */
+function CodeBlock({ block }: { block: AnswerBlock }) {
+  const [copied, setCopied] = useState(false);
+
+  // El aviso de "copiado" se apaga solo; sin la limpieza, un bloque que
+  // desaparece a mitad de temporizador dejaría un setState sobre un componente
+  // ya desmontado.
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1_200);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copy = (): void => {
+    void navigator.clipboard.writeText(block.content).then(() => setCopied(true));
+  };
+
+  return (
+    <div className="code" data-interactive>
+      <div className="code__head">
+        <span className="code__lang">{block.lang || 'código'}</span>
+        {/* Mientras la valla siga abierta el código está a medias: ofrecer
+            copiarlo daría una función sin cerrar sin avisar de nada. */}
+        {block.open ? (
+          <span className="code__writing">escribiendo…</span>
+        ) : (
+          <button type="button" className="code__copy" onClick={copy}>
+            {copied ? 'Copiado' : 'Copiar'}
+          </button>
+        )}
+      </div>
+      <pre className="code__body">
+        <code>{block.content}</code>
+      </pre>
+    </div>
+  );
+}
+
+/** El cuerpo de una respuesta: texto plano, salvo lo que venga entre vallas. */
+function AnswerBody({ text }: { text: string }) {
+  const blocks = parseAnswerBlocks(text);
+
+  // Sin código, exactamente lo de antes: un único div con `pre-wrap`. Es el
+  // camino del 90% de las respuestas y no debe pagar nada por esta función.
+  if (blocks.every((block) => block.type === 'text')) {
+    return <div className="answer">{text}</div>;
+  }
+
+  return (
+    <div className="answer">
+      {blocks.map((block, index) =>
+        block.type === 'code' ? (
+          <CodeBlock key={index} block={block} />
+        ) : (
+          <div className="answer__text" key={index}>
+            {block.content}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 function AnswerPane({
   answer,
   skip,
@@ -458,12 +587,19 @@ function AnswerPane({
     return <p className="empty">Ctrl+Enter para pedir una respuesta.</p>;
   }
   if (answer.status === 'thinking') {
-    return <p className="empty">Pensando…</p>;
+    // El modo código tarda más y por una razón distinta —la imagen se sube y se
+    // lee entera antes del primer token—, así que decirlo evita que parezca que
+    // se ha colgado justo cuando más prisa hay.
+    return (
+      <p className="empty">
+        {answer.trigger === 'code' ? 'Leyendo la pantalla…' : 'Pensando…'}
+      </p>
+    );
   }
   if (answer.status === 'error') {
     return <div className="answer answer--error">{answer.error ?? 'Error desconocido'}</div>;
   }
-  return <div className="answer">{answer.text}</div>;
+  return <AnswerBody text={answer.text} />;
 }
 
 export function OverlayApp() {
@@ -480,6 +616,7 @@ export function OverlayApp() {
   const [configured, setConfigured] = useState(true);
   const [tab, setTab] = useState<InputTab>('listen');
   const [sttError, setSttError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [skip, setSkip] = useState<{ text: string; reason: string } | null>(null);
 
   useChromeMouse();
@@ -554,6 +691,7 @@ export function OverlayApp() {
       // Un motor que falla carril a carril se veía exactamente igual que una
       // sala en silencio: el overlay decía "Escuchando" y no llegaba nada.
       api.transcript.onError(setSttError),
+      api.notices.on(setNotice),
     ];
 
     return () => unsubs.forEach((off) => off());
@@ -568,6 +706,7 @@ export function OverlayApp() {
         language={settings?.language ?? 'auto'}
         onDragStart={onDragStart}
         onNewConversation={() => void window.api.history.newConversation()}
+        onSolveScreen={() => void window.api.ask.solveOnScreen()}
       />
 
       {!configured && <SetupPrompt />}
@@ -580,6 +719,20 @@ export function OverlayApp() {
             className="sttError__close"
             aria-label="Descartar"
             onClick={() => setSttError(null)}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      )}
+
+      {notice && (
+        <div className="sttError" data-interactive>
+          <span className="sttError__text">{notice}</span>
+          <button
+            type="button"
+            className="sttError__close"
+            aria-label="Descartar"
+            onClick={() => setNotice(null)}
           >
             <CloseIcon />
           </button>
@@ -618,7 +771,13 @@ export function OverlayApp() {
           "Sigue" o "Más corto" sin nada previo pedirían al modelo que ampliara
           el vacío. */}
       {answer && (answer.status === 'done' || answer.status === 'streaming') && (
-        <QuickActions onAsk={(prompt) => void window.api.ask.withText(prompt)} />
+        <QuickActions
+          onAsk={(prompt) => void window.api.ask.withText(prompt)}
+          // Manda lo que se acaba de responder, no el perfil configurado: tras
+          // un Ctrl+Alt+C con el perfil en "Entrevista", lo que hay en pantalla
+          // es una solución y lo que se quiere pedir es sobre ella.
+          coding={answer.trigger === 'code' || settings?.promptProfileId === 'coding'}
+        />
       )}
 
       <div className="hints">
@@ -626,7 +785,7 @@ export function OverlayApp() {
           <kbd>Ctrl</kbd>+<kbd>Enter</kbd> preguntar
         </span>
         <span>
-          <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> ocultar
+          <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver pantalla
         </span>
         <span className="hints__spacer" />
         <SizePicker

@@ -79,8 +79,14 @@ export interface ImageAttachment {
 
 export type AnswerStatus = 'idle' | 'thinking' | 'streaming' | 'done' | 'aborted' | 'error';
 
-/** Qué originó la consulta; útil para depurar y para métricas. */
-export type AnswerTrigger = 'hotkey' | 'auto' | 'manual-input';
+/**
+ * Qué originó la consulta; útil para depurar y para métricas.
+ *
+ * `code` es el único que además cambia CÓMO se responde: fuerza el perfil de
+ * programación y un tope de tokens mayor, porque un algoritmo no cabe en las
+ * cuatro viñetas que sirven para hablar.
+ */
+export type AnswerTrigger = 'hotkey' | 'auto' | 'manual-input' | 'code';
 
 export interface Answer {
   id: string;
@@ -223,7 +229,13 @@ export interface ContextPack {
   profiles: PromptProfileId[];
 }
 
-export type PromptProfileId = 'interview' | 'meeting' | 'lecture' | 'support' | 'custom';
+export type PromptProfileId =
+  | 'interview'
+  | 'meeting'
+  | 'lecture'
+  | 'support'
+  | 'coding'
+  | 'custom';
 
 /** Etiquetas de los tipos, compartidas entre el prompt y el dashboard. */
 export const CONTEXT_KIND_LABEL: Record<ContextKind, string> = {
@@ -246,6 +258,7 @@ export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
   meeting: ['notes', 'vocabulary'],
   lecture: ['notes', 'vocabulary'],
   support: ['notes', 'vocabulary'],
+  coding: ['notes', 'vocabulary'],
   custom: ['notes', 'vocabulary'],
 };
 
@@ -267,6 +280,8 @@ export function packsForProfile(
 export interface HotkeyMap {
   askNow: string;
   screenshotAndAsk: string;
+  /** Captura la pantalla y resuelve el problema de código que haya en ella. */
+  solveOnScreen: string;
   toggleOverlay: string;
   toggleListening: string;
   toggleClickThrough: string;
@@ -324,6 +339,16 @@ export interface Settings {
   customPrompt: string;
   contextPacks: ContextPack[];
 
+  /**
+   * Lenguaje de programación de las soluciones del modo código.
+   *
+   * `auto` deja que lo deduzca de la pantalla, que es lo correcto cuando hay un
+   * editor delante con el lenguaje ya elegido. Se fija a mano para el caso
+   * contrario: un enunciado en blanco, o una prueba que exige un lenguaje
+   * concreto que no se ve en la captura.
+   */
+  codeLanguage: string;
+
   hotkeys: HotkeyMap;
   ollamaBaseUrl: string;
 }
@@ -347,6 +372,11 @@ export function autoTriggerIsInert(
 export const DEFAULT_HOTKEYS: HotkeyMap = {
   askNow: 'Control+Enter',
   screenshotAndAsk: 'Control+Shift+S',
+  // Control+Alt+C y no Control+Shift+C —que ya es el de los clics atravesables—
+  // ni Control+Shift+X, que le quitaría el atajo de extensiones a VS Code: un
+  // acelerador global gana al de la app que tenga el foco, y quien usa esto
+  // suele tener el editor delante.
+  solveOnScreen: 'Control+Alt+C',
   toggleOverlay: 'Control+Shift+H',
   toggleListening: 'Control+Shift+M',
   toggleClickThrough: 'Control+Shift+C',
@@ -385,6 +415,7 @@ export const DEFAULT_SETTINGS: Settings = {
   promptProfileId: 'interview',
   customPrompt: '',
   contextPacks: [],
+  codeLanguage: 'auto',
 
   hotkeys: DEFAULT_HOTKEYS,
   ollamaBaseUrl: 'http://127.0.0.1:11434',

@@ -30,6 +30,9 @@ borrar una conversación o borrarlas todas.
   hotkey si prefieres controlarlo.
 - **Adjunta capturas de pantalla** como contexto visual para preguntas sobre
   código o diagramas en pantalla.
+- **Resuelve el código que tengas delante**: `Ctrl+Alt+C` lee la pantalla —un
+  ejercicio de LeetCode, un test que falla, un stack trace— y devuelve la
+  solución completa en un bloque que se copia de un clic.
 - **Se oculta de la captura de pantalla**, con un switch para volverlo visible.
 
 ## Requisitos
@@ -96,6 +99,7 @@ Todos son globales: funcionan aunque la ventana de la videollamada tenga el foco
 |---|---|
 | `Ctrl+Enter` | Responder ahora |
 | `Ctrl+Shift+S` | Capturar pantalla y responder |
+| `Ctrl+Alt+C` | Resolver el código que hay en pantalla |
 | `Ctrl+Shift+H` | Mostrar u ocultar el overlay |
 | `Ctrl+Shift+M` | Empezar o parar de escuchar |
 | `Ctrl+Shift+C` | Alternar clics atravesables |
@@ -103,6 +107,39 @@ Todos son globales: funcionan aunque la ventana de la videollamada tenga el foco
 
 La configuración **no tiene atajo** a propósito: se abre solo con el engranaje
 del overlay.
+
+## Modo código
+
+`Ctrl+Alt+C` captura la pantalla y devuelve la solución del problema de
+programación que haya en ella. Está pensado para lo que tienes delante en una
+prueba técnica: un enunciado de LeetCode o HackerRank, un editor con la firma a
+medias, un test en rojo o un stack trace.
+
+Qué lo diferencia de `Ctrl+Shift+S` (capturar y responder):
+
+- **Otras reglas de salida.** El resto de la app está afinada para respuestas de
+  cuatro viñetas que se leen en voz alta. Aquí eso sobra: devuelve el enfoque con
+  su complejidad en una línea, el código **completo** en un bloque, y como mucho
+  tres apuntes. El tope de tokens sube en consecuencia.
+- **No necesita audio.** Funciona con la escucha parada, que es el caso normal
+  cuando estás resolviendo un ejercicio y no hay ninguna llamada abierta. Si hay
+  transcripción, se envía como contexto secundario.
+- **No cambia tu perfil.** Puedes estar en «Entrevista» y pulsarlo: sólo esa
+  consulta usa el modo código, y la siguiente pregunta hablada vuelve a salir en
+  viñetas. Si quieres que todo sea código, está el chip **Código** del overlay.
+- **La captura se envía con más calidad.** A la calidad normal, el JPEG se come
+  la diferencia entre `l` y `1`, y una firma mal leída da una solución que no
+  compila.
+
+El código sale en un bloque con botón **Copiar**, en monoespaciada y con scroll
+horizontal: las líneas largas no se parten, porque una expresión partida se lee
+como otra cosa.
+
+El lenguaje se deduce de lo que se vea seleccionado en la pantalla. Si prefieres
+fijarlo (o el enunciado está en blanco), hay un campo en el dashboard →
+*Lenguaje del modo código*.
+
+El botón `</>` de la barra del overlay hace exactamente lo mismo que el atajo.
 
 ## El modo invisible: qué protege y qué no
 
@@ -235,7 +272,9 @@ máquina.
 
 **3. Dónde vives esa conversación.** Muchas empresas restringen el uso de
 asistentes de IA en sus procesos de selección, con independencia de lo que
-guardes o dejes de guardar.
+guardes o dejes de guardar. Esto aplica con más motivo al modo código: las
+plataformas de evaluación técnica suelen prohibirlo explícitamente en sus
+condiciones, y varias detectan pegado masivo aunque no vean la ventana.
 
 Comprueba qué aplica en tu caso; la responsabilidad de usar esto es tuya.
 

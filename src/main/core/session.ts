@@ -18,6 +18,7 @@ import {
 import { saveConversation } from '../config/history';
 import { settingsStore } from '../config/store';
 import { audioCapture } from '../capture/audio';
+import { captureScreen } from '../capture/screenshot';
 import {
   createSTTProvider,
   type DirectAnswerEvent,
@@ -29,6 +30,20 @@ import { TranscriptBuffer } from './transcript-buffer';
 import { AnswerEngine } from './answer-engine';
 import { looksLikeQuestion } from './question-detector';
 import { getAudioWorker } from '../windows/audio-worker';
+
+/**
+ * La "pregunta" del modo código.
+ *
+ * Va como pregunta y no dentro del system prompt porque el prefijo de sistema es
+ * lo que se cachea entre llamadas (ver `claude.ts`) y debe quedarse estable. El
+ * texto es explícito sobre qué mirar: la captura llega con la pantalla entera,
+ * navegador y editor incluidos, y sin esta línea el modelo a veces comenta la
+ * interfaz en lugar de resolver el ejercicio.
+ */
+const SOLVE_INSTRUCTION =
+  'Resuelve el problema de programación que se ve en la captura de mi pantalla. ' +
+  'Si hay varias cosas visibles, quédate con el ejercicio, el error o el test que ' +
+  'está en primer plano.';
 
 /**
  * Une captura de audio, transcripción y (desde la fase 4) generación de
@@ -327,6 +342,39 @@ class SessionOrchestrator {
   /** Responde a un texto escrito a mano en el overlay. */
   askWithText(text: string): Promise<void> {
     return this.answers.ask('manual-input', text);
+  }
+
+  /**
+   * Captura la pantalla y resuelve el problema de programación que haya en ella.
+   *
+   * No pasa por `ask('hotkey')` a propósito, por dos razones:
+   *
+   *  - **La pregunta no está en el audio.** El enunciado está en la pantalla, y
+   *    coger la última intervención como pregunta metería una frase suelta de la
+   *    llamada ("vale, dime cuando lo tengas") compitiendo con el enunciado.
+   *  - **Funciona con la escucha parada.** Es el caso normal: alguien con un
+   *    LeetCode delante y sin ninguna llamada abierta. La transcripción se envía
+   *    igual si existe, porque a veces la aclaración importante se dijo en voz
+   *    alta, pero no hace falta que exista.
+   */
+  async solveOnScreen(): Promise<void> {
+    const image = await captureScreen({ forCode: true });
+
+    if (!image) {
+      // Sin captura no hay enunciado: aquí no vale el "responde igual" del
+      // hotkey normal, porque el modelo no tendría absolutamente nada que leer.
+      console.error('[code] no se pudo capturar la pantalla; no hay nada que resolver.');
+      this.broadcast(
+        IPC.onNotice,
+        'No se pudo capturar la pantalla, así que no hay nada que resolver.'
+      );
+      return;
+    }
+
+    this.answers.attachImage(image);
+    this.broadcast(IPC.onScreenshot, image);
+
+    await this.answers.ask('code', SOLVE_INSTRUCTION);
   }
 
   abortAnswer(): void {
