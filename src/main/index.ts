@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, session } from 'electron';
+import { app, BrowserWindow, clipboard, desktopCapturer, ipcMain, session } from 'electron';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { IPC } from '@shared/ipc';
 import type { Settings } from '@shared/types';
@@ -195,6 +195,12 @@ function registerIpcHandlers(): void {
       broadcast(IPC.onScreenshot, image);
     }
     return image;
+  });
+
+  // ── Portapapeles ──
+  // Vive en el main porque en el overlay no hay alternativa: ver `IPC.clipboardWrite`.
+  ipcMain.handle(IPC.clipboardWrite, (_e, text: string) => {
+    clipboard.writeText(text);
   });
 
   // ── Historial de conversaciones ──

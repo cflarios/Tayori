@@ -101,6 +101,14 @@ const api = {
       ipcRenderer.invoke(IPC.sttTestConnection),
   },
 
+  /**
+   * Copiar al portapapeles. Pasa por el main a la fuerza: `navigator.clipboard`
+   * exige foco, y el overlay no lo toma nunca. Ver `IPC.clipboardWrite`.
+   */
+  clipboard: {
+    write: (text: string): Promise<void> => ipcRenderer.invoke(IPC.clipboardWrite, text),
+  },
+
   /** Avisos que no vienen del audio (fallo de captura de pantalla, etc.). */
   notices: {
     on: (cb: (message: string) => void) => subscribe<string>(IPC.onNotice, cb),

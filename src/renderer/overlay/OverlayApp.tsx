@@ -505,19 +505,30 @@ function explainSkip(reason: string): string {
  * modo recomendado durante una llamada.
  */
 function CodeBlock({ block }: { block: AnswerBlock }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'no' | 'sí' | 'falló'>('no');
 
-  // El aviso de "copiado" se apaga solo; sin la limpieza, un bloque que
-  // desaparece a mitad de temporizador dejaría un setState sobre un componente
-  // ya desmontado.
+  // El aviso se apaga solo; sin la limpieza, un bloque que desaparece a mitad
+  // de temporizador dejaría un setState sobre un componente ya desmontado.
   useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 1_200);
+    if (copied === 'no') return;
+    const timer = setTimeout(() => setCopied('no'), 1_200);
     return () => clearTimeout(timer);
   }, [copied]);
 
+  /*
+   * Por el main, no por `navigator.clipboard`.
+   *
+   * La API del navegador exige que el documento tenga el foco y el overlay es
+   * `focusable: false` a propósito, así que rechazaba siempre con "Document is
+   * not focused" — y el rechazo se perdía sin `catch`, con lo que el botón
+   * simplemente no hacía nada. El handler de permisos, que sólo concede
+   * `clipboard-read`, la habría bloqueado igual.
+   */
   const copy = (): void => {
-    void navigator.clipboard.writeText(block.content).then(() => setCopied(true));
+    window.api.clipboard
+      .write(block.content)
+      .then(() => setCopied('sí'))
+      .catch(() => setCopied('falló'));
   };
 
   return (
@@ -530,7 +541,7 @@ function CodeBlock({ block }: { block: AnswerBlock }) {
           <span className="code__writing">escribiendo…</span>
         ) : (
           <button type="button" className="code__copy" onClick={copy}>
-            {copied ? 'Copiado' : 'Copiar'}
+            {copied === 'sí' ? 'Copiado' : copied === 'falló' ? 'No se pudo' : 'Copiar'}
           </button>
         )}
       </div>

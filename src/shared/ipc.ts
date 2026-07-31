@@ -40,6 +40,18 @@ export const IPC = {
 
   screenshotTake: 'screenshot:take',
 
+  /**
+   * Copiar texto al portapapeles, desde el main.
+   *
+   * `navigator.clipboard` no sirve en el overlay, y no por un descuido: exige
+   * que el documento tenga el foco, y el overlay es `focusable: false` a
+   * propósito para no robárselo a la videollamada. Además, `setPermissionRequest
+   * Handler` sólo concede `clipboard-read`, así que la escritura tampoco
+   * pasaría el filtro. El módulo `clipboard` de Electron no tiene ninguna de las
+   * dos restricciones.
+   */
+  clipboardWrite: 'clipboard:write',
+
   conversationNew: 'conversation:new',
   historyList: 'history:list',
   historyGet: 'history:get',
