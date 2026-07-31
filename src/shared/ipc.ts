@@ -83,6 +83,16 @@ export const IPC = {
   /** RAM, CPU y GPU de la máquina, para recomendar un modelo local. */
   systemGetSpecs: 'system:get-specs',
 
+  /**
+   * Genera la guía de modelos y la abre en el navegador.
+   *
+   * Va a un documento y no a una ventana de la app por la regla de oro del
+   * proyecto: cada ventana nueva de Electron es una ventana más que registrar en
+   * la protección de captura, y el modo invisible se verifica, no se asume. Un
+   * HTML además se guarda, se imprime y se lee con la app cerrada.
+   */
+  guideOpen: 'guide:open',
+
   // ── send (renderer → main, sin respuesta) ──
   audioChunk: 'audio:chunk',
   audioLevels: 'audio:levels',

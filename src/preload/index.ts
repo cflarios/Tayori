@@ -194,6 +194,12 @@ const api = {
     getSpecs: (): Promise<SystemSpecs> => ipcRenderer.invoke(IPC.systemGetSpecs),
   },
 
+  /** La guía completa de modelos, generada y abierta en el navegador. */
+  guide: {
+    open: (): Promise<{ ok: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC.guideOpen),
+  },
+
   /**
    * Sólo lo usa la ventana `audio-worker`. Va aquí y no en un preload aparte
    * para no duplicar el bundle; el overlay y el dashboard simplemente lo ignoran.

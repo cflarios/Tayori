@@ -543,6 +543,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
 function LocalModelGuide() {
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
   const [copied, setCopied] = useState('');
+  const [guide, setGuide] = useState<{ ok: boolean; error?: string } | null>(null);
 
   useEffect(() => {
     void window.api.system.getSpecs().then(setSpecs);
@@ -601,6 +602,31 @@ function LocalModelGuide() {
       </Row>
 
       <div className="warn">{advice.caveat}</div>
+
+      {/*
+        La tarjeta responde "¿qué me pongo?" en dos líneas, que es lo que hace
+        falta con la ventana delante. La guía responde a la de al lado —"¿y por
+        qué, y qué más hay, y cuánto cuesta?"—, que necesita tablas y en esta
+        columna sería un muro. Va a un documento y no a otra ventana de la app:
+        cada ventana de Electron hay que registrarla en la protección de captura.
+      */}
+      <Row
+        label="Guía completa"
+        desc="Todos los modelos locales por tramo de memoria, los multimodales que pueden leer tu pantalla, los de pago ordenados por precio y cuánto cuesta de verdad cada pulsación. Se genera para tu equipo y se abre en el navegador."
+      >
+        <button
+          className="btn"
+          onClick={() => {
+            void window.api.guide.open().then(setGuide);
+          }}
+        >
+          Abrir la guía
+        </button>
+      </Row>
+
+      {guide && !guide.ok && (
+        <div className="warn">No se pudo abrir la guía: {guide.error ?? 'error desconocido'}</div>
+      )}
 
       <p className="card__hint" style={{ marginTop: 12, marginBottom: 0 }}>
         La VRAM de la tarjeta gráfica —el dato que de verdad decide si un modelo va rápido— no se

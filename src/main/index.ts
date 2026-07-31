@@ -1,6 +1,18 @@
-import { app, BrowserWindow, clipboard, desktopCapturer, ipcMain, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  desktopCapturer,
+  ipcMain,
+  session,
+  shell,
+} from 'electron';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { IPC } from '@shared/ipc';
+import { renderModelGuide } from '@shared/model-guide';
 import type { LLMProviderId, ScreenTask, Settings } from '@shared/types';
 import { settingsStore } from './config/store';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
@@ -265,6 +277,28 @@ function registerIpcHandlers(): void {
 
   // ── Máquina ──
   ipcMain.handle(IPC.systemGetSpecs, () => getSystemSpecs());
+
+  /*
+   * La guía de modelos, como documento.
+   *
+   * Se escribe en `userData` y se abre con el navegador del sistema. Dos motivos
+   * para no montar una ventana propia: cada ventana de Electron hay que
+   * registrarla en la protección de captura —y el modo invisible se verifica, no
+   * se asume—, y un HTML en disco se guarda, se imprime y se consulta con la app
+   * cerrada, que es como se lee una tabla de precios.
+   */
+  ipcMain.handle(IPC.guideOpen, async () => {
+    try {
+      const file = join(app.getPath('userData'), 'guia-modelos.html');
+      writeFileSync(file, renderModelGuide(await getSystemSpecs()), 'utf-8');
+      await shell.openExternal(pathToFileURL(file).href);
+      return { ok: true, path: file };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[guide] no se pudo abrir:', message);
+      return { ok: false, error: message };
+    }
+  });
 
   // ── Atajos ──
   ipcMain.handle(IPC.hotkeysGetFailed, () => failedHotkeys);

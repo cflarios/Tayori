@@ -716,6 +716,46 @@ marca **antes** de llamar al IPC, no en el `.then`. Vaciar la memoria deja el
 contador a cero, y con cero el chip no se pinta — para cuando llegaba la
 respuesta el componente ya estaba desmontado y el aviso no se veía nunca.
 
+### La guía de modelos es un documento, y no otra ventana
+
+La tarjeta del dashboard responde *"¿qué me pongo?"* en dos líneas. La pregunta
+de al lado —*"¿y por qué, y qué más hay, y cuánto cuesta?"*— necesita tablas,
+tramos y comparativas de precios, y en una columna de ajustes eso es un muro que
+nadie lee.
+
+Se resolvió generando un HTML autocontenido y abriéndolo con el navegador del
+sistema. **Una ventana propia de Electron se descartó por la regla de oro de este
+proyecto**: cada ventana nueva hay que registrarla en la protección de captura, y
+el modo invisible se verifica, no se asume. Un documento no tiene ese riesgo, y
+encima se guarda, se imprime y se consulta con la app cerrada — que es como se
+lee una tabla de precios.
+
+El renderizador vive en `shared/` y es una función pura de `SystemSpecs` a
+string, así que tiene tests: que escapa lo que viene del sistema (el nombre de la
+CPU y de la GPU los da el SO y acaban dentro del HTML), que no mete `<script>` ni
+referencias externas —se abre desde `file://` y no puede depender de la red— y
+que cubre las tres cosas que se fueron a buscar: locales por cómputo,
+multimodales y nube barata.
+
+**Sobre los precios, dos reglas.** Los de Anthropic se verificaron contra su
+referencia oficial en lugar de escribirlos de memoria, y el documento lleva
+fecha porque caducan. Los de Google **no se reproducen**: no se pudieron
+verificar con la misma fuente, y una cifra inventada en una tabla de precios es
+peor que una remisión a la página del proveedor. Esa asimetría se explica en el
+propio documento en lugar de disimularse.
+
+El dato que más costó reunir y el que más sorprende es el coste real de una
+pulsación de pantalla: una captura de 1600 px se cobra como **~4.800 tokens de
+entrada** en los modelos de visión de alta resolución, lo que deja el modo
+pantalla en céntimos incluso con el modelo caro. La conclusión práctica es la
+contraria de la intuición: **lo que engorda la factura no son los botones, es la
+escucha automática**, que dispara una consulta por cada pregunta que oye.
+
+De ahí sale también la nota sobre Haiku 4.5, que parece la ganga obvia: es más
+barato *y* gasta menos tokens por captura porque la lee a menor resolución. Es
+exactamente la misma razón por la que falla antes con letra pequeña — está
+viendo menos.
+
 ### Recomendar un modelo local sin inventarse los datos
 
 "¿Qué modelo de Ollama me irá bien?" no tiene respuesta genérica: el mismo

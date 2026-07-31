@@ -264,12 +264,28 @@ modelo, que devuelve transcripción y respuesta a la vez. Una transcripción mal
 deja de poder estropear la respuesta, porque el modelo oye lo que dijiste en
 lugar de leer lo que otro entendió. A cambio, el audio sale de tu máquina.
 
-### Modelos locales: cuál le pega a tu equipo
+### Qué modelo usar: la tarjeta y la guía
 
 El dashboard mide tu RAM, tu CPU y tu GPU y recomienda dos modelos: uno para
 conversar y otro para leer la pantalla, con el comando `ollama pull` listo para
 copiar. Elegir a ciegas cuesta una descarga de varios gigas para acabar con
 respuestas de un minuto.
+
+Al lado hay un botón, **Abrir la guía**, que genera un documento para tu equipo
+y lo abre en el navegador. Ahí está lo que no cabe en una columna de ajustes:
+
+- Todos los modelos locales por tramo de memoria, con lo que ocupa cada
+  descarga y la RAM que conviene tener libre.
+- Los **multimodales** —los únicos que pueden leer tu pantalla— por separado,
+  porque es el error más caro: elegir uno de texto deja los dos botones muertos.
+- Los de pago ordenados por precio, con las cifras de Anthropic verificadas
+  contra su referencia y fechadas.
+- **Cuánto cuesta de verdad una pulsación de pantalla**: una captura ronda los
+  4.800 tokens de entrada, así que sale por céntimos incluso con el modelo caro.
+  Lo que suma no es eso, es la escucha automática.
+- Cuatro combinaciones cerradas, de «todo local y gratis» a «sin concesiones».
+
+El documento se escribe en tu carpeta de datos y no se envía a ningún sitio.
 
 Lo que **no** hace es estimar la VRAM de la tarjeta gráfica, que es el dato que
 de verdad decide si un modelo va rápido: no hay forma fiable de leerla desde la
