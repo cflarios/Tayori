@@ -716,6 +716,45 @@ marca **antes** de llamar al IPC, no en el `.then`. Vaciar la memoria deja el
 contador a cero, y con cero el chip no se pinta — para cuando llegaba la
 respuesta el componente ya estaba desmontado y el aviso no se veía nunca.
 
+### El catálogo de modelos es una sugerencia, no una frontera
+
+`CLAUDE_MODELS` y `GEMINI_MODELS` están escritos en el código, así que envejecen:
+cada modelo nuevo del proveedor tardaba en poder usarse **lo que tardara una
+versión de la app**, aunque la cuenta ya tuviera acceso. La lista sigue siendo lo
+primero que se ve —es lo que quiere casi todo el mundo y evita teclear un id de
+memoria— pero ahora tiene una opción «Otro…» que abre un campo de texto.
+
+**Con Ollama no se ofrece, y no es un olvido.** Esa lista no es un catálogo
+nuestro: es lo que el servidor local responde que tiene descargado. Escribir ahí
+el nombre de un modelo que no está instalado no lo instala, sólo produce un error
+más tarde y más lejos de la causa.
+
+Dos cosas que hubo que arreglar para que esto funcionara:
+
+- **El auto-relleno pisaba el id escrito a mano.** El efecto que carga la lista
+  reparaba el ajuste cuando el modelo guardado *no estaba en la lista*, que era
+  correcto cuando la lista era la única fuente posible. Con ids a mano, eso
+  sustituía el modelo tecleado por el primero del catálogo en la siguiente
+  apertura del dashboard. Ahora la condición es "está vacío". El caso que
+  motivó el arreglo original —Ollama con `""`, que fallaba con "no hay ningún
+  modelo seleccionado"— sigue cubierto; el nuevo no. Cambiarle el modelo a
+  alguien a su espalda es malo con uno local y peor con uno de pago.
+- **`normalizeModelId`, y no es cosmético.** Un id copiado de una página de
+  documentación se pega con un espacio detrás. El proveedor responde 404 y el
+  mensaje que llega es "el modelo indicado no existe", que manda a buscar el
+  modelo bueno cuando el modelo ya era el bueno. Ningún proveedor admite
+  espacios en un id, así que se quitan al teclear. Tiene test.
+
+El campo va en monoespaciada por la misma razón: lo que se escribe ahí se compara
+carácter a carácter contra el id del proveedor, y en una fuente proporcional un
+`1` por una `l` no se ve.
+
+La cara conocida del `<select>` controlado sigue vigilada aquí: mientras la lista
+carga está vacía, y sin la comprobación de `models.length > 0` **todo** parecería
+escrito a mano, así que el campo de texto aparecería y desaparecería solo en cada
+apertura. Se verificó muestreando el DOM cada pocos milisegundos tras cambiar de
+proveedor.
+
 ### La guía de modelos es un documento, y no otra ventana
 
 La tarjeta del dashboard responde *"¿qué me pongo?"* en dos líneas. La pregunta

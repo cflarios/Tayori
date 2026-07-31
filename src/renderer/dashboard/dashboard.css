@@ -733,3 +733,24 @@ kbd {
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* ── Selector de modelo (catálogo + id a mano) ── */
+
+.modelpick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/*
+ * Monoespaciada: lo que se escribe aquí es un identificador que se compara
+ * carácter a carácter contra el del proveedor, y en una fuente proporcional un
+ * guión de más o un 1 por una l no se ven.
+ */
+.modelpick__id {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace !important;
+  font-size: 12.5px !important;
+  width: 210px;
+  flex: none !important;
+}

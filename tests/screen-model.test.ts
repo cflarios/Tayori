@@ -4,6 +4,7 @@ import {
   adviseLocalModels,
   DEFAULT_SETTINGS,
   isScreenTrigger,
+  normalizeModelId,
   screenModelFor,
   type Settings,
 } from '../src/shared/types';
@@ -130,5 +131,36 @@ describe('adviseLocalModels', () => {
     // así se equivoca leyendo capturas, que es lo que hay que advertir.
     const advice = adviseLocalModels({ totalMemoryGB: 4, cpuModel: 'x', cpuCores: 4 });
     expect(advice.caveat).toContain('nube');
+  });
+});
+
+/**
+ * El catálogo de Claude y Gemini está en el código, así que envejece: un modelo
+ * nuevo del proveedor no se puede usar hasta que salga una versión de la app.
+ * Escribir el id a mano es la salida, y esto cubre la parte con lógica.
+ */
+describe('normalizeModelId', () => {
+  it('deja intacto un id bien escrito', () => {
+    expect(normalizeModelId('claude-opus-4-8')).toBe('claude-opus-4-8');
+  });
+
+  it('quita el espacio final que deja un copiar y pegar', () => {
+    // Es el caso real: se copia el id de una página de documentación, llega con
+    // un espacio detrás, y el proveedor responde 404. El mensaje dice "el
+    // modelo no existe", que manda a buscar el modelo bueno cuando ya lo era.
+    expect(normalizeModelId('claude-opus-4-8 ')).toBe('claude-opus-4-8');
+    expect(normalizeModelId('  gemini-2.5-pro\n')).toBe('gemini-2.5-pro');
+  });
+
+  it('quita también los espacios de en medio', () => {
+    // Ningún proveedor usa espacios en un id, así que un espacio interior sólo
+    // puede venir de un salto de línea del portapapeles.
+    expect(normalizeModelId('claude-sonnet\n-5')).toBe('claude-sonnet-5');
+    expect(normalizeModelId('qwen2.5vl: 7b')).toBe('qwen2.5vl:7b');
+  });
+
+  it('un campo vacío o con sólo espacios queda vacío', () => {
+    expect(normalizeModelId('   ')).toBe('');
+    expect(normalizeModelId('')).toBe('');
   });
 });

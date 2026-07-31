@@ -674,6 +674,20 @@ export interface OllamaStatus {
   error?: string;
 }
 
+/**
+ * Limpia un id de modelo escrito o pegado a mano.
+ *
+ * Existe por un fallo concreto y muy difícil de ver: un id copiado de una
+ * página de documentación se pega con un espacio al final —o con un salto de
+ * línea, o con un espacio duro— y el proveedor responde 404. El mensaje que
+ * llega es "el modelo indicado no existe", que manda a buscar el modelo bueno
+ * cuando el modelo ya era el bueno. Un id de modelo no lleva espacios en
+ * ninguno de los tres proveedores, así que quitarlos no puede romper nada.
+ */
+export function normalizeModelId(raw: string): string {
+  return raw.replace(/\s+/g, '').trim();
+}
+
 /** Las keys nunca viajan al renderer; solo si están presentes o no. */
 export interface SecretsPresence {
   anthropic: boolean;

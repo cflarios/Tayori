@@ -172,6 +172,18 @@ máquina. Por defecto se usa el mismo para todo, como antes.
 con un aviso en lugar de inventarse el enunciado. El dashboard marca cuáles ven
 imágenes y avisa antes de que lo descubras a mitad de examen.
 
+### Un modelo que no está en la lista
+
+Los desplegables de Claude y de Gemini traen los modelos que la app conoce, y esa
+lista envejece con cada versión. Si tu cuenta tiene acceso a otro, elige
+**«Otro…»** y escribe su id: se guarda tal cual y se usa como cualquiera de la
+lista. Un id inventado no falla al guardarlo, falla en la primera pregunta, así
+que confírmalo con **Probar conexión**.
+
+Con **Ollama no aparece esa opción**, a propósito: ahí la lista no es un catálogo
+nuestro sino lo que tu servidor local dice tener descargado, y escribir el nombre
+de un modelo que no está instalado no lo instala.
+
 ## Modo código
 
 `Ctrl+Alt+C` captura la pantalla y devuelve la solución del problema de

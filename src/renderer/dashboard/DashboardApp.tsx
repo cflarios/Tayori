@@ -8,6 +8,7 @@ import {
   DEFAULT_HOTKEYS,
   FONT_SCALE,
   HOTKEY_LABEL,
+  normalizeModelId,
   packsForProfile,
   PROFILE_SLOTS,
   screenModelFor,
@@ -486,26 +487,22 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
           desc={
             models.length === 0
               ? 'Sin modelos disponibles. Si es Ollama, comprueba que el servidor está corriendo.'
-              : 'Sólo los que admiten imágenes pueden leer tu pantalla.'
+              : provider === 'ollama'
+                ? 'Sólo los que admiten imágenes pueden leer tu pantalla.'
+                : 'Sólo los que admiten imágenes pueden leer tu pantalla. Si tu cuenta tiene acceso a otro modelo, elige «Otro…» y escribe su id.'
           }
         >
-          <select
+          <ModelPicker
+            providerId={provider}
+            models={models.map((m) => ({
+              ...m,
+              // La visión decide si este modelo sirve para lo único que hace
+              // esta tarjeta, así que va en la etiqueta y no en una nota aparte.
+              label: `${m.label}${m.supportsVision ? ' · ve imágenes' : ' · sin visión'}`,
+            }))}
             value={target.model}
-            onChange={(e) => void patch({ screenModel: e.target.value })}
-          >
-            {/* Un select controlado necesita SIEMPRE una option con su valor, o
-                el navegador pinta la primera como elegida sin disparar onChange
-                y la UI miente. Ya costó un rato una vez. */}
-            {!models.some((m) => m.id === target.model) && (
-              <option value={target.model}>{target.model || '— elige un modelo —'}</option>
-            )}
-            {models.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.label}
-                {model.supportsVision ? ' · ve imágenes' : ' · sin visión'}
-              </option>
-            ))}
-          </select>
+            onChange={(screenModel) => void patch({ screenModel })}
+          />
         </Row>
       )}
 
@@ -1201,6 +1198,93 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
 
 type PatchFn = (p: Partial<Settings>) => Promise<void>;
 
+/** Valor centinela del desplegable para "voy a escribirlo yo". */
+const CUSTOM_MODEL = '__custom__';
+
+/**
+ * Elegir modelo: del catálogo, o escribiéndolo.
+ *
+ * El catálogo de Claude y de Gemini está escrito en el código, así que envejece:
+ * cada modelo nuevo del proveedor tarda en llegar aquí lo que tarde una versión
+ * de la app, y mientras tanto no hay forma de usarlo aunque tu cuenta tenga
+ * acceso. La lista sigue siendo lo primero que se ve —es lo que quiere el 90% y
+ * evita teclear un id de memoria— pero deja de ser una frontera.
+ *
+ * **Con Ollama no se ofrece**, y no es una omisión: esa lista no es un catálogo
+ * nuestro, es lo que el servidor local dice tener descargado. Escribir ahí el
+ * nombre de un modelo que no está instalado no lo instala; sólo produce un
+ * error más tarde y más lejos.
+ */
+function ModelPicker({
+  providerId,
+  models,
+  value,
+  onChange,
+}: {
+  providerId: LLMProviderId | 'same';
+  models: ModelInfo[];
+  value: string;
+  onChange: (model: string) => void;
+}) {
+  /** El usuario pidió escribirlo; se recuerda aunque borre el campo. */
+  const [manual, setManual] = useState(false);
+
+  const allowCustom = providerId !== 'ollama';
+  const known = models.some((m) => m.id === value);
+
+  /*
+   * Se escribe a mano si lo pidió, o si lo guardado no está en el catálogo —
+   * que es justo el caso de quien ya tecleó uno y vuelve al dashboard. La
+   * comprobación exige que la lista haya llegado: mientras carga está vacía y
+   * TODO parecería escrito a mano, así que el campo aparecería y desaparecería
+   * solo en cada apertura.
+   */
+  const typing = allowCustom && (manual || (Boolean(value) && models.length > 0 && !known));
+
+  return (
+    <div className="modelpick">
+      <select
+        value={typing ? CUSTOM_MODEL : known ? value : ''}
+        disabled={models.length === 0 && !allowCustom}
+        onChange={(e) => {
+          if (e.target.value === CUSTOM_MODEL) {
+            setManual(true);
+            return;
+          }
+          setManual(false);
+          onChange(e.target.value);
+        }}
+      >
+        {/* Un select controlado necesita SIEMPRE una option con su valor, o el
+            navegador pinta la primera como elegida sin disparar onChange y la
+            UI miente. Ya costó un rato una vez. */}
+        {!typing && !known && (
+          <option value="">{models.length === 0 ? '—' : '— elige un modelo —'}</option>
+        )}
+        {models.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.label}
+          </option>
+        ))}
+        {allowCustom && <option value={CUSTOM_MODEL}>Otro… (escribir el id)</option>}
+      </select>
+
+      {typing && (
+        <input
+          type="text"
+          className="modelpick__id"
+          placeholder="p. ej. claude-opus-4-8"
+          value={value}
+          autoFocus
+          // Se normaliza en cada tecla: un id pegado desde la documentación
+          // trae espacios que producen un 404 imposible de ver a simple vista.
+          onChange={(e) => onChange(normalizeModelId(e.target.value))}
+        />
+      )}
+    </div>
+  );
+}
+
 function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const provider = settings.llmProviderId;
 
@@ -1227,15 +1311,24 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         if (cancelled) return;
         setLoaded({ provider, models });
 
-        // Si el modelo guardado no está entre los cargados, hay que PERSISTIR
-        // uno. Un <select> controlado cuyo `value` no existe entre sus <option>
-        // pinta la primera opción como elegida pero no dispara `onChange`: la
-        // UI decía "llama3.2:3b" mientras los settings seguían con "", y cada
-        // respuesta fallaba con "no hay ningún modelo seleccionado".
+        /*
+         * Si NO hay modelo guardado, hay que persistir uno. Un <select>
+         * controlado cuyo `value` no existe entre sus <option> pinta la primera
+         * opción como elegida pero no dispara `onChange`: la UI decía
+         * "llama3.2:3b" mientras los settings seguían con "", y cada respuesta
+         * fallaba con "no hay ningún modelo seleccionado".
+         *
+         * La condición es "está vacío", NO "no está en la lista", y la
+         * diferencia importa desde que se pueden escribir modelos a mano: con
+         * la comprobación anterior, un id tecleado —o uno del catálogo que un
+         * día se retire— se sustituía solo por el primero de la lista al
+         * reabrir el dashboard. Cambiar el modelo de alguien a su espalda es
+         * malo con uno local y peor con uno de pago.
+         */
         const stored = await window.api.settings.get();
         const currentModel = stored.llmModels[provider];
         const first = models[0];
-        if (!first || models.some((m) => m.id === currentModel)) return;
+        if (!first || currentModel) return;
         // Se relee del main en lugar de usar el `settings` del render: entre
         // que se pidió la lista y llegó, el usuario ha podido tocar otro ajuste.
         await patch({ llmModels: { ...stored.llmModels, [provider]: first.id } });
@@ -1251,9 +1344,6 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
   const models = loaded?.provider === provider ? loaded.models : [];
   const test = tested?.provider === provider ? tested.result : null;
   const selectedModel = settings.llmModels[provider];
-  /** Mientras la lista carga (o si el modelo guardado ya no existe) el valor
-   *  no está entre las opciones; sin este hueco el select mentiría. */
-  const modelMissing = !models.some((m) => m.id === selectedModel);
 
   const runTest = async (): Promise<void> => {
     setBusy(true);
@@ -1287,27 +1377,19 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
           // solo se apunta hacia él para no decir lo mismo dos veces.
           provider === 'ollama' && models.length === 0
             ? 'Sin modelos disponibles. Mira el estado de Ollama más abajo.'
-            : undefined
+            : provider !== 'ollama'
+              ? 'La lista son los modelos que la app conoce. Si tu cuenta tiene acceso a otro, elige «Otro…» y escribe su id; un id que no existe da error en la primera pregunta, así que comprueba con «Probar conexión».'
+              : undefined
         }
       >
-        <select
-          value={modelMissing ? '' : selectedModel}
-          disabled={models.length === 0}
-          onChange={(e) =>
-            void patch({
-              llmModels: { ...settings.llmModels, [provider]: e.target.value },
-            })
+        <ModelPicker
+          providerId={provider}
+          models={models}
+          value={selectedModel}
+          onChange={(model) =>
+            void patch({ llmModels: { ...settings.llmModels, [provider]: model } })
           }
-        >
-          {modelMissing && (
-            <option value="">{models.length === 0 ? '—' : '— elige un modelo —'}</option>
-          )}
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        />
       </Row>
 
       <div className="field">
