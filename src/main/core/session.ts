@@ -16,6 +16,7 @@ import {
   type Speaker,
   type TranscriptSegment,
 } from '@shared/types';
+import { phoneBridge } from '../bridge/phone';
 import { saveConversation } from '../config/history';
 import { settingsStore } from '../config/store';
 import { audioCapture } from '../capture/audio';
@@ -684,6 +685,10 @@ class SessionOrchestrator {
         win.webContents.send(channel, payload);
       }
     }
+    // Mismo enganche que en `index.ts`: el espejo del teléfono recibe lo que
+    // reciben las ventanas y decide él qué le sirve. Por aquí pasan las
+    // respuestas, que son la razón de que el espejo exista.
+    phoneBridge.publish(channel, payload);
   }
 }
 

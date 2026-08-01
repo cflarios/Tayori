@@ -117,6 +117,16 @@ sin darse cuenta:
   comprobaciones por todo el orquestador— es lo que hace que no se pueda colar
   una escritura por olvido.
 
+**Agosto de 2026: el espejo del móvil es la segunda salida**, y se anota aquí
+por la regla del final de este apartado. Sirve las **respuestas** —no la
+transcripción— por HTTP a la red local del usuario. No toca el disco y no sale
+de su red, pero mientras está encendido existe una copia del texto fuera de la
+ventana protegida, así que cuenta como salida y el README lo dice en
+«Consideraciones legales». La transcripción se dejó fuera **a propósito**: es lo
+que dijo la otra persona, y duplicarla en un segundo dispositivo por comodidad
+no lo había pedido nadie. Si algún día se añade, se vuelve a tocar el README y
+este apartado en el mismo commit.
+
 El cambio legal **no es cosmético**: en varias jurisdicciones un registro escrito
 de una conversación cuenta igual que una grabación a efectos de consentimiento.
 Por eso el README ya no dice "no graba nada" a secas, y «Consideraciones legales»
@@ -274,6 +284,111 @@ todo lo que esté allí es, en la práctica, inalcanzable mientras hablas.
   controles inalcanzables. A tamaño S se esconde además el nombre de la fuente:
   el icono ya distingue micrófono de altavoz. El ancho de la ventana **es** el
   viewport, así que una media query equivale a "qué preset está puesto".
+
+### El espejo del móvil: sacar la respuesta de la pantalla compartida
+
+El overlay resuelve "que no se vea en la grabación". Hay un caso que **no puede**
+resolver por construcción: compartir la pantalla entera, donde lo que está en tu
+monitor está al otro lado por definición. Tampoco cubre una cámara, ni un
+segundo monitor que alguien mire. La única salida es que la respuesta no esté en
+esa pantalla, y para eso hace falta otro dispositivo.
+
+**Server-Sent Events, no WebSocket.** El flujo va en una sola dirección, y eso
+cambia el cálculo entero:
+
+- Node no trae servidor de WebSocket; SSE es `res.write()` sobre el mismo `http`
+  que ya sirve la página. **Cero dependencias nuevas** por el transporte.
+- `EventSource` **reconecta solo**. En un móvil la conexión se cae cada vez que
+  se bloquea la pantalla, así que ese bucle hay que tenerlo sí o sí — con
+  WebSocket habría que escribirlo, y es justo donde salen los fallos raros.
+- Que el teléfono **no pueda mandar nada** es una propiedad, no una carencia.
+
+**Los dos interruptores están separados a propósito.** Encender el espejo y
+abrirlo a la red local son dos decisiones distintas, y la segunda es la que
+tiene alcance: con `phoneMirrorLan` apagado sólo escucha en `127.0.0.1`. Los dos
+empiezan apagados; publicar el texto de tus respuestas no es un valor de fábrica.
+
+**El token cambia en cada arranque** y por eso caduca solo un enlace guardado en
+el móvil, sin que nadie tenga que acordarse de revocarlo. Se compara con
+`timingSafeEqual`, que es barato y evita tener que justificar un `===` sobre un
+secreto más adelante.
+
+Tres cosas que salieron **ejecutándolo**, no leyéndolo:
+
+- **`socket.connect()` de UDP es asíncrono.** La primera versión de
+  `routedAddress()` leía `socket.address()` justo después y lanzaba `EBADF`, así
+  que devolvía `null` **siempre**: seguía habiendo enlace —caía a la heurística
+  de rangos— y el fallo era invisible. Es el patrón de este proyecto entero: lo
+  que no falla ruidosamente hay que ir a comprobarlo.
+- **Preguntar a la tabla de rutas en lugar de adivinar por prefijo.** La máquina
+  de pruebas tenía cuatro IPv4: `192.168.1.4` (la buena) y `192.168.121.1`,
+  `192.168.52.1` y `172.22.128.1` de adaptadores virtuales. Por prefijo son
+  indistinguibles, así que ordenar por rangos acertaba **por casualidad**, según
+  cómo enumerara el sistema. Un `connect()` de UDP a una dirección pública no
+  manda ni un byte: sólo hace que el sistema elija ruta y fije el extremo local,
+  que es exactamente el dato que se busca. La heurística de rangos se queda como
+  plan B para cuando no hay ruta por defecto.
+- **`server.close()` no cierra las conexiones SSE**, que son keep-alive: sin
+  terminarlas a mano el puerto se queda tomado y el proceso no muere. Y el
+  cierre es **asíncrono**, así que una petición del mismo tick todavía entra —
+  lo que de verdad cierra la puerta es que el token se borra de forma síncrona.
+  El test lo dice así en lugar de afirmar que la conexión se rechaza: escrito de
+  la otra forma pasaba por suerte, según lo rápido que fuera la máquina.
+
+**El QR viaja como matriz de módulos, no como imagen.** El dashboard lo dibuja
+con `<rect>`: nada que añadir a la CSP, nítido a cualquier tamaño, y el margen
+obligatorio de cuatro módulos es aritmética del `viewBox` en vez de un borde CSS
+que alguien pueda quitar sin saber para qué estaba.
+
+**Aquí sí se añadió una dependencia** (`qrcode-generator`, sin dependencias
+propias), y conviene decir por qué no contradice lo de `electron-store` ni lo
+del renderizador de Markdown. Aquellos se descartaron porque **lo que hacía
+falta era trivial**: ochenta líneas de store, un partidor de vallas. Un
+codificador de QR no lo es —Reed-Solomon, selección de máscara, bits de
+formato— y sobre todo **su fallo no se ve**: un QR mal generado se dibuja
+perfecto y no lo lee ninguna cámara. Escribirlo a mano habría cambiado 30 KB por
+un error que sólo aparece con un teléfono delante.
+
+### El dashboard dejó de ser una columna
+
+Nació como una columna de tarjetas y creció hasta **doce**, de los primeros
+pasos al registro de diagnóstico. Con cuatro funcionaba; con doce, encontrar un
+ajuste era acordarse de a qué altura del scroll estaba, y hubo que inventar un
+`scrollToCard()` para que la guía de primeros pasos pudiera llevarte a una
+tarjeta — señal de que la navegación ya no la daba la propia página.
+
+Ahora hay una barra lateral con nueve secciones y sólo se monta la que estás
+viendo. Lo que hay que saber para no deshacerlo por partes:
+
+- **La cabecera del panel es la que titula.** Las tarjetas que son únicas en su
+  sección ya no llevan `card__title` ni `card__hint`: el texto se movió a
+  `SECTIONS[id].hint`. Volver a ponérselo diría lo mismo dos veces en la misma
+  pantalla. Las secciones con varias tarjetas —General, Audio, Modelos— sí las
+  conservan, porque ahí el título distingue una tarjeta de la siguiente.
+- **Los avisos suben a la barra lateral** como un punto ámbar, y son
+  exactamente los que ya existían dentro de las tarjetas: proveedor sin
+  configurar, atajo rechazado por Windows, auto-disparo inerte, modo invisible
+  apagado. No hay ninguna comprobación nueva; lo nuevo es que **se ven sin
+  entrar**. Un panel por secciones esconde los problemas por diseño, y el caso
+  que lo obligaba es el auto-disparo inerte, cuyo único síntoma es el silencio.
+- **El interruptor de escucha vive en la cabecera**, no sólo en su tarjeta. Es
+  el mismo razonamiento que llevó el indicador del overlay a ser el mando: quien
+  mira si está escuchando es porque quiere que escuche.
+- **«Qué se escucha» se fue de Transcripción a Audio.** Estaba donde se
+  implementa y no donde se busca. El precio de moverlo es que su aviso más caro
+  se explica en Comportamiento, así que en los dos sitios hay un salto (`Jump`)
+  en lugar del texto repetido: partir el dashboard en secciones separa ajustes
+  que se explican el uno al otro, y eso hay que pagarlo explícitamente.
+- **La sección se recuerda en `localStorage`.** El dashboard se abre y se cierra
+  muchas veces seguidas afinando lo mismo, y volver siempre a «General» obliga a
+  repetir el clic. El `try/catch` no es ceremonia: un almacenamiento que falla no
+  puede impedir que se abran los ajustes.
+
+**Los iconos se dibujan a mano** en `icons.tsx`, y no es masoquismo: la CSP del
+dashboard es `default-src 'self'`, así que nada puede venir de un CDN, y meter
+un paquete de iconos en una ventana que se abre para cambiar dos ajustes no sale
+a cuenta. Es la misma razón por la que el overlay no tiene un renderizador de
+Markdown.
 
 ### Lo que el dashboard tenía guardado y no enseñaba
 

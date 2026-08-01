@@ -14,7 +14,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { IPC } from '@shared/ipc';
 import { alignAutoTrigger } from '@shared/types';
 import { renderModelGuide } from '@shared/model-guide';
-import type { LLMProviderId, ScreenTask, Settings } from '@shared/types';
+import type { LLMProviderId, PhoneMirrorStatus, ScreenTask, Settings } from '@shared/types';
 import { settingsStore } from './config/store';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
 import {
@@ -50,6 +50,7 @@ import { testSTTConnection } from './stt';
 import { whisperServer } from './stt/whisper-server';
 import { initLogging, logLocation, readLogTail } from './logging';
 import { getSystemSpecs } from './system-specs';
+import { phoneBridge } from './bridge/phone';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -108,6 +109,10 @@ function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload);
   }
+  // El espejo del teléfono se engancha aquí y no a cada emisor: lo que ve el
+  // overlay es exactamente lo que puede ver el móvil, sin una lista aparte que
+  // se quede desfasada. Filtra él lo que le sirve.
+  phoneBridge.publish(channel, payload);
 }
 
 function registerIpcHandlers(): void {
@@ -167,6 +172,14 @@ function registerIpcHandlers(): void {
     // está en curso; si no, seguiría en memoria y volvería a disco al reactivarlo.
     if (patch.historyEnabled === false && previous.historyEnabled) {
       sessionOrchestrator.newConversation();
+    }
+    // El espejo se aplica desde aquí, no desde la UI, para que el estado del
+    // servidor no dependa de qué ventana tocó el interruptor.
+    if (
+      patch.phoneMirrorEnabled !== undefined ||
+      patch.phoneMirrorLan !== undefined
+    ) {
+      phoneBridge.apply(next);
     }
     return next;
   });
@@ -316,6 +329,9 @@ function registerIpcHandlers(): void {
     }
   });
 
+  // ── Espejo en el teléfono ──
+  ipcMain.handle(IPC.phoneGetStatus, () => phoneBridge.getStatus());
+
   // ── Atajos ──
   ipcMain.handle(IPC.hotkeysGetFailed, () => failedHotkeys);
 
@@ -424,6 +440,15 @@ if (!app.requestSingleInstanceLock()) {
       broadcast(IPC.onSettings, settings);
     });
 
+    // El contador de teléfonos conectados cambia sin que nadie toque nada, así
+    // que el dashboard no puede enterarse preguntando.
+    phoneBridge.on('status', (status: PhoneMirrorStatus) => {
+      broadcast(IPC.onPhoneStatus, status);
+    });
+    // Quedó encendido de la sesión anterior: se respeta. Es un ajuste que se
+    // activa a conciencia, y apagarlo solo al arrancar sería perder el ajuste.
+    phoneBridge.apply(settingsStore.get());
+
     createOverlay();
     applyHotkeys();
 
@@ -439,6 +464,9 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('will-quit', () => {
     unregisterHotkeys();
+    // Un servidor con clientes SSE abiertos no deja morir al proceso: las
+    // conexiones son keep-alive y el event loop sigue teniendo trabajo.
+    phoneBridge.stop();
     // El servidor de Whisper es un proceso hijo: si no se mata aquí sobrevive a
     // la app con el modelo entero en memoria.
     whisperServer.stop();

@@ -436,6 +436,33 @@ export interface Settings {
    * su configuración para siempre.
    */
   onboardingDone: boolean;
+
+  /**
+   * Espejo en el teléfono: sirve las respuestas a un navegador del móvil.
+   *
+   * Resuelve el caso que el overlay no puede resolver por definición: cuando
+   * **compartes la pantalla entera**, lo que se ve en tu monitor lo ve el otro
+   * lado. El modo invisible cubre la captura de la ventana, pero no una cámara,
+   * ni un monitor secundario que alguien mire, ni la duda de estar leyendo algo
+   * que no está donde crees. Un segundo dispositivo saca la respuesta de la
+   * pantalla compartida del todo.
+   *
+   * **Apagado por defecto, y no es simetría con los demás ajustes**: abre un
+   * puerto y sirve por HTTP el texto de tus respuestas. Eso se enciende a
+   * propósito o no se enciende.
+   */
+  phoneMirrorEnabled: boolean;
+
+  /**
+   * Si el espejo escucha en la red local o sólo en `127.0.0.1`.
+   *
+   * Con `false` —el defecto— sólo puede conectarse **esta misma máquina**, que
+   * no sirve para un teléfono pero sí para probarlo y para túneles SSH. Con
+   * `true` cualquiera de tu red que tenga el enlace puede leer las respuestas,
+   * y por eso es un interruptor aparte y no una consecuencia de encender el
+   * espejo: son dos decisiones distintas y la segunda es la que tiene alcance.
+   */
+  phoneMirrorLan: boolean;
 }
 
 /**
@@ -548,6 +575,10 @@ export const DEFAULT_SETTINGS: Settings = {
   // memoria sin que Ollama empiece a tirar contexto en silencio.
   ollamaContextTokens: 8192,
   onboardingDone: false,
+  // Los dos apagados: abrir un puerto y publicar el texto de las respuestas es
+  // una decisión del usuario, no un valor de fábrica.
+  phoneMirrorEnabled: false,
+  phoneMirrorLan: false,
 };
 
 /**
@@ -704,6 +735,36 @@ export interface OllamaStatus {
   version?: string;
   /** Modelos ya descargados en la máquina. */
   models: ModelInfo[];
+  error?: string;
+}
+
+/**
+ * Estado del espejo del teléfono, tal y como lo enseña el dashboard.
+ *
+ * El QR viaja como **matriz de módulos**, no como imagen: dibujarlo es un
+ * `<svg>` de rectángulos en el renderer, así que no hace falta un `data:` URI
+ * que la CSP tenga que permitir, sale nítido a cualquier tamaño y se adapta al
+ * tema sin regenerarlo.
+ */
+export interface PhoneMirrorStatus {
+  running: boolean;
+  /** `true` si escucha en la LAN; `false` si sólo en loopback. */
+  lan: boolean;
+  /** Enlace principal, con el token puesto. Vacío si no corre. */
+  url: string;
+  /**
+   * Otros enlaces igual de válidos.
+   *
+   * No es un lujo: una máquina con VPN, Docker o VirtualBox tiene varias IPv4
+   * y la primera no siempre es la buena. Adivinar mal y no ofrecer alternativa
+   * deja al usuario con un QR que no lleva a ninguna parte.
+   */
+  alternates: string[];
+  /** Módulos del QR de `url`, fila por fila. Vacío si no corre. */
+  qr: boolean[][];
+  /** Teléfonos conectados ahora mismo. Es la única confirmación de que funciona. */
+  clients: number;
+  /** Por qué no arrancó, si no arrancó. */
   error?: string;
 }
 

@@ -15,6 +15,7 @@ import {
   speakersFor,
 } from '@shared/types';
 import { acceleratorFromEvent, duplicateAccelerators, formatAccelerator } from '@shared/accelerator';
+import { Icon, type IconName } from './icons';
 import type {
   AudioLevels,
   CaptureStatus,
@@ -25,6 +26,7 @@ import type {
   LLMProviderId,
   ModelInfo,
   OllamaStatus,
+  PhoneMirrorStatus,
   SecretKey,
   SecretsPresence,
   Settings,
@@ -46,23 +48,53 @@ function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
   );
 }
 
+/**
+ * Una fila de ajuste: etiqueta, explicación y su control a la derecha.
+ *
+ * El icono es opcional y no es adorno: en una columna de doce filas seguidas es
+ * lo que permite volver a encontrar la que buscas sin releer las etiquetas. Se
+ * pone donde ayuda a distinguir —dos interruptores parecidos, una lista de
+ * ajustes larga— y se omite donde la fila ya es única en su tarjeta.
+ */
 function Row({
   label,
   desc,
+  icon,
   children,
 }: {
   label: string;
-  desc?: string;
-  children: React.ReactNode;
+  desc?: React.ReactNode;
+  icon?: IconName;
+  children?: React.ReactNode;
 }) {
   return (
     <div className="row">
-      <div>
+      {icon && (
+        <span className="row__icon">
+          <Icon name={icon} size={16} />
+        </span>
+      )}
+      <div className="row__text">
         <div className="row__label">{label}</div>
         {desc && <div className="row__desc">{desc}</div>}
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * Enlace a otra sección. Existe porque partir el dashboard en secciones tiene
+ * un coste: dos ajustes que se explican el uno al otro dejan de verse a la vez.
+ * Donde eso pasa —«qué se escucha» y el disparo automático— se pone el salto en
+ * lugar de repetir el texto.
+ */
+function Jump({ to, go, children }: { to: SectionId; go: (id: SectionId) => void; children: string }) {
+  return (
+    <button className="jump" onClick={() => go(to)}>
+      {children}
+      <Icon name="arrow" size={14} />
+    </button>
   );
 }
 
@@ -151,7 +183,7 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
   };
 
   return (
-    <section className="card" id="capture">
+    <section className="card">
       <h2 className="card__title">Captura de audio</h2>
       <p className="card__hint">
         Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es lo
@@ -159,6 +191,7 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
       </p>
 
       <Row
+        icon="power"
         label={listening ? 'Escuchando' : 'En pausa'}
         desc={
           status.state === 'error'
@@ -168,20 +201,33 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
               }`
         }
       >
-        <button className="btn" disabled={busy || status.state === 'starting'} onClick={() => void toggle()}>
+        <button
+          className="btn btn--primary"
+          disabled={busy || status.state === 'starting'}
+          onClick={() => void toggle()}
+        >
           {status.state === 'starting' ? 'Iniciando…' : listening ? 'Detener' : 'Empezar a escuchar'}
         </button>
       </Row>
 
+      {/* Los medidores son el instrumento, no un adorno: si al hablar sólo se
+          mueve "Yo" y al reproducir un vídeo sólo se mueve "Ellos", los dos
+          streams llegan de verdad por separado. */}
       <div className="meters">
         <div className="meter">
-          <span className="meter__label">Yo (micrófono)</span>
+          <span className="meter__label">
+            <Icon name="mic" size={14} />
+            Yo (micrófono)
+          </span>
           <div className="meter__bar">
             <div className="meter__fill" style={{ width: `${Math.min(levels.me * 140, 100)}%` }} />
           </div>
         </div>
         <div className="meter">
-          <span className="meter__label">Ellos (sistema)</span>
+          <span className="meter__label">
+            <Icon name="speaker" size={14} />
+            Ellos (sistema)
+          </span>
           <div className="meter__bar">
             <div
               className="meter__fill meter__fill--them"
@@ -194,6 +240,127 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
   );
 }
 
+// ──────────────────────── Secciones y navegación ────────────────────────
+
+/**
+ * El dashboard era **una sola columna** con doce tarjetas, de los primeros
+ * pasos al registro de diagnóstico. Funcionaba mientras hubo cuatro; con doce,
+ * encontrar un ajuste era recordar a qué altura del scroll estaba, y los avisos
+ * que importan —no hay proveedor configurado, Windows rechazó un atajo— caían
+ * fuera de la pantalla justo cuando hacían falta.
+ *
+ * Ahora cada grupo es una sección con su propia navegación. Tres consecuencias
+ * que van juntas y conviene no separar:
+ *
+ * - **La cabecera del panel es la que titula**, así que las tarjetas que son
+ *   únicas en su sección ya no repiten título ni explicación. Dos veces lo
+ *   mismo en la misma pantalla es ruido, no refuerzo.
+ * - **Los avisos suben a la barra lateral** como un punto ámbar. Un problema
+ *   que sólo se ve entrando en la sección donde vive es un problema que nadie
+ *   ve: el aviso tiene que llegar antes que la navegación.
+ * - **El interruptor de escucha vive en la cabecera**, visible desde cualquier
+ *   sección. Es el control más usado y estaba enterrado en una tarjeta.
+ */
+type SectionId =
+  | 'general'
+  | 'audio'
+  | 'phone'
+  | 'models'
+  | 'transcription'
+  | 'behaviour'
+  | 'context'
+  | 'history'
+  | 'hotkeys'
+  | 'diagnostics';
+
+const SECTIONS: Record<SectionId, { icon: IconName; label: string; hint: React.ReactNode }> = {
+  general: {
+    icon: 'sliders',
+    label: 'General',
+    hint: 'Si el overlay aparece al compartir pantalla, y cómo se ve mientras tanto.',
+  },
+  audio: {
+    icon: 'mic',
+    label: 'Audio',
+    hint: 'Qué se escucha, y la comprobación de que las dos fuentes llegan por separado.',
+  },
+  phone: {
+    icon: 'phone',
+    label: 'Espejo en el móvil',
+    hint: 'Manda las respuestas al navegador de tu teléfono. Sirve para lo que el modo invisible no puede cubrir: cuando compartes la pantalla entera, lo que está en tu monitor está al otro lado.',
+  },
+  models: {
+    icon: 'cpu',
+    label: 'Modelos de IA',
+    hint: 'Las claves, quién genera las respuestas y quién lee tu pantalla.',
+  },
+  transcription: {
+    icon: 'waveform',
+    label: 'Transcripción',
+    hint: 'Gemini Live transcribe en ~300 ms pero envía el audio a Google. Whisper local no sale de tu máquina, a cambio de ~1–2 s de latencia.',
+  },
+  behaviour: {
+    icon: 'bolt',
+    label: 'Comportamiento',
+    hint: 'Cuándo responde el asistente y con cuánto contexto.',
+  },
+  context: {
+    icon: 'file',
+    label: 'Contexto',
+    hint: 'Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de parafrasearse.',
+  },
+  history: {
+    icon: 'history',
+    label: 'Historial',
+    hint: 'Se guarda en tu máquina, en texto plano, y no se envía a ningún sitio. Incluye la transcripción completa: lo que dijo la otra persona, no sólo lo que preguntaste tú.',
+  },
+  hotkeys: {
+    icon: 'keyboard',
+    label: 'Atajos',
+    hint: (
+      <>
+        Son <strong>globales</strong>: funcionan con el foco en la videollamada, y por eso se los
+        quitan a la aplicación que lo tenga. Pulsa un campo y teclea la combinación que quieras.
+      </>
+    ),
+  },
+  diagnostics: {
+    icon: 'activity',
+    label: 'Diagnóstico',
+    hint: 'Si algo no funciona, esto es lo que hay que mirar antes que nada.',
+  },
+};
+
+const SECTION_ORDER: SectionId[] = [
+  'general',
+  'audio',
+  'phone',
+  'models',
+  'transcription',
+  'behaviour',
+  'context',
+  'history',
+  'hotkeys',
+  'diagnostics',
+];
+
+/**
+ * La sección se recuerda entre aperturas. El dashboard se abre y se cierra
+ * muchas veces seguidas mientras se afina algo —cambiar el modelo, probar,
+ * volver— y devolver siempre a «General» obliga a repetir el mismo clic.
+ */
+const SECTION_KEY = 'dashboard.section';
+
+function storedSection(): SectionId {
+  try {
+    const saved = localStorage.getItem(SECTION_KEY);
+    if (saved && saved in SECTIONS) return saved as SectionId;
+  } catch {
+    // Un almacenamiento no disponible no es motivo para no abrir los ajustes.
+  }
+  return 'general';
+}
+
 export function DashboardApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [presence, setPresence] = useState<SecretsPresence>({ anthropic: false, google: false });
@@ -203,20 +370,45 @@ export function DashboardApp() {
     loopbackActive: false,
   });
   const [levels, setLevels] = useState<AudioLevels>({ me: 0, them: 0 });
+  const [section, setSection] = useState<SectionId>(storedSection);
+  /**
+   * Sube aquí desde `HotkeysCard` porque ya no basta con pintarlo dentro: la
+   * barra lateral marca la sección que tiene un problema, y para eso el aviso
+   * tiene que existir aunque esa sección no esté montada.
+   */
+  const [failedHotkeys, setFailedHotkeys] = useState<string[]>([]);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const { api } = window;
     void api.settings.get().then(setSettings);
     void api.secrets.getPresence().then(setPresence);
     void api.capture.getStatus().then(setStatus);
+    void api.hotkeys.getFailed().then(setFailedHotkeys);
 
     const unsubs = [
       api.settings.onChange(setSettings),
       api.capture.onStatus(setStatus),
       api.capture.onLevels(setLevels),
+      api.hotkeys.onFailures(setFailedHotkeys),
     ];
     return () => unsubs.forEach((off) => off());
   }, []);
+
+  const go = useCallback((next: SectionId): void => {
+    setSection(next);
+    try {
+      localStorage.setItem(SECTION_KEY, next);
+    } catch {
+      // Recordar la sección es una comodidad, no un requisito.
+    }
+  }, []);
+
+  // Cambiar de sección tiene que empezar por arriba: heredar el scroll de la
+  // anterior deja la nueva empezada por la mitad sin ninguna razón visible.
+  useEffect(() => {
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [section]);
 
   const patch = useCallback(async (p: Partial<Settings>): Promise<void> => {
     setSettings(await window.api.settings.update(p));
@@ -230,57 +422,257 @@ export function DashboardApp() {
     setPresence(await window.api.secrets.clear(key));
   }, []);
 
-  if (!settings) return <div className="shell">Cargando…</div>;
+  if (!settings) return <div className="loading">Cargando…</div>;
+
+  const meta = SECTIONS[section];
+
+  /*
+   * Qué secciones piden atención. Son exactamente los avisos que ya existían
+   * dentro de cada tarjeta: lo único nuevo es que ahora se ven sin entrar. Un
+   * aviso que hay que ir a buscar no avisa de nada — el caso que lo motivó es
+   * el auto-disparo inerte, que no da ningún síntoma salvo silencio.
+   */
+  const alerts: Partial<Record<SectionId, boolean>> = {
+    general: !settings.stealthEnabled,
+    audio: status.state === 'error',
+    models: !providerReady(settings, presence),
+    behaviour: autoTriggerIsInert(settings),
+    hotkeys: failedHotkeys.length > 0 || duplicateAccelerators(settings.hotkeys).size > 0,
+  };
 
   return (
-    <div className="shell">
-      <h1 className="shell__title">Interview Helper</h1>
-      <p className="shell__subtitle">
-        Asistente de IA en tiempo real. Configuración local; nada se sube a ningún servidor propio.
-      </p>
+    <div className="app">
+      <aside className="nav">
+        <div className="nav__brand">
+          <div className="nav__eyebrow">Ajustes</div>
+          <div className="nav__app">Interview Helper</div>
+        </div>
 
-      {/* Arriba del todo mientras haga falta: es lo que hay que hacer ANTES de
-          tocar nada de lo demás. */}
-      {!settings.onboardingDone && (
-        <OnboardingCard
-          settings={settings}
-          presence={presence}
-          status={status}
-          patch={patch}
+        <nav className="nav__list">
+          {SECTION_ORDER.map((id) => (
+            <button
+              key={id}
+              className="navitem"
+              aria-current={id === section}
+              onClick={() => go(id)}
+            >
+              <Icon name={SECTIONS[id].icon} />
+              <span className="navitem__label">{SECTIONS[id].label}</span>
+              {alerts[id] && <span className="navitem__dot" title="Algo requiere tu atención" />}
+            </button>
+          ))}
+        </nav>
+
+        <div className="nav__foot">
+          {/* La guía se puede recuperar: esconderla no debería ser irreversible.
+              Vive en el pie y no al final de una sección porque no pertenece a
+              ninguna — es el recorrido que las cruza todas. */}
+          <button
+            className="navitem navitem--ghost"
+            onClick={() => {
+              go('general');
+              if (settings.onboardingDone) void patch({ onboardingDone: false });
+            }}
+          >
+            <Icon name="compass" />
+            <span className="navitem__label">Primeros pasos</span>
+          </button>
+          <p className="nav__note">
+            Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.
+          </p>
+        </div>
+      </aside>
+
+      <main className="pane">
+        <header className="pane__head">
+          <div className="pane__heading">
+            <h1 className="pane__title">{meta.label}</h1>
+            <p className="pane__sub">{meta.hint}</p>
+          </div>
+          {/* El control más usado de la app, alcanzable desde cualquier sección:
+              antes había que llegar hasta la tarjeta de captura para pulsarlo. */}
+          <ListenButton status={status} />
+        </header>
+
+        <div className="pane__body" ref={bodyRef}>
+          <div className="pane__inner">
+            {section === 'general' && (
+              <>
+                {/* Arriba del todo mientras haga falta: es lo que hay que hacer
+                    ANTES de tocar nada de lo demás. */}
+                {!settings.onboardingDone && (
+                  <OnboardingCard
+                    settings={settings}
+                    presence={presence}
+                    status={status}
+                    patch={patch}
+                    go={go}
+                  />
+                )}
+                <VisibilityCards settings={settings} patch={patch} />
+              </>
+            )}
+
+            {section === 'audio' && (
+              <>
+                <CaptureCard status={status} levels={levels} />
+                <AudioSourcesCard settings={settings} patch={patch} go={go} />
+              </>
+            )}
+
+            {section === 'phone' && <PhoneMirrorCard settings={settings} patch={patch} />}
+
+            {section === 'models' && (
+              <>
+                <ApiKeysCard
+                  presence={presence}
+                  saveSecret={saveSecret}
+                  clearSecret={clearSecret}
+                />
+                <ModelCard settings={settings} patch={patch} />
+                {/* Justo detrás del modelo de respuestas: se lee como "y para la
+                    pantalla, esto otro", que es la decisión que hay que tomar. */}
+                <ScreenModelCard settings={settings} patch={patch} />
+                <LocalModelGuide />
+              </>
+            )}
+
+            {section === 'transcription' && (
+              <TranscriptionCard settings={settings} patch={patch} go={go} />
+            )}
+            {section === 'behaviour' && (
+              <BehaviourCard settings={settings} patch={patch} go={go} />
+            )}
+            {section === 'context' && <ContextCard settings={settings} patch={patch} />}
+            {section === 'history' && <HistoryCard settings={settings} patch={patch} />}
+            {section === 'hotkeys' && (
+              <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
+            )}
+            {section === 'diagnostics' && <DiagnosticsCard />}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/**
+ * Si el proveedor elegido puede responder. Ollama cuenta como configurado sin
+ * credencial —no la necesita—, pero sí necesita un modelo elegido: sin él, cada
+ * pregunta falla con "no hay ningún modelo seleccionado".
+ */
+function providerReady(settings: Settings, presence: SecretsPresence): boolean {
+  if (settings.llmProviderId === 'ollama') return Boolean(settings.llmModels.ollama);
+  if (settings.llmProviderId === 'claude') return presence.anthropic;
+  return presence.google;
+}
+
+/**
+ * Estado de la escucha, y el mando para cambiarlo.
+ *
+ * Es un botón y no un indicador porque son la misma pregunta: quien mira si
+ * está escuchando es porque quiere que escuche. El overlay tomó esta decisión
+ * antes —"el indicador **es** el mando"— y separar aquí las dos cosas dejaría
+ * dos gramáticas distintas para el mismo control.
+ */
+function ListenButton({ status }: { status: CaptureStatus }) {
+  const [busy, setBusy] = useState(false);
+  const listening = status.state === 'listening';
+
+  const toggle = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      if (listening) await window.api.capture.stop();
+      else await window.api.capture.start();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const label =
+    status.state === 'starting'
+      ? 'Iniciando…'
+      : status.state === 'error'
+        ? 'Error de captura'
+        : listening
+          ? 'Escuchando'
+          : 'En pausa';
+
+  return (
+    <button
+      className="listen"
+      data-state={status.state}
+      disabled={busy || status.state === 'starting'}
+      title={listening ? 'Detener la escucha' : 'Empezar a escuchar'}
+      onClick={() => void toggle()}
+    >
+      <span className="listen__dot" />
+      {label}
+    </button>
+  );
+}
+
+// ────────────────────────── General · visibilidad ──────────────────────────
+
+/**
+ * Los dos interruptores que deciden si te delata la app van destacados y
+ * primero: son de los pocos ajustes que se cambian **durante** una llamada, y
+ * el resto de la sección son preferencias que se tocan una vez.
+ */
+function VisibilityCards({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  return (
+    <>
+      <div className="hero">
+        <span className="hero__icon">
+          <Icon name="eyeOff" size={19} />
+        </span>
+        <div className="hero__text">
+          <div className="hero__title">Modo invisible</div>
+          <div className="hero__desc">
+            El overlay se excluye de la captura de pantalla a nivel del compositor de Windows.
+            Desactívalo para grabar demos o depurar la interfaz.
+          </div>
+        </div>
+        <Switch
+          on={settings.stealthEnabled}
+          onChange={(v) => {
+            void window.api.window.setStealth(v);
+          }}
         />
+      </div>
+
+      <div className="hero">
+        <span className="hero__icon">
+          <Icon name="pointer" size={19} />
+        </span>
+        <div className="hero__text">
+          <div className="hero__title">Clics atravesables</div>
+          <div className="hero__desc">
+            El overlay ignora el ratón y los clics llegan a la ventana de abajo. Recomendado durante
+            una llamada.
+          </div>
+        </div>
+        <Switch
+          on={settings.clickThrough}
+          onChange={(v) => {
+            void window.api.window.setClickThrough(v);
+          }}
+        />
+      </div>
+
+      {!settings.stealthEnabled && (
+        <div className="warn">
+          El modo invisible está desactivado: el overlay <strong>sí</strong> aparecerá si compartes
+          pantalla.
+        </div>
       )}
 
-      <CaptureCard status={status} levels={levels} />
-
       <section className="card">
-        <h2 className="card__title">Visibilidad</h2>
+        <h2 className="card__title">Aspecto del overlay</h2>
         <p className="card__hint">
-          Controla si el overlay aparece cuando compartes pantalla o grabas.
+          Cómo se ve el panel flotante. Se aplica al momento, así que conviene ajustarlo con el
+          overlay a la vista.
         </p>
-
-        <Row
-          label="Modo invisible"
-          desc="Activado, el overlay se excluye de la captura de pantalla a nivel del compositor de Windows. Desactívalo para grabar demos o depurar la interfaz."
-        >
-          <Switch
-            on={settings.stealthEnabled}
-            onChange={(v) => {
-              void window.api.window.setStealth(v);
-            }}
-          />
-        </Row>
-
-        <Row
-          label="Clics atravesables"
-          desc="El overlay ignora el ratón y los clics llegan a la ventana de abajo. Recomendado durante una llamada."
-        >
-          <Switch
-            on={settings.clickThrough}
-            onChange={(v) => {
-              void window.api.window.setClickThrough(v);
-            }}
-          />
-        </Row>
 
         {/*
           La opacidad y el tamaño de letra existían en `Settings` y sólo se
@@ -288,7 +680,8 @@ export function DashboardApp() {
           tenía cómo cambiarlos.
         */}
         <Row
-          label="Opacidad del overlay"
+          icon="contrast"
+          label="Opacidad"
           desc="Bajarla deja entrever lo que hay debajo. Por debajo del 60 % el texto empieza a costar de leer sobre fondos claros."
         >
           <div className="slider">
@@ -305,6 +698,7 @@ export function DashboardApp() {
         </Row>
 
         <Row
+          icon="type"
           label="Tamaño del texto"
           desc="Afecta a la respuesta, al código y a la transcripción; los controles se quedan igual. Los tamaños S/M/L/XL agrandan la ventana, no la letra: esto es lo que hace falta en un monitor 4K."
         >
@@ -324,79 +718,315 @@ export function DashboardApp() {
         </Row>
 
         <Row
+          icon="collapse"
           label="Modo compacto"
           desc="Deja sólo la respuesta: pliega los perfiles, la transcripción y el pie de atajos. También se activa con el botón de plegar del overlay."
         >
-          <Switch
-            on={settings.overlayCompact}
-            onChange={(v) => void patch({ overlayCompact: v })}
-          />
+          <Switch on={settings.overlayCompact} onChange={(v) => void patch({ overlayCompact: v })} />
         </Row>
-
-        {!settings.stealthEnabled && (
-          <div className="warn">
-            El modo invisible está desactivado: el overlay <strong>sí</strong> aparecerá si
-            compartes pantalla.
-          </div>
-        )}
-
-        <div className="warn">
-          <strong>Qué protege y qué no.</strong> El modo invisible excluye la ventana del pipeline
-          de captura (screen share, OBS, grabadores). No te protege de una cámara apuntando a la
-          pantalla, no oculta el proceso frente a software de proctoring que enumere ventanas, y no
-          oculta lo que digas por el micrófono.
-        </div>
       </section>
 
-      <section className="card" id="keys">
-        <h2 className="card__title">API keys</h2>
-        <p className="card__hint">
-          Se guardan cifradas con DPAPI en tu perfil de Windows y sólo las lee el proceso principal.
-          Nunca se muestran de vuelta ni salen de esta máquina salvo hacia el proveedor que elijas.
-        </p>
+      <div className="warn">
+        <strong>Qué protege y qué no.</strong> El modo invisible excluye la ventana del pipeline de
+        captura (screen share, OBS, grabadores). No te protege de una cámara apuntando a la
+        pantalla, no oculta el proceso frente a software de proctoring que enumere ventanas, y no
+        oculta lo que digas por el micrófono.
+      </div>
+    </>
+  );
+}
 
-        <SecretField
-          label="Anthropic (Claude)"
-          hint="console.anthropic.com → API Keys"
-          present={presence.anthropic}
-          onSave={(v) => saveSecret('anthropic', v)}
-          onClear={() => clearSecret('anthropic')}
-        />
-        <SecretField
-          label="Google (Gemini)"
-          hint="aistudio.google.com → Get API key. Necesaria también para la transcripción con Gemini Live."
-          present={presence.google}
-          onSave={(v) => saveSecret('google', v)}
-          onClear={() => clearSecret('google')}
-        />
-      </section>
+// ──────────────────────────── Audio · fuentes ────────────────────────────
 
-      <ModelCard settings={settings} patch={patch} />
-      {/* Justo detrás del modelo de respuestas: se lee como "y para la pantalla,
-          esto otro", que es exactamente la decisión que hay que tomar ahí. */}
-      <ScreenModelCard settings={settings} patch={patch} />
-      <LocalModelGuide />
-      <TranscriptionCard settings={settings} patch={patch} />
-      <BehaviourCard settings={settings} patch={patch} />
-      {/* El contexto va ANTES del historial: es lo que se toca antes de cada
-          reunión, mientras que el historial se consulta de vez en cuando. Y
-          además el historial crece, así que dejarlo delante obligaba a bajar
-          media pantalla para llegar a lo que sí se edita a menudo. */}
-      <ContextCard settings={settings} patch={patch} />
-      <HistoryCard settings={settings} patch={patch} />
-      <HotkeysCard settings={settings} patch={patch} />
-      <DiagnosticsCard />
+/**
+ * Qué se escucha vivía dentro de «Transcripción», que es donde se implementa y
+ * no donde se busca: la pregunta que responde es de micrófonos, no de motores.
+ * Su aviso más caro —la combinación que deja el auto-disparo inerte— se explica
+ * en Comportamiento, así que aquí va el salto en lugar del texto repetido.
+ */
+function AudioSourcesCard({
+  settings,
+  patch,
+  go,
+}: {
+  settings: Settings;
+  patch: PatchFn;
+  go: (id: SectionId) => void;
+}) {
+  return (
+    <section className="card">
+      <h2 className="card__title">Qué se escucha</h2>
+      <p className="card__hint">
+        Decide qué entra en el contexto que se manda al modelo. Con «solo la salida del sistema» tu
+        micrófono ni siquiera se abre.
+      </p>
 
-      {/* La guía se puede recuperar: esconderla no debería ser irreversible. */}
-      {settings.onboardingDone && (
-        <button
-          className="btn btn--ghost"
-          onClick={() => void patch({ onboardingDone: false })}
+      <Row icon="speaker" label="Fuentes de audio" desc={AUDIO_SOURCE_HINT[settings.audioSources]}>
+        <select
+          value={settings.audioSources}
+          onChange={(e) => void patch({ audioSources: e.target.value as Settings['audioSources'] })}
         >
-          Volver a ver los primeros pasos
-        </button>
+          <option value="both">Micrófono y salida del sistema</option>
+          <option value="system">Solo la salida del sistema</option>
+          <option value="mic">Solo el micrófono</option>
+        </select>
+      </Row>
+
+      {autoTriggerIsInert(settings) && (
+        <div className="warn">
+          Con esta combinación <strong>no se disparará ninguna respuesta automática</strong>: el
+          disparo espera a {SPEAKER_LABEL[settings.autoTriggerSpeaker]} y aquí no se abre esa
+          fuente.
+          <div className="field">
+            <Jump to="behaviour" go={go}>
+              Ver el disparo automático
+            </Jump>
+          </div>
+        </div>
       )}
-    </div>
+    </section>
+  );
+}
+
+// ───────────────────────── Espejo en el teléfono ─────────────────────────
+
+/**
+ * El QR, dibujado como SVG a partir de la matriz que manda el main.
+ *
+ * No es una imagen ni un `data:` URI: son rectángulos, así que sale nítido a
+ * cualquier tamaño, no hay que ampliar la CSP y el "quiet zone" —el margen
+ * blanco obligatorio de cuatro módulos, sin el cual muchos lectores no
+ * enganchan— es aritmética en el `viewBox` en vez de un borde que confiar al
+ * CSS.
+ */
+function QrCode({ modules }: { modules: boolean[][] }) {
+  const size = modules.length;
+  if (size === 0) return null;
+  const quiet = 4;
+  const side = size + quiet * 2;
+
+  return (
+    <svg
+      className="qr"
+      viewBox={`0 0 ${side} ${side}`}
+      role="img"
+      aria-label="Código QR con el enlace del espejo"
+      shapeRendering="crispEdges"
+    >
+      <rect x="0" y="0" width={side} height={side} fill="#fff" />
+      {modules.map((row, y) =>
+        row.map((dark, x) =>
+          dark ? (
+            <rect key={`${x}-${y}`} x={x + quiet} y={y + quiet} width="1" height="1" fill="#000" />
+          ) : null
+        )
+      )}
+    </svg>
+  );
+}
+
+/**
+ * El espejo del teléfono.
+ *
+ * La tarjeta tiene que responder a tres preguntas, en este orden: ¿está
+ * encendido?, ¿qué abro en el móvil?, y —la que de verdad importa— ¿lo estoy
+ * viendo ya? La última se responde con el contador de teléfonos conectados: sin
+ * él, la única forma de saber si funciona es levantarse a mirar.
+ */
+function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const [status, setStatus] = useState<PhoneMirrorStatus | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    void window.api.phone.getStatus().then(setStatus);
+    return window.api.phone.onStatus(setStatus);
+  }, []);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const on = settings.phoneMirrorEnabled;
+  const running = status?.running ?? false;
+
+  return (
+    <>
+      <div className="hero">
+        <span className="hero__icon">
+          <Icon name="phone" size={19} />
+        </span>
+        <div className="hero__text">
+          <div className="hero__title">Encender el espejo</div>
+          <div className="hero__desc">
+            {running
+              ? `Sirviendo en tu ${settings.phoneMirrorLan ? 'red local' : 'máquina'}. El enlace caduca al apagarlo.`
+              : 'Apagado: no hay ningún puerto abierto ni nada que leer desde fuera.'}
+          </div>
+        </div>
+        <Switch on={on} onChange={(v) => void patch({ phoneMirrorEnabled: v })} />
+      </div>
+
+      <div className="hero">
+        <span className="hero__icon">
+          <Icon name="wifi" size={19} />
+        </span>
+        <div className="hero__text">
+          <div className="hero__title">Permitir acceso desde la red local</div>
+          <div className="hero__desc">
+            {settings.phoneMirrorLan
+              ? 'Cualquier dispositivo de tu red que tenga el enlace puede leer las respuestas.'
+              : 'Sólo esta máquina puede conectarse. Un teléfono necesita esto encendido.'}
+          </div>
+        </div>
+        <Switch on={settings.phoneMirrorLan} onChange={(v) => void patch({ phoneMirrorLan: v })} />
+      </div>
+
+      {/* El aviso va donde se toma la decisión, no en el pie: encender la LAN es
+          el momento en que el alcance cambia. */}
+      {on && settings.phoneMirrorLan && (
+        <div className="warn">
+          El enlace lleva un token que caduca al apagar el espejo, pero mientras esté encendido{' '}
+          <strong>quien tenga ese enlace y esté en tu red puede leer tus respuestas</strong>. En una
+          red de invitados o de una oficina, esto es una decisión, no un detalle. La primera vez
+          Windows puede pedirte permiso del firewall: sin concederlo, el teléfono no conecta.
+        </div>
+      )}
+
+      {!on && (
+        <section className="card">
+          <p className="card__hint" style={{ marginBottom: 0 }}>
+            Enciende el espejo para generar el enlace y el código QR. Se genera uno nuevo cada vez,
+            así que un enlace guardado en el móvil deja de valer solo.
+          </p>
+        </section>
+      )}
+
+      {on && status?.error && (
+        <div className="warn">No se pudo abrir el servidor: {status.error}</div>
+      )}
+
+      {/* La comprobación va sobre `status` y no sobre el `running` de arriba
+          para que TypeScript sepa que aquí dentro hay estado. */}
+      {on && status?.running && (
+        <section className="card">
+          <h2 className="card__title">Escanea esto con el teléfono</h2>
+          <p className="card__hint">
+            Abre la cámara del móvil y apunta. Si prefieres, escribe el enlace a mano — es el mismo.
+          </p>
+
+          <div className="pair">
+            <QrCode modules={status.qr} />
+            <div className="pair__side">
+              <code className="pair__url">{status.url}</code>
+              <div className="field">
+                <button
+                  className="btn"
+                  onClick={() => {
+                    void window.api.clipboard.write(status.url).then(() => setCopied(true));
+                  }}
+                >
+                  {copied ? '¡Copiado!' : 'Copiar el enlace'}
+                </button>
+              </div>
+              {/*
+                La confirmación que no se puede deducir de nada más. Un QR
+                bonito y un teléfono que no conecta se ven exactamente igual
+                desde aquí hasta que este número se mueve.
+              */}
+              <div className={status.clients > 0 ? 'pair__live' : 'pair__idle'}>
+                {status.clients === 0
+                  ? 'Ningún teléfono conectado todavía.'
+                  : `${status.clients} teléfono${status.clients === 1 ? '' : 's'} conectado${
+                      status.clients === 1 ? '' : 's'
+                    }.`}
+              </div>
+            </div>
+          </div>
+
+          {!settings.phoneMirrorLan && (
+            <div className="warn">
+              El espejo sólo escucha en <code>127.0.0.1</code>, así que este enlace únicamente
+              funciona en este ordenador. Enciende «Permitir acceso desde la red local» para que lo
+              alcance el teléfono.
+            </div>
+          )}
+
+          {/*
+            Con VPN, Docker o VirtualBox la máquina tiene varias IPv4 y la
+            heurística puede elegir la que no lleva a ninguna parte. El síntoma
+            es horrible —el navegador del móvil se queda cargando sin decir
+            nada— así que las demás se enseñan en vez de esconderse.
+          */}
+          {status.alternates.length > 0 && (
+            <>
+              <div className="ctxbar" style={{ marginTop: 18 }}>
+                <span className="ctxbar__label">Si ese enlace no carga</span>
+              </div>
+              <p className="card__hint" style={{ marginBottom: 6 }}>
+                Tu equipo tiene más de una dirección de red. Prueba con estas; sólo una llega al
+                teléfono.
+              </p>
+              <ul className="pair__alts">
+                {status.alternates.map((url) => (
+                  <li key={url}>
+                    <code>{url}</code>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
+
+      <section className="card">
+        <h2 className="card__title">Qué se manda y qué no</h2>
+        <p className="card__hint" style={{ marginBottom: 0 }}>
+          Van las <strong>respuestas</strong> y si la escucha está activa. <strong>No va la
+          transcripción</strong>: lo que dijo la otra persona no se duplica en un segundo
+          dispositivo por comodidad. Todo se queda en tu red — el puente lo sirve tu propio
+          ordenador, sin ninguna nube por medio, y se apaga con la app.
+        </p>
+      </section>
+    </>
+  );
+}
+
+// ──────────────────────────── Modelos · claves ────────────────────────────
+
+function ApiKeysCard({
+  presence,
+  saveSecret,
+  clearSecret,
+}: {
+  presence: SecretsPresence;
+  saveSecret: (key: SecretKey, value: string) => Promise<void>;
+  clearSecret: (key: SecretKey) => Promise<void>;
+}) {
+  return (
+    <section className="card">
+      <h2 className="card__title">API keys</h2>
+      <p className="card__hint">
+        Se guardan cifradas con DPAPI en tu perfil de Windows y sólo las lee el proceso principal.
+        Nunca se muestran de vuelta ni salen de esta máquina salvo hacia el proveedor que elijas.
+      </p>
+
+      <SecretField
+        label="Anthropic (Claude)"
+        hint="console.anthropic.com → API Keys"
+        present={presence.anthropic}
+        onSave={(v) => saveSecret('anthropic', v)}
+        onClear={() => clearSecret('anthropic')}
+      />
+      <SecretField
+        label="Google (Gemini)"
+        hint="aistudio.google.com → Get API key. Necesaria también para la transcripción con Gemini Live."
+        present={presence.google}
+        onSave={(v) => saveSecret('google', v)}
+        onClear={() => clearSecret('google')}
+      />
+    </section>
   );
 }
 
@@ -460,6 +1090,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
       </p>
 
       <Row
+        icon="cpu"
         label="Proveedor"
         desc="«El mismo» usa el modelo de respuestas de arriba, que es como funcionaba antes."
       >
@@ -483,6 +1114,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
 
       {provider !== 'same' && (
         <Row
+          icon="monitor"
           label="Modelo"
           desc={
             models.length === 0
@@ -586,13 +1218,13 @@ function LocalModelGuide() {
         {advice.tier}
       </p>
 
-      <Row label="Para conversar" desc={advice.chat.note}>
+      <Row icon="waveform" label="Para conversar" desc={advice.chat.note}>
         <button className="btn btn--small" onClick={() => pull(advice.chat.model)}>
           {copied === advice.chat.model ? '¡copiado!' : `ollama pull ${advice.chat.model}`}
         </button>
       </Row>
 
-      <Row label="Para leer la pantalla" desc={advice.vision.note}>
+      <Row icon="monitor" label="Para leer la pantalla" desc={advice.vision.note}>
         <button className="btn btn--small" onClick={() => pull(advice.vision.model)}>
           {copied === advice.vision.model ? '¡copiado!' : `ollama pull ${advice.vision.model}`}
         </button>
@@ -608,6 +1240,7 @@ function LocalModelGuide() {
         cada ventana de Electron hay que registrarla en la protección de captura.
       */}
       <Row
+        icon="book"
         label="Guía completa"
         desc="Todos los modelos locales por tramo de memoria, los multimodales que pueden leer tu pantalla, los de pago ordenados por precio y cuánto cuesta de verdad cada pulsación. Se genera para tu equipo y se abre en el navegador."
       >
@@ -657,19 +1290,18 @@ function OnboardingCard({
   presence,
   status,
   patch,
+  go,
 }: {
   settings: Settings;
   presence: SecretsPresence;
   status: CaptureStatus;
   patch: PatchFn;
+  go: (id: SectionId) => void;
 }) {
   const [testing, setTesting] = useState(false);
   const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
 
-  const hasProvider =
-    (settings.llmProviderId === 'ollama' && Boolean(settings.llmModels.ollama)) ||
-    (settings.llmProviderId === 'claude' && presence.anthropic) ||
-    (settings.llmProviderId === 'gemini' && presence.google);
+  const hasProvider = providerReady(settings, presence);
 
   const hasContext = settings.contextPacks.some(
     (pack) => pack.enabled && pack.kind !== 'vocabulary' && pack.content.trim().length > 40
@@ -681,7 +1313,7 @@ function OnboardingCard({
       done: hasProvider,
       title: 'Configura un proveedor de IA',
       desc: 'Pega tu clave de Anthropic o de Google. Ollama no necesita clave, pero sí que elijas un modelo.',
-      action: { label: 'Ir a las claves', run: () => scrollToCard('keys') },
+      action: { label: 'Ir a los modelos', run: () => go('models') },
     },
     {
       done: tested?.ok === true,
@@ -705,13 +1337,13 @@ function OnboardingCard({
       done: hasContext,
       title: 'Pega tu CV o tus notas',
       desc: 'Es la única fuente de datos concretos sobre ti. Sin esto las respuestas son correctas pero genéricas: el modelo tiene prohibido inventarse experiencia.',
-      action: { label: 'Ir al contexto', run: () => scrollToCard('context') },
+      action: { label: 'Ir al contexto', run: () => go('context') },
     },
     {
       done: listening,
       title: 'Empieza a escuchar',
       desc: 'Comprueba que los medidores se mueven al hablar y al reproducir audio. Puedes hacerlo desde el propio overlay.',
-      action: { label: 'Ir a la captura', run: () => scrollToCard('capture') },
+      action: { label: 'Ir al audio', run: () => go('audio') },
     },
   ];
 
@@ -758,11 +1390,6 @@ function OnboardingCard({
       </div>
     </section>
   );
-}
-
-/** Lleva a la tarjeta correspondiente; el dashboard es una columna larga. */
-function scrollToCard(id: string): void {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ─────────────────────────────── Atajos ───────────────────────────────
@@ -858,25 +1485,22 @@ function HotkeyField({
  * aplicación que tenga el foco, así que cualquier elección por defecto choca
  * con el editor, el juego o la distribución de teclado de alguien.
  */
-function HotkeysCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
-  const [failed, setFailed] = useState<string[]>([]);
-
-  useEffect(() => {
-    void window.api.hotkeys.getFailed().then(setFailed);
-    return window.api.hotkeys.onFailures(setFailed);
-  }, []);
-
+function HotkeysCard({
+  settings,
+  patch,
+  failed,
+}: {
+  settings: Settings;
+  patch: PatchFn;
+  /* La lista la mantiene el shell: la barra lateral marca esta sección en rojo
+     aunque no esté abierta, y para eso el aviso no puede vivir aquí dentro. */
+  failed: string[];
+}) {
   const duplicated = duplicateAccelerators(settings.hotkeys);
   const actions = Object.keys(HOTKEY_LABEL) as (keyof HotkeyMap)[];
 
   return (
     <section className="card">
-      <h2 className="card__title">Atajos de teclado</h2>
-      <p className="card__hint">
-        Son <strong>globales</strong>: funcionan con el foco en la videollamada, y por eso se los
-        quitan a la aplicación que lo tenga. Pulsa un campo y teclea la combinación que quieras.
-      </p>
-
       {failed.length > 0 && (
         <div className="warn">
           {failed.length === 1 ? (
@@ -967,13 +1591,13 @@ function DiagnosticsCard() {
 
   return (
     <section className="card">
-      <h2 className="card__title">Diagnóstico</h2>
       <p className="card__hint">
-        Si algo no funciona, esto es lo que hay que mirar antes que nada. El registro se guarda en{' '}
+        El registro del proceso principal se guarda en{' '}
         <code>{location || 'tu carpeta de datos'}</code>.
       </p>
 
       <Row
+        icon="activity"
         label="Probar la transcripción"
         desc="Conecta de verdad con el motor configurado: con Gemini Live negocia el modelo, con Whisper ejecuta el binario sobre un audio de prueba."
       >
@@ -1077,14 +1701,8 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
 
   return (
     <section className="card">
-      <h2 className="card__title">Historial de conversaciones</h2>
-      <p className="card__hint">
-        Se guardan en tu máquina, en texto plano, y no se envían a ningún sitio. Incluyen la
-        transcripción completa: eso significa lo que dijo la otra persona, no sólo lo que
-        preguntaste tú.
-      </p>
-
       <Row
+        icon="history"
         label="Guardar conversaciones"
         desc={
           settings.historyEnabled
@@ -1359,7 +1977,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       <h2 className="card__title">Modelo de respuestas</h2>
       <p className="card__hint">Quién genera las sugerencias que ves en el overlay.</p>
 
-      <Row label="Proveedor">
+      <Row icon="cpu" label="Proveedor">
         <select
           value={settings.llmProviderId}
           onChange={(e) => void patch({ llmProviderId: e.target.value as LLMProviderId })}
@@ -1371,6 +1989,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       </Row>
 
       <Row
+        icon="sliders"
         label="Modelo"
         desc={
           // El diagnóstico detallado lo da el panel de estado de abajo; aquí
@@ -1410,6 +2029,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       */}
       {(provider === 'ollama' || settings.screenProviderId === 'ollama') && (
         <Row
+          icon="file"
           label="Ventana de contexto de Ollama"
           desc="Ollama NO usa la del modelo: aplica 2048 tokens por defecto y descarta lo que no cabe SIN dar ningún error, empezando por el principio. El síntoma es que el modelo olvida lo que le acabas de decir. Subirlo gasta más memoria."
         >
@@ -1521,7 +2141,15 @@ function OllamaStatusPanel() {
 
 // ──────────────────────────── Transcripción ────────────────────────────
 
-function TranscriptionCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+function TranscriptionCard({
+  settings,
+  patch,
+  go,
+}: {
+  settings: Settings;
+  patch: PatchFn;
+  go: (id: SectionId) => void;
+}) {
   const [status, setStatus] = useState({ binaryInstalled: false, modelInstalled: false });
   const [progress, setProgress] = useState<WhisperProgress | null>(null);
   const [installing, setInstalling] = useState(false);
@@ -1557,29 +2185,18 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
 
   return (
     <section className="card">
-      <h2 className="card__title">Transcripción</h2>
-      <p className="card__hint">
-        Gemini Live transcribe en ~300 ms pero envía el audio a Google. Whisper local no sale de tu
-        máquina, a cambio de ~1–2 s de latencia.
-      </p>
-
       <Row
-        label="Qué se escucha"
-        desc={AUDIO_SOURCE_HINT[settings.audioSources]}
+        icon="waveform"
+        label="Motor"
+        desc={
+          <>
+            Qué fuentes de audio se abren se decide aparte.{' '}
+            <Jump to="audio" go={go}>
+              Ir a Audio
+            </Jump>
+          </>
+        }
       >
-        <select
-          value={settings.audioSources}
-          onChange={(e) =>
-            void patch({ audioSources: e.target.value as Settings['audioSources'] })
-          }
-        >
-          <option value="both">Micrófono y salida del sistema</option>
-          <option value="system">Solo la salida del sistema</option>
-          <option value="mic">Solo el micrófono</option>
-        </select>
-      </Row>
-
-      <Row label="Motor">
         <select
           value={settings.sttProviderId}
           onChange={(e) =>
@@ -1603,6 +2220,7 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
       )}
 
       <Row
+        icon="globe"
         label="Idioma"
         desc="Automático detecta el idioma; fijarlo mejora la precisión cuando aciertas."
       >
@@ -1634,6 +2252,7 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
       {settings.sttProviderId === 'whisper-local' && (
         <>
           <Row
+            icon="cpu"
             label="Modelo de Whisper"
             desc={
               settings.language === 'en' || settings.language === 'auto'
@@ -1656,6 +2275,7 @@ function TranscriptionCard({ settings, patch }: { settings: Settings; patch: Pat
           </Row>
 
           <Row
+            icon="download"
             label={ready ? 'Whisper listo' : 'Whisper sin instalar'}
             desc={
               ready
@@ -1750,13 +2370,19 @@ const WHISPER_MODEL_OPTIONS = [
 
 // ────────────────────────────── Comportamiento ──────────────────────────────
 
-function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+function BehaviourCard({
+  settings,
+  patch,
+  go,
+}: {
+  settings: Settings;
+  patch: PatchFn;
+  go: (id: SectionId) => void;
+}) {
   return (
     <section className="card">
-      <h2 className="card__title">Comportamiento</h2>
-      <p className="card__hint">Cuándo responde el asistente y con cuánto contexto.</p>
-
       <Row
+        icon="bolt"
         label="Respuestas automáticas"
         desc="Con la heurística activa, detecta preguntas dirigidas a ti y responde sin que pulses nada. El hotkey manual funciona en todos los modos."
       >
@@ -1774,6 +2400,7 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
       {settings.autoTriggerMode !== 'off' && (
         <>
           <Row
+            icon="mic"
             label="Quién dispara la respuesta"
             desc="Por defecto solo el interlocutor: responder a lo que dices tú no tiene sentido en una entrevista. Cámbialo si usas la app para dictar las preguntas tú mismo."
           >
@@ -1792,6 +2419,7 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
           </Row>
 
           <Row
+            icon="waveform"
             label="Cuándo considera que es una pregunta"
             desc={SENSITIVITY_HINT[settings.autoTriggerSensitivity]}
           >
@@ -1821,12 +2449,18 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
                 .join(' y ')}
               : <strong>nunca se disparará ninguna respuesta automática</strong>. Cambia una de las
               dos cosas, o usa <kbd>Ctrl</kbd>+<kbd>Enter</kbd> para preguntar a mano.
+              <div className="field">
+                <Jump to="audio" go={go}>
+                  Cambiar qué se escucha
+                </Jump>
+              </div>
             </div>
           )}
         </>
       )}
 
       <Row
+        icon="clock"
         label="Ventana de voz"
         desc="Segundos de TRANSCRIPCIÓN que acompañan a cada pregunta. No afecta a la memoria del asistente: sus propias respuestas anteriores se envían siempre. Por debajo de 30 s se pierde el hilo de lo que dijo el interlocutor."
       >
@@ -1843,7 +2477,11 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
         />
       </Row>
 
-      <Row label="Perfil de respuesta" desc="Adapta el tono y la estructura al tipo de reunión.">
+      <Row
+        icon="file"
+        label="Perfil de respuesta"
+        desc="Adapta el tono y la estructura al tipo de reunión."
+      >
         <select
           value={settings.promptProfileId}
           onChange={(e) =>
@@ -1867,6 +2505,7 @@ function BehaviourCard({ settings, patch }: { settings: Settings; patch: PatchFn
         justo para quien más lo va a usar.
       */}
       <Row
+        icon="monitor"
         label="Lenguaje del modo código"
         desc="En qué lenguaje se escriben las soluciones de Ctrl+Alt+C. Con «auto» lo deduce de lo que se vea en la pantalla, que es lo correcto si el editor ya tiene uno elegido."
       >
@@ -2000,15 +2639,8 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const activeNow = packsForProfile(packs, profile).filter((p) => p.content.trim());
 
   return (
-    <section className="card" id="context">
-      <h2 className="card__title">Contexto</h2>
-      <p className="card__hint">
-        Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le
-        explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de
-        parafrasearse.
-      </p>
-
-      <div className="ctxbar">
+    <section className="card">
+      <div className="ctxbar ctxbar--first">
         <span className="ctxbar__label">Preparando para</span>
         <strong className="ctxbar__profile">{PROFILE_LABEL[profile]}</strong>
         <span className="ctxbar__spacer" />

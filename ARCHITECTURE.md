@@ -30,6 +30,9 @@ flowchart TB
         WORKER["Audio worker<br/>OCULTA"]
     end
 
+    PHONE["Espejo del móvil<br/>bridge/phone.ts · HTTP + SSE"]
+    MOBILE["Navegador del teléfono<br/>red local"]
+
     WHISPER["whisper-server.exe<br/>proceso hijo"]
     CLOUD["Anthropic · Google · Ollama"]
 
@@ -44,7 +47,15 @@ flowchart TB
     SESSION -- "transcripción · respuestas" --> OVERLAY
     SESSION -- "estado · niveles" --> DASH
     DASH -- "ajustes" --> STORE
+    SESSION -- "sólo respuestas" --> PHONE
+    PHONE -. "SSE, si está encendido" .-> MOBILE
 ```
+
+**El espejo del móvil se engancha a los `broadcast()`**, no a cada emisor: lo
+que ve el overlay es lo que puede ver el teléfono, y él filtra lo que le sirve
+—respuestas y estado de la captura, nunca la transcripción—. Así no se queda
+atrás cuando alguien añade un evento nuevo. Empieza apagado y sólo escucha en
+`127.0.0.1` salvo que se le permita la red local.
 
 **Por qué el audio vive en una ventana oculta y no en el main:**
 `getUserMedia` y `getDisplayMedia` sólo existen en un renderer. Aislarlo además
@@ -284,6 +295,10 @@ Está anclado con `app.setName('interview-helper')` al inicio de `main/index.ts`
 whisper-cli necesita, que se borra en el `finally` de cada invocación. El texto
 sí se guarda si el historial está activo; ver CONTEXT.md §4.
 
+**Y una salida que no es disco:** con el espejo del móvil encendido, las
+respuestas —no la transcripción— se sirven por HTTP a la red local. Nada se
+persiste; el buffer vive en memoria y muere con la app. Ver CONTEXT.md §4.
+
 ---
 
 ## 7. Los contratos
@@ -378,6 +393,7 @@ npm run typecheck && npm run lint && npm test
 | `main/stt/*` | Los tres motores y los assets de Whisper |
 | `main/llm/*` | Claude, Gemini, Ollama |
 | `main/config/*` | Settings, secretos DPAPI, historial |
+| `main/bridge/*` | Espejo del móvil: servidor HTTP + SSE y la página que ve el teléfono |
 | `main/windows/*` | Ventanas, stealth, arrastre manual |
 | `main/logging.ts` | Log a archivo del proceso principal |
 | `main/system-specs.ts` | RAM, CPU y GPU, para recomendar un modelo local |

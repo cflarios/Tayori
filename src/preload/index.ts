@@ -15,6 +15,7 @@ import type {
   LLMProviderId,
   ModelInfo,
   OllamaStatus,
+  PhoneMirrorStatus,
   ScreenTask,
   SecretKey,
   SecretsPresence,
@@ -134,6 +135,16 @@ const api = {
   logs: {
     read: (): Promise<string> => ipcRenderer.invoke(IPC.logsRead),
     location: (): Promise<string> => ipcRenderer.invoke(IPC.logsLocation),
+  },
+
+  /**
+   * Espejo en el teléfono. Sólo de lectura: encenderlo y apagarlo son ajustes
+   * normales, así que van por `settings.update` y no por un canal propio.
+   */
+  phone: {
+    getStatus: (): Promise<PhoneMirrorStatus> => ipcRenderer.invoke(IPC.phoneGetStatus),
+    onStatus: (cb: (status: PhoneMirrorStatus) => void) =>
+      subscribe<PhoneMirrorStatus>(IPC.onPhoneStatus, cb),
   },
 
   ask: {

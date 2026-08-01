@@ -93,6 +93,9 @@ export const IPC = {
    */
   guideOpen: 'guide:open',
 
+  /** Enlace, QR y teléfonos conectados del espejo. Ver `main/bridge/phone.ts`. */
+  phoneGetStatus: 'phone:get-status',
+
   // ── send (renderer → main, sin respuesta) ──
   audioChunk: 'audio:chunk',
   audioLevels: 'audio:levels',
@@ -148,6 +151,17 @@ export const IPC = {
    * pregunta, y con Ollama eso choca contra `num_ctx` sin dar ningún error.
    */
   onMemory: 'event:memory',
+  /**
+   * Cambió algo del espejo del teléfono: arrancó, paró, o entró o salió un
+   * teléfono.
+   *
+   * Lo último es lo que justifica que sea un evento y no sólo un `invoke`: la
+   * pregunta real del usuario es "¿lo estoy viendo en el móvil?", y la única
+   * respuesta honesta es un contador que se mueve solo cuando el teléfono se
+   * conecta de verdad.
+   */
+  onPhoneStatus: 'event:phone-status',
+
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

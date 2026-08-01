@@ -263,6 +263,43 @@ las marca el antivirus y pueden desestabilizar el sistema. **No se implementan
 a propósito.** El nombre se cambia en `electron-builder.yml` (`productName` /
 `executableName`) si prefieres otro.
 
+## Espejo en el móvil
+
+El modo invisible resuelve "que no salga en la grabación". No resuelve el caso
+de **compartir la pantalla entera**: lo que hay en tu monitor está, por
+definición, al otro lado — y tampoco cubre una cámara ni un segundo monitor que
+alguien pueda mirar.
+
+El espejo saca las respuestas de la pantalla compartida del todo: tu ordenador
+sirve una página a un navegador de tu teléfono, en tu propia red. Se enciende en
+**Ajustes → Espejo en el móvil**, se escanea el QR y ya está.
+
+| | |
+|---|---|
+| Qué se manda | Las respuestas y si la escucha está activa |
+| Qué **no** se manda | La transcripción — lo que dijo la otra persona no se duplica en un segundo dispositivo |
+| Por dónde viaja | Tu red local, servido por tu propio equipo. Sin nube, sin cuenta, sin salir a internet |
+| Cuándo está vivo | Sólo con la app abierta y el interruptor encendido |
+
+Dos interruptores, y **los dos empiezan apagados**:
+
+- **Encender el espejo.** Abre el servidor y genera el enlace y el QR.
+- **Permitir acceso desde la red local.** Sin esto sólo escucha en `127.0.0.1`,
+  o sea que sólo puede conectarse este mismo ordenador (sirve para probarlo, o
+  para un túnel SSH). Un teléfono necesita esto encendido.
+
+Lo que hay que tener claro antes de usarlo:
+
+- El enlace lleva un **token que cambia en cada arranque**. Un enlace guardado
+  en el móvil deja de valer solo — pero **mientras el espejo esté encendido,
+  quien tenga ese enlace y esté en tu red puede leer tus respuestas**. En una
+  red de invitados o de oficina, eso es una decisión, no un detalle.
+- La primera vez, Windows puede pedirte permiso del **firewall**. Sin
+  concederlo, el teléfono no conecta.
+- Si tu equipo tiene varias direcciones de red (VPN, Docker, VirtualBox), el
+  dashboard elige la que el sistema usa para salir y **enseña las demás** por si
+  acierta mal.
+
 ## Latencia y privacidad: el compromiso
 
 | Motor | Latencia | Dónde va el audio |
@@ -388,6 +425,12 @@ dashboard: entonces sí es cierto que no queda nada.
 **2. Dónde va el audio.** Con Gemini Live, el audio de la reunión se envía a
 Google para transcribirlo. Con **Whisper local + Ollama** no sale nada de tu
 máquina.
+
+**2 bis. El espejo en el móvil** añade una salida más, aunque no salga de tu
+red: con él encendido, las respuestas se sirven por HTTP a cualquier dispositivo
+de tu red local que tenga el enlace. No incluye la transcripción, el enlace
+caduca al apagarlo, y empieza apagado — pero mientras esté encendido es una
+copia de tus respuestas fuera de la ventana protegida.
 
 **3. Dónde vives esa conversación.** Muchas empresas restringen el uso de
 asistentes de IA en sus procesos de selección, con independencia de lo que

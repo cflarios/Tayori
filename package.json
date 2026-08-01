@@ -27,6 +27,7 @@
     "@electron-toolkit/utils": "4.0.0",
     "@google/genai": "^2.13.0",
     "ollama": "^0.6.3",
+    "qrcode-generator": "2.0.4",
     "zustand": "5.0.14"
   },
   "devDependencies": {
