@@ -1023,6 +1023,43 @@ cuánto se arriesga la heurística; el modo gobierna si el modelo puede opinar.
 Estricto + clasificador es de hecho la combinación más precisa que existe: cero
 adivinanzas por palabras, y el modelo resolviendo las dudas.
 
+### Pedir no es preguntar, y la mitad de la gente pide
+
+Del log de una prueba real, con diez segundos de diferencia:
+
+    20:04:58  descartado (sin marcadores): "Explica un poco el rol de un SRE"
+    20:05:08  disparando (signo de interrogación): "¿Podrías explicar un poco el rol de un SRE?"
+
+Las dos piden exactamente lo mismo. Sólo la segunda está **formulada** como
+pregunta, y ahí estaba el fallo: la heurística tenía `explícame` pero no
+`explica` a secas.
+
+**Y era una asimetría entre idiomas que llevaba ahí desde el principio.** En
+inglés los imperativos pelados ya estaban cubiertos —`explain`, `describe`,
+`tell` viven en `INTERROGATIVE_OPENERS`— y en español sólo se reconocían las
+formas con pronombre. Quien dice «explica» sin el «me» está pidiendo lo mismo.
+
+`IMPERATIVE_OPENERS` los añade con dos condiciones que sí importan:
+
+- **Sólo al principio de la intervención.** Estos verbos son idénticos a la
+  tercera persona del indicativo, que aparece a todas horas: «el informe
+  explica que…», «ese diagrama resume bastante bien». Al principio es una
+  petición casi siempre; en medio, casi nunca. Hay test de las dos caras.
+- **Cuentan también en modo estricto.** Pedir algo es tan explícito como
+  preguntarlo; que no lleve signo de interrogación no lo vuelve dudoso.
+
+Cuatro verbos se quedaron **fuera a propósito**, y conviene que no los añada
+nadie luego: `cuenta` (es sustantivo, y «cuenta con» significa otra cosa),
+`indica` («indica que…» en tercera persona es lo normal), `desarrolla`
+(«desarrolla software») y `habla` («habla muy rápido»). Es el mismo criterio
+que dejó fuera a «debería».
+
+**Lo que esto no arregla**, y hay que saberlo: cubre la forma imperativa, que es
+frecuente y barata de detectar. Las peticiones que no son ni preguntas ni
+imperativos —una afirmación lanzada para que la rebatas— siguen necesitando el
+clasificador. Una lista de verbos tiene el mismo techo que una lista de
+interrogativos; sólo lo tiene un poco más arriba.
+
 ### La frase que salía dos veces
 
 Se vio en pantalla antes que en ningún test, y la firma lo decía todo:

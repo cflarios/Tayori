@@ -34,8 +34,47 @@ const IMPERATIVE_PROMPTS = [
   'cuentame', 'cuéntame', 'hablame', 'háblame', 'explicame', 'explícame',
   'describeme', 'descríbeme', 'dime', 'dame un ejemplo', 'ponme un ejemplo',
   'imagina', 'supon', 'supón',
+  // Las formas con "-nos" son tan imperativas como las de "-me", y en una
+  // reunión con varias personas son las que salen. Éstas sí valen en cualquier
+  // posición: nadie dice "explicanos" sin estar pidiendo algo.
+  'cuentanos', 'explicanos', 'hablanos', 'describenos', 'dinos',
   'tell me', 'walk me through', 'talk me through', 'give me an example',
   'describe a time', 'explain how', 'explain why', 'take me through',
+];
+
+/**
+ * Verbos en imperativo que abren una petición, **sólo al principio**.
+ *
+ * El hueco que tapan salió de una prueba real: «Explica un poco el rol de un
+ * SRE» se descartó, y la misma pregunta con otra forma —«¿Podrías explicar un
+ * poco el rol de un SRE?»— disparó sin problema. Las dos piden exactamente lo
+ * mismo; sólo una está formulada como pregunta, y **la gente usa las dos**.
+ *
+ * Era además una asimetría entre idiomas: en inglés los imperativos pelados ya
+ * estaban cubiertos —`explain`, `describe`, `tell` viven en la lista de
+ * aperturas— y en español sólo se reconocían las formas con pronombre
+ * (`explícame`, `cuéntame`). Quien dice «explica» sin el «me» pedía lo mismo.
+ *
+ * **Sólo al principio, y esto no es negociable.** Estos verbos son idénticos a
+ * la tercera persona del indicativo, que aparece a todas horas en mitad de una
+ * frase: «el informe explica que…», «él describe el problema». Al principio de
+ * una intervención, en cambio, es una petición casi siempre.
+ *
+ * Se quedan fuera a propósito, y no por olvido:
+ *
+ * | Verbo | Por qué no |
+ * |---|---|
+ * | `cuenta` | Es también sustantivo, y «cuenta con» significa otra cosa |
+ * | `indica` | «indica que…» en tercera persona es lo normal, no la excepción |
+ * | `desarrolla` | «desarrolla software» abre una frase perfectamente afirmativa |
+ * | `habla` | «habla muy rápido» describe a alguien, no pide nada |
+ *
+ * Van sin acentos porque se comparan contra el texto ya normalizado.
+ */
+const IMPERATIVE_OPENERS = [
+  'explica', 'describe', 'define', 'compara', 'enumera', 'resume', 'detalla',
+  'profundiza', 'amplia', 'aclara', 'ejemplifica', 'justifica', 'argumenta',
+  'ilustra', 'menciona',
 ];
 
 /** Frases demasiado cortas casi nunca son preguntas reales que valga responder. */
@@ -196,6 +235,7 @@ export function looksLikeQuestion(
   const hasStrongMarker =
     raw.includes('?') ||
     INTERROGATIVE_OPENERS.includes(firstWord) ||
+    IMPERATIVE_OPENERS.includes(firstWord) ||
     IMPERATIVE_PROMPTS.some((prompt) => normalized.startsWith(prompt));
 
   const minWords = hasStrongMarker ? MIN_WORDS_WITH_MARKER : MIN_WORDS;
@@ -213,6 +253,18 @@ export function looksLikeQuestion(
     if (normalized.startsWith(prompt)) {
       return { isQuestion: true, reason: `apertura imperativa: "${prompt}"` };
     }
+  }
+
+  /*
+   * El verbo en imperativo pelado: "explica el rol de un SRE".
+   *
+   * Va aquí arriba, con las demás señales fuertes, y no abajo con las reglas de
+   * `balanced`: pedir algo es igual de explícito que preguntarlo, así que el
+   * modo estricto también tiene que verlo. Que la petición no lleve signo de
+   * interrogación no la vuelve dudosa.
+   */
+  if (IMPERATIVE_OPENERS.includes(firstWord)) {
+    return { isQuestion: true, reason: `verbo en imperativo: "${firstWord}"` };
   }
 
   // El signo de interrogación explícito es señal fuerte cuando el motor lo pone.
