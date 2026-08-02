@@ -96,6 +96,24 @@ export const IPC = {
   /** Enlace, QR y teléfonos conectados del espejo. Ver `main/bridge/phone.ts`. */
   phoneGetStatus: 'phone:get-status',
 
+  /**
+   * El asistente de configuración pone Ollama y un modelo en la máquina.
+   *
+   * Van por IPC y no por un script suelto porque hay que **pedir permiso**: uno
+   * instala software con winget y el otro descarga varios gigas. Los dos avisan
+   * de lo que van a hacer antes de hacerlo, y los dos informan por
+   * `onSetupProgress`, que es lo que impide que una descarga de tres minutos se
+   * viva como una app colgada.
+   */
+  /** Estado de la conexión con el broker MQTT. Ver `main/bridge/mqtt.ts`. */
+  mqttGetStatus: 'mqtt:get-status',
+  /** Publica una respuesta de prueba para comprobar el montaje de una vez. */
+  mqttTest: 'mqtt:test',
+
+  setupCanInstall: 'setup:can-install',
+  setupInstallOllama: 'setup:install-ollama',
+  setupPullModel: 'setup:pull-model',
+
   // ── send (renderer → main, sin respuesta) ──
   audioChunk: 'audio:chunk',
   audioLevels: 'audio:levels',
@@ -161,6 +179,12 @@ export const IPC = {
    * conecta de verdad.
    */
   onPhoneStatus: 'event:phone-status',
+
+  /** Avance de la instalación de Ollama o de la descarga de un modelo. */
+  onSetupProgress: 'event:setup-progress',
+
+  /** Cambió la conexión con el broker, o se publicó algo. */
+  onMqttStatus: 'event:mqtt-status',
 
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',

@@ -16,6 +16,7 @@ import {
   type Speaker,
   type TranscriptSegment,
 } from '@shared/types';
+import { mqttBridge } from '../bridge/mqtt';
 import { phoneBridge } from '../bridge/phone';
 import { saveConversation } from '../config/history';
 import { settingsStore } from '../config/store';
@@ -689,6 +690,9 @@ class SessionOrchestrator {
     // reciben las ventanas y decide él qué le sirve. Por aquí pasan las
     // respuestas, que son la razón de que el espejo exista.
     phoneBridge.publish(channel, payload);
+    // Y al broker, que filtra por su cuenta: sólo le interesan las respuestas
+    // terminadas. Ver `bridge/mqtt.ts`.
+    mqttBridge.publish(channel, payload);
   }
 }
 

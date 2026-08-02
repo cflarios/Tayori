@@ -80,11 +80,28 @@ export function clearSecret(key: SecretKey): void {
   write(data);
 }
 
-/** Lo único sobre secretos que el renderer tiene permitido saber. */
+/**
+ * Lo único sobre secretos que el renderer tiene permitido saber.
+ *
+ * Pregunta si la clave **sirve**, no si está escrita. La versión anterior
+ * miraba únicamente que el campo existiera en el archivo, y eso resultó ser una
+ * media verdad cara: `safeStorage` descifra con la identidad del perfil de
+ * Windows, así que una clave guardada por otra instalación —o por un perfil que
+ * cambió— sigue ahí, ocupando su sitio, y falla al descifrarse.
+ *
+ * El resultado era el peor de los posibles: el dashboard ponía «configurada» en
+ * verde y **todas** las respuestas fallaban con "Falta la API key de Anthropic",
+ * que manda a configurar algo que ya parece configurado. Se descubrió al añadir
+ * el asistente, que prueba la conexión justo después de decir que la clave está
+ * puesta y se contradijo a sí mismo en la misma pantalla.
+ *
+ * Descifrar dos cadenas cortas es gratis al lado de eso, y `getSecret` ya deja
+ * la causa real en el log cuando falla.
+ */
 export function getPresence(): SecretsPresence {
-  const data = read();
   return {
-    anthropic: Boolean(data.anthropic),
-    google: Boolean(data.google),
+    anthropic: Boolean(getSecret('anthropic')),
+    google: Boolean(getSecret('google')),
+    mqtt: Boolean(getSecret('mqtt')),
   };
 }

@@ -32,6 +32,8 @@ flowchart TB
 
     PHONE["Espejo del móvil<br/>bridge/phone.ts · HTTP + SSE"]
     MOBILE["Navegador del teléfono<br/>red local"]
+    MQTT["Publicación MQTT<br/>bridge/mqtt.ts"]
+    DEVICE["Broker → tu dispositivo<br/>ESP32, script, …"]
 
     WHISPER["whisper-server.exe<br/>proceso hijo"]
     CLOUD["Anthropic · Google · Ollama"]
@@ -49,6 +51,8 @@ flowchart TB
     DASH -- "ajustes" --> STORE
     SESSION -- "sólo respuestas" --> PHONE
     PHONE -. "SSE, si está encendido" .-> MOBILE
+    SESSION -- "sólo respuestas terminadas" --> MQTT
+    MQTT -. "publish, si está encendido" .-> DEVICE
 ```
 
 **El espejo del móvil se engancha a los `broadcast()`**, no a cada emisor: lo
@@ -295,9 +299,10 @@ Está anclado con `app.setName('interview-helper')` al inicio de `main/index.ts`
 whisper-cli necesita, que se borra en el `finally` de cada invocación. El texto
 sí se guarda si el historial está activo; ver CONTEXT.md §4.
 
-**Y una salida que no es disco:** con el espejo del móvil encendido, las
-respuestas —no la transcripción— se sirven por HTTP a la red local. Nada se
-persiste; el buffer vive en memoria y muere con la app. Ver CONTEXT.md §4.
+**Y dos salidas que no son disco:** con el espejo del móvil encendido, las
+respuestas —no la transcripción— se sirven por HTTP a la red local; con MQTT
+encendido, cada respuesta terminada se publica en un broker, que puede estar
+fuera de tu red. Nada se persiste en ninguno de los dos casos. Ver CONTEXT.md §4.
 
 ---
 
@@ -393,7 +398,8 @@ npm run typecheck && npm run lint && npm test
 | `main/stt/*` | Los tres motores y los assets de Whisper |
 | `main/llm/*` | Claude, Gemini, Ollama |
 | `main/config/*` | Settings, secretos DPAPI, historial |
-| `main/bridge/*` | Espejo del móvil: servidor HTTP + SSE y la página que ve el teléfono |
+| `main/bridge/*` | Salidas hacia fuera: espejo del móvil (HTTP + SSE) y publicación MQTT |
+| `main/setup/*` | Lo que el asistente instala solo: Ollama vía winget y la descarga de modelos |
 | `main/windows/*` | Ventanas, stealth, arrastre manual |
 | `main/logging.ts` | Log a archivo del proceso principal |
 | `main/system-specs.ts` | RAM, CPU y GPU, para recomendar un modelo local |

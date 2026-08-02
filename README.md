@@ -68,6 +68,31 @@ Electron. Puedes forzar otra ruta con la variable `IH_BUILD_OUT`.
 El binario no está firmado, así que Windows SmartScreen avisará la primera vez:
 "Más información" → "Ejecutar de todas formas".
 
+## Configuración guiada
+
+La primera vez que abres el dashboard sale un asistente que lo deja todo
+funcionando sin que tengas que saber qué es un proveedor ni cuánta RAM tienes.
+Mide tu equipo y te propone uno de dos caminos:
+
+- **En la nube.** Eliges Claude o Gemini, pegas la API key y listo. Nada que
+  instalar. Pagas por uso al proveedor.
+- **En tu equipo.** Si no tienes Ollama, lo instala con `winget` —el gestor de
+  paquetes de Windows, con su aviso de permiso— y descarga los dos modelos que
+  le pegan a tu hardware: uno para conversar y otro para leer la pantalla.
+
+Después resuelve la transcripción (Gemini Live si tienes clave de Google, o
+Whisper local, que descarga solo) y te ofrece pegar el CV, que es lo que separa
+una respuesta correcta de una tuya.
+
+Nada se instala ni se descarga sin que lo pidas: cada acción va detrás de un
+botón que dice antes qué va a hacer. Puedes salir en cualquier momento y
+configurarlo a mano, y volver a llamarlo desde **Configuración guiada**, al pie
+de la barra lateral.
+
+Si tu equipo no tiene `winget`, el asistente **no** se descarga ningún
+ejecutable por su cuenta: te manda a ollama.com y detecta la instalación cuando
+vuelvas.
+
 ## Primeros pasos
 
 1. Arranca la app. Aparece solo el overlay, arriba a la derecha.
@@ -300,6 +325,46 @@ Lo que hay que tener claro antes de usarlo:
   dashboard elige la que el sistema usa para salir y **enseña las demás** por si
   acierta mal.
 
+## MQTT: mandar las respuestas a otro cacharro
+
+Con esto encendido, cada respuesta **terminada** se publica en un broker MQTT
+para que la recoja otra cosa: un ESP32, un script, un Home Assistant. Se
+configura en **Ajustes → MQTT**.
+
+Se publica en dos temas, porque son dos consumidores distintos:
+
+| Tema | Contenido |
+|---|---|
+| `<tu-tema>` | JSON con `id`, `trigger`, `question`, `answer`, `providerId`, `model` y `at` |
+| `<tu-tema>/text` | Sólo el texto de la respuesta, en crudo |
+
+El segundo existe para los microcontroladores: te suscribes y lees la respuesta
+sin meter un parser de JSON en la placa.
+
+```cpp
+// ESP32, con PubSubClient
+client.subscribe("interview-helper/answer/text");
+// callback(topic, payload, length) → payload es la respuesta, tal cual
+```
+
+Detalles que conviene saber antes de montarlo:
+
+- **Sólo respuestas completas.** Nada de los fragmentos del streaming: llega un
+  mensaje por respuesta, cuando está entera.
+- **Ni errores ni respuestas canceladas.** Tu dispositivo no puede distinguir un
+  fallo de una respuesta, así que no se le mandan.
+- **QoS 1 y sin retener.** No se pierde la respuesta, y una placa que arranca
+  por la mañana no ejecuta la del día anterior.
+- **La transcripción no se publica.** Lo que dijo la otra persona no sale por
+  aquí.
+- **La contraseña del broker** se guarda cifrada con DPAPI, igual que las API
+  keys.
+
+**Esto saca tus respuestas de la app.** Si el broker está en internet, el texto
+sale de tu red; si está en tu LAN, cualquiera con acceso al tema puede leerlo.
+Un broker sin usuario ni TLS es un tablón de anuncios — usa `mqtts://` fuera de
+tu red.
+
 ## Latencia y privacidad: el compromiso
 
 | Motor | Latencia | Dónde va el audio |
@@ -431,6 +496,11 @@ red: con él encendido, las respuestas se sirven por HTTP a cualquier dispositiv
 de tu red local que tenga el enlace. No incluye la transcripción, el enlace
 caduca al apagarlo, y empieza apagado — pero mientras esté encendido es una
 copia de tus respuestas fuera de la ventana protegida.
+
+**2 ter. MQTT** va más lejos que las dos anteriores: un broker puede estar en
+internet, así que con esto encendido el texto de tus respuestas puede salir de
+tu máquina y de tu red. Tampoco incluye la transcripción, y también empieza
+apagado.
 
 **3. Dónde vives esa conversación.** Muchas empresas restringen el uso de
 asistentes de IA en sus procesos de selección, con independencia de lo que

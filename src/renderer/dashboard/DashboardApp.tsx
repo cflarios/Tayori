@@ -9,6 +9,7 @@ import {
   FONT_SCALE,
   HOTKEY_LABEL,
   normalizeModelId,
+  mqttTopics,
   packsForProfile,
   PROFILE_SLOTS,
   screenModelFor,
@@ -16,6 +17,7 @@ import {
 } from '@shared/types';
 import { acceleratorFromEvent, duplicateAccelerators, formatAccelerator } from '@shared/accelerator';
 import { Icon, type IconName } from './icons';
+import { SetupWizard } from './SetupWizard';
 import type {
   AudioLevels,
   CaptureStatus,
@@ -25,6 +27,7 @@ import type {
   HotkeyMap,
   LLMProviderId,
   ModelInfo,
+  MqttStatus,
   OllamaStatus,
   PhoneMirrorStatus,
   SecretKey,
@@ -107,12 +110,15 @@ function SecretField({
   label,
   hint,
   present,
+  /** Qué se pide, si no es una API key. El componente lo reutiliza el broker. */
+  placeholder = 'Pega tu API key',
   onSave,
   onClear,
 }: {
   label: string;
   hint: string;
   present: boolean;
+  placeholder?: string;
   onSave: (value: string) => Promise<void>;
   onClear: () => Promise<void>;
 }) {
@@ -143,7 +149,7 @@ function SecretField({
         <input
           type="password"
           value={draft}
-          placeholder={present ? '•••••••• (escribe para reemplazar)' : 'Pega tu API key'}
+          placeholder={present ? '•••••••• (escribe para reemplazar)' : placeholder}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void save();
@@ -265,6 +271,7 @@ type SectionId =
   | 'general'
   | 'audio'
   | 'phone'
+  | 'mqtt'
   | 'models'
   | 'transcription'
   | 'behaviour'
@@ -288,6 +295,11 @@ const SECTIONS: Record<SectionId, { icon: IconName; label: string; hint: React.R
     icon: 'phone',
     label: 'Espejo en el móvil',
     hint: 'Manda las respuestas al navegador de tu teléfono. Sirve para lo que el modo invisible no puede cubrir: cuando compartes la pantalla entera, lo que está en tu monitor está al otro lado.',
+  },
+  mqtt: {
+    icon: 'broadcast',
+    label: 'MQTT',
+    hint: 'Publica cada respuesta terminada en un broker, para que la recoja otra cosa: un ESP32, un script, lo que montes.',
   },
   models: {
     icon: 'cpu',
@@ -335,6 +347,7 @@ const SECTION_ORDER: SectionId[] = [
   'general',
   'audio',
   'phone',
+  'mqtt',
   'models',
   'transcription',
   'behaviour',
@@ -363,7 +376,11 @@ function storedSection(): SectionId {
 
 export function DashboardApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [presence, setPresence] = useState<SecretsPresence>({ anthropic: false, google: false });
+  const [presence, setPresence] = useState<SecretsPresence>({
+    anthropic: false,
+    google: false,
+    mqtt: false,
+  });
   const [status, setStatus] = useState<CaptureStatus>({
     state: 'idle',
     micActive: false,
@@ -377,6 +394,8 @@ export function DashboardApp() {
    * tiene que existir aunque esa sección no esté montada.
    */
   const [failedHotkeys, setFailedHotkeys] = useState<string[]>([]);
+  /** Reabierto a mano desde el pie de la barra lateral. */
+  const [wizard, setWizard] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -424,6 +443,29 @@ export function DashboardApp() {
 
   if (!settings) return <div className="loading">Cargando…</div>;
 
+  /*
+   * El asistente sustituye al dashboard entero mientras está abierto, y no es
+   * una sección más: quien lo necesita no sabe todavía qué significan las
+   * secciones. Se abre solo la primera vez y se puede volver a llamar desde el
+   * pie de la barra lateral.
+   */
+  if (!settings.onboardingDone || wizard) {
+    return (
+      <SetupWizard
+        settings={settings}
+        presence={presence}
+        patch={patch}
+        saveSecret={saveSecret}
+        onClose={() => {
+          setWizard(false);
+          // Salir del asistente cuenta como "ya no me lo enseñes": si no,
+          // cerrarlo lo volvería a abrir en el siguiente render.
+          if (!settings.onboardingDone) void patch({ onboardingDone: true });
+        }}
+      />
+    );
+  }
+
   const meta = SECTIONS[section];
 
   /*
@@ -464,18 +506,12 @@ export function DashboardApp() {
         </nav>
 
         <div className="nav__foot">
-          {/* La guía se puede recuperar: esconderla no debería ser irreversible.
-              Vive en el pie y no al final de una sección porque no pertenece a
-              ninguna — es el recorrido que las cruza todas. */}
-          <button
-            className="navitem navitem--ghost"
-            onClick={() => {
-              go('general');
-              if (settings.onboardingDone) void patch({ onboardingDone: false });
-            }}
-          >
+          {/* El asistente se puede volver a llamar: haberlo terminado una vez no
+              debería dejarte sin él. Vive en el pie y no al final de una sección
+              porque no pertenece a ninguna — las cruza todas. */}
+          <button className="navitem navitem--ghost" onClick={() => setWizard(true)}>
             <Icon name="compass" />
-            <span className="navitem__label">Primeros pasos</span>
+            <span className="navitem__label">Configuración guiada</span>
           </button>
           <p className="nav__note">
             Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.
@@ -496,22 +532,7 @@ export function DashboardApp() {
 
         <div className="pane__body" ref={bodyRef}>
           <div className="pane__inner">
-            {section === 'general' && (
-              <>
-                {/* Arriba del todo mientras haga falta: es lo que hay que hacer
-                    ANTES de tocar nada de lo demás. */}
-                {!settings.onboardingDone && (
-                  <OnboardingCard
-                    settings={settings}
-                    presence={presence}
-                    status={status}
-                    patch={patch}
-                    go={go}
-                  />
-                )}
-                <VisibilityCards settings={settings} patch={patch} />
-              </>
-            )}
+            {section === 'general' && <VisibilityCards settings={settings} patch={patch} />}
 
             {section === 'audio' && (
               <>
@@ -521,6 +542,16 @@ export function DashboardApp() {
             )}
 
             {section === 'phone' && <PhoneMirrorCard settings={settings} patch={patch} />}
+
+            {section === 'mqtt' && (
+              <MqttCard
+                settings={settings}
+                presence={presence}
+                patch={patch}
+                saveSecret={saveSecret}
+                clearSecret={clearSecret}
+              />
+            )}
 
             {section === 'models' && (
               <>
@@ -993,6 +1024,193 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
   );
 }
 
+// ──────────────────────────────── MQTT ────────────────────────────────
+
+/**
+ * Publicar las respuestas en un broker.
+ *
+ * La tarjeta responde a tres preguntas en este orden: ¿está conectado?, ¿a qué
+ * tema me suscribo?, y —la que de verdad importa— ¿le ha llegado algo a mi
+ * cacharro? La última se contesta con el contador de publicadas y con un botón
+ * de prueba: un montaje roto y uno bueno se ven idénticos desde aquí hasta que
+ * llega el primer mensaje, y enterarse con la primera respuesta real es
+ * enterarse en el peor momento.
+ */
+function MqttCard({
+  settings,
+  presence,
+  patch,
+  saveSecret,
+  clearSecret,
+}: {
+  settings: Settings;
+  presence: SecretsPresence;
+  patch: PatchFn;
+  saveSecret: (key: SecretKey, value: string) => Promise<void>;
+  clearSecret: (key: SecretKey) => Promise<void>;
+}) {
+  const [status, setStatus] = useState<MqttStatus | null>(null);
+  const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
+
+  useEffect(() => {
+    void window.api.mqtt.getStatus().then(setStatus);
+    return window.api.mqtt.onStatus(setStatus);
+  }, []);
+
+  const topics = mqttTopics(settings.mqttTopic);
+  const on = settings.mqttEnabled;
+
+  return (
+    <>
+      <div className="hero">
+        <span className="hero__icon">
+          <Icon name="broadcast" size={19} />
+        </span>
+        <div className="hero__text">
+          <div className="hero__title">Publicar en un broker</div>
+          <div className="hero__desc">
+            Cada respuesta terminada se publica en MQTT. Las que fallan o se cancelan no: un
+            dispositivo no puede distinguir un error de una respuesta.
+          </div>
+        </div>
+        <Switch on={on} onChange={(v) => void patch({ mqttEnabled: v })} />
+      </div>
+
+      {on && <MqttStatusLine status={status} />}
+
+      <section className="card">
+        <h2 className="card__title">Broker</h2>
+        <p className="card__hint">
+          El esquema decide el cifrado: <code>mqtt://</code> va en claro y <code>mqtts://</code>{' '}
+          cifrado. En una red que no sea la tuya, esto último no es opcional.
+        </p>
+
+        <Row icon="cloud" label="Dirección" desc="Incluye el puerto: 1883 en claro, 8883 con TLS.">
+          <input
+            type="text"
+            className="modelpick__id"
+            style={{ width: 260 }}
+            value={settings.mqttUrl}
+            placeholder="mqtt://192.168.1.100:1883"
+            onChange={(e) => void patch({ mqttUrl: e.target.value })}
+          />
+        </Row>
+
+        <Row icon="file" label="Tema" desc="Se publica en este tema y en su hijo «/text».">
+          <input
+            type="text"
+            className="modelpick__id"
+            style={{ width: 260 }}
+            value={settings.mqttTopic}
+            placeholder="interview-helper/answer"
+            onChange={(e) => void patch({ mqttTopic: e.target.value })}
+          />
+        </Row>
+
+        <Row icon="key" label="Usuario" desc="Déjalo vacío si tu broker acepta conexiones anónimas.">
+          <input
+            type="text"
+            style={{ width: 180, flex: 'none' }}
+            value={settings.mqttUsername}
+            onChange={(e) => void patch({ mqttUsername: e.target.value })}
+          />
+        </Row>
+
+        <SecretField
+          label="Contraseña del broker"
+          hint="Se guarda cifrada con DPAPI, igual que las API keys, y no vuelve a mostrarse."
+          placeholder="Pega la contraseña del broker"
+          present={presence.mqtt}
+          onSave={(v) => saveSecret('mqtt', v)}
+          onClear={() => clearSecret('mqtt')}
+        />
+      </section>
+
+      {on && (
+        <section className="card">
+          <h2 className="card__title">A qué se suscribe tu dispositivo</h2>
+          <p className="card__hint">
+            Dos temas, porque son dos consumidores distintos. Si tu placa sólo quiere las letras de
+            un test, el segundo le ahorra meter un parser de JSON.
+          </p>
+
+          <ul className="pair__alts">
+            <li>
+              <code>{topics.json}</code> — JSON con id, pregunta, respuesta, modelo y disparo
+            </li>
+            <li>
+              <code>{topics.text}</code> — sólo el texto de la respuesta, en crudo
+            </li>
+          </ul>
+
+          <p className="card__hint" style={{ marginTop: 14 }}>
+            Se publican con QoS 1 y <strong>sin retener</strong>: un mensaje retenido se entrega al
+            suscribirse, así que una placa que arranca por la mañana ejecutaría la respuesta de
+            ayer.
+          </p>
+
+          <div className="field">
+            <button
+              className="btn"
+              disabled={status?.state !== 'connected'}
+              onClick={() => {
+                void window.api.mqtt.test().then(setTested);
+              }}
+            >
+              Publicar un mensaje de prueba
+            </button>
+            {tested && (
+              <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
+                {tested.ok ? 'publicado' : (tested.error ?? 'falló')}
+              </span>
+            )}
+          </div>
+        </section>
+      )}
+
+      <div className="warn">
+        <strong>Esto saca tus respuestas de la app.</strong> Si el broker está en internet, el texto
+        sale de tu red; si está en tu LAN, cualquiera con acceso al tema puede leerlo. Un broker sin
+        usuario ni TLS es un tablón de anuncios. Y lo que haga tu dispositivo con lo que reciba es
+        cosa tuya: aquí se publica y ahí se acaba nuestra parte.
+      </div>
+    </>
+  );
+}
+
+/** Estado de la conexión, con el contador que es la única confirmación real. */
+function MqttStatusLine({ status }: { status: MqttStatus | null }) {
+  if (!status) return null;
+
+  const label =
+    status.state === 'connected'
+      ? 'Conectado al broker'
+      : status.state === 'connecting'
+        ? 'Conectando…'
+        : status.state === 'error'
+          ? 'Sin conexión'
+          : 'Apagado';
+
+  return (
+    <>
+      <div className="hero">
+        <span className="hero__icon">
+          <span className={`listen__dot mqttdot mqttdot--${status.state}`} />
+        </span>
+        <div className="hero__text">
+          <div className="hero__title">{label}</div>
+          <div className="hero__desc">
+            {status.published > 0
+              ? `${status.published} respuesta${status.published === 1 ? '' : 's'} publicada${status.published === 1 ? '' : 's'} en esta sesión.`
+              : 'Todavía no se ha publicado nada.'}
+          </div>
+        </div>
+      </div>
+      {status.error && <div className="warn">{status.error}</div>}
+    </>
+  );
+}
+
 // ──────────────────────────── Modelos · claves ────────────────────────────
 
 function ApiKeysCard({
@@ -1269,128 +1487,6 @@ function LocalModelGuide() {
   );
 }
 
-// ──────────────────────────── Primeros pasos ────────────────────────────
-
-/**
- * Qué hay que hacer para que la app sirva de algo, en orden y con su estado.
- *
- * El overlay ya avisaba de que faltaba un proveedor, pero eso sólo cubre el
- * primer paso de cuatro y no dice cuáles son los otros tres. Los dos que se
- * saltaba la gente son los que más se notan: **probar la conexión** —una clave
- * mal pegada no da síntomas hasta la primera pregunta, y entonces parece que
- * falla la app— y **pegar el CV**, sin el cual las respuestas salen correctas
- * pero genéricas, porque el modelo tiene prohibido inventarse experiencia.
- *
- * Desaparece sola al completarse, y se puede descartar: quien ya sabe lo que
- * hace no tiene por qué cargar con una lista de tareas encima de su
- * configuración para siempre.
- */
-function OnboardingCard({
-  settings,
-  presence,
-  status,
-  patch,
-  go,
-}: {
-  settings: Settings;
-  presence: SecretsPresence;
-  status: CaptureStatus;
-  patch: PatchFn;
-  go: (id: SectionId) => void;
-}) {
-  const [testing, setTesting] = useState(false);
-  const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
-
-  const hasProvider = providerReady(settings, presence);
-
-  const hasContext = settings.contextPacks.some(
-    (pack) => pack.enabled && pack.kind !== 'vocabulary' && pack.content.trim().length > 40
-  );
-
-  const listening = status.state === 'listening';
-  const steps = [
-    {
-      done: hasProvider,
-      title: 'Configura un proveedor de IA',
-      desc: 'Pega tu clave de Anthropic o de Google. Ollama no necesita clave, pero sí que elijas un modelo.',
-      action: { label: 'Ir a los modelos', run: () => go('models') },
-    },
-    {
-      done: tested?.ok === true,
-      title: 'Comprueba que la clave funciona',
-      desc:
-        tested && !tested.ok
-          ? (tested.error ?? 'Falló la conexión.')
-          : 'Una clave mal pegada no da ningún síntoma hasta la primera pregunta, y entonces parece que la app está rota.',
-      action: {
-        label: testing ? 'Probando…' : 'Probar ahora',
-        run: () => {
-          setTesting(true);
-          void window.api.llm
-            .testConnection()
-            .then(setTested)
-            .finally(() => setTesting(false));
-        },
-      },
-    },
-    {
-      done: hasContext,
-      title: 'Pega tu CV o tus notas',
-      desc: 'Es la única fuente de datos concretos sobre ti. Sin esto las respuestas son correctas pero genéricas: el modelo tiene prohibido inventarse experiencia.',
-      action: { label: 'Ir al contexto', run: () => go('context') },
-    },
-    {
-      done: listening,
-      title: 'Empieza a escuchar',
-      desc: 'Comprueba que los medidores se mueven al hablar y al reproducir audio. Puedes hacerlo desde el propio overlay.',
-      action: { label: 'Ir al audio', run: () => go('audio') },
-    },
-  ];
-
-  const pending = steps.filter((step) => !step.done).length;
-
-  return (
-    <section className="card card--onboarding">
-      <h2 className="card__title">
-        Primeros pasos {pending === 0 ? '· todo listo' : `· faltan ${pending}`}
-      </h2>
-      <p className="card__hint">
-        Cuatro cosas y ya está. Esta tarjeta desaparece cuando las completes.
-      </p>
-
-      <ol className="steps">
-        {steps.map((step) => (
-          <li key={step.title} className={`step${step.done ? ' step--done' : ''}`}>
-            <span className="step__mark" aria-hidden="true">
-              {step.done ? '✓' : ''}
-            </span>
-            <div className="step__body">
-              <div className="step__title">{step.title}</div>
-              <div className="step__desc">{step.desc}</div>
-            </div>
-            {!step.done && (
-              <button className="btn btn--small" onClick={step.action.run}>
-                {step.action.label}
-              </button>
-            )}
-          </li>
-        ))}
-      </ol>
-
-      <div className="row">
-        <div>
-          <div className="row__label">Ocultar esta guía</div>
-          <div className="row__desc">
-            Puedes volver a verla desde aquí mismo si algún día hace falta.
-          </div>
-        </div>
-        <button className="btn" onClick={() => void patch({ onboardingDone: true })}>
-          {pending === 0 ? 'Hecho' : 'Ocultar de todas formas'}
-        </button>
-      </div>
-    </section>
-  );
-}
 
 // ─────────────────────────────── Atajos ───────────────────────────────
 

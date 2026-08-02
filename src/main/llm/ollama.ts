@@ -22,6 +22,63 @@ function looksLikeVisionModel(name: string): boolean {
   return VISION_HINTS.some((hint) => lower.includes(hint));
 }
 
+/**
+ * Modelos que razonan antes de responder, y por qué necesitan trato aparte.
+ *
+ * Ollama devuelve el razonamiento en un campo **distinto** —`message.thinking`,
+ * no `message.content`— y `num_predict` cuenta los dos juntos. Medido contra
+ * `qwen3-vl:8b-thinking` con un problema de algoritmos y el prompt real del modo
+ * código:
+ *
+ * | `num_predict` | razonamiento | respuesta | `done_reason` |
+ * |---|---|---|---|
+ * | 2200 (el tope de código) | 6.432 car. | **0 car.** | `length` |
+ * | 8000 | 23.329 car. | 589 car. | `stop` |
+ *
+ * Es decir: con el tope de siempre el modelo agotaba el presupuesto **pensando**
+ * y terminaba sin escribir un solo carácter. El stream acababa limpiamente, sin
+ * error, así que la app caía en su rama de "el stream terminó sin texto" y
+ * mostraba *"El modelo no devolvió texto"* — un mensaje que no señala a ningún
+ * sitio. El razonamiento fue de 10 a 50 veces más largo que la respuesta, así
+ * que no es cuestión de subir el tope un poco.
+ *
+ * `think: false` **no** es una salida: se probó contra este mismo modelo y
+ * siguió razonando 7.364 caracteres. Hay modelos que sólo saben pensar.
+ */
+const THINKING_HINTS = ['thinking', 'reason', '-r1', 'qwq'];
+
+/**
+ * Cuánto se le presta a un modelo para razonar, aparte de lo que gaste en la
+ * respuesta. El peor caso medido fueron 7.591 tokens en total; 8.000 de holgura
+ * cubren eso con margen sin volverse un cheque en blanco.
+ */
+const THINKING_BUDGET_TOKENS = 8_000;
+
+/**
+ * Modelos que resultaron razonar aunque el nombre no lo dijera.
+ *
+ * Mismo patrón que `EFFORT_UNSUPPORTED` en `claude.ts`: la lista de pistas
+ * envejece —mañana sale un modelo que piensa y no se llama "thinking"— así que
+ * la primera consulta lo descubre y las siguientes ya salen con presupuesto.
+ */
+const KNOWN_THINKERS = new Set<string>();
+
+function looksLikeThinkingModel(name: string): boolean {
+  const lower = name.toLowerCase();
+  return KNOWN_THINKERS.has(lower) || THINKING_HINTS.some((hint) => lower.includes(hint));
+}
+
+/**
+ * Tokens de salida para este modelo.
+ *
+ * Se exporta para poder fijarlo con un test: el fallo que arregla es invisible
+ * —una respuesta vacía sin ningún error— y la tentación de "simplificar" esto a
+ * `request.maxTokens` seco es exactamente lo que lo devolvería.
+ */
+export function budgetFor(model: string, maxTokens: number): number {
+  return looksLikeThinkingModel(model) ? maxTokens + THINKING_BUDGET_TOKENS : maxTokens;
+}
+
 export class OllamaProvider implements LLMProvider {
   readonly id: LLMProviderId = 'ollama';
   readonly supportsVision: boolean;
@@ -98,12 +155,60 @@ export class OllamaProvider implements LLMProvider {
               : {}),
           },
         ],
-        options: { num_predict: request.maxTokens, num_ctx: this.contextTokens },
+        options: {
+          num_predict: budgetFor(this.model, request.maxTokens),
+          num_ctx: this.contextTokens,
+        },
       });
+
+      /** Si llegó a razonar, y si llegó a escribir. No es lo mismo. */
+      let reasoned = false;
+      let emitted = false;
+      let doneReason = '';
 
       for await (const chunk of stream) {
         if (signal.aborted) return;
-        if (chunk.message?.content) yield chunk.message.content;
+
+        if (chunk.message?.thinking && !reasoned) {
+          reasoned = true;
+          KNOWN_THINKERS.add(this.model.toLowerCase());
+          /*
+           * Latido. El motor cancela la consulta si no ha salido NADA en 45 s
+           * (`FIRST_TOKEN_TIMEOUT_MS`), y un modelo que razona tarda más que eso
+           * en escribir su primer carácter: medido, 62,8 s con este mismo
+           * modelo. Sin esto el arreglo del presupuesto no serviría de nada,
+           * porque la consulta moriría antes de llegar a la respuesta.
+           *
+           * Va vacío a propósito: le dice al motor "sigo vivo" sin pintar el
+           * razonamiento en el overlay. El panel se lee de reojo mientras
+           * alguien te mira; veinte mil caracteres de deliberación enterrarían
+           * justo lo que se quería leer.
+           */
+          yield '';
+        }
+
+        if (chunk.message?.content) {
+          emitted = true;
+          yield chunk.message.content;
+        }
+
+        if (chunk.done) doneReason = chunk.done_reason ?? '';
+      }
+
+      /*
+       * Terminar sin texto no es lo mismo según por qué. Si el modelo estuvo
+       * pensando y se quedó sin presupuesto, decirlo es la diferencia entre un
+       * ajuste que se toca y un "no devolvió texto" que no lleva a ninguna
+       * parte.
+       */
+      if (!emitted && reasoned && doneReason === 'length') {
+        throw new LLMError(
+          `"${this.model}" gastó todo su presupuesto razonando y no llegó a escribir la respuesta. ` +
+            'Es un modelo de razonamiento sobre un problema demasiado grande: elige uno sin ' +
+            '"thinking" en el dashboard → Modelo para la pantalla, o recorta la captura a lo que ' +
+            'hay que resolver.',
+          this.id
+        );
       }
     } catch (err) {
       if (signal.aborted) return;

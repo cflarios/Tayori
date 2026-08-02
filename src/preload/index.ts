@@ -14,11 +14,13 @@ import type {
   ImageAttachment,
   LLMProviderId,
   ModelInfo,
+  MqttStatus,
   OllamaStatus,
   PhoneMirrorStatus,
   ScreenTask,
   SecretKey,
   SecretsPresence,
+  SetupProgress,
   Settings,
   SystemSpecs,
   TranscriptSegment,
@@ -145,6 +147,33 @@ const api = {
     getStatus: (): Promise<PhoneMirrorStatus> => ipcRenderer.invoke(IPC.phoneGetStatus),
     onStatus: (cb: (status: PhoneMirrorStatus) => void) =>
       subscribe<PhoneMirrorStatus>(IPC.onPhoneStatus, cb),
+  },
+
+  /**
+   * Broker MQTT. Sólo de lectura y una prueba: encenderlo y apuntarlo a un
+   * broker son ajustes normales y van por `settings.update`.
+   */
+  mqtt: {
+    getStatus: (): Promise<MqttStatus> => ipcRenderer.invoke(IPC.mqttGetStatus),
+    /** Publica un mensaje de prueba para comprobar el montaje de una vez. */
+    test: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.mqttTest),
+    onStatus: (cb: (status: MqttStatus) => void) => subscribe<MqttStatus>(IPC.onMqttStatus, cb),
+  },
+
+  /**
+   * Asistente de configuración. Las dos acciones que tocan la máquina —instalar
+   * Ollama y descargar un modelo— sólo se disparan desde un botón que ya explicó
+   * qué iba a hacer y cuánto ocupa.
+   */
+  setup: {
+    /** `false` cuando no hay winget: entonces se ofrece el enlace, no el botón. */
+    canInstall: (): Promise<boolean> => ipcRenderer.invoke(IPC.setupCanInstall),
+    installOllama: (): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC.setupInstallOllama),
+    pullModel: (model: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC.setupPullModel, model),
+    onProgress: (cb: (progress: SetupProgress) => void) =>
+      subscribe<SetupProgress>(IPC.onSetupProgress, cb),
   },
 
   ask: {

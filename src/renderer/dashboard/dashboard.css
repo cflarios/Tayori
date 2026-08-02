@@ -1118,6 +1118,304 @@ kbd {
   flex: none !important;
 }
 
+/* ── Asistente de configuración ── */
+
+/*
+ * Ocupa la ventana entera y no una sección: quien lo necesita todavía no sabe
+ * qué significan las secciones, así que enseñar la navegación al lado sería
+ * ofrecerle nueve sitios donde perderse.
+ */
+.wiz {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+.wiz__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 32px 0;
+}
+
+.wiz__eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.wiz__title {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin-top: 5px;
+}
+
+/* Cinco puntos: cuántos pasos son y por cuál vas. Un asistente sin final
+   visible se vive como un formulario sin fondo. */
+.wiz__rail {
+  display: flex;
+  gap: 6px;
+  padding: 18px 32px 0;
+}
+
+.wiz__dot {
+  width: 34px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background 160ms ease;
+}
+
+.wiz__dot--done {
+  background: rgba(96, 165, 250, 0.45);
+}
+
+.wiz__dot--now {
+  background: var(--accent);
+}
+
+.wiz__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 32px 40px;
+  max-width: 760px;
+}
+
+.wiz__lead {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 16px;
+  max-width: 66ch;
+}
+
+.wiz__note {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-faint);
+  margin: 12px 0;
+  max-width: 66ch;
+}
+
+.wiz__label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  margin-top: 18px;
+}
+
+.wiz__actions {
+  margin-top: 20px;
+}
+
+/* ── Los dos caminos ── */
+
+.wiz__paths {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 18px 0 4px;
+}
+
+.pathcard {
+  flex: 1 1 300px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+/* El recomendado se marca, pero el otro no se esconde: la recomendación se
+   calcula con la RAM y la GPU, y quien sabe más que la heurística sobre su
+   propia máquina tiene que poder llevarle la contraria. */
+.pathcard--pick {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.07), transparent 140px), var(--surface);
+}
+
+.pathcard__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 12px;
+}
+
+.pathcard__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pathcard__list {
+  list-style: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pathcard__list li {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  padding-left: 14px;
+  position: relative;
+}
+
+.pathcard__list li::before {
+  content: '·';
+  position: absolute;
+  left: 3px;
+  color: var(--text-faint);
+}
+
+/* ── Elecciones en línea (proveedor, motor de voz) ── */
+
+.wiz__choices {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.choice {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.choice:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.choice--on {
+  border-color: var(--accent);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.choice:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.choice__title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.choice__note {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+/* ── Modelos que se van a descargar ── */
+
+.wiz__models {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.wizmodel {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.wizmodel__role {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* El id va en monoespaciada por lo de siempre: es lo que se teclea en
+   `ollama pull` y lo que se compara carácter a carácter. */
+.wizmodel__id {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 13px;
+  color: #93c5fd;
+  user-select: text;
+}
+
+.wizmodel__note {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+/* ── Resumen final ── */
+
+.wiz__summary {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.wiz__summary li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.wiz__summary svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--ok);
+}
+
+.wiz__summary strong {
+  color: var(--text);
+}
+
+/* ── MQTT ── */
+
+/* Reutiliza el punto de la cabecera: el mismo vocabulario visual para "hay
+   conexión" en toda la app, en lugar de un indicador nuevo por sección. */
+.mqttdot--connected {
+  background: var(--ok);
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.16);
+}
+
+.mqttdot--connecting {
+  background: var(--warn);
+}
+
+.mqttdot--error {
+  background: var(--danger);
+}
+
 /* ── Espejo en el teléfono ── */
 
 .pair {

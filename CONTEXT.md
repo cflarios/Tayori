@@ -117,6 +117,15 @@ sin darse cuenta:
   comprobaciones por todo el orquestador— es lo que hace que no se pueda colar
   una escritura por olvido.
 
+**Y la tercera es MQTT.** Publica las respuestas terminadas en un broker para
+que las recoja otra cosa —el caso que lo motivó es un ESP32 suscrito al tema que
+reacciona a las respuestas de un test—. Es la salida **más lejos** de las tres:
+el espejo del móvil no sale de tu red por construcción, pero un broker puede
+estar en internet, así que esto puede sacar el texto de tus respuestas de la
+máquina y de la red. Apagado por defecto, con la advertencia en la propia
+sección, y **sólo respuestas**: la transcripción no se publica, por lo mismo de
+siempre.
+
 **Agosto de 2026: el espejo del móvil es la segunda salida**, y se anota aquí
 por la regla del final de este apartado. Sirve las **respuestas** —no la
 transcripción— por HTTP a la red local del usuario. No toca el disco y no sale
@@ -349,6 +358,46 @@ formato— y sobre todo **su fallo no se ve**: un QR mal generado se dibuja
 perfecto y no lo lee ninguna cámara. Escribirlo a mano habría cambiado 30 KB por
 un error que sólo aparece con un teléfono delante.
 
+### MQTT: publicar hacia fuera, y dónde acaba nuestra parte
+
+No es una función de la app para la app: es una salida hacia **otra cosa**. El
+caso que la motivó es un ESP32 suscrito al tema que recibe las respuestas de un
+test y hace lo que su dueño programó. Nuestra responsabilidad termina en el
+`publish`; lo que pase al otro lado es de quien montó el dispositivo, y la
+sección lo dice con esas palabras.
+
+Cuatro decisiones que no son obvias:
+
+- **Sólo respuestas terminadas.** `answer` se emite en **cada tick del
+  streaming**, así que publicar todo lo que pasa por el enganche llenaría el
+  broker de decenas de mensajes por respuesta, cada uno un prefijo del
+  siguiente. Un microcontrolador no quiere ver crecer una frase: quiere la
+  frase. Hay test, y es el que más falta hacía — un mock del cliente habría
+  pasado igual publicando cuarenta veces.
+- **Ni errores ni abortadas.** Una placa que actúa sobre la respuesta de un test
+  no puede distinguir "esto es un error" de "esto es la respuesta" si le llegan
+  por el mismo tema. Mandar un fallo por ahí es pedirle que actúe sobre basura.
+- **Dos temas, y no es indecisión.** `<base>` lleva el JSON completo para quien
+  quiera contexto; `<base>/text` lleva **sólo el texto**, que es lo que una placa
+  puede usar sin meter un parser de JSON en 320 KB de RAM. `mqttTopics()` vive en
+  `shared/` para que la pantalla no pueda decir un tema mientras el broker recibe
+  otro; y recorta la barra final porque `a//text` es un tema legal y **distinto**
+  en MQTT, así que el suscriptor no lo vería.
+- **QoS 1 y sin retener.** QoS 1 porque perder la respuesta es el fallo que
+  importa: ya se pagó la consulta y hay alguien esperando a que su cacharro
+  reaccione. Sin retener porque un mensaje retenido se entrega al suscribirse,
+  así que una placa que arranca por la mañana ejecutaría la respuesta de ayer.
+
+**La contraseña del broker va cifrada con DPAPI**, en el mismo almacén que las
+API keys. La regla del proyecto sobre credenciales no distingue entre las caras
+y las baratas: un broker de casa parece inofensivo hasta que esa contraseña abre
+otra cosa.
+
+**El broker de los tests es real** (`aedes`, en proceso, en un puerto efímero).
+Lo que hay que comprobar no es que llamemos a `publish`, es qué recibe el
+suscrito: con el cliente simulado, publicar en el tema equivocado o con el
+payload equivocado pasaría el test igual.
+
 ### El dashboard dejó de ser una columna
 
 Nació como una columna de tarjetas y creció hasta **doce**, de los primeros
@@ -420,6 +469,65 @@ Y dos avisos que antes no existían, los dos sobre fallos mudos:
 lista —sólo salía por el log, que en el `.exe` no mira nadie—, y dos acciones con
 el mismo atajo no dan error: `globalShortcut` registra la primera y devuelve
 `false` para la segunda, dejando una acción muerta sin decirlo.
+
+### El asistente de configuración sustituyó a la lista de tareas
+
+La tarjeta de «Primeros pasos» era una **lista de tareas**: decía qué faltaba y
+te mandaba a la sección a hacerlo tú. Eso funciona si ya sabes qué es un
+proveedor, una API key y un modelo con visión. Para quien abre la app por
+primera vez, el primer paso —«local o nube»— exige saber cuánta RAM tiene y si
+su GPU sirve, y nadie tiene por qué saber eso para probar una app.
+
+El asistente **hace** los pasos en lugar de enumerarlos: mide el equipo,
+recomienda un camino con el motivo a la vista, instala Ollama si hace falta,
+descarga los dos modelos que le pegan a esa máquina y deja resuelta la
+transcripción. Reemplaza a la tarjeta en lugar de convivir con ella: hacían el
+mismo trabajo y mantener las dos era garantizar que se contradijeran.
+
+**Se instala con winget, no descargando el `.exe`.** Bajar un ejecutable y
+lanzarlo es la forma exacta de una cadena de suministro comprometida, y desde
+fuera es indistinguible de que la app haga algo turbio. Con winget no tocamos
+ningún binario: resuelve el paquete firmado y el aviso de elevación lo pinta
+Windows con su propia cara. Cuando winget no está **no hay plan B automático, y
+es deliberado**: se abre ollama.com y lo instala la persona. Una app que insiste
+en instalar software cuando el camino limpio no existe es justo lo que no
+queremos ser.
+
+Dos detalles que costaron una decisión:
+
+- **Instalar no es estar listo.** El instalador vuelve antes de que el servidor
+  acepte conexiones, así que el paso siguiente —descargar el modelo— fallaría
+  con un "no se pudo conectar" que parece un fallo de la instalación. Por eso se
+  sondea `probeOllama` hasta 90 s antes de dar el paso por bueno.
+- **El paso de la voz existe porque es el que se olvida.** Quien pega una clave
+  de Claude y cierra se queda con la app **muda**: el motor por defecto es Gemini
+  Live, que necesita una clave de Google que esa persona no tiene. El síntoma es
+  el peor posible —escucha encendida, medidores moviéndose y ni una palabra— así
+  que el asistente elige un motor que de verdad pueda funcionar con lo que hay.
+
+**No se prometen tamaños de descarga.** Los GB de cada modelo no se pueden
+consultar antes de empezar, así que se dice "varios GB" y el número real aparece
+en cuanto arranca. Es la misma regla que con los precios de la guía: mejor un
+hueco reconocido que una cifra inventada.
+
+### «Configurada» no era lo mismo que «sirve»
+
+Lo destapó el asistente, y es el tipo de fallo que este documento existe para
+registrar: la pantalla decía **«ya tienes una clave»** y dos segundos después la
+prueba de conexión contestaba **«falta la API key»**. Las dos cosas salían del
+mismo archivo.
+
+`getPresence()` sólo comprobaba que el campo existiera en `secrets.json`;
+`getSecret()` era quien lo descifraba. Un ciphertext escrito por otro perfil de
+Windows o por otra instalación **sigue ahí, ocupando su sitio**, y falla al
+abrirse. Resultado: dashboard en verde y todas las respuestas fallando, que es
+exactamente el estado en el que nadie sospecha de la clave porque la app acaba
+de decir que está bien.
+
+Ahora la presencia se responde intentando descifrar. Cuesta dos cadenas cortas y
+convierte una media verdad en un dato. Tiene test —`secrets-presence.test.ts`—
+porque el fallo es invisible: la versión rota pasa cualquier prueba que no
+distinga "hay bytes" de "se puede leer".
 
 ### La guía de primeros pasos
 
@@ -831,6 +939,44 @@ marca **antes** de llamar al IPC, no en el `.then`. Vaciar la memoria deja el
 contador a cero, y con cero el chip no se pinta — para cuando llegaba la
 respuesta el componente ya estaba desmontado y el aviso no se veía nunca.
 
+### Los modelos que razonan gastan salida en algo que nadie lee
+
+Un modelo de razonamiento en Ollama —`qwen3-vl:8b-thinking` y familia— rompe dos
+suposiciones que el proveedor daba por buenas, y las dos en silencio.
+
+**La primera es dónde llega el texto.** El razonamiento viene en
+`message.thinking`, un campo distinto de `message.content`, y `num_predict`
+cuenta los dos juntos. Medido con el prompt real del modo código:
+
+| `num_predict` | razonamiento | respuesta | `done_reason` |
+|---|---|---|---|
+| 2200 (el tope de código) | 6.432 car. | **0 car.** | `length` |
+| 8000 | 23.329 car. | 589 car. | `stop` |
+
+Con el tope de siempre el modelo se quedaba sin presupuesto **pensando**. El
+stream terminaba limpio, sin error, así que la app caía en su rama de "el stream
+acabó sin texto" y decía *"El modelo no devolvió texto"* — cierto y completamente
+inútil. El razonamiento fue de 10 a 50 veces más largo que la respuesta, así que
+no se arregla subiendo el tope un poco: los modelos que piensan llevan
+`THINKING_BUDGET_TOKENS` **además** de lo que gasten respondiendo.
+
+**La segunda es el reloj.** `FIRST_TOKEN_TIMEOUT_MS` mata la consulta si no ha
+salido nada en 45 s, y aquí el primer carácter tardó **62,8 s** en el peor caso
+medido. Sin tocar eso, arreglar el presupuesto no habría servido de nada: la
+consulta moría igual, sólo que con otro mensaje. Por eso el proveedor emite un
+**latido vacío** en cuanto ve el primer trozo de razonamiento: le dice al motor
+"sigo vivo" sin pintar la deliberación en el overlay, que es un panel que se lee
+de reojo mientras alguien te mira a la cara.
+
+**`think: false` no es la salida.** Se probó contra este mismo modelo y siguió
+razonando 7.364 caracteres. Hay modelos que sólo saben pensar, así que la opción
+de apagarlo no se implementó: lo que se hizo fue dejarles sitio.
+
+La detección es por nombre **y aprendida en caliente**, el mismo patrón que
+`EFFORT_UNSUPPORTED` en `claude.ts`: la lista de pistas envejece —mañana sale uno
+que piensa y no se llama "thinking"—, así que la primera consulta lo descubre por
+el campo `thinking` y las siguientes ya salen con presupuesto.
+
 ### El catálogo de modelos es una sugerencia, no una frontera
 
 `CLAUDE_MODELS` y `GEMINI_MODELS` están escritos en el código, así que envejecen:
@@ -1175,6 +1321,7 @@ se registran porque cada uno marca una trampa que es fácil volver a pisar.
 | Cambiar "Qué se escucha" en mitad de una sesión no cambiaba nada | `audioSources` sólo se lee dentro de `capture.start()`, y los hablantes del motor de STT se fijan al arrancar la transcripción. El ajuste se guardaba, la UI se actualizaba y se seguía escuchando lo de antes | Un ajuste que sólo se lee al arrancar necesita que quien lo cambia reinicie lo que depende de él. Se hace en el handler de `settingsUpdate`, no en la UI, para que valga igual desde el overlay y desde el dashboard |
 | El botón "Copiar" de un bloque de código no hacía nada | `navigator.clipboard.writeText()` exige que el documento tenga el **foco**, y el overlay es `focusable: false` a propósito para no robárselo a la videollamada: rechazaba siempre con *"Document is not focused"*. Y el `.then()` sin `.catch()` se tragaba el rechazo | Dos lecciones. Una: en el overlay, cualquier API del navegador que dependa del foco está descartada por diseño, no por casualidad — se hace desde el main (`clipboard.writeText`), que además se salta el `setPermissionRequestHandler` que sólo concede `clipboard-read`. Otra: una promesa sin `catch` en un manejador de click convierte un error en "no pasa nada", que es el síntoma más caro de diagnosticar |
 | ~1,3 s fijos por turno en Whisper local | `whisper-cli` **carga el modelo en cada invocación**: tarda lo mismo con 1,7 s que con 8,2 s de audio | Medir el coste contra el tamaño de la entrada delata al instante lo que es fijo y lo que es proporcional |
+| "El modelo no devolvió texto" con un modelo de razonamiento en Ollama | Ollama devuelve el razonamiento en `message.thinking`, **aparte** de `message.content`, y `num_predict` cuenta los dos juntos: con el tope de 2.200 del modo código, `qwen3-vl:8b-thinking` agotaba el presupuesto pensando y terminaba con `done_reason: "length"` sin escribir un solo carácter | Un campo nuevo en la respuesta de un proveedor no avisa de que existe: el bucle leía `content` y lo demás caía al suelo. Y un tope de salida calculado para "lo que se lee" no vale cuando el modelo gasta salida en algo que **no** se lee |
 
 Dos reglas del tooling encontraron cosas reales, no ruido:
 `noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve

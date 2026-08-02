@@ -14,7 +14,13 @@ import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { IPC } from '@shared/ipc';
 import { alignAutoTrigger } from '@shared/types';
 import { renderModelGuide } from '@shared/model-guide';
-import type { LLMProviderId, PhoneMirrorStatus, ScreenTask, Settings } from '@shared/types';
+import type {
+  LLMProviderId,
+  MqttStatus,
+  PhoneMirrorStatus,
+  ScreenTask,
+  Settings,
+} from '@shared/types';
 import { settingsStore } from './config/store';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
 import {
@@ -50,7 +56,9 @@ import { testSTTConnection } from './stt';
 import { whisperServer } from './stt/whisper-server';
 import { initLogging, logLocation, readLogTail } from './logging';
 import { getSystemSpecs } from './system-specs';
+import { mqttBridge } from './bridge/mqtt';
 import { phoneBridge } from './bridge/phone';
+import { installOllama, pullModel, wingetAvailable } from './setup/ollama-install';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -180,6 +188,16 @@ function registerIpcHandlers(): void {
       patch.phoneMirrorLan !== undefined
     ) {
       phoneBridge.apply(next);
+    }
+    // Igual con el broker: cambiar la URL, el usuario o el tema obliga a
+    // reconectar, porque el cliente MQTT los fija al conectar.
+    if (
+      patch.mqttEnabled !== undefined ||
+      patch.mqttUrl !== undefined ||
+      patch.mqttTopic !== undefined ||
+      patch.mqttUsername !== undefined
+    ) {
+      mqttBridge.apply(next);
     }
     return next;
   });
@@ -332,6 +350,32 @@ function registerIpcHandlers(): void {
   // ── Espejo en el teléfono ──
   ipcMain.handle(IPC.phoneGetStatus, () => phoneBridge.getStatus());
 
+  // ── Broker MQTT ──
+  ipcMain.handle(IPC.mqttGetStatus, () => mqttBridge.getStatus());
+  ipcMain.handle(IPC.mqttTest, () => mqttBridge.test());
+
+  /*
+   * ── Asistente de configuración ──
+   *
+   * Los dos handlers instalan o descargan cosas, así que sólo se llaman desde
+   * un botón que ya dijo qué iba a hacer. `canInstall` existe para que el
+   * asistente ofrezca el botón sólo cuando hay un camino limpio: sin winget,
+   * enseña el enlace a ollama.com en lugar de un botón que va a fallar.
+   */
+  ipcMain.handle(IPC.setupCanInstall, () => wingetAvailable());
+
+  ipcMain.handle(IPC.setupInstallOllama, () =>
+    installOllama(settingsStore.get().ollamaBaseUrl, (progress) =>
+      broadcast(IPC.onSetupProgress, progress)
+    )
+  );
+
+  ipcMain.handle(IPC.setupPullModel, (_e, model: string) =>
+    pullModel(settingsStore.get().ollamaBaseUrl, model, (progress) =>
+      broadcast(IPC.onSetupProgress, progress)
+    )
+  );
+
   // ── Atajos ──
   ipcMain.handle(IPC.hotkeysGetFailed, () => failedHotkeys);
 
@@ -449,6 +493,11 @@ if (!app.requestSingleInstanceLock()) {
     // activa a conciencia, y apagarlo solo al arrancar sería perder el ajuste.
     phoneBridge.apply(settingsStore.get());
 
+    mqttBridge.on('status', (status: MqttStatus) => {
+      broadcast(IPC.onMqttStatus, status);
+    });
+    mqttBridge.apply(settingsStore.get());
+
     createOverlay();
     applyHotkeys();
 
@@ -467,6 +516,8 @@ if (!app.requestSingleInstanceLock()) {
     // Un servidor con clientes SSE abiertos no deja morir al proceso: las
     // conexiones son keep-alive y el event loop sigue teniendo trabajo.
     phoneBridge.stop();
+    // Un cliente MQTT con reconexión automática mantiene vivo el event loop.
+    mqttBridge.stop();
     // El servidor de Whisper es un proceso hijo: si no se mata aquí sobrevive a
     // la app con el modelo entero en memoria.
     whisperServer.stop();

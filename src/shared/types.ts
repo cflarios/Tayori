@@ -463,6 +463,74 @@ export interface Settings {
    * espejo: son dos decisiones distintas y la segunda es la que tiene alcance.
    */
   phoneMirrorLan: boolean;
+
+  /**
+   * Publicar las respuestas en un broker MQTT.
+   *
+   * No es una función de la app para la app: es una **salida hacia otra cosa**.
+   * El caso que la motivó es un ESP32 suscrito al tema, que recibe la respuesta
+   * de un test y hace lo que su dueño haya programado. Aquí se acaba nuestra
+   * responsabilidad: publicamos, y lo que pase al otro lado es de quien montó
+   * el dispositivo.
+   *
+   * Apagado por defecto, y con más motivo que el espejo del móvil: un broker
+   * puede estar en internet, así que esto puede sacar el texto de tus
+   * respuestas de tu red por completo.
+   */
+  mqttEnabled: boolean;
+
+  /**
+   * URL del broker, con el esquema por delante.
+   *
+   * Es un solo campo y no host/puerto/TLS por separado porque el esquema ya lo
+   * dice todo: `mqtt://` va en claro y `mqtts://` cifrado. Partirlo en tres
+   * casillas obligaría a inventar una checkbox de TLS que significa lo mismo
+   * que cuatro letras.
+   */
+  mqttUrl: string;
+
+  /** Tema base. Ver `mqttTopics()` para los dos que se publican. */
+  mqttTopic: string;
+
+  /** Usuario del broker; vacío si el broker es anónimo. La contraseña va cifrada. */
+  mqttUsername: string;
+}
+
+/**
+ * Los dos temas que se publican, derivados del tema base.
+ *
+ * Publicar **dos** no es indecisión: son dos consumidores distintos.
+ * `<base>` lleva el JSON completo —id, pregunta, modelo, disparo— para quien
+ * quiera contexto; `<base>/text` lleva **sólo el texto de la respuesta**, que es
+ * lo que un microcontrolador puede usar sin meter un parser de JSON en 320 KB
+ * de RAM. El caso que motivó esto es exactamente ése: una placa suscrita que
+ * quiere las letras del test y nada más.
+ *
+ * Vive en `shared/` porque lo necesitan los dos lados: el main para publicar y
+ * el dashboard para enseñar a qué suscribirse. Si se calcularan por separado,
+ * la pantalla acabaría diciendo un tema y el broker recibiendo otro.
+ */
+export function mqttTopics(base: string): { json: string; text: string } {
+  // Una barra final del usuario no debe convertirse en un tema con `//`, que
+  // en MQTT es un nivel vacío y perfectamente legal — y por tanto otro tema.
+  const clean = base.trim().replace(/\/+$/, '') || 'interview-helper/answer';
+  return { json: clean, text: `${clean}/text` };
+}
+
+/** Estado de la conexión con el broker, tal y como lo enseña el dashboard. */
+export interface MqttStatus {
+  state: 'off' | 'connecting' | 'connected' | 'error';
+  error?: string;
+  /**
+   * Respuestas publicadas en esta sesión.
+   *
+   * Es la única confirmación honesta de que la cosa funciona: un broker mal
+   * puesto y uno bien puesto se ven igual desde aquí hasta que este número se
+   * mueve.
+   */
+  published: number;
+  /** Tema al que suscribirse, ya resuelto. Vacío si está apagado. */
+  topic: string;
 }
 
 /**
@@ -579,6 +647,12 @@ export const DEFAULT_SETTINGS: Settings = {
   // una decisión del usuario, no un valor de fábrica.
   phoneMirrorEnabled: false,
   phoneMirrorLan: false,
+  // Apagado, y con el tema ya puesto: quien lo encienda sólo tiene que rellenar
+  // la dirección de su broker.
+  mqttEnabled: false,
+  mqttUrl: 'mqtt://192.168.1.100:1883',
+  mqttTopic: 'interview-helper/answer',
+  mqttUsername: '',
 };
 
 /**
@@ -739,6 +813,24 @@ export interface OllamaStatus {
 }
 
 /**
+ * Progreso de lo que el asistente de configuración instala por su cuenta.
+ *
+ * Un solo tipo para las dos fases porque el usuario ve una sola barra: le da
+ * igual si lo que tarda es winget o una descarga de tres gigas, y separarlo en
+ * dos formas obligaría a la UI a saber en cuál está para leer el campo bueno.
+ */
+export interface SetupProgress {
+  phase: 'install' | 'pull';
+  /** Qué modelo se está bajando. Vacío durante la instalación de Ollama. */
+  model?: string;
+  /** Línea legible tal cual, del estilo «descargando manifest». */
+  message: string;
+  /** Sólo durante la descarga de un modelo; `0` mientras no se sepa el total. */
+  receivedBytes?: number;
+  totalBytes?: number;
+}
+
+/**
  * Estado del espejo del teléfono, tal y como lo enseña el dashboard.
  *
  * El QR viaja como **matriz de módulos**, no como imagen: dibujarlo es un
@@ -786,6 +878,15 @@ export function normalizeModelId(raw: string): string {
 export interface SecretsPresence {
   anthropic: boolean;
   google: boolean;
+  /**
+   * Contraseña del broker MQTT.
+   *
+   * Vive aquí y no en `settings.json` porque es una credencial, y la regla del
+   * proyecto sobre credenciales no distingue entre las caras y las baratas: se
+   * cifran con DPAPI y no vuelven al renderer. Un broker de la red de casa
+   * parece inofensivo hasta que la misma contraseña abre otra cosa.
+   */
+  mqtt: boolean;
 }
 
 export type SecretKey = keyof SecretsPresence;
