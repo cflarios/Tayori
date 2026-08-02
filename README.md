@@ -24,7 +24,8 @@ borrar una conversación o borrarlas todas.
 
 - **Escucha dos fuentes por separado**: tu micrófono y el audio del sistema. Eso
   permite saber quién habla sin diarización.
-- **Transcribe en vivo** con Gemini Live (~300 ms) o Whisper local (offline).
+- **Transcribe en vivo** con OpenAI (`gpt-live-transcribe`), Gemini Live
+  (~300 ms) o Whisper local (offline).
 - **Sugiere respuestas** con Claude, Gemini, ChatGPT u Ollama, en streaming.
 - **Detecta preguntas** dirigidas a ti y responde sin que pulses nada, o solo con
   hotkey si prefieres controlarlo.
@@ -429,9 +430,22 @@ tu red.
 
 | Motor | Latencia | Dónde va el audio |
 |---|---|---|
+| OpenAI en directo | ~300 ms | A OpenAI |
+| OpenAI por turnos | ~1 s, con la frase entera oída antes de decidir | A OpenAI |
 | Gemini Live | ~300 ms | A Google |
 | Gemini audio directo | ~1–2 s, pero **sustituye también la llamada al modelo** | A Google |
 | Whisper local | ~0,8–1,5 s | A ningún sitio |
+
+**Los dos de OpenAI** usan los modelos que OpenAI recomienda para cada caso:
+`gpt-live-transcribe` para audio en directo —micrófonos y llamadas, que es lo
+que hace esta app— y `gpt-transcribe` para voz ya grabada. El segundo espera a
+que termines la frase, así que acierta más en nombres propios y siglas a cambio
+de un segundo de latencia. Los dos usan la misma API key que las respuestas.
+
+No se usa `gpt-4o-transcribe-diarize` **a propósito**: separa hablantes, y esta
+app ya sabe quién habla porque escucha el micrófono y la salida del sistema por
+separado. Además ese modelo no admite sesgo de vocabulario, que es lo que hace
+que tu CV mejore el reconocimiento de nombres propios.
 
 **Gemini audio directo** no transcribe y luego pregunta: manda tu voz al propio
 modelo, que devuelve transcripción y respuesta a la vez. Una transcripción mala

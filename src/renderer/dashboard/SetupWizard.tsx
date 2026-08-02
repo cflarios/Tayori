@@ -850,5 +850,7 @@ function DoneStep({
 const STT_LABEL: Record<Settings['sttProviderId'], string> = {
   'gemini-live': 'Gemini Live (en la nube)',
   'gemini-audio': 'Gemini audio directo',
+  'openai-live': 'OpenAI en directo (en la nube)',
+  'openai-transcribe': 'OpenAI por turnos (en la nube)',
   'whisper-local': 'Whisper local (sin conexión)',
 };

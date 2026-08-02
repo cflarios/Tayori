@@ -165,6 +165,14 @@ respuesta es el modelo que oyó el audio.
 | `whisper-local` | ~825 ms | A ningún sitio | Sí |
 | `gemini-live` | ~300 ms, en streaming | A Google | Sí |
 | `gemini-audio` | ~2 s, incluye la respuesta | A Google | Sí |
+| `openai-live` | ~300 ms, en streaming | A OpenAI | Sí |
+| `openai-transcribe` | ~1 s, turno cerrado | A OpenAI | Sí |
+
+**`openai-live` remuestrea a 24 kHz** porque la API en tiempo real de OpenAI no
+acepta otra cosa, mientras el resto del pipeline va a 16 kHz. La conversión vive
+en `stt/resample.ts`, contenida en el único motor que la necesita; CONTEXT.md
+explica por qué ahí la interpolación lineal basta y por qué el estado entre
+bloques no es opcional.
 
 ---
 

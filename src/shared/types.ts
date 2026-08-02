@@ -60,7 +60,12 @@ export interface CaptureStatus {
 // ──────────────────────────────── Providers ─────────────────────────────────
 
 export type LLMProviderId = 'claude' | 'gemini' | 'openai' | 'ollama';
-export type STTProviderId = 'gemini-live' | 'whisper-local' | 'gemini-audio';
+export type STTProviderId =
+  | 'gemini-live'
+  | 'whisper-local'
+  | 'gemini-audio'
+  | 'openai-live'
+  | 'openai-transcribe';
 
 export interface ModelInfo {
   id: string;

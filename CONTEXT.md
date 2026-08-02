@@ -665,6 +665,84 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
   del nombre con hash que Vite da a los assets en producción. Eso obliga a
   permitir `blob:` en `script-src` del audio-worker (ver §6).
 
+### Los dos motores de OpenAI, y el que se descartó
+
+Agosto de 2026. La petición fue «OpenAI tiene modelos de transcripción, y creo
+que usaremos `gpt-live-transcribe` por defecto para reuniones». Los dos nombres
+que se propusieron **existen los dos**, verificados contra la referencia de
+OpenAI y contra los tipos del SDK instalado — pero sólo uno encaja aquí, y el
+motivo de que el otro no encaje es una decisión que este proyecto tomó el primer
+día.
+
+| Modelo | Para qué es | Aquí |
+|---|---|---|
+| `gpt-live-transcribe` | Audio **en directo**: micrófonos, llamadas, streams | El motor `openai-live`, y el defecto sensato para reuniones |
+| `gpt-transcribe` | Voz **grabada** | El motor `openai-transcribe`: un VAD produce exactamente eso, trozos ya cerrados |
+| `gpt-4o-transcribe-diarize` | Separar hablantes | **Descartado**, ver abajo |
+
+**Por qué no la diarización.** Esta app **ya sabe quién habla**: el micrófono es
+«yo» y el loopback del sistema son «ellos», y ese reparto está tomado a
+conciencia desde el principio porque el origen del stream es más exacto que
+cualquier diarización. Un modelo que adivina hablantes no aporta nada a un dato
+que ya es exacto. Encima **no admite `prompt`**, así que costaría el sesgo de
+vocabulario, que es la palanca de calidad más barata que hay aquí. Lo único que
+aportaría de verdad es distinguir a varias personas **dentro** de «ellos» —una
+reunión de cuatro donde ahora todo cae bajo la misma etiqueta— y eso es una
+**función distinta**, no una mejora de la transcripción. Si algún día se quiere,
+se diseña como tal.
+
+**Y por qué dos motores y no uno.** Es la misma pareja que ya existe con Gemini,
+y responde a la pregunta de siempre: qué duele más, la latencia o los errores.
+
+| | Latencia | Qué manda | Parciales |
+|---|---|---|---|
+| `openai-live` | ~300 ms | Streaming continuo | Sí |
+| `openai-transcribe` | ~1 s por turno | El turno entero de una vez | No |
+
+El segundo **oye la frase completa antes de decidir**, así que acierta más en
+nombres propios y en finales de palabra. El primero empieza a escribir antes.
+Ninguno es «el bueno».
+
+#### La restricción que condicionó el diseño: 24 kHz
+
+La API en tiempo real de OpenAI **sólo acepta PCM a 24000 Hz**. No es una
+lectura entre líneas: los tipos del SDK lo dicen con esas palabras
+—`rate?: 24000`, *"Only a 24kHz sample rate is supported"*— y todo el pipeline
+de esta app está normalizado a **16 kHz** porque es lo que quieren Whisper y
+Gemini Live.
+
+Subir el worklet a 24 kHz para contentar a un motor habría empeorado a los otros
+tres, así que la conversión vive contenida en `stt/resample.ts`, y ahí hay dos
+cosas que conviene no «simplificar»:
+
+- **Aquí la interpolación lineal SÍ basta**, al revés que en el worklet. Aquel
+  caso era decimar 48 → 16 kHz, donde lo que hay por encima de la nueva Nyquist
+  **se pliega** dentro de la banda de la voz — por eso hubo que meter un
+  Butterworth de 8º orden. Al subir de frecuencia no se pliega nada: aparecen
+  **imágenes** por encima de 8 kHz, y la interpolación lineal ya las atenúa. Un
+  reconocedor de voz vive por debajo de esos 8 kHz. Subir de frecuencia no
+  inventa detalle; sólo hace que el audio entre por la puerta.
+- **El estado entre bloques no es opcional.** El audio llega en trozos de
+  ~100 ms, diez por segundo y por hablante. Un remuestreador sin memoria empieza
+  cada bloque desde cero y deja una discontinuidad en cada unión: diez
+  chasquidos por segundo que el reconocedor oye como consonantes que nadie dijo.
+  La transcripción sale peor y **no hay nada en el log que lo insinúe**. Tiene
+  test —una rampa partida en dos bloques que debe seguir siendo monótona— y la
+  fase se lleva en enteros porque un `float` acumulando 2/3 deriva en minutos.
+
+#### Lo que sale gratis y lo que no
+
+`openai-live` se abre con `intent=transcription`, así que la sesión **es** un
+transcriptor. Eso ahorra toda la pelea que Gemini Live obliga a mantener: allí
+el modelo es conversacional y va a intentar responder, de ahí su instrucción de
+silencio, el `modelTurn` que se tira y una salida que se paga sin usarla. Aquí
+no hay salida generada.
+
+A cambio, la app depende ahora de `ws` **de forma explícita**. Ya estaba en el
+árbol —lo arrastran `mqtt` y `@google/genai`— pero apoyarse en una dependencia
+transitiva es apoyarse en que un tercero no la cambie, así que se declara. No
+añade descarga.
+
 ### Audio directo: saltarse la transcripción entera
 
 `gemini-audio` no es un motor de transcripción más. Manda el WAV del turno **al
@@ -1662,6 +1740,17 @@ capturas de pantalla**, no solo compilando.
   **firma** del método: es el fallo silencioso del modo, porque una respuesta
   perfecta sobre una firma mal leída no se distingue de una buena hasta que el
   evaluador la rechaza.
+- **Los dos motores de OpenAI contra sus servidores.** `openai-transcribe` está
+  verificado de extremo a extremo contra un servidor HTTP real: que el turno
+  sale como WAV, con el modelo bueno, con el sesgo de vocabulario, sin forzar
+  idioma cuando es `auto`, y que un carril que nadie escucha no gasta ni una
+  petición. `openai-live` **no**: su protocolo —`intent=transcription`, el
+  `session.update`, los eventos `delta`/`completed`— sale de la referencia de
+  OpenAI y de los tipos del SDK, pero **nadie ha abierto todavía una sesión de
+  verdad**. Lo primero que hay que mirar al probarlo es el handshake: si la
+  cuenta no tiene acceso al modelo, el socket cierra con el motivo dentro y ahí
+  es donde el mensaje tiene que salir bien. El botón «Probar transcripción» abre
+  una sesión real y la cierra, así que es la vía corta para saberlo.
 - **Que una skill cambie de verdad el tono de una respuesta.** Verificado que
   llega al prompt —dónde va, con qué precedencia y que el perfil sobrevive—, y
   la carga desde disco contra carpetas de verdad, con sus casos raros. Lo que

@@ -2465,11 +2465,32 @@ function TranscriptionCard({
             void patch({ sttProviderId: e.target.value as Settings['sttProviderId'] })
           }
         >
+          <option value="openai-live">OpenAI en directo (nube, el mejor para reuniones)</option>
+          <option value="openai-transcribe">OpenAI por turnos (nube, más preciso)</option>
           <option value="gemini-live">Gemini Live (nube, más rápido)</option>
           <option value="gemini-audio">Gemini audio directo (el modelo oye tu voz)</option>
           <option value="whisper-local">Whisper local (offline, privado)</option>
         </select>
       </Row>
+
+      {(settings.sttProviderId === 'openai-live' ||
+        settings.sttProviderId === 'openai-transcribe') && (
+        <p className="card__hint">
+          {settings.sttProviderId === 'openai-live' ? (
+            <>
+              <code>gpt-live-transcribe</code>, el modelo que OpenAI recomienda para audio en
+              directo. Abre una sesión por hablante y va escribiendo mientras hablan.
+            </>
+          ) : (
+            <>
+              <code>gpt-transcribe</code>, el que OpenAI recomienda para voz ya grabada. Espera a
+              que termines la frase y la transcribe entera, así que acierta más en nombres propios
+              a cambio de aproximadamente un segundo de latencia.
+            </>
+          )}{' '}
+          Usa la API key de OpenAI, la misma que las respuestas.
+        </p>
+      )}
 
       {settings.sttProviderId === 'gemini-audio' && (
         <div className="diag diag--ok">
