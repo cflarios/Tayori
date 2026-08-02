@@ -36,6 +36,9 @@ borrar una conversación o borrarlas todas.
 - **Responde cuestionarios**: `Ctrl+Alt+Q` lee la pregunta de test que haya en
   pantalla y da la opción correcta en la primera línea. Si no lo tiene claro lo
   dice, porque en un examen con penalización hay que saber si arriesgas.
+- **Skills**: instrucciones tuyas en formato `SKILL.md` que cambian cómo suena
+  la respuesta —el tono y las palabras, no el formato—. Se activan desde el
+  overlay o escribiendo `/nombre`.
 - **Se oculta de la captura de pantalla**, con un switch para volverlo visible.
 
 ## Requisitos
@@ -212,6 +215,59 @@ que confírmalo con **Probar conexión**.
 Con **Ollama no aparece esa opción**, a propósito: ahí la lista no es un catálogo
 nuestro sino lo que tu servidor local dice tener descargado, y escribir el nombre
 de un modelo que no está instalado no lo instala.
+
+## Skills
+
+Una skill es una instrucción tuya que cambia **cómo** responde el modelo. No es
+lo mismo que un perfil ni que un contexto, y la diferencia es la que hace que
+las tres cosas se puedan combinar:
+
+| | Decide | Ejemplo |
+|---|---|---|
+| **Perfil** | La forma de la respuesta | 4 viñetas, bloque de código, una línea por pregunta |
+| **Contexto** | El material | Tu CV, la oferta, respuestas preparadas |
+| **Skill** | La manera de escribir | Qué palabras evitar, qué ritmo, qué tono |
+
+La app trae una: **«Que no suene a IA»**, que quita las fórmulas de relleno y el
+vocabulario que delata a un modelo. Es el fallo que más se nota cuando la
+respuesta se lee en voz alta.
+
+### Escribir una
+
+Cada skill es una **carpeta** con un archivo `SKILL.md` dentro. Es el formato de
+Anthropic, así que una skill escrita para otra herramienta suele funcionar tal
+cual:
+
+```markdown
+---
+name: Respuestas de sistemas
+description: Para entrevistas de diseño de sistemas: números antes que nombres.
+---
+
+Empieza siempre por el número: cuántas peticiones por segundo, cuántos GB,
+cuántos usuarios. Un diseño sin magnitudes no se puede evaluar.
+
+Nombra la tecnología concreta sólo después de haber dicho qué problema resuelve.
+Nunca listes tres alternativas sin elegir una.
+```
+
+Dashboard → **Skills** → *Abrir carpeta* te lleva a
+`%APPDATA%\interview-helper\skills`. Crea la carpeta, pega el archivo y pulsa
+**Recargar**: el nombre de la carpeta es lo que se escribe tras la barra.
+
+Los **scripts y assets** que el formato admite se ignoran a propósito. Sólo se
+lee el `SKILL.md`.
+
+### Usarlas
+
+- **Para toda la conversación**: el desplegable *Skill* del overlay, o el
+  dashboard. Se aplica a todo, incluidas las respuestas automáticas.
+- **Para un mensaje suelto**: escribe `/nombre` (o `$nombre`) al principio en la
+  pestaña de escritura. Se autocompleta al teclear la barra.
+
+Sólo hay **una activa a la vez**, y no es una limitación pendiente: dos
+instrucciones sobre cómo escribir se contradicen enseguida, y el modelo rompe
+el empate en silencio.
 
 ## Modo código
 
@@ -514,6 +570,12 @@ después; la app lo desactiva explícitamente (`store: false`) en todas sus
 llamadas. Eso cubre lo que depende de nosotros, pero no las políticas de
 retención propias de cada proveedor: lo que envíes a Anthropic, a Google o a
 OpenAI se rige por las suyas, y ninguna es cosa de esta app.
+
+**2 quinquies. Las skills viajan dentro del prompt.** Lo que escribas en un
+`SKILL.md` se envía al proveedor en **cada consulta** mientras esa skill esté
+activa. No se ejecuta nada —los scripts de la carpeta se ignoran— pero una skill
+que te pasen por ahí es texto que va a salir de tu máquina: trátala como
+tratarías cualquier cosa que fueras a pegar en un chat.
 
 **3. Dónde vives esa conversación.** Muchas empresas restringen el uso de
 asistentes de IA en sus procesos de selección, con independencia de lo que

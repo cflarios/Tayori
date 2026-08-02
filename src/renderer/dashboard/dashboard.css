@@ -1491,6 +1491,141 @@ kbd {
   user-select: text;
 }
 
+/* ── Skills ── */
+
+/* El botón de recargar vive con el título: es lo que se pulsa justo después de
+   editar un SKILL.md, no al final de una lista que puede ser larga. */
+.skillhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.skillhead .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.skillfolder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.skillfolder__icon {
+  color: var(--text-dim);
+  display: flex;
+}
+
+.skillfolder__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.skillfolder__title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.skillfolder__path {
+  display: block;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  /* La ruta lleva el nombre del perfil de Windows y puede ser larga: se parte
+     en lugar de estirar la tarjeta y sacar un scroll horizontal a la ventana. */
+  word-break: break-all;
+  user-select: text;
+}
+
+.skills {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill {
+  display: flex;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px 15px;
+}
+
+/* La activa se marca con el borde de acento y no con un badge más: la fila ya
+   lleva dos etiquetas y una tercera dejaría de leerse de un vistazo. */
+.skill--on {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(96, 165, 250, 0.07);
+}
+
+.skill__icon {
+  color: var(--accent);
+  display: flex;
+  padding-top: 1px;
+}
+
+.skill__body {
+  min-width: 0;
+}
+
+.skill__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.skill__name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.skill__id {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 2px 6px;
+  user-select: text;
+}
+
+.skill__tag {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.skill__desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #8b9096;
+}
+
+.skill__error {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #fcd34d;
+}
+
 /* ── Ventana estrecha ── */
 
 /*

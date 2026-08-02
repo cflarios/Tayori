@@ -22,6 +22,7 @@ import type {
   SecretsPresence,
   SetupProgress,
   Settings,
+  Skill,
   SystemSpecs,
   TranscriptSegment,
 } from '@shared/types';
@@ -214,6 +215,21 @@ const api = {
       ipcRenderer.invoke(IPC.llmListModels, providerId),
     testConnection: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.llmTestConnection),
+  },
+
+  /**
+   * Skills: instrucciones locales que refinan cómo responde el modelo.
+   *
+   * Sólo se leen. El renderer no puede escribir un SKILL.md, y no es una
+   * carencia: lo que hay en esa carpeta lo pone la persona con su editor, que
+   * es lo que hace que se pueda versionar, compartir y revisar antes de que
+   * acabe dentro de un prompt.
+   */
+  skills: {
+    list: (): Promise<Skill[]> => ipcRenderer.invoke(IPC.skillsList),
+    reload: (): Promise<Skill[]> => ipcRenderer.invoke(IPC.skillsReload),
+    openFolder: (): Promise<void> => ipcRenderer.invoke(IPC.skillsOpenFolder),
+    folder: (): Promise<string> => ipcRenderer.invoke(IPC.skillsFolder),
   },
 
   whisper: {

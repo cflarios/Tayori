@@ -4,6 +4,7 @@ import {
   type ContextKind,
   type PromptProfileId,
   type Settings,
+  type Skill,
 } from '@shared/types';
 
 /**
@@ -265,8 +266,14 @@ const KIND_INSTRUCTIONS: Record<ContextKind, string> = {
  *        código: el hotkey resuelve la pantalla sin que el usuario tenga que
  *        cambiar de perfil y acordarse de volver, que es justo lo que no puede
  *        hacer con un examen delante.
+ * @param skill Instrucción activa, si la hay. Va **al final** y con precedencia
+ *        declarada: ver `skillBlock`.
  */
-export function buildSystemPrompt(settings: Settings, force?: PromptProfileId): string {
+export function buildSystemPrompt(
+  settings: Settings,
+  force?: PromptProfileId,
+  skill?: Skill
+): string {
   const profileId = force ?? settings.promptProfileId;
 
   const profile =
@@ -318,5 +325,48 @@ export function buildSystemPrompt(settings: Settings, force?: PromptProfileId): 
     );
   }
 
+  if (skill?.instructions.trim()) sections.push(skillBlock(skill));
+
   return sections.join('\n\n');
+}
+
+/**
+ * La skill, y el reparto de autoridad que la hace funcionar.
+ *
+ * Va **la última**, después incluso del contexto. Es la posición que el modelo
+ * atiende con más fuerza, y aquí hace falta: una skill sirve justamente para
+ * corregir la manera de escribir que el modelo trae de fábrica, así que puesta
+ * antes de las reglas de formato se diluye en ellas.
+ *
+ * Y va con la precedencia **escrita**, no implícita, porque el reparto no es
+ * evidente y el modelo tendría que adivinarlo:
+ *
+ * - El perfil manda en la **forma**: cuántas viñetas, si hay bloque de código,
+ *   una línea por pregunta. Eso está medido y no lo puede tocar una skill —
+ *   «suena más natural en dos párrafos» dejaría el overlay ilegible en mitad
+ *   de una llamada, que es el problema que las cuatro viñetas resuelven.
+ * - La skill manda en la **manera**: qué palabras, qué ritmo, qué evitar.
+ *
+ * Sin decirlo, una skill de tono y unas reglas de formato se contradicen en
+ * cuanto la primera pide algo que la segunda limita, y el empate lo rompe el
+ * modelo en silencio: el resultado dependería del proveedor y de la frase, que
+ * es la peor clase de comportamiento — el que no se puede reproducir.
+ *
+ * `name` viaja con las instrucciones porque el modelo escribe distinto cuando
+ * sabe qué se le ha pedido que cuando recibe una lista de reglas sin título.
+ */
+function skillBlock(skill: Skill): string {
+  return [
+    '<instruccion_activa>',
+    `La persona a la que ayudas ha activado la instrucción "${skill.name}".`,
+    '',
+    'Manda sobre CÓMO se dice: el tono, la elección de palabras y el ritmo.',
+    'NO cambia el formato: los topes de longitud y la estructura que piden las',
+    'reglas de formato de arriba siguen siendo obligatorios. Donde una regla de',
+    'formato y esto digan cosas distintas sobre la MANERA de escribir, gana esto;',
+    'donde discrepen sobre la FORMA, gana la regla de formato.',
+    '',
+    skill.instructions.trim(),
+    '</instruccion_activa>',
+  ].join('\n');
 }

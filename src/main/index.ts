@@ -52,6 +52,7 @@ import { captureScreen } from './capture/screenshot';
 import { session as sessionOrchestrator } from './core/session';
 import { createLLMProvider, listModelsFor } from './llm';
 import { probeOllama } from './llm/ollama';
+import { listSkills, openSkillsFolder, reloadSkills, skillsFolder } from './skills';
 import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
 import { testSTTConnection } from './stt';
 import { whisperServer } from './stt/whisper-server';
@@ -315,6 +316,12 @@ function registerIpcHandlers(): void {
     const settings = settingsStore.get();
     return listModelsFor(providerId ?? settings.llmProviderId, settings);
   });
+
+  // ── Skills ──
+  ipcMain.handle(IPC.skillsList, () => listSkills());
+  ipcMain.handle(IPC.skillsReload, () => reloadSkills());
+  ipcMain.handle(IPC.skillsOpenFolder, () => openSkillsFolder());
+  ipcMain.handle(IPC.skillsFolder, () => skillsFolder());
 
   ipcMain.handle(IPC.llmTestConnection, async () => {
     try {

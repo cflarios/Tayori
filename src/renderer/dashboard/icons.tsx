@@ -53,6 +53,25 @@ const PATHS = {
     </>
   ),
   bolt: <path d="M13 2.5 5.5 13.5H11L10 21.5 18.5 10H13z" />,
+  /* Una chispa grande y una pequeña: es la marca de "esto refina lo que sale",
+     y se distingue del rayo de Comportamiento a tamaño de barra lateral. */
+  sparkles: (
+    <>
+      <path d="M10 3.5 11.7 8.3 16.5 10 11.7 11.7 10 16.5 8.3 11.7 3.5 10 8.3 8.3z" />
+      <path d="M17.5 14.5 18.4 17.1 21 18 18.4 18.9 17.5 21.5 16.6 18.9 14 18 16.6 17.1z" />
+    </>
+  ),
+  folder: (
+    <>
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h7A1.5 1.5 0 0 1 19 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 17.5z" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M20 11.5a8 8 0 1 0-.7 4.5" />
+      <polyline points="20 5.5 20 11.5 14 11.5" />
+    </>
+  ),
   file: (
     <>
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />

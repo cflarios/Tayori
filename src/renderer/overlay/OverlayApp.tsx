@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-format';
 import { clampFontScale } from '@shared/types';
+import { matchSkills } from '@shared/skills';
 import type {
   Answer,
   AudioLevels,
@@ -11,6 +12,7 @@ import type {
   OverlaySize,
   ScreenTask,
   Settings,
+  Skill,
   TranscriptSegment,
 } from '@shared/types';
 
@@ -534,6 +536,51 @@ function ProfileChips({
 }
 
 /**
+ * La skill activa, como desplegable y no como chips.
+ *
+ * Los perfiles son chips porque son seis fijos y se alternan; las skills son
+ * una lista que crece con lo que cada uno meta en su carpeta, y una fila de
+ * chips que puede tener veinte elementos deja de caber en un panel de 380 px.
+ *
+ * Está aquí y no sólo en el dashboard por el criterio de siempre: ¿lo
+ * necesitarías a mitad de una llamada? Con esto sí — la respuesta anterior
+ * sonó a plantilla y quieres cambiar el tono para la siguiente sin abrir la
+ * ventana que roba el foco.
+ */
+function SkillPicker({
+  skills,
+  active,
+  onChange,
+}: {
+  skills: Skill[];
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  const usable = skills.filter((skill) => !skill.error);
+  // Sin ninguna skill instalada esto sería un desplegable con una sola opción
+  // que no hace nada, y la barra de este panel ya va justa de sitio.
+  if (usable.length === 0) return null;
+
+  return (
+    <div className="skillbar" data-interactive>
+      <span className="skillbar__label">Skill</span>
+      <select
+        className="skillbar__select"
+        value={usable.some((skill) => skill.id === active) ? active : ''}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">Ninguna</option>
+        {usable.map((skill) => (
+          <option key={skill.id} value={skill.id}>
+            {skill.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/**
  * Acciones rápidas sobre la última respuesta.
  *
  * Son prompts enlatados que van por `askWithText`, la misma vía que la pestaña
@@ -857,7 +904,7 @@ function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => voi
  * única situación en la que la app toma el foco, y el aviso del pie lo dice
  * porque es justo el comportamiento que el resto del programa evita.
  */
-function ComposePane({ onSend }: { onSend: (text: string) => void }) {
+function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: string) => void }) {
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -866,6 +913,19 @@ function ComposePane({ onSend }: { onSend: (text: string) => void }) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  /*
+   * `null` mientras no se esté invocando nada; una lista —aunque esté vacía—
+   * en cuanto el texto empieza por `/` o `$`. La diferencia es lo que permite
+   * decir "no hay ninguna que se llame así" en lugar de no decir nada, que es
+   * indistinguible de que el autocompletado esté roto.
+   */
+  const matches = matchSkills(draft, skills);
+
+  const complete = (id: string): void => {
+    setDraft(`/${id} `);
+    inputRef.current?.focus();
+  };
 
   const send = (): void => {
     const text = draft.trim();
@@ -876,19 +936,51 @@ function ComposePane({ onSend }: { onSend: (text: string) => void }) {
 
   return (
     <div className="compose" data-interactive>
+      {matches && (
+        <div className="skillmenu">
+          {matches.length === 0 ? (
+            <span className="skillmenu__empty">Ninguna skill con ese nombre</span>
+          ) : (
+            matches.map((skill) => (
+              <button
+                key={skill.id}
+                type="button"
+                className="skillmenu__item"
+                onClick={() => complete(skill.id)}
+              >
+                <code className="skillmenu__id">/{skill.id}</code>
+                <span className="skillmenu__name">{skill.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
       <textarea
         ref={inputRef}
         className="compose__input"
-        placeholder="Escribe tu pregunta y pulsa Enter…"
+        placeholder="Escribe tu pregunta y pulsa Enter… · /skill para invocar una"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           // Enter envía; Shift+Enter salta línea. No se usa Ctrl+Enter porque
           // es un hotkey GLOBAL: lo intercepta el main y nunca llegaría aquí.
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            send();
+          if (e.key !== 'Enter' || e.shiftKey) return;
+          e.preventDefault();
+
+          /*
+           * Con el menú abierto, Enter **completa** en lugar de enviar. Es lo
+           * que hace cualquier chat, y aquí además evita el caso tonto: enviar
+           * "/hum" a medias no invoca nada —el prefijo sólo cuenta si casa con
+           * una skill de verdad— así que el modelo recibiría esa palabra suelta
+           * como si fuera la pregunta. El segundo Enter ya envía.
+           */
+          const first = matches?.[0];
+          if (first) {
+            complete(first.id);
+            return;
           }
+          send();
         }}
       />
       <div className="compose__foot">
@@ -1217,6 +1309,7 @@ export function OverlayApp() {
   const [notice, setNotice] = useState<string | null>(null);
   const [memory, setMemory] = useState({ turns: 0, max: 8 });
   const [skip, setSkip] = useState<{ text: string; reason: string } | null>(null);
+  const [skills, setSkills] = useState<Skill[]>([]);
 
   useChromeMouse();
   const onDragStart = useOverlayDrag();
@@ -1237,12 +1330,27 @@ export function OverlayApp() {
     };
   }, [tab]);
 
+  /*
+   * La lista de skills se refresca al abrir la pestaña de escritura, además de
+   * al arrancar.
+   *
+   * No hay evento de "cambió la carpeta" y no se ha puesto uno: eso obligaría a
+   * vigilar un directorio del usuario para siempre por un cambio que ocurre
+   * dos veces al mes. Releer al entrar cubre el caso real —crear una skill y
+   * usarla sin reiniciar— y cuesta una lectura de disco en el momento en el que
+   * el usuario acaba de decidir escribir, no en mitad de una respuesta.
+   */
+  useEffect(() => {
+    if (tab === 'write') void window.api.skills.list().then(setSkills);
+  }, [tab]);
+
   useEffect(() => {
     const { api } = window;
 
     void api.settings.get().then(setSettings);
     void api.capture.getStatus().then(setStatus);
     void api.memory.get().then(setMemory);
+    void api.skills.list().then(setSkills);
     // Ollama no necesita clave, pero SÍ un modelo elegido: sin él cada consulta
     // falla con "no hay ningún modelo seleccionado", y antes ese caso pasaba por
     // configurado y no mostraba ningún aviso. Claude y Gemini exigen su clave.
@@ -1393,10 +1501,17 @@ export function OverlayApp() {
         y porque parar la escucha tiene que estar siempre a mano.
       */}
       {!compact && settings && (
-        <ProfileChips
-          active={settings.promptProfileId}
-          onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
-        />
+        <>
+          <ProfileChips
+            active={settings.promptProfileId}
+            onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
+          />
+          <SkillPicker
+            skills={skills}
+            active={settings.activeSkillId}
+            onChange={(activeSkillId) => void window.api.settings.update({ activeSkillId })}
+          />
+        </>
       )}
 
       {/*
@@ -1418,7 +1533,10 @@ export function OverlayApp() {
             {tab === 'listen' ? (
               <TranscriptPane segments={segments} />
             ) : (
-              <ComposePane onSend={(text) => void window.api.ask.withText(text)} />
+              <ComposePane
+                skills={skills}
+                onSend={(text) => void window.api.ask.withText(text)}
+              />
             )}
           </div>
         )

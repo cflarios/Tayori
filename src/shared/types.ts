@@ -75,6 +75,40 @@ export interface ImageAttachment {
   base64: string;
 }
 
+// ────────────────────────────────── Skills ──────────────────────────────────
+
+/**
+ * Una instrucción suelta que refina **cómo** responde el modelo.
+ *
+ * Formato de Anthropic: una carpeta con un `SKILL.md` que lleva frontmatter y
+ * el cuerpo en Markdown. Ver `shared/skills.ts` para el parser y
+ * `main/skills/` para la carga.
+ *
+ * No se confunde con las otras dos cosas que acaban en el mismo prompt: el
+ * perfil dice **qué forma** tiene la respuesta y los context packs aportan
+ * **material**. Una skill cambia la **manera** — el tono, las palabras que
+ * evita, el ritmo — y por eso se suma a un perfil en lugar de sustituirlo.
+ */
+export interface Skill {
+  /** Sale del nombre de la carpeta, que es lo que se escribe tras `/` o `$`. */
+  id: string;
+  /** Del frontmatter. Si falta, el id. */
+  name: string;
+  description: string;
+  /** El cuerpo del SKILL.md: lo que de verdad se le manda al modelo. */
+  instructions: string;
+  /** Las que vienen con la app. No se pueden borrar, sí sustituir. */
+  builtIn: boolean;
+  /**
+   * Por qué no se puede usar.
+   *
+   * Una skill rota se lista igualmente, con su motivo. Desaparecer sin decir
+   * nada dejaría a alguien mirando una carpeta que sí existe y preguntándose
+   * por qué la app no la ve.
+   */
+  error?: string;
+}
+
 // ──────────────────────────────── Respuestas ────────────────────────────────
 
 export type AnswerStatus = 'idle' | 'thinking' | 'streaming' | 'done' | 'aborted' | 'error';
@@ -402,6 +436,21 @@ export interface Settings {
   contextPacks: ContextPack[];
 
   /**
+   * Skill aplicada a todas las respuestas. Vacío = ninguna.
+   *
+   * Es un solo id y no una lista **a propósito**. Dos instrucciones sobre cómo
+   * escribir se contradicen enseguida —una pide frases cortas y otra un registro
+   * cuidado— y el modelo resuelve el empate en silencio, así que el resultado
+   * dependería del orden en que estuvieran encendidas. Con una sola, lo que se
+   * lee en pantalla es lo que se le pidió.
+   *
+   * Se queda puesta entre consultas porque el caso que la justifica —«que no
+   * suene a IA»— no es algo que se quiera para un mensaje: se quiere para toda
+   * la conversación. Para un mensaje suelto está el prefijo `/skill`.
+   */
+  activeSkillId: string;
+
+  /**
    * Lenguaje de programación de las soluciones del modo código.
    *
    * `auto` deja que lo deduzca de la pantalla, que es lo correcto cuando hay un
@@ -636,6 +685,9 @@ export const DEFAULT_SETTINGS: Settings = {
   promptProfileId: 'interview',
   customPrompt: '',
   contextPacks: [],
+  // Ninguna skill activa: una instrucción que cambia el tono de todas las
+  // respuestas se enciende a propósito, no viene puesta de fábrica.
+  activeSkillId: '',
   codeLanguage: 'auto',
 
   hotkeys: DEFAULT_HOTKEYS,

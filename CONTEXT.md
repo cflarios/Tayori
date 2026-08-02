@@ -777,6 +777,92 @@ turno; esto no es streaming. Para eso está Gemini Live.
   prohibición de preámbulos, y la regla de no inventar datos fuera de
   `<contexto>` — una respuesta genérica es recuperable, una mentira detectada no.
 
+### Skills: la tercera cosa que entra en el prompt
+
+Agosto de 2026. Ya había dos formas de influir en la respuesta —el perfil y los
+context packs— y la petición era una tercera. El riesgo obvio era acabar con
+tres mecanismos que hacen lo mismo con nombres distintos, así que lo primero fue
+delimitar qué decide cada uno:
+
+| | Decide | Si falta |
+|---|---|---|
+| Perfil | La **forma** | La respuesta no cabe en el panel, o el código sale sin código |
+| Context pack | El **material** | Correcta pero genérica: no es tuya |
+| Skill | La **manera** | Correcta y tuya, pero suena a generada |
+
+Esa tercera columna es la que no tenía respuesta antes, y es un fallo caro en
+esta app concreta: **la respuesta se lee en voz alta**. Las muletillas de modelo
+—«es importante destacar», los pares de adjetivos, el cierre que resume— cantan
+mucho antes habladas que escritas.
+
+**El formato es el de Anthropic y se implementa a mano.** Una carpeta con un
+`SKILL.md`, frontmatter con `name` y `description`, cuerpo en Markdown. Elegir
+un formato que ya existe es lo que hace que una skill escrita para otra
+herramienta funcione tal cual, y no traer una dependencia para leerlo es la
+regla de siempre: partir por `---` y leer dos claves son treinta líneas, y su
+fallo **se ve** —la skill no carga y lo dice—. Es la misma frontera que dejó
+fuera a `electron-store` y que sí justificó el codificador de QR, cuyo fallo era
+invisible.
+
+El parser acepta continuación en las líneas indentadas —una `description` de
+verdad no cabe en 80 columnas— e **ignora las claves que no conoce**, para que
+un SKILL.md con campos de otra herramienta no se caiga por traer de más.
+
+#### El reparto de autoridad, que es lo que hace que funcione
+
+La decisión de diseño está aquí y no es evidente: la skill **se suma** al
+perfil, va **la última** del system prompt, y lleva su precedencia **escrita**:
+
+> Manda sobre CÓMO se dice. NO cambia el formato. Donde discrepen sobre la
+> MANERA de escribir, gana la skill; donde discrepen sobre la FORMA, gana la
+> regla de formato.
+
+Sin esa frase, una skill de tono y unas reglas de formato que llevan la palabra
+«obligatorias» encima se contradicen en cuanto la primera pide algo que la
+segunda limita, y **el empate lo rompe el modelo en silencio**: distinto según
+el proveedor y según la frase, que es la peor clase de comportamiento — el que
+no se puede reproducir ni explicar.
+
+Va la última, después incluso del contexto, porque es la posición que el modelo
+atiende con más fuerza y porque una skill existe justamente para corregir la
+manera de escribir que traen las reglas de arriba. Puesta antes, se diluye.
+
+#### Cuatro decisiones que parecen recortes y no lo son
+
+- **Una sola skill activa.** Dos instrucciones sobre cómo escribir se
+  contradicen enseguida —una pide frases cortas, otra un registro cuidado— y el
+  resultado dependería del orden en que estuvieran encendidas. Con una, lo que
+  se lee es lo que se pidió.
+- **Los scripts y assets del formato se ignoran.** No es una fase pendiente:
+  ejecutar un script que hay en una carpeta de datos es ejecutar código sin
+  revisar, en el proceso que tiene las API keys descifradas. El día que se
+  quiera, se diseña con esa frase delante.
+- **`/skill` sólo funciona escribiendo, no hablando.** Un «/humanizar» dicho en
+  voz alta llega del reconocedor como «humanizar» o como «barra humanizar»
+  según el motor: reconocerlo ahí sería adivinar.
+- **El prefijo sólo cuenta si la skill existe.** Si cualquier `/palabra` se
+  tratara como invocación, escribir «/etc está lleno de configuración» perdería
+  la primera palabra y el modelo respondería a otra cosa **sin que nada lo
+  avisara**. Con la lista delante, lo que no casa se queda como texto. Tiene
+  test, porque es el fallo silencioso de esta función.
+
+#### Y dos que cubren fallos mudos
+
+- **Una skill rota se lista igual, con su motivo.** Desaparecer sin decir nada
+  deja a alguien mirando una carpeta que sí existe. Y `getSkill()` devuelve
+  `undefined` para las rotas, así que un `activeSkillId` que apunta a una
+  carpeta que alguien estropeó **se comporta como si no hubiera skill** en lugar
+  de mandar medio prompt.
+- **El cuerpo vacío es el único error de verdad.** Sin `name` se usa el id de la
+  carpeta y sin `description` la lista se ve sosa, pero las dos funcionan. Una
+  skill sin instrucciones no hace **nada** y aparecería encendida en el
+  desplegable diciendo lo contrario.
+
+**La skill entra también en `gemini-audio`.** Con ese motor la respuesta la
+escribe el reconocedor, así que si se hubiera quedado fuera habría un motor en
+el que encender una skill no hace nada — y desde la pantalla los dos casos se
+ven idénticos.
+
 ### Modo código: por qué es un camino aparte y no un prompt más
 
 El pedido era simple —"si tengo LeetCode en pantalla, dame la solución"— y la
@@ -1576,6 +1662,12 @@ capturas de pantalla**, no solo compilando.
   **firma** del método: es el fallo silencioso del modo, porque una respuesta
   perfecta sobre una firma mal leída no se distingue de una buena hasta que el
   evaluador la rechaza.
+- **Que una skill cambie de verdad el tono de una respuesta.** Verificado que
+  llega al prompt —dónde va, con qué precedencia y que el perfil sobrevive—, y
+  la carga desde disco contra carpetas de verdad, con sus casos raros. Lo que
+  falta es lo que sólo se ve leyendo la salida: si con «Que no suene a IA»
+  puesta el modelo deja de escribir «es importante destacar». Es una prueba a
+  ojo y necesita una clave.
 - **La prueba en una videollamada real** (Meet / Teams / Zoom / OBS). La
   verificación se hizo con captura GDI/BitBlt.
   `WDA_EXCLUDEFROMCAPTURE` cubre también las rutas DXGI y Windows Graphics

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BrowserWindow } from 'electron';
 import { IPC } from '@shared/ipc';
+import { parseSkillInvocation } from '@shared/skills';
 import {
   autoTriggerIsInert,
   conversationTitle,
@@ -28,6 +29,7 @@ import {
   type STTProvider,
   type TranscriptEvent,
 } from '../stt';
+import { getSkill, listSkills } from '../skills';
 import { buildSystemPrompt } from './prompt';
 import { TranscriptBuffer } from './transcript-buffer';
 import { AnswerEngine } from './answer-engine';
@@ -357,9 +359,22 @@ class SessionOrchestrator {
     return null;
   }
 
-  /** Responde a un texto escrito a mano en el overlay. */
+  /**
+   * Responde a un texto escrito a mano en el overlay.
+   *
+   * Es la única vía que admite el prefijo `/skill`, y no por casualidad: es la
+   * única en la que hay alguien tecleando. Un `/humanizar` dicho en voz alta
+   * llegaría por el reconocedor como "humanizar" o como "barra humanizar",
+   * según el motor, así que reconocerlo ahí sería adivinar.
+   *
+   * Se resuelve contra la lista real de skills: lo que no casa con ninguna se
+   * queda como texto. Sin esa comprobación, escribir «/etc está lleno de
+   * configuración» perdería la primera palabra y el modelo respondería a otra
+   * pregunta sin que nada lo dijera.
+   */
   askWithText(text: string): Promise<void> {
-    return this.answers.ask('manual-input', text);
+    const { skillId, text: question } = parseSkillInvocation(text, listSkills());
+    return this.answers.ask('manual-input', question, skillId);
   }
 
   /**
@@ -430,13 +445,23 @@ class SessionOrchestrator {
 
     const settings = settingsStore.get();
     try {
-      // El contexto se pasa como función y no como valor: el motor de audio
-      // directo lo consulta en cada turno, y para entonces el perfil o la
-      // memoria pueden haber cambiado.
-      const provider = createSTTProvider(settings, () => ({
-        systemPrompt: buildSystemPrompt(settingsStore.get()),
-        history: this.answers.historySnapshot(),
-      }));
+      /*
+       * El contexto se pasa como función y no como valor: el motor de audio
+       * directo lo consulta en cada turno, y para entonces el perfil, la skill
+       * o la memoria pueden haber cambiado.
+       *
+       * La skill entra también aquí. Con `gemini-audio` la respuesta la escribe
+       * el motor de transcripción, así que si esto se quedara fuera habría un
+       * motor en el que encender una skill no haría nada — y desde la pantalla
+       * los dos casos se ven idénticos.
+       */
+      const provider = createSTTProvider(settings, () => {
+        const current = settingsStore.get();
+        return {
+          systemPrompt: buildSystemPrompt(current, undefined, getSkill(current.activeSkillId)),
+          history: this.answers.historySnapshot(),
+        };
+      });
 
       provider.events.on('segment', (event: TranscriptEvent) => this.onSegment(event));
 
