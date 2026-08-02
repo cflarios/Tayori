@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { WebSocket } from 'ws';
 import type { Speaker, STTProviderId } from '@shared/types';
+import { EnergyVAD } from '../core/vad';
 import { pcmToInt16, Upsampler16to24 } from './resample';
 import type { STTProvider, STTStartOptions } from './types';
 
@@ -25,9 +26,18 @@ import type { STTProvider, STTStartOptions } from './types';
  *    frecuencia en el camino. Ver `resample.ts`, que explica por qué aquí la
  *    interpolación lineal basta y por qué el estado entre bloques no es
  *    opcional.
- *  - **El turno lo decide el servidor.** Con `turn_detection` de tipo VAD
- *    semántico, la API corta las frases sola: no se usa el `EnergyVAD` de la
- *    app. Es lo mismo que ya pasa con Gemini Live.
+ *  - **El turno lo decide ESTA app, no el servidor.** `gpt-live-transcribe`
+ *    **no admite `turn_detection`** —lo rechaza con "Turn detection is not
+ *    supported for this transcription model"— así que va en `null` y es el
+ *    cliente quien cierra cada turno con `input_audio_buffer.commit`. Se usa el
+ *    `EnergyVAD` de siempre, el mismo que whisper-local, para saber cuándo.
+ *
+ * **La segunda es la que de verdad importa, y es fácil no verla.** El modelo
+ * emite los parciales solo, según llega el audio, así que sin hacer commit la
+ * transcripción **se ve en pantalla y parece que todo funciona** — pero no
+ * llega nunca un segmento final, y el auto-disparo sólo evalúa finales. El
+ * resultado sería una app que transcribe perfectamente y no responde jamás,
+ * sin un solo error por ninguna parte. De ahí que el commit tenga test.
  */
 
 /**
@@ -52,7 +62,15 @@ import type { STTProvider, STTStartOptions } from './types';
  */
 export const OPENAI_LIVE_MODEL = 'gpt-live-transcribe';
 
-/** La API en tiempo real, en modo transcripción. */
+/**
+ * La API en tiempo real, en modo transcripción.
+ *
+ * Se puede sustituir por otra URL, y no es un adorno: es lo que permite montar
+ * un WebSocket de verdad en los tests y comprobar **qué se manda por el cable**.
+ * Los dos fallos que ha tenido este archivo —`turn_detection` mal y el commit
+ * que faltaba— estaban ahí exactamente, y un cliente simulado los habría dado
+ * los dos por buenos.
+ */
 const REALTIME_URL = 'wss://api.openai.com/v1/realtime?intent=transcription';
 
 /** Lo que la API exige. Ver `resample.ts`. */
@@ -60,6 +78,30 @@ const REALTIME_SAMPLE_RATE = 24_000;
 
 /** Backoff de reconexión: una sesión larga se cierra por diseño, como en Gemini. */
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000];
+
+/**
+ * Bytes mínimos antes de cerrar un turno.
+ *
+ * La API rechaza un commit sobre un buffer con menos de ~100 ms de audio. A
+ * 24 kHz y 16 bits eso son 4.800 bytes; se piden 5.000 para no jugársela al
+ * borde. Sin esta guarda, un turno que el VAD cierra justo al empezar produce
+ * un error de la sesión por cada carraspeo.
+ */
+const MIN_COMMIT_BYTES = 5_000;
+
+/**
+ * Modelos que rechazan el sesgo por `prompt`.
+ *
+ * Mismo patrón que `EFFORT_UNSUPPORTED` en `claude.ts` y `KNOWN_THINKERS` en
+ * `ollama.ts`, y por el mismo motivo: qué parámetros acepta cada modelo de
+ * transcripción no se puede saber desde aquí con certeza, y equivocarse **tumba
+ * la sesión entera** en lugar de degradar. La documentación dice que este
+ * modelo admite "keyword hints", así que se manda; si algún día un modelo lo
+ * rechaza, la primera sesión lo aprende, reintenta sin él y las siguientes
+ * salen bien — con el aviso en el log, porque perder el vocabulario es perder
+ * calidad de verdad.
+ */
+const PROMPT_UNSUPPORTED = new Set<string>();
 
 /**
  * Tope del handshake.
@@ -78,6 +120,14 @@ class Lane {
   private reconnectAttempt = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private readonly upsampler = new Upsampler16to24();
+  /**
+   * El detector de turnos. Es el mismo de whisper-local y con los mismos
+   * umbrales: que "cuándo termina una frase" se decida en un solo sitio es lo
+   * que hace que cambiar de motor no cambie la sensación de la app.
+   */
+  private readonly vad: EnergyVAD;
+  /** Audio enviado y aún sin cerrar. La API rechaza un commit casi vacío. */
+  private uncommittedBytes = 0;
 
   /**
    * Audio que llega mientras la sesión se reconecta. Acotado: preferimos perder
@@ -91,14 +141,38 @@ class Lane {
     private readonly apiKey: string,
     private readonly model: string,
     private readonly options: STTStartOptions,
-    private readonly emitter: EventEmitter
-  ) {}
+    private readonly emitter: EventEmitter,
+    private readonly url: string = REALTIME_URL
+  ) {
+    this.vad = new EnergyVAD({
+      sampleRate: options.sampleRate,
+      silenceMs: 700,
+      maxUtteranceMs: 20_000,
+    });
+  }
+
+  /**
+   * Cierra el turno abierto.
+   *
+   * `maxUtteranceMs` del VAD hace además de tope duro: alguien que se enrolla
+   * veinte segundos produce un corte forzado y ahí se cierra igual, en lugar de
+   * dejar crecer el buffer del servidor sin límite.
+   */
+  private commit(): void {
+    if (this.uncommittedBytes < MIN_COMMIT_BYTES) return;
+    this.uncommittedBytes = 0;
+    try {
+      this.socket?.send(JSON.stringify({ type: 'input_audio_buffer.commit' }));
+    } catch {
+      // Socket muerto: lo recoge el `close` y su reconexión.
+    }
+  }
 
   connect(): Promise<void> {
     this.closed = false;
 
     return new Promise<void>((resolve, reject) => {
-      const socket = new WebSocket(REALTIME_URL, {
+      const socket = new WebSocket(this.url, {
         headers: { Authorization: `Bearer ${this.apiKey}` },
       });
       this.socket = socket;
@@ -122,7 +196,11 @@ class Lane {
       socket.on('open', () => {
         socket.send(JSON.stringify(this.sessionConfig()));
         this.reconnectAttempt = 0;
+        // Estado nuevo con sesión nueva: el buffer del servidor está vacío, así
+        // que arrastrar la cuenta de la anterior haría commit sobre nada.
         this.upsampler.reset();
+        this.vad.reset();
+        this.uncommittedBytes = 0;
         this.flushPending();
         settle();
       });
@@ -160,17 +238,24 @@ class Lane {
   }
 
   /**
-   * La configuración de la sesión.
+   * La configuración de la sesión, copiada de la referencia y no deducida.
    *
-   * `turn_detection` en `semantic_vad` y no en el VAD de energía de la app: es
-   * el servidor quien decide dónde termina una frase, igual que en Gemini Live,
-   * y hacerlo por semántica corta por final de idea en lugar de por silencio.
+   * `turn_detection: null` es obligatorio con este modelo: cualquier otra cosa
+   * la rechaza de plano —"Turn detection is not supported for this
+   * transcription model"— y la sesión no llega a arrancar. Se descubrió
+   * ejecutándolo, después de haber puesto un `semantic_vad` que parecía
+   * razonable y que la propia documentación no usaba. La lección es la de
+   * siempre en este archivo: lo que dice la referencia se copia, no se mejora.
+   *
+   * Con el turno apagado, quien lo cierra es esta app. Ver `send()`.
    */
   private sessionConfig(): unknown {
     const languages =
       this.options.language && this.options.language !== 'auto'
         ? { languages: [this.options.language] }
         : {};
+
+    const vocabulary = this.options.vocabulary?.length ?? 0;
 
     return {
       type: 'session.update',
@@ -184,13 +269,13 @@ class Lane {
               ...languages,
               // El sesgo de vocabulario, que en una entrevista es oro: nombres
               // de empresa y siglas son justo lo que un ASR generalista falla.
-              ...(this.options.vocabulary?.length
+              ...(vocabulary && !PROMPT_UNSUPPORTED.has(this.model)
                 ? {
-                    prompt: `Expect these terms: ${this.options.vocabulary.slice(0, 60).join(', ')}`,
+                    prompt: `Expect these terms: ${this.options.vocabulary!.slice(0, 60).join(', ')}`,
                   }
                 : {}),
             },
-            turn_detection: { type: 'semantic_vad' },
+            turn_detection: null,
           },
         },
       },
@@ -238,12 +323,32 @@ class Lane {
        * palabra saliendo y ningún fallo a la vista. Es el patrón que este
        * proyecto persigue en todas partes.
        */
-      case 'error':
-        this.emitter.emit(
-          'error',
-          new Error(`[openai-live:${this.speaker}] ${event.error?.message ?? 'error de la sesión'}`)
-        );
+      case 'error': {
+        const message = event.error?.message ?? 'error de la sesión';
+
+        /*
+         * Un rechazo del `prompt` no puede costar la sesión entera.
+         *
+         * Qué parámetros acepta cada modelo de transcripción no se puede saber
+         * desde aquí con certeza —la documentación habla de "keyword hints" sin
+         * dar el nombre del campo— y equivocarse aquí **tumba la transcripción
+         * completa** en lugar de degradar. Así que si lo rechaza, se apunta el
+         * modelo y se reconecta sin sesgo: se pierde calidad en los nombres
+         * propios, que es mucho mejor que perder la transcripción.
+         */
+        if (/prompt/i.test(message) && !PROMPT_UNSUPPORTED.has(this.model)) {
+          PROMPT_UNSUPPORTED.add(this.model);
+          console.warn(
+            `[openai-live] "${this.model}" no acepta el sesgo por prompt; se reconecta sin él. ` +
+              'Los nombres propios y las siglas se van a reconocer peor.'
+          );
+          this.socket?.close();
+          return;
+        }
+
+        this.emitter.emit('error', new Error(`[openai-live:${this.speaker}] ${message}`));
         return;
+      }
 
       default:
         return;
@@ -296,12 +401,26 @@ class Lane {
      * estado**: es por carril, y compartir uno entre los dos hablantes mezclaría
      * la fase de dos audios distintos.
      */
-    const up = this.upsampler.process(pcmToInt16(pcm));
+    const samples = pcmToInt16(pcm);
+    const up = this.upsampler.process(samples);
     if (up.length === 0) return;
 
     const audio = Buffer.from(up.buffer, up.byteOffset, up.length * 2).toString('base64');
     try {
       this.socket?.send(JSON.stringify({ type: 'input_audio_buffer.append', audio }));
+      this.uncommittedBytes += up.length * 2;
+
+      /*
+       * Y aquí se cierra el turno. El VAD se alimenta con el audio ORIGINAL a
+       * 16 kHz —el que tiene los umbrales calibrados— y sólo se usa como señal
+       * de "aquí terminó una frase": el audio ya viajó por el append, así que
+       * lo que devuelve se descarta.
+       *
+       * Sin esto la transcripción se vería en pantalla y no llegaría nunca un
+       * segmento final, así que el auto-disparo no saltaría ni una vez. Es el
+       * tipo de fallo que se ve como "la app transcribe pero no responde".
+       */
+      if (this.vad.push(samples).length > 0) this.commit();
     } catch {
       // Un envío que falla casi siempre es un socket muerto: se deja que el
       // `close` dispare la reconexión en vez de gritar por cada chunk.
@@ -312,6 +431,12 @@ class Lane {
   }
 
   close(): void {
+    // Cerrar el turno que estuviera abierto antes de irse: si alguien para la
+    // escucha justo después de hablar, esa última frase todavía vale y sin el
+    // commit se quedaría como parcial para siempre.
+    this.vad.flush();
+    this.commit();
+
     this.closed = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -335,14 +460,19 @@ export class OpenAILiveSTT implements STTProvider {
 
   constructor(
     private readonly apiKey: string,
-    private readonly model: string = OPENAI_LIVE_MODEL
+    private readonly model: string = OPENAI_LIVE_MODEL,
+    /** Sólo lo usan los tests, para hablar contra un WebSocket local. */
+    private readonly url: string = REALTIME_URL
   ) {}
 
   async start(options: STTStartOptions): Promise<void> {
     await this.stop();
 
     for (const speaker of options.speakers) {
-      this.lanes.set(speaker, new Lane(speaker, this.apiKey, this.model, options, this.events));
+      this.lanes.set(
+        speaker,
+        new Lane(speaker, this.apiKey, this.model, options, this.events, this.url)
+      );
     }
 
     // En paralelo: en serie se sumarían los handshakes y el primer segundo de
@@ -370,7 +500,8 @@ export class OpenAILiveSTT implements STTProvider {
       this.apiKey,
       this.model,
       { sampleRate: 16_000, language, speakers: ['them'] },
-      new EventEmitter()
+      new EventEmitter(),
+      this.url
     );
     try {
       await probe.connect();

@@ -1402,7 +1402,7 @@ function ApiKeysCard({
       />
       <SecretField
         label="OpenAI (ChatGPT)"
-        hint="platform.openai.com → API keys. Sólo responde: la transcripción no usa esta clave."
+        hint="platform.openai.com → API keys. Sirve para las respuestas y también para transcribir con los motores de OpenAI."
         present={presence.openai}
         onSave={(v) => saveSecret('openai', v)}
         onClear={() => clearSecret('openai')}

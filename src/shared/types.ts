@@ -970,9 +970,9 @@ export interface SecretsPresence {
   /**
    * API key de OpenAI.
    *
-   * Es la única de las tres de IA que **no** sirve para nada más en la app: la
-   * de Google vale además para la transcripción con Gemini Live, y la de
-   * Anthropic es la del proveedor por defecto. Ésta sólo responde.
+   * Vale para responder y para transcribir, igual que la de Google: los motores
+   * `openai-live` y `openai-transcribe` usan ésta misma. La de Anthropic es la
+   * única que sólo sirve para responder.
    */
   openai: boolean;
   /**

@@ -730,6 +730,43 @@ cosas que conviene no «simplificar»:
   test —una rampa partida en dos bloques que debe seguir siendo monótona— y la
   fase se lleva en enteros porque un `float` acumulando 2/3 deriva en minutos.
 
+#### Dos fallos que sólo salieron ejecutándolo, y los dos eran del protocolo
+
+Se escribió contra la referencia y aun así falló al primer intento. Merece la
+pena registrar los dos porque las lecciones son distintas.
+
+**El primero fue ruidoso: `turn_detection`.** La primera versión mandaba
+`{ type: 'semantic_vad' }` razonando que el servidor corta mejor por final de
+idea que por silencio. La API contestó *"Turn detection is not supported for
+this transcription model"* y la sesión no arrancó. Lo peor no es el error, es
+que **la documentación mostraba `turn_detection: null` y no se copió**: se
+sustituyó por algo que parecía mejor. La regla que ya estaba escrita para los
+model IDs de Gemini vale igual aquí — lo que dice la referencia se copia, no se
+mejora.
+
+**El segundo no habría dado ningún error, y ése es el importante.** Con
+`turn_detection` apagado, **el turno lo cierra el cliente**: hay que mandar
+`input_audio_buffer.commit`. El modelo emite los parciales solo, así que sin el
+commit la transcripción **se ve en pantalla y todo parece funcionar** — pero no
+llega nunca un segmento final, y el auto-disparo sólo evalúa finales. El
+resultado habría sido una app que transcribe de maravilla y no responde jamás,
+sin una sola línea en el log. Se cierra con el `EnergyVAD` de siempre, el mismo
+de whisper-local y con los mismos 700 ms, para que «cuándo termina una frase»
+siga decidiéndose en un solo sitio.
+
+De ahí que el motor tenga tests contra un **WebSocket de verdad**, y no contra
+un cliente simulado: los dos fallos vivían en lo que se manda por el cable, que
+es justo lo que un mock da por bueno. Es la misma decisión que con el broker de
+MQTT.
+
+**Y de ahí también `PROMPT_UNSUPPORTED`.** Qué parámetros acepta cada modelo de
+transcripción no se puede saber desde aquí —la documentación habla de "keyword
+hints" sin dar el nombre del campo— y equivocarse **tumba la sesión entera** en
+lugar de degradar. Si el `prompt` se rechaza, se apunta el modelo y se reconecta
+sin sesgo: se pierde precisión en los nombres propios, que es mucho mejor que
+perder la transcripción. Mismo patrón que `EFFORT_UNSUPPORTED` en `claude.ts`,
+por tercera vez en este proyecto.
+
 #### Lo que sale gratis y lo que no
 
 `openai-live` se abre con `intent=transcription`, así que la sesión **es** un
@@ -1744,13 +1781,15 @@ capturas de pantalla**, no solo compilando.
   verificado de extremo a extremo contra un servidor HTTP real: que el turno
   sale como WAV, con el modelo bueno, con el sesgo de vocabulario, sin forzar
   idioma cuando es `auto`, y que un carril que nadie escucha no gasta ni una
-  petición. `openai-live` **no**: su protocolo —`intent=transcription`, el
-  `session.update`, los eventos `delta`/`completed`— sale de la referencia de
-  OpenAI y de los tipos del SDK, pero **nadie ha abierto todavía una sesión de
-  verdad**. Lo primero que hay que mirar al probarlo es el handshake: si la
-  cuenta no tiene acceso al modelo, el socket cierra con el motivo dentro y ahí
-  es donde el mensaje tiene que salir bien. El botón «Probar transcripción» abre
-  una sesión real y la cierra, así que es la vía corta para saberlo.
+  petición. `openai-live` está verificado **contra un WebSocket local real** —el
+  `session.update` con `turn_detection: null`, el audio remuestreado a 24 kHz,
+  el commit al final del turno y su ausencia mientras se habla, los parciales y
+  el final por separado, y la degradación sin `prompt`—, y su handshake contra
+  la API de verdad ya se probó: fue lo que destapó los dos fallos del protocolo.
+  Lo que **sigue sin comprobarse** es una reunión entera de principio a fin: que
+  los turnos se cierren donde tienen que cerrarse con voz real, y qué tal
+  transcribe comparado con Whisper local. Eso es escuchar y juzgar, y necesita
+  a alguien delante.
 - **Que una skill cambie de verdad el tono de una respuesta.** Verificado que
   llega al prompt —dónde va, con qué precedencia y que el perfil sobrevive—, y
   la carga desde disco contra carpetas de verdad, con sus casos raros. Lo que
