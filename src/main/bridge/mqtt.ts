@@ -79,7 +79,7 @@ class MqttBridge extends EventEmitter {
         // Un identificador estable por máquina evita que dos reconexiones
         // seguidas se echen la una a la otra del broker, que es lo que pasa
         // cuando dos clientes comparten client id.
-        clientId: `interview-helper-${process.pid}`,
+        clientId: `tayori-${process.pid}`,
         reconnectPeriod: 5_000,
         ...(settings.mqttUsername.trim() ? { username: settings.mqttUsername.trim() } : {}),
         ...(password ? { password } : {}),

@@ -487,7 +487,7 @@ export function DashboardApp() {
       <aside className="nav">
         <div className="nav__brand">
           <div className="nav__eyebrow">Ajustes</div>
-          <div className="nav__app">Interview Helper</div>
+          <div className="nav__app">Tayori</div>
         </div>
 
         <nav className="nav__list">
@@ -1102,7 +1102,7 @@ function MqttCard({
             className="modelpick__id"
             style={{ width: 260 }}
             value={settings.mqttTopic}
-            placeholder="interview-helper/answer"
+            placeholder="tayori/answer"
             onChange={(e) => void patch({ mqttTopic: e.target.value })}
           />
         </Row>

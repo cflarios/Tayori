@@ -14,7 +14,7 @@ export function getDashboard(): BrowserWindow | null {
  * recupera (`focus()`/`restore()` abajo), así que no hace falta el botón.
  *
  * El título es neutro: se filtra por Alt+Tab y por la sección "Aplicaciones"
- * del Administrador de tareas. La marca "Interview Helper" vive dentro del
+ * del Administrador de tareas. La marca "Tayori" vive dentro del
  * contenido del dashboard, que sí ve el usuario y no se expone al sistema.
  */
 export function openDashboard(): BrowserWindow {

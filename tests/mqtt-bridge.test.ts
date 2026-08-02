@@ -203,6 +203,6 @@ describe('los temas que se derivan del tema base', () => {
   });
 
   it('cae a un tema por defecto si lo dejan vacío', () => {
-    expect(mqttTopics('   ').json).toBe('interview-helper/answer');
+    expect(mqttTopics('   ').json).toBe('tayori/answer');
   });
 });

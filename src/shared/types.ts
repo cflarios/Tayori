@@ -513,7 +513,7 @@ export interface Settings {
 export function mqttTopics(base: string): { json: string; text: string } {
   // Una barra final del usuario no debe convertirse en un tema con `//`, que
   // en MQTT es un nivel vacío y perfectamente legal — y por tanto otro tema.
-  const clean = base.trim().replace(/\/+$/, '') || 'interview-helper/answer';
+  const clean = base.trim().replace(/\/+$/, '') || 'tayori/answer';
   return { json: clean, text: `${clean}/text` };
 }
 
@@ -651,7 +651,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // la dirección de su broker.
   mqttEnabled: false,
   mqttUrl: 'mqtt://192.168.1.100:1883',
-  mqttTopic: 'interview-helper/answer',
+  mqttTopic: 'tayori/answer',
   mqttUsername: '',
 };
 

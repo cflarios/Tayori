@@ -42,7 +42,7 @@ function pickOutputDir() {
 
   const localAppData = process.env.LOCALAPPDATA;
   const base = localAppData && existsSync(localAppData) ? localAppData : tmpdir();
-  return join(base, 'InterviewHelper-release');
+  return join(base, 'Tayori-release');
 }
 
 const outputDir = pickOutputDir();
@@ -64,7 +64,7 @@ if (relocated) {
 // Se invoca el cli.js con el propio node en lugar de `npx ... {shell:true}`:
 // pasar argumentos con shell los concatena sin escapar, y Node avisa de ello
 // (DEP0190). Sin shell tampoco hay que preocuparse por rutas con espacios,
-// que es justo el caso de este proyecto ("Interview Helper").
+// que es justo el caso de este proyecto si vive bajo una carpeta con espacios.
 const cli = join(projectRoot, 'node_modules', 'electron-builder', 'cli.js');
 if (!existsSync(cli)) {
   console.error('[build] No se encontró electron-builder. Ejecuta `npm install` primero.');

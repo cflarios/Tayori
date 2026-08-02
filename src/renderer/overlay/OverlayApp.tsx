@@ -432,7 +432,7 @@ function StatusBar({
         <button
           type="button"
           className="iconbtn iconbtn--close"
-          title="Cerrar Interview Helper (Ctrl+Shift+H solo lo oculta)"
+          title="Cerrar Tayori (Ctrl+Shift+H solo lo oculta)"
           aria-label="Cerrar"
           onClick={() => void window.api.window.quit()}
         >

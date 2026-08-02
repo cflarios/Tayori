@@ -1,4 +1,4 @@
-# Interview Helper
+# Tayori
 
 Asistente de IA en tiempo real para reuniones y entrevistas. Escucha la llamada,
 transcribe quién dice qué, y sugiere respuestas en un overlay que **no aparece
@@ -61,7 +61,7 @@ npm run build:win
 
 Los artefactos quedan en `release/`. **Si el proyecto está dentro de OneDrive,
 Dropbox o similar**, el script los saca automáticamente a
-`%LOCALAPPDATA%\InterviewHelper-release` y avisa por consola: OneDrive mantiene
+`%LOCALAPPDATA%\Tayori-release` y avisa por consola: OneDrive mantiene
 un lock sobre la carpeta y electron-builder falla con `EPERM` al desempaquetar
 Electron. Puedes forzar otra ruta con la variable `IH_BUILD_OUT`.
 
@@ -343,7 +343,7 @@ sin meter un parser de JSON en la placa.
 
 ```cpp
 // ESP32, con PubSubClient
-client.subscribe("interview-helper/answer/text");
+client.subscribe("tayori/answer/text");
 // callback(topic, payload, length) → payload es la respuesta, tal cual
 ```
 

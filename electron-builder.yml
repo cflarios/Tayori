@@ -4,7 +4,7 @@ appId: com.interviewhelper.app
 # accesos directos y el instalador. Genérico y plausible durante una llamada, y
 # NO imita un proceso real de Windows (svchost, RuntimeBroker…) porque eso
 # dispararía el antivirus. Cámbialo por el que prefieras: es solo cosmético.
-# La marca "Interview Helper" que ve el usuario vive en la UI (código), no aquí,
+# La marca "Tayori" que ve el usuario vive en la UI (código), no aquí,
 # y `app.name` (ruta de userData) se ancla en main/index.ts, no en este campo.
 productName: Audio Helper
 executableName: Audio Helper

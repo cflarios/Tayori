@@ -442,9 +442,14 @@ const hotkeyActions = {
 
 // Fija app.name ANTES de cualquier getPath('userData'). El build empaquetado se
 // renombra a un nombre neutro en electron-builder.yml (para que el Administrador
-// de tareas no muestre "Interview Helper"), pero `app.name` deriva de aquí, no
+// de tareas no muestre "Tayori"), pero `app.name` deriva de aquí, no
 // del productName del empaquetado. Sin este anclaje, un cambio de productName
 // podría mover userData y orfanar los settings y la API key cifrada con DPAPI.
+//
+// NO se renombró con el resto de la marca en el paso a "Tayori", y no es un
+// olvido: este identificador ES la ruta de `%APPDATA%`. Cambiarlo dejaría los
+// settings y las claves de todo el mundo en la carpeta vieja, sin ningún error
+// que lo delatara — la app simplemente arrancaría como recién instalada.
 app.setName('interview-helper');
 
 // Inmediatamente después de fijar el nombre, porque la ruta del log sale de

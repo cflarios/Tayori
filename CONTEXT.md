@@ -559,7 +559,7 @@ Dos cosas distintas que el usuario pidió, con alcances muy distintos:
 
 - **Nombre del proceso:** renombrado a `Audio Helper` en `electron-builder.yml`
   (`productName` + `executableName` + `nsis.shortcutName`). Es **cosmético**: no
-  oculta el proceso, sólo evita que un vistazo casual muestre "Interview Helper".
+  oculta el proceso, sólo evita que un vistazo casual muestre "Tayori".
 
 **Se descartó explícitamente el ocultamiento tipo rootkit** (driver de kernel
 que intercepte `NtQuerySystemInformation`, o hooking de `taskmgr.exe`): es
@@ -576,6 +576,31 @@ empaquetado. Se ancló además con `app.setName('interview-helper')` al inicio d
 app deja de encontrar los settings y la API key cifrada con DPAPI: quedan
 huérfanos en la carpeta vieja. Verificar siempre que userData sigue siendo
 `%APPDATA%\interview-helper` tras tocar el empaquetado.
+
+### El rebranding a Tayori paró donde empiezan los datos
+
+El proyecto pasó a llamarse **Tayori**, y el cambio se detuvo a propósito en la
+frontera de arriba. Tres capas, tres criterios:
+
+| Capa | Qué pasó | Por qué |
+|---|---|---|
+| Marca visible (UI, docs, guía de modelos, cliente MQTT, tema por defecto) | Renombrada | Es lo que el usuario lee: es *el* rebranding |
+| `package.json` `name` y `app.setName('interview-helper')` | **Intactos** | Son la ruta de `%APPDATA%`. Renombrarlos deja los settings y las claves cifradas en la carpeta vieja, **sin ningún error**: la app arranca como recién instalada |
+| `appId`, `productName`, `executableName` (`Audio Helper`) | **Intactos** | Es la cara que ve el Administrador de tareas, y es neutra a propósito. Además, cambiar `appId` orfanaría las instalaciones existentes |
+
+La tentación al ver un rebranding a medias es "terminarlo". No está a medias: el
+`electron-builder.yml` ya documentaba esta separación antes del cambio de nombre
+—«la marca que ve el usuario vive en la UI, no aquí»— y el rebranding se limitó
+a la capa que ese comentario señala.
+
+**Lo que sí se puede renombrar sin romper nada** es `productName` /
+`executableName`: sólo cambia el nombre del `.exe` y del acceso directo. Pero es
+una decisión de discreción, no de marca — el nombre neutro existe para que un
+vistazo al Administrador de tareas no diga a qué se dedica la app.
+
+**`release-please-config.json` conserva `package-name: interview-helper`.** Es
+cosmético —afecta al título del changelog—, pero la publicación costó tres
+intentos por trampas silenciosas (ver §12) y no se toca a cambio de nada.
 
 ### El dashboard se abre sólo desde el engranaje
 
@@ -1362,13 +1387,13 @@ No es configuración: OneDrive mantiene un lock sobre la carpeta mientras la
 sincroniza. Además, sincronizar ~215 MB de artefactos no tiene ningún sentido.
 
 `scripts/build-win.mjs` detecta si el proyecto vive en una carpeta sincronizada
-y saca la salida a `%LOCALAPPDATA%\InterviewHelper-release`, avisando por
+y saca la salida a `%LOCALAPPDATA%\Tayori-release`, avisando por
 consola. Se puede forzar otra ruta con `IH_BUILD_OUT`.
 
 Ese script invoca `cli.js` con `process.execPath` en lugar de `npx` con
 `shell: true`, por dos motivos: pasar argumentos con shell los concatena **sin
 escapar** (Node avisa con DEP0190), y la ruta de este proyecto **contiene
-espacios** ("Interview Helper").
+espacios** ("Tayori").
 
 ---
 

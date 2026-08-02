@@ -226,7 +226,7 @@ export function renderModelGuide(specs: SystemSpecs, generatedAt = new Date()): 
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Qué modelo usar · Interview Helper</title>
+<title>Qué modelo usar · Tayori</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -440,7 +440,7 @@ ${RECIPES.map(
 </p>
 
 <footer>
-  Generado por Interview Helper para este equipo. Este documento no se envía a ningún
+  Generado por Tayori para este equipo. Este documento no se envía a ningún
   sitio: se ha escrito en tu carpeta de datos y se ha abierto en tu navegador.
 </footer>
 
