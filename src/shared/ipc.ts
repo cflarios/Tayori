@@ -202,6 +202,16 @@ export const IPC = {
   /** Cambió la conexión con el broker, o se publicó algo. */
   onMqttStatus: 'event:mqtt-status',
 
+  /**
+   * Se guardó o se borró una API key.
+   *
+   * Existe porque el overlay decide con esto si enseña «Falta configurar la
+   * IA», y sin el evento ese aviso sólo se calculaba al arrancar: pegabas la
+   * clave que faltaba en el dashboard y el panel seguía diciendo que faltaba.
+   * Viaja la **presencia**, nunca la clave.
+   */
+  onSecrets: 'event:secrets',
+
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
 } as const;

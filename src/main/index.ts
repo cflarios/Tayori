@@ -210,13 +210,25 @@ function registerIpcHandlers(): void {
   // quedado atrás con la contraseña de MQTT —que se guardaba igual, porque el
   // preload sí manda el tipo bueno— y volvería a quedarse con el siguiente
   // proveedor. Un `Record` compartido es lo que hace que el build lo cace.
+  /*
+   * Las dos difunden la presencia además de devolverla.
+   *
+   * Quien la cambia es el dashboard, pero quien la necesita es también el
+   * overlay: su aviso de «Falta configurar la IA» sale de aquí. Sin la difusión,
+   * pegar la clave que falta dejaba el aviso puesto hasta reiniciar, que es
+   * exactamente el momento en el que alguien concluye que la app está rota.
+   */
   ipcMain.handle(IPC.secretsSet, (_e, key: SecretKey, value: string) => {
     setSecret(key, value);
-    return getPresence();
+    const presence = getPresence();
+    broadcast(IPC.onSecrets, presence);
+    return presence;
   });
   ipcMain.handle(IPC.secretsClear, (_e, key: SecretKey) => {
     clearSecret(key);
-    return getPresence();
+    const presence = getPresence();
+    broadcast(IPC.onSecrets, presence);
+    return presence;
   });
 
   // ── Ventanas ──

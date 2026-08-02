@@ -927,6 +927,37 @@ export function normalizeModelId(raw: string): string {
   return raw.replace(/\s+/g, '').trim();
 }
 
+/**
+ * Si el proveedor elegido puede responder ahora mismo.
+ *
+ * Vive aquí, y en `shared/`, porque **tres pantallas hacían esta misma cuenta
+ * por separado**: el aviso del dashboard, el estado central del overlay y el
+ * paso del asistente. Cada una era una cadena de `if` con los proveedores de
+ * cuando se escribió, y ninguna rompía el build al añadir uno nuevo — la
+ * cadena simplemente caía al último caso y contestaba por el proveedor
+ * equivocado. Añadir ChatGPT lo dejó a la vista: preguntar por Ollama y que
+ * respondiera la clave de Google.
+ *
+ * El `Record` es lo que lo arregla de verdad: un id nuevo en `LLMProviderId`
+ * **no compila** hasta que alguien decida qué necesita ese proveedor para
+ * poder responder.
+ */
+const READY_BY_PROVIDER: Record<
+  LLMProviderId,
+  (settings: Settings, presence: SecretsPresence) => boolean
+> = {
+  // Ollama no necesita credencial, pero SÍ un modelo elegido: sin él cada
+  // pregunta falla con "no hay ningún modelo seleccionado".
+  ollama: (settings) => Boolean(settings.llmModels.ollama),
+  claude: (_settings, presence) => presence.anthropic,
+  gemini: (_settings, presence) => presence.google,
+  openai: (_settings, presence) => presence.openai,
+};
+
+export function providerIsReady(settings: Settings, presence: SecretsPresence): boolean {
+  return READY_BY_PROVIDER[settings.llmProviderId](settings, presence);
+}
+
 /** Las keys nunca viajan al renderer; solo si están presentes o no. */
 export interface SecretsPresence {
   anthropic: boolean;

@@ -6,7 +6,13 @@ import {
   skillIdFromFolder,
 } from '../src/shared/skills';
 import { buildSystemPrompt } from '../src/main/core/prompt';
-import { DEFAULT_SETTINGS, type Settings, type Skill } from '../src/shared/types';
+import {
+  DEFAULT_SETTINGS,
+  providerIsReady,
+  type SecretsPresence,
+  type Settings,
+  type Skill,
+} from '../src/shared/types';
 
 const settings = (patch: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, ...patch });
 
@@ -248,5 +254,51 @@ describe('buildSystemPrompt con skill', () => {
     // activa sin decirle cuál, que es peor que no decir nada.
     const prompt = buildSystemPrompt(settings(), undefined, skill({ instructions: '   ' }));
     expect(prompt).not.toContain('<instruccion_activa>');
+  });
+});
+
+/**
+ * «¿Puede responder el proveedor elegido?»
+ *
+ * Esta cuenta la hacían tres pantallas por separado, cada una con su cadena de
+ * `if`, y ninguna rompía el build al añadir un proveedor: la cadena caía al
+ * último caso y contestaba por otro. El síntoma real fue el peor de los suyos —
+ * el overlay diciendo «Falta configurar la IA» con la IA configurada.
+ */
+describe('providerIsReady', () => {
+  const presence = (patch: Partial<SecretsPresence> = {}): SecretsPresence => ({
+    anthropic: false,
+    google: false,
+    openai: false,
+    mqtt: false,
+    ...patch,
+  });
+
+  it('cada proveedor mira SU credencial y no la del vecino', () => {
+    expect(providerIsReady(settings({ llmProviderId: 'claude' }), presence({ anthropic: true }))).toBe(true);
+    expect(providerIsReady(settings({ llmProviderId: 'claude' }), presence({ google: true }))).toBe(false);
+    expect(providerIsReady(settings({ llmProviderId: 'openai' }), presence({ openai: true }))).toBe(true);
+    expect(providerIsReady(settings({ llmProviderId: 'openai' }), presence({ anthropic: true }))).toBe(false);
+    expect(providerIsReady(settings({ llmProviderId: 'gemini' }), presence({ google: true }))).toBe(true);
+  });
+
+  it('la clave que falta en OTRO proveedor no apaga al elegido', () => {
+    // El caso exacto del fallo: con Ollama puesto y un modelo elegido, no tener
+    // clave de OpenAI no tiene por qué decir nada.
+    const current = settings({
+      llmProviderId: 'ollama',
+      llmModels: { ...DEFAULT_SETTINGS.llmModels, ollama: 'qwen2.5vl:latest' },
+    });
+    expect(providerIsReady(current, presence())).toBe(true);
+  });
+
+  it('Ollama no necesita clave, pero sí un modelo', () => {
+    // Sin modelo, cada pregunta falla con "no hay ningún modelo seleccionado", y
+    // antes ese caso pasaba por configurado sin enseñar ningún aviso.
+    const sinModelo = settings({
+      llmProviderId: 'ollama',
+      llmModels: { ...DEFAULT_SETTINGS.llmModels, ollama: '' },
+    });
+    expect(providerIsReady(sinModelo, presence({ anthropic: true }))).toBe(false);
   });
 });

@@ -899,44 +899,12 @@ body {
 /* ── Skills ── */
 
 /*
- * Desplegable y no chips: los perfiles son seis y fijos, las skills son las que
- * cada uno meta en su carpeta. Una fila de chips que puede crecer sin límite no
- * cabe en un panel de 380 px.
+ * En el overlay las skills sólo tienen esta cara: el autocompletado de `/skill`
+ * dentro de la pestaña de escritura. El desplegable que hubo aquí se quitó —
+ * ocupaba sitio permanente en un panel que existe para leer, por un ajuste que
+ * se toca una vez. Elegir la skill fija es cosa del dashboard.
  */
-.skillbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
 
-.skillbar__label {
-  font-size: 10.5px;
-  color: #6b7075;
-  flex-shrink: 0;
-}
-
-.skillbar__select {
-  font-family: inherit;
-  font-size: 10.5px;
-  color: #9aa0a6;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 3px 7px;
-  cursor: pointer;
-  max-width: 100%;
-  /* El nombre de una skill lo pone el usuario y puede ser largo: se recorta en
-     lugar de estirar el panel, que tiene un ancho fijo por preset. */
-  text-overflow: ellipsis;
-}
-
-.skillbar__select:hover {
-  color: #e8eaed;
-  background: rgba(255, 255, 255, 0.09);
-}
-
-/* Autocompletado de `/skill`, encima del campo. */
 .skillmenu {
   display: flex;
   flex-direction: column;

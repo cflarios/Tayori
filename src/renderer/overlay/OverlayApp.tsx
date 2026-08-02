@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-format';
-import { clampFontScale } from '@shared/types';
+import { clampFontScale, providerIsReady } from '@shared/types';
 import { matchSkills } from '@shared/skills';
 import type {
   Answer,
@@ -535,50 +535,16 @@ function ProfileChips({
   );
 }
 
-/**
- * La skill activa, como desplegable y no como chips.
+/*
+ * Aquí hubo un desplegable de skills, y se quitó.
  *
- * Los perfiles son chips porque son seis fijos y se alternan; las skills son
- * una lista que crece con lo que cada uno meta en su carpeta, y una fila de
- * chips que puede tener veinte elementos deja de caber en un panel de 380 px.
- *
- * Está aquí y no sólo en el dashboard por el criterio de siempre: ¿lo
- * necesitarías a mitad de una llamada? Con esto sí — la respuesta anterior
- * sonó a plantilla y quieres cambiar el tono para la siguiente sin abrir la
- * ventana que roba el foco.
+ * Pasaba el criterio de "¿lo necesitarías a mitad de una llamada?" pero fallaba
+ * el otro, que en este panel pesa más: **cada control que sube al overlay le
+ * quita sitio a lo que se ha venido a leer**. La skill activa se elige una vez
+ * y se olvida —no es como el perfil, que se alterna— así que su sitio es el
+ * dashboard, y para el caso puntual está `/skill` en la pestaña de escritura,
+ * que no ocupa ni un píxel hasta que se teclea la barra.
  */
-function SkillPicker({
-  skills,
-  active,
-  onChange,
-}: {
-  skills: Skill[];
-  active: string;
-  onChange: (id: string) => void;
-}) {
-  const usable = skills.filter((skill) => !skill.error);
-  // Sin ninguna skill instalada esto sería un desplegable con una sola opción
-  // que no hace nada, y la barra de este panel ya va justa de sitio.
-  if (usable.length === 0) return null;
-
-  return (
-    <div className="skillbar" data-interactive>
-      <span className="skillbar__label">Skill</span>
-      <select
-        className="skillbar__select"
-        value={usable.some((skill) => skill.id === active) ? active : ''}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">Ninguna</option>
-        {usable.map((skill) => (
-          <option key={skill.id} value={skill.id}>
-            {skill.name}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
 
 /**
  * Acciones rápidas sobre la última respuesta.
@@ -1351,22 +1317,37 @@ export function OverlayApp() {
     void api.capture.getStatus().then(setStatus);
     void api.memory.get().then(setMemory);
     void api.skills.list().then(setSkills);
-    // Ollama no necesita clave, pero SÍ un modelo elegido: sin él cada consulta
-    // falla con "no hay ningún modelo seleccionado", y antes ese caso pasaba por
-    // configurado y no mostraba ningún aviso. Claude y Gemini exigen su clave.
-    void Promise.all([api.settings.get(), api.secrets.getPresence()]).then(
-      ([current, presence]) => {
-        setConfigured(
-          (current.llmProviderId === 'ollama' && Boolean(current.llmModels.ollama)) ||
-            (current.llmProviderId === 'claude' && presence.anthropic) ||
-            (current.llmProviderId === 'gemini' && presence.google) ||
-            (current.llmProviderId === 'openai' && presence.openai)
-        );
-      }
-    );
+
+    /*
+     * "¿Está configurada la IA?" se vuelve a preguntar en CADA cambio, no sólo
+     * al arrancar.
+     *
+     * El fallo que arregla se ve en pantalla y no en ningún log: bastaba con
+     * probar otro proveedor un momento —uno sin clave— para que el panel se
+     * quedara con «Falta configurar la IA» **para siempre**, aunque se volviera
+     * al de antes. El aviso se calculaba una vez al montar y nada lo revisaba.
+     *
+     * Y se recalcula por los dos lados, porque el veredicto depende de dos
+     * cosas que cambian por separado: el proveedor elegido (settings) y si su
+     * clave sirve (secrets). Escuchar sólo una dejaba la mitad de los casos
+     * mintiendo — pegar la clave que falta y que el aviso siguiera ahí es el
+     * más frustrante de los dos.
+     */
+    const recheck = (current?: Settings): void => {
+      void Promise.all([current ? Promise.resolve(current) : api.settings.get(), api.secrets.getPresence()]).then(
+        ([settingsNow, presence]) => setConfigured(providerIsReady(settingsNow, presence))
+      );
+    };
+    recheck();
 
     const unsubs = [
-      api.settings.onChange(setSettings),
+      api.settings.onChange((next) => {
+        setSettings(next);
+        recheck(next);
+      }),
+      // Sin argumento a propósito: lo que llega por ahí es la presencia, no los
+      // settings, y `recheck` los pediría de nuevo igualmente.
+      api.secrets.onChange(() => recheck()),
       api.capture.onStatus(setStatus),
       api.capture.onLevels(setLevels),
       api.screenshot.onCaptured(setShot),
@@ -1501,17 +1482,10 @@ export function OverlayApp() {
         y porque parar la escucha tiene que estar siempre a mano.
       */}
       {!compact && settings && (
-        <>
-          <ProfileChips
-            active={settings.promptProfileId}
-            onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
-          />
-          <SkillPicker
-            skills={skills}
-            active={settings.activeSkillId}
-            onChange={(activeSkillId) => void window.api.settings.update({ activeSkillId })}
-          />
-        </>
+        <ProfileChips
+          active={settings.promptProfileId}
+          onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
+        />
       )}
 
       {/*

@@ -12,6 +12,7 @@ import {
   mqttTopics,
   packsForProfile,
   PROFILE_SLOTS,
+  providerIsReady,
   screenModelFor,
   speakersFor,
 } from '@shared/types';
@@ -486,7 +487,7 @@ export function DashboardApp() {
   const alerts: Partial<Record<SectionId, boolean>> = {
     general: !settings.stealthEnabled,
     audio: status.state === 'error',
-    models: !providerReady(settings, presence),
+    models: !providerIsReady(settings, presence),
     behaviour: autoTriggerIsInert(settings),
     hotkeys: failedHotkeys.length > 0 || duplicateAccelerators(settings.hotkeys).size > 0,
   };
@@ -597,17 +598,13 @@ export function DashboardApp() {
   );
 }
 
-/**
- * Si el proveedor elegido puede responder. Ollama cuenta como configurado sin
- * credencial —no la necesita—, pero sí necesita un modelo elegido: sin él, cada
- * pregunta falla con "no hay ningún modelo seleccionado".
+/*
+ * La regla de "¿puede responder este proveedor?" vive en `shared/types.ts`.
+ *
+ * Estaba escrita aquí y otra vez en el overlay, con cadenas de `if` distintas,
+ * y eran dos sitios que había que acordarse de tocar con cada proveedor nuevo
+ * sin que nada avisara si se olvidaba uno.
  */
-function providerReady(settings: Settings, presence: SecretsPresence): boolean {
-  if (settings.llmProviderId === 'ollama') return Boolean(settings.llmModels.ollama);
-  if (settings.llmProviderId === 'claude') return presence.anthropic;
-  if (settings.llmProviderId === 'openai') return presence.openai;
-  return presence.google;
-}
 
 /**
  * Estado de la escucha, y el mando para cambiarlo.

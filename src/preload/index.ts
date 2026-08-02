@@ -55,6 +55,14 @@ const api = {
     set: (key: SecretKey, value: string): Promise<SecretsPresence> =>
       ipcRenderer.invoke(IPC.secretsSet, key, value),
     clear: (key: SecretKey): Promise<SecretsPresence> => ipcRenderer.invoke(IPC.secretsClear, key),
+    /**
+     * Se guardó o se borró una clave, en cualquier ventana.
+     *
+     * Lo escucha el overlay: su aviso de «Falta configurar la IA» depende de
+     * esto, y sin el evento se quedaba con la respuesta del arranque. Viaja la
+     * presencia —cuatro booleanos—, nunca una clave.
+     */
+    onChange: (cb: (p: SecretsPresence) => void) => subscribe<SecretsPresence>(IPC.onSecrets, cb),
   },
 
   window: {
