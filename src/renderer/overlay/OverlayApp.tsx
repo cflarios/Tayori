@@ -718,7 +718,7 @@ function IdleHero({
     // único que se puede hacer, en lugar de un aviso aparte encima del panel.
     setup: {
       title: 'Falta configurar la IA',
-      sub: 'Pega una API key de Anthropic o de Google para empezar',
+      sub: 'Pega una API key de Anthropic, Google u OpenAI para empezar',
       action: 'Abrir configuración',
     },
     idle: {
@@ -1251,7 +1251,8 @@ export function OverlayApp() {
         setConfigured(
           (current.llmProviderId === 'ollama' && Boolean(current.llmModels.ollama)) ||
             (current.llmProviderId === 'claude' && presence.anthropic) ||
-            (current.llmProviderId === 'gemini' && presence.google)
+            (current.llmProviderId === 'gemini' && presence.google) ||
+            (current.llmProviderId === 'openai' && presence.openai)
         );
       }
     );

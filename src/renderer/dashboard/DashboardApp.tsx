@@ -379,6 +379,7 @@ export function DashboardApp() {
   const [presence, setPresence] = useState<SecretsPresence>({
     anthropic: false,
     google: false,
+    openai: false,
     mqtt: false,
   });
   const [status, setStatus] = useState<CaptureStatus>({
@@ -595,6 +596,7 @@ export function DashboardApp() {
 function providerReady(settings: Settings, presence: SecretsPresence): boolean {
   if (settings.llmProviderId === 'ollama') return Boolean(settings.llmModels.ollama);
   if (settings.llmProviderId === 'claude') return presence.anthropic;
+  if (settings.llmProviderId === 'openai') return presence.openai;
   return presence.google;
 }
 
@@ -1244,6 +1246,13 @@ function ApiKeysCard({
         onSave={(v) => saveSecret('google', v)}
         onClear={() => clearSecret('google')}
       />
+      <SecretField
+        label="OpenAI (ChatGPT)"
+        hint="platform.openai.com → API keys. Sólo responde: la transcripción no usa esta clave."
+        present={presence.openai}
+        onSave={(v) => saveSecret('openai', v)}
+        onClear={() => clearSecret('openai')}
+      />
     </section>
   );
 }
@@ -1318,7 +1327,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
             void patch({
               screenProviderId: e.target.value as Settings['screenProviderId'],
               // Cambiar de proveedor invalida el modelo elegido: los ids no se
-              // parecen en nada entre Claude, Gemini y Ollama.
+              // parecen en nada entre un proveedor y el siguiente.
               screenModel: '',
             })
           }
@@ -1326,6 +1335,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
           <option value="same">El mismo que para responder</option>
           <option value="claude">Claude (nube)</option>
           <option value="gemini">Gemini (nube)</option>
+          <option value="openai">ChatGPT (nube)</option>
           <option value="ollama">Ollama (local)</option>
         </select>
       </Row>
@@ -1918,7 +1928,8 @@ const CUSTOM_MODEL = '__custom__';
 /**
  * Elegir modelo: del catálogo, o escribiéndolo.
  *
- * El catálogo de Claude y de Gemini está escrito en el código, así que envejece:
+ * El catálogo de los proveedores de nube está escrito en el código, así que
+ * envejece:
  * cada modelo nuevo del proveedor tarda en llegar aquí lo que tarde una versión
  * de la app, y mientras tanto no hay forma de usarlo aunque tu cuenta tenga
  * acceso. La lista sigue siendo lo primero que se ve —es lo que quiere el 90% y
@@ -2080,6 +2091,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         >
           <option value="claude">Claude (Anthropic)</option>
           <option value="gemini">Gemini (Google)</option>
+          <option value="openai">ChatGPT (OpenAI)</option>
           <option value="ollama">Ollama (local)</option>
         </select>
       </Row>

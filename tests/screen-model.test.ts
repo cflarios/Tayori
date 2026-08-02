@@ -51,7 +51,12 @@ describe('screenModelFor', () => {
     const target = screenModelFor(
       settings({
         llmProviderId: 'ollama',
-        llmModels: { claude: 'claude-sonnet-5', gemini: 'gemini-2.5-flash', ollama: 'llama3.2:3b' },
+        llmModels: {
+          claude: 'claude-sonnet-5',
+          gemini: 'gemini-2.5-flash',
+          openai: 'gpt-5.6-terra',
+          ollama: 'llama3.2:3b',
+        },
         screenProviderId: 'ollama',
         screenModel: 'qwen2.5vl:7b',
       })

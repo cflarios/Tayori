@@ -1004,7 +1004,8 @@ el campo `thinking` y las siguientes ya salen con presupuesto.
 
 ### El catálogo de modelos es una sugerencia, no una frontera
 
-`CLAUDE_MODELS` y `GEMINI_MODELS` están escritos en el código, así que envejecen:
+`CLAUDE_MODELS`, `GEMINI_MODELS` y `OPENAI_MODELS` están escritos en el código,
+así que envejecen:
 cada modelo nuevo del proveedor tardaba en poder usarse **lo que tardara una
 versión de la app**, aunque la cuenta ya tuviera acceso. La lista sigue siendo lo
 primero que se ve —es lo que quiere casi todo el mundo y evita teclear un id de
@@ -1099,6 +1100,16 @@ devuelve identificadores numéricos, pero `auxAttributes.glRenderer` trae la
 cadena de ANGLE —`"ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 …)"`— de la
 que se puede extraer el nombre comercial sin depender de nada externo.
 
+**Esa cadena la escribe el driver, y no todos la escriben igual.** Con drivers
+recientes de NVIDIA llega el id PCI pegado al nombre —`"NVIDIA GeForce RTX 5070
+Ti (0x00002C05)"`— y se colaba entero en una línea que se lee de un vistazo.
+`cleanRenderer` lo quita, y tiene test: el patrón se acota a lo que parece un id
+hexadecimal justamente para no llevarse por delante el paréntesis de un
+`"Intel(R) UHD Graphics 620"`, que sí forma parte del nombre. El id se elimina y
+no se esconde detrás de nada porque no responde a la única pregunta de esa
+tarjeta —qué modelo local le pega a esta máquina—, igual que la VRAM que no se
+puede medir no se estima.
+
 Los tramos salen de una regla sencilla: un modelo cuantizado a 4 bits ocupa
 ~0,6 GB por cada mil millones de parámetros, más el sistema y la ventana de
 contexto. De ahí que un 7B pida ~8 GB libres y un 14B ronde los 16 GB. Los
@@ -1131,6 +1142,112 @@ lleva la lista y además **aprende en caliente**: si un modelo futuro también l
 rechaza, la primera petición lo detecta, reintenta sin el parámetro y las
 siguientes ya salen bien. La lección general es que un parámetro comprobado
 contra un modelo no está comprobado para su familia.
+
+### ChatGPT va por la Responses API, y no es una preferencia
+
+El proveedor de OpenAI (agosto de 2026) se pidió como «añade ChatGPT». Lo que no
+es evidente es que la elección de **API** decide más que la de proveedor:
+
+- **Chat Completions no deja gobernar el razonamiento.** Los modelos GPT-5
+  piensan antes de contestar, y ahí no hay forma de pedirles que piensen poco.
+  La única palanca de latencia que existe —`reasoning.effort`— vive en la
+  Responses API, y esta app se lee de reojo mientras alguien te mira a la cara.
+  Se manda `low` por el mismo motivo que el `effort` de Claude.
+- **`store: false`, y esto es lo que de verdad importa.** La Responses API
+  **guarda por defecto** cada respuesta en la cuenta de OpenAI para poder
+  recuperarla luego por API. Es decir: el valor de fábrica del proveedor deja
+  una copia de lo que se dijo en tu entrevista en un sitio del que esta app no
+  sabe nada. Contradice la línea que §4 lleva defendiendo desde el principio, y
+  por eso se apaga en **todas** las llamadas, incluida la de «Probar conexión».
+  Tiene test contra un servidor real, no contra un cliente simulado: un mock
+  habría pasado igual mandando `store: true`.
+
+**Y la trampa del presupuesto aparece por tercera vez.** `max_output_tokens`
+cuenta los tokens de razonamiento **y** los de la respuesta, exactamente igual
+que `num_predict` en Ollama. Con el tope de 2.200 del modo código, un modelo que
+piensa puede gastárselo entero deliberando y terminar sin escribir un carácter,
+sin ningún error. Ya está documentado dos veces en este archivo —Ollama y el
+reloj del primer token— y aun así hubo que volver a resolverlo aquí, así que
+conviene decirlo como regla y no como anécdota:
+
+> Cuando un proveedor tiene un solo número para «cuánto puedes generar», hay que
+> comprobar si el razonamiento sale de ese número **antes** de fiarse del tope.
+
+`budgetFor(maxTokens, withReasoning)` presta 4.000 tokens aparte. Es menos que
+los 8.000 de Ollama porque con `effort: 'low'` el razonamiento es mucho más
+corto que el de un modelo local de la familia *thinking*, y porque sólo se
+cobran los que se usen.
+
+**`reasoning` se aprende en caliente**, igual que `EFFORT_UNSUPPORTED` en
+`claude.ts` y `KNOWN_THINKERS` en `ollama.ts`. Los modelos sin razonamiento
+—un `gpt-4o` escrito a mano en «Otro…»— devuelven un 400 por un parámetro que
+el usuario no sabe que se está enviando, así que fallarían **todas** sus
+preguntas: es el fallo de Haiku 4.5 calcado. La primera petición lo descubre,
+reintenta sin el bloque y las siguientes ya salen bien.
+
+**El catálogo son los tres GPT-5.6, y los nombres no ayudan.** «Sol», «terra» y
+«luna» no dicen cuál es el grande —a diferencia de `mini`/`nano`, o de
+Haiku/Sonnet/Opus— así que el papel de cada uno **hay que ir a leerlo** en lugar
+de deducirlo, que es exactamente el tipo de suposición que este documento existe
+para desmentir. Verificado contra la referencia de OpenAI:
+
+| Modelo | Qué es | Precio (entrada / salida por millón) |
+|---|---|---|
+| `gpt-5.6-luna` | Cargas sensibles al coste | 0,20 $ / 1,20 $ |
+| `gpt-5.6-terra` | Equilibra capacidad y coste | 2 $ / 12 $ |
+| `gpt-5.6-sol` | Modelo de frontera, trabajo complejo | 5 $ / 30 $ |
+
+Los tres aceptan **texto e imagen**, que es la condición para poder salir
+también en el selector del modelo de pantalla. Eso también se comprobó en lugar
+de darlo por hecho: un modelo sin visión ahí no degrada, **se inventa el
+enunciado entero** y la respuesta parece perfecta.
+
+**El defecto es Terra**, por el mismo motivo por el que en Claude es Sonnet y no
+Opus: esta app dispara una consulta por cada pregunta que oye, así que arrancar
+con el modelo caro se lo cobra a alguien que no ha elegido nada. Luna es de otro
+orden de magnitud —30 veces más barato de salida que Sol— y es la respuesta
+buena para quien mire la factura de la escucha automática.
+
+**Los precios de OpenAI sí se reproducen en la guía**, con fecha, porque se
+pudieron verificar contra su referencia oficial igual que los de Anthropic. Los
+de Google siguen sin reproducirse: la asimetría no es pereza, es el criterio de
+siempre — una cifra que no se pudo verificar hace más daño en una tabla de
+precios que un hueco reconocido.
+
+### Lo que costó añadir ChatGPT, y no era el proveedor
+
+El archivo del proveedor y su entrada en el factory son la parte fácil, y el
+`never` exhaustivo de `llm/index.ts` la hace además a prueba de olvidos. Lo caro
+fueron **tres sitios que el compilador no señala**, y los tres tienen la misma
+forma: una condición escrita a mano que enumera los proveedores de entonces.
+
+| Dónde | Qué pasaba si se olvida |
+|---|---|
+| `providerReady()` en el dashboard | Cae al `else`: la sección «Modelos» sale con aviso de "sin configurar" **con la clave puesta** |
+| El `configured` del overlay | El panel enseña "Falta configurar la IA" para siempre, con el proveedor funcionando |
+| `alreadyThere` en el asistente | Dice "ya tienes una clave" mirando la de otro proveedor |
+
+Las tres decidían la misma pregunta —*¿está configurado esto?*— con tres
+condiciones distintas, y ninguna rompe el build al añadir un id: la cadena de
+ternarios simplemente cae al último caso. En el asistente se sustituyó por
+indexar `presence[choice.secret]`, que no puede quedarse atrás. Las otras dos
+siguen siendo cadenas de `if`, y aquí queda anotado que **son el sitio donde
+mirar** al añadir el siguiente.
+
+Dos cosas más que salieron al pasar, ninguna causada por OpenAI:
+
+- **El asistente borraba modelos de otros proveedores.** El camino local
+  escribía el mapa `llmModels` entero a mano —`{ claude: '', gemini: '', ollama:
+  … }`— con un `as` encima que lo dejaba pasar callando. Quien probaba lo local
+  perdía el modelo que tuviera elegido en la nube. El camino de la nube ya
+  documentaba exactamente esta lección **y el otro no la había aplicado**. Ahora
+  fusiona con lo que hubiera, y sin el `as`, que es lo que además obliga al
+  build a avisar si mañana falta una clave.
+- **El canal IPC de los secretos mentía en el tipo.** `secretsSet` declaraba
+  `key: 'anthropic' | 'google'` mientras el preload ya mandaba `SecretKey`, y la
+  contraseña de MQTT se guardaba por ahí desde hacía tiempo sin aparecer en esa
+  unión. No fallaba nada —el tipo no llega en tiempo de ejecución— pero era una
+  lista escrita a mano condenada a envejecer: ahora es `SecretKey`.
 
 Para Gemini Live, la documentación de Google listaba **tres model IDs distintos**
 en páginas diferentes. La forma de la API se verificó contra los tipos del SDK
@@ -1425,6 +1542,17 @@ capturas de pantalla**, no solo compilando.
 ### NO verificado — requiere claves o intervención manual
 
 - **Streaming real de tokens** de Claude/Gemini (necesita API key del usuario).
+- **ChatGPT contra la API real de OpenAI.** Sí está verificado **el contrato**:
+  `tests/openai-provider.test.ts` levanta un servidor HTTP de verdad que habla
+  la Responses API por SSE, y fija lo que sale (`store: false`, el bloque
+  `reasoning`, el presupuesto prestado, el historial como mensajes, la captura
+  como `input_image`) y lo que se hace con lo que vuelve (negativa, presupuesto
+  agotado, reintento sin `reasoning`, cancelación). Los ids del catálogo, sus
+  papeles, sus precios y que aceptan imágenes salen de la referencia de OpenAI,
+  consultada el 1 de agosto de 2026. Lo que **no** se ha comprobado es una
+  llamada real contra sus servidores: que la cuenta tenga acceso a esos tres
+  modelos. Lo dirá «Probar conexión» — el botón está y el error que devuelve ya
+  distingue clave inválida, sin acceso, sin saldo y modelo inexistente.
 - **Transcripción en vivo** con Gemini Live (ídem).
 - **Auto-disparo sobre habla real** (la heurística sí está cubierta por tests).
 - **Whisper local end-to-end**: los assets **ya están descargados** y se

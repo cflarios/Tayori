@@ -25,7 +25,7 @@ borrar una conversación o borrarlas todas.
 - **Escucha dos fuentes por separado**: tu micrófono y el audio del sistema. Eso
   permite saber quién habla sin diarización.
 - **Transcribe en vivo** con Gemini Live (~300 ms) o Whisper local (offline).
-- **Sugiere respuestas** con Claude, Gemini u Ollama, en streaming.
+- **Sugiere respuestas** con Claude, Gemini, ChatGPT u Ollama, en streaming.
 - **Detecta preguntas** dirigidas a ti y responde sin que pulses nada, o solo con
   hotkey si prefieres controlarlo.
 - **Adjunta capturas de pantalla** como contexto visual para preguntas sobre
@@ -42,9 +42,13 @@ borrar una conversación o borrarlas todas.
 
 - Windows 10 versión 2004 o superior (Windows 11 recomendado).
 - Node.js 20+ y npm, solo para compilar desde el código.
-- Al menos una API key: [Anthropic](https://console.anthropic.com) o
-  [Google AI Studio](https://aistudio.google.com). Ollama y Whisper local no
-  necesitan ninguna.
+- Al menos una API key: [Anthropic](https://console.anthropic.com),
+  [Google AI Studio](https://aistudio.google.com) u
+  [OpenAI](https://platform.openai.com). Ollama y Whisper local no necesitan
+  ninguna.
+  - La de Google vale además para transcribir con Gemini Live. La de OpenAI
+    **sólo responde**: si es la única que pones, la voz la resuelve Whisper
+    local.
 
 ## Instalación
 
@@ -74,8 +78,8 @@ La primera vez que abres el dashboard sale un asistente que lo deja todo
 funcionando sin que tengas que saber qué es un proveedor ni cuánta RAM tienes.
 Mide tu equipo y te propone uno de dos caminos:
 
-- **En la nube.** Eliges Claude o Gemini, pegas la API key y listo. Nada que
-  instalar. Pagas por uso al proveedor.
+- **En la nube.** Eliges Claude, Gemini o ChatGPT, pegas la API key y listo.
+  Nada que instalar. Pagas por uso al proveedor.
 - **En tu equipo.** Si no tienes Ollama, lo instala con `winget` —el gestor de
   paquetes de Windows, con su aviso de permiso— y descarga los dos modelos que
   le pegan a tu hardware: uno para conversar y otro para leer la pantalla.
@@ -100,7 +104,7 @@ vuelvas.
    la única forma de abrirla: no hay atajo ni se abre sola. Arriba del todo hay
    una guía de **primeros pasos** con las cuatro cosas que hay que hacer; se
    marca sola según las completas y desaparece al terminar.
-3. Pega tu API key de Anthropic o de Google.
+3. Pega tu API key de Anthropic, de Google o de OpenAI.
 4. Elige **qué se escucha**. Por defecto son ambas fuentes; si prefieres que el
    asistente no procese tus propias respuestas, cambia a *Solo la salida del
    sistema*.
@@ -199,8 +203,8 @@ imágenes y avisa antes de que lo descubras a mitad de examen.
 
 ### Un modelo que no está en la lista
 
-Los desplegables de Claude y de Gemini traen los modelos que la app conoce, y esa
-lista envejece con cada versión. Si tu cuenta tiene acceso a otro, elige
+Los desplegables de los proveedores de nube traen los modelos que la app conoce,
+y esa lista envejece con cada versión. Si tu cuenta tiene acceso a otro, elige
 **«Otro…»** y escribe su id: se guarda tal cual y se usa como cualquiera de la
 lista. Un id inventado no falla al guardarlo, falla en la primera pregunta, así
 que confírmalo con **Probar conexión**.
@@ -392,8 +396,10 @@ y lo abre en el navegador. Ahí está lo que no cabe en una columna de ajustes:
   descarga y la RAM que conviene tener libre.
 - Los **multimodales** —los únicos que pueden leer tu pantalla— por separado,
   porque es el error más caro: elegir uno de texto deja los dos botones muertos.
-- Los de pago ordenados por precio, con las cifras de Anthropic verificadas
-  contra su referencia y fechadas.
+- Los de pago ordenados por precio, con las cifras de Anthropic y de OpenAI
+  verificadas contra la referencia oficial de cada uno y fechadas. Las de Google
+  **no se reproducen**: no se pudieron verificar igual, y un precio inventado
+  engaña más que un hueco reconocido.
 - **Cuánto cuesta de verdad una pulsación de pantalla**: una captura ronda los
   4.800 tokens de entrada, así que sale por céntimos incluso con el modelo caro.
   Lo que suma no es eso, es la escucha automática.
@@ -501,6 +507,13 @@ copia de tus respuestas fuera de la ventana protegida.
 internet, así que con esto encendido el texto de tus respuestas puede salir de
 tu máquina y de tu red. Tampoco incluye la transcripción, y también empieza
 apagado.
+
+**2 quater. Lo que el proveedor guarda por su cuenta.** La API de OpenAI
+**almacena por defecto** cada respuesta en tu cuenta para poder recuperarla
+después; la app lo desactiva explícitamente (`store: false`) en todas sus
+llamadas. Eso cubre lo que depende de nosotros, pero no las políticas de
+retención propias de cada proveedor: lo que envíes a Anthropic, a Google o a
+OpenAI se rige por las suyas, y ninguna es cosa de esta app.
 
 **3. Dónde vives esa conversación.** Muchas empresas restringen el uso de
 asistentes de IA en sus procesos de selección, con independencia de lo que

@@ -102,6 +102,7 @@ export function getPresence(): SecretsPresence {
   return {
     anthropic: Boolean(getSecret('anthropic')),
     google: Boolean(getSecret('google')),
+    openai: Boolean(getSecret('openai')),
     mqtt: Boolean(getSecret('mqtt')),
   };
 }

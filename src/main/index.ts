@@ -19,6 +19,7 @@ import type {
   MqttStatus,
   PhoneMirrorStatus,
   ScreenTask,
+  SecretKey,
   Settings,
 } from '@shared/types';
 import { settingsStore } from './config/store';
@@ -204,11 +205,15 @@ function registerIpcHandlers(): void {
 
   // ── Secretos (las keys nunca salen hacia el renderer) ──
   ipcMain.handle(IPC.secretsGetPresence, () => getPresence());
-  ipcMain.handle(IPC.secretsSet, (_e, key: 'anthropic' | 'google', value: string) => {
+  // El tipo es `SecretKey` y no una lista escrita a mano: ésta ya se había
+  // quedado atrás con la contraseña de MQTT —que se guardaba igual, porque el
+  // preload sí manda el tipo bueno— y volvería a quedarse con el siguiente
+  // proveedor. Un `Record` compartido es lo que hace que el build lo cace.
+  ipcMain.handle(IPC.secretsSet, (_e, key: SecretKey, value: string) => {
     setSecret(key, value);
     return getPresence();
   });
-  ipcMain.handle(IPC.secretsClear, (_e, key: 'anthropic' | 'google') => {
+  ipcMain.handle(IPC.secretsClear, (_e, key: SecretKey) => {
     clearSecret(key);
     return getPresence();
   });

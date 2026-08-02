@@ -59,7 +59,7 @@ export interface CaptureStatus {
 
 // ──────────────────────────────── Providers ─────────────────────────────────
 
-export type LLMProviderId = 'claude' | 'gemini' | 'ollama';
+export type LLMProviderId = 'claude' | 'gemini' | 'openai' | 'ollama';
 export type STTProviderId = 'gemini-live' | 'whisper-local' | 'gemini-audio';
 
 export interface ModelInfo {
@@ -615,6 +615,7 @@ export const DEFAULT_SETTINGS: Settings = {
   llmModels: {
     claude: 'claude-sonnet-5',
     gemini: 'gemini-2.5-flash',
+    openai: 'gpt-5.6-terra',
     ollama: '',
   },
   // `same` reproduce el comportamiento de antes de que esto existiera.
@@ -868,7 +869,7 @@ export interface PhoneMirrorStatus {
  * línea, o con un espacio duro— y el proveedor responde 404. El mensaje que
  * llega es "el modelo indicado no existe", que manda a buscar el modelo bueno
  * cuando el modelo ya era el bueno. Un id de modelo no lleva espacios en
- * ninguno de los tres proveedores, así que quitarlos no puede romper nada.
+ * ninguno de los proveedores, así que quitarlos no puede romper nada.
  */
 export function normalizeModelId(raw: string): string {
   return raw.replace(/\s+/g, '').trim();
@@ -878,6 +879,14 @@ export function normalizeModelId(raw: string): string {
 export interface SecretsPresence {
   anthropic: boolean;
   google: boolean;
+  /**
+   * API key de OpenAI.
+   *
+   * Es la única de las tres de IA que **no** sirve para nada más en la app: la
+   * de Google vale además para la transcripción con Gemini Live, y la de
+   * Anthropic es la del proveedor por defecto. Ésta sólo responde.
+   */
+  openai: boolean;
   /**
    * Contraseña del broker MQTT.
    *

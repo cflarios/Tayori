@@ -28,6 +28,7 @@
     "@google/genai": "^2.13.0",
     "mqtt": "5.15.2",
     "ollama": "^0.6.3",
+    "openai": "^7.3.0",
     "qrcode-generator": "2.0.4",
     "zustand": "5.0.14"
   },

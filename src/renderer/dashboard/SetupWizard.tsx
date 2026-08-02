@@ -113,6 +113,7 @@ export function SetupWizard({
 
         {step === 'brain' && path === 'local' && (
           <LocalStep
+            settings={settings}
             specs={specs}
             patch={patch}
             onDone={() => setStep('voice')}
@@ -277,6 +278,14 @@ const CLOUD_PROVIDERS = [
     where: 'aistudio.google.com → Get API key',
     note: 'Más barato, y la misma clave sirve para transcribir en directo.',
   },
+  {
+    id: 'openai' as const,
+    secret: 'openai' as const,
+    label: 'ChatGPT (OpenAI)',
+    model: 'gpt-5.6-terra',
+    where: 'platform.openai.com → API keys',
+    note: 'Si ya pagas OpenAI. Responde, pero no transcribe: eso pide otra clave.',
+  },
 ];
 
 function CloudStep({
@@ -299,7 +308,10 @@ function CloudStep({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const alreadyThere = choice.secret === 'anthropic' ? presence.anthropic : presence.google;
+  // Se indexa por la clave del propio proveedor y no con una cadena de
+  // ternarios: con dos proveedores aquello se leía, con el tercero ya era una
+  // rama que hay que actualizar cada vez y que no avisa cuando se olvida.
+  const alreadyThere = presence[choice.secret];
 
   const apply = async (): Promise<void> => {
     setBusy(true);
@@ -402,11 +414,13 @@ function CloudStep({
  * sacado y que un usuario nuevo no tiene forma de saber.
  */
 function LocalStep({
+  settings,
   specs,
   patch,
   onDone,
   onBack,
 }: {
+  settings: Settings;
   specs: SystemSpecs | null;
   patch: (p: Partial<Settings>) => Promise<void>;
   onDone: () => void;
@@ -459,11 +473,19 @@ function LocalStep({
         }
       }
 
-      // Los dos papeles quedan separados desde el primer día: el de conversar
-      // pide latencia y el de la pantalla pide vista.
+      /*
+       * Los dos papeles quedan separados desde el primer día: el de conversar
+       * pide latencia y el de la pantalla pide vista.
+       *
+       * Se fusiona con lo que ya hubiera, por lo mismo que en el camino de la
+       * nube: elegir local no es motivo para borrar el modelo que alguien tenía
+       * elegido en Claude, Gemini o ChatGPT. La versión anterior escribía el
+       * mapa entero a mano, así que además había que acordarse de añadirle una
+       * clave con cada proveedor nuevo — y el `as` la dejaba pasar callando.
+       */
       await patch({
         llmProviderId: 'ollama',
-        llmModels: { claude: '', gemini: '', ollama: advice.chat.model } as Settings['llmModels'],
+        llmModels: { ...settings.llmModels, ollama: advice.chat.model },
         screenProviderId: 'ollama',
         screenModel: advice.vision.model,
       });
