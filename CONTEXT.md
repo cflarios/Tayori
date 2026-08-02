@@ -978,6 +978,77 @@ escribe el reconocedor, así que si se hubiera quedado fuera habría un motor en
 el que encender una skill no hace nada — y desde la pantalla los dos casos se
 ven idénticos.
 
+### El techo de la heurística, y el escalón que faltaba
+
+`AutoTriggerMode` prometía `heuristic+classifier` **desde el primer día en el
+tipo**, y ese código no existía. Se implementó en agosto de 2026 empujado por un
+caso concreto, sacado de una conversación real:
+
+> «Una persona que conozca de DevOps debería conocer también de seguridad.»
+> «Si una persona sabe DevOps, necesariamente tendría que saber de seguridad.»
+
+Las dos son **preguntas**: quien las dice está esperando que le contesten. Y las
+dos llegan del reconocedor como oraciones afirmativas, sin signo y sin ningún
+interrogativo. La reacción natural es añadir marcadores a la lista, y es la
+equivocada: **lo que las hace preguntas no está en el léxico**. Está en que son
+afirmaciones dirigidas a alguien que espera respuesta. Ninguna lista de palabras
+lo va a coger nunca, y añadir «debería» ya se probó y se descartó porque dispara
+con «creo que debería haber estudiado más».
+
+Así que el techo de `question-detector.ts` no era falta de reglas: era el
+método. De ahí el segundo escalón, que le pregunta al modelo.
+
+Tres reglas lo hacen viable, y las tres importan:
+
+- **Sólo se escala la duda, nunca la certeza.** Una muletilla o una frase de dos
+  palabras se descartan gratis. Pagar una consulta para que un modelo confirme
+  que «vale, perfecto» no es una pregunta es tirar el dinero.
+- **Nunca bloquea.** Reloj propio de 8 s y `AbortSignal`. Si el modelo tarda o
+  falla, el veredicto es «no era una pregunta» y todo sigue como en `heuristic`.
+  Un clasificador caído no puede dejar la escucha colgada.
+- **Cuesta, y se dice en pantalla.** Es una consulta más por intervención
+  ambigua, y en un modelo que razona ni siquiera es barata. Por eso no es el
+  valor por defecto.
+
+**El campo `ambiguous`, y por qué no es el texto de `reason`.** La primera
+versión decidía si escalar comparando el prefijo de la cadena del motivo, y un
+test lo cazó en cuanto se escribió: el motivo del modo estricto empieza igual,
+así que la decisión dependía de cómo estuviera **redactado un mensaje** pensado
+para que lo lea una persona. Es la misma lección que ya estaba escrita para los
+errores de los proveedores —se distinguen por clase, no por cadena— aplicada a
+un sitio nuevo.
+
+De paso se decidió que **`strict` también escala**. La sensibilidad gobierna
+cuánto se arriesga la heurística; el modo gobierna si el modelo puede opinar.
+Estricto + clasificador es de hecho la combinación más precisa que existe: cero
+adivinanzas por palabras, y el modelo resolviendo las dudas.
+
+### La frase que salía dos veces
+
+Se vio en pantalla antes que en ningún test, y la firma lo decía todo:
+
+    ¿ Qué opin as del concepto de Ops? … ¿Qué opinas del concepto de Ops? …
+      └── parciales acumulados            └── el turno completo, otra vez
+
+Dos fallos encadenados, los dos del motor `openai-live`:
+
+- **Los `delta` son incrementales y el `completed` trae el turno ENTERO.** El
+  buffer concatena porque su contrato dice que todo es incremental —lo es en
+  Gemini Live—, así que el final se pegaba detrás de lo ya acumulado.
+- **Y la primera copia salía con las palabras partidas** («conoz ca», «ingen
+  ieros») porque `joinFragments` mete un espacio cuando ninguno de los dos
+  lados lo trae, y los deltas de OpenAI son trozos de token.
+
+Se arregla en el sitio donde se conoce el protocolo: el carril acumula sus
+propios deltas **en crudo** y marca lo que emite como `cumulative`, con lo que
+el buffer reemplaza en lugar de concatenar. La alternativa —que el buffer
+adivinara comparando prefijos— es la clase de heurística que falla el día que
+alguien repite una frase a propósito.
+
+La lección para el siguiente motor: **antes de emitir, mirar si los parciales
+del proveedor son incrementales o acumulativos.** No hay un estándar, y los dos
+que hay en esta app no coinciden.
+
 ### Modo código: por qué es un camino aparte y no un prompt más
 
 El pedido era simple —"si tengo LeetCode en pantalla, dame la solución"— y la

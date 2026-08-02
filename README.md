@@ -28,7 +28,10 @@ borrar una conversación o borrarlas todas.
   (~300 ms) o Whisper local (offline).
 - **Sugiere respuestas** con Claude, Gemini, ChatGPT u Ollama, en streaming.
 - **Detecta preguntas** dirigidas a ti y responde sin que pulses nada, o solo con
-  hotkey si prefieres controlarlo.
+  hotkey si prefieres controlarlo. Con el **clasificador** activado también caza
+  las que llegan disfrazadas de afirmación —*«una persona que sepa DevOps tendría
+  que saber de seguridad»*—, que ninguna lista de palabras puede detectar; cuesta
+  una consulta extra por cada intervención dudosa.
 - **Adjunta capturas de pantalla** como contexto visual para preguntas sobre
   código o diagramas en pantalla.
 - **Resuelve el código que tengas delante**: `Ctrl+Alt+C` lee la pantalla —un

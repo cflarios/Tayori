@@ -125,3 +125,45 @@ describe('TranscriptBuffer', () => {
     expect(recent[0]?.text).toBe('reciente');
   });
 });
+
+/**
+ * Parciales acumulativos, que son los de la API en tiempo real de OpenAI.
+ *
+ * El fallo que esto fija se vio en pantalla: la frase salía **dos veces**, y la
+ * primera copia con las palabras partidas ("conoz ca", "ingen ieros"). La causa
+ * era tratar como incremental un `completed` que trae el turno entero, así que
+ * el buffer lo concatenaba detrás de los parciales que ya había acumulado.
+ */
+describe('parciales acumulativos', () => {
+  it('el texto acumulativo REEMPLAZA en vez de concatenarse', () => {
+    const buffer = new TranscriptBuffer();
+
+    buffer.ingest('them', 'Una persona que', false, true);
+    buffer.ingest('them', 'Una persona que sepa DevOps', false, true);
+    const final = buffer.ingest('them', 'Una persona que sepa DevOps.', true, true);
+
+    expect(final.text).toBe('Una persona que sepa DevOps.');
+  });
+
+  it('sin la marca sigue concatenando, que es lo que necesita Gemini', () => {
+    // Los dos comportamientos conviven porque los motores difieren de verdad:
+    // quitar el incremental rompería Gemini Live.
+    const buffer = new TranscriptBuffer();
+
+    buffer.ingest('them', 'Una persona', false);
+    const final = buffer.ingest('them', 'que sepa DevOps', true);
+
+    expect(final.text).toBe('Una persona que sepa DevOps');
+  });
+
+  it('un acumulativo no arrastra el turno anterior', () => {
+    // Cada turno abre su propio segmento: si el reemplazo se saltara el cierre,
+    // la segunda frase machacaría la primera en lugar de añadirse.
+    const buffer = new TranscriptBuffer();
+
+    buffer.ingest('them', 'primera frase', true, true);
+    buffer.ingest('them', 'segunda frase', true, true);
+
+    expect(buffer.all().map((s) => s.text)).toEqual(['primera frase', 'segunda frase']);
+  });
+});

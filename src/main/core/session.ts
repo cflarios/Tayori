@@ -14,6 +14,7 @@ import {
   type ImageAttachment,
   type PromptProfileId,
   type ScreenTask,
+  type Settings,
   type Speaker,
   type TranscriptSegment,
 } from '@shared/types';
@@ -30,6 +31,7 @@ import {
   type TranscriptEvent,
 } from '../stt';
 import { getSkill, listSkills } from '../skills';
+import { classifyQuestion, worthClassifying } from './question-classifier';
 import { buildSystemPrompt } from './prompt';
 import { TranscriptBuffer } from './transcript-buffer';
 import { AnswerEngine } from './answer-engine';
@@ -540,7 +542,12 @@ class SessionOrchestrator {
 
   private onSegment(event: TranscriptEvent): void {
     this.lastSegmentAt = Date.now();
-    const segment = this.transcript.ingest(event.speaker, event.text, event.isFinal);
+    const segment = this.transcript.ingest(
+      event.speaker,
+      event.text,
+      event.isFinal,
+      event.cumulative
+    );
     this.broadcast(IPC.onTranscript, segment);
 
     if (event.isFinal) {
@@ -654,6 +661,29 @@ class SessionOrchestrator {
     if (!full) return;
 
     const verdict = looksLikeQuestion(full, settings.autoTriggerSensitivity);
+
+    /*
+     * Segundo escalón: lo que la heurística no supo decidir se le pregunta al
+     * modelo.
+     *
+     * Sólo escala los descartes "sin marcadores", que son los ambiguos de
+     * verdad. Una muletilla o una frase de dos palabras siguen descartándose
+     * gratis — pagar una consulta para que confirme que "vale, perfecto" no es
+     * una pregunta sería tirar el dinero.
+     *
+     * Va por una rama aparte y asíncrona porque no puede retrasar al camino
+     * normal: quien tenga el modo en `heuristic` no espera ni un milisegundo de
+     * más por código que no usa.
+     */
+    if (
+      !verdict.isQuestion &&
+      settings.autoTriggerMode === 'heuristic+classifier' &&
+      worthClassifying(verdict)
+    ) {
+      void this.classifyAndMaybeAsk(speaker, full, settings);
+      return;
+    }
+
     if (!verdict.isQuestion) {
       // Se registra el descarte: es la única forma de saber por qué la app "no
       // responde" sin ponerse a adivinar. Una prueba real gastó cinco frases
@@ -665,6 +695,34 @@ class SessionOrchestrator {
       return;
     }
 
+    this.fire(speaker, full, verdict.reason, parts.length);
+  }
+
+  /**
+   * Le pregunta al modelo y dispara si dice que sí.
+   *
+   * El descarte se anuncia **después** de la consulta, no antes: enseñar "no era
+   * una pregunta" y responderla dos segundos más tarde sería peor que callarse.
+   */
+  private async classifyAndMaybeAsk(
+    speaker: Speaker,
+    full: string,
+    settings: Settings
+  ): Promise<void> {
+    console.log(`[auto] sin marcadores; preguntando al clasificador: "${full.slice(0, 60)}"`);
+    const verdict = await classifyQuestion(full, settings);
+
+    if (!verdict.isQuestion) {
+      console.log(`[auto] descartado (${verdict.reason}): "${full.slice(0, 80)}"`);
+      this.broadcast(IPC.onAutoSkip, { text: full, reason: verdict.reason });
+      return;
+    }
+
+    this.fire(speaker, full, verdict.reason, 1);
+  }
+
+  /** El disparo en sí, común a los dos escalones. */
+  private fire(speaker: Speaker, full: string, reason: string, partCount: number): void {
     // Red de seguridad contra dobles disparos por caminos distintos (el cierre
     // del motor y el temporizador de silencio pueden coincidir).
     const now = Date.now();
@@ -674,10 +732,8 @@ class SessionOrchestrator {
     }
     this.lastAutoTrigger = now;
 
-    const fragmentos = parts.length > 1 ? ` [${parts.length} fragmentos unidos]` : '';
-    console.log(
-      `[auto:${speaker}] disparando (${verdict.reason})${fragmentos}: "${full.slice(0, 80)}"`
-    );
+    const fragmentos = partCount > 1 ? ` [${partCount} fragmentos unidos]` : '';
+    console.log(`[auto:${speaker}] disparando (${reason})${fragmentos}: "${full.slice(0, 80)}"`);
     void this.answers.ask('auto', full);
   }
 

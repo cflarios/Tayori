@@ -153,6 +153,21 @@ export interface QuestionVerdict {
   isQuestion: boolean;
   /** Por qué se decidió así. Se registra para poder afinar la heurística. */
   reason: string;
+  /**
+   * `true` si el descarte es una **duda**, no una certeza.
+   *
+   * Lo mira el segundo escalón para decidir si vale la pena gastar una consulta
+   * preguntándole al modelo. Una muletilla o una frase de dos palabras se
+   * descartan con certeza; una oración larga sin ningún marcador puede ser
+   * perfectamente una pregunta dicha en forma de afirmación, y eso una lista de
+   * palabras no lo puede saber.
+   *
+   * Es un campo y no una comparación del texto de `reason` a propósito: ese
+   * texto está escrito para que lo lea una persona, y atarle lógica lo convierte
+   * en una API que se rompe al reescribir un mensaje. Es la misma razón por la
+   * que los errores de los proveedores se distinguen por clase y no por cadena.
+   */
+  ambiguous?: boolean;
 }
 
 /**
@@ -213,7 +228,15 @@ export function looksLikeQuestion(
   // A partir de aquí, sólo en `balanced`. Son las reglas que recuperan las
   // preguntas que el ASR entrega sin signos, a cambio de algún disparo de más.
   if (sensitivity === 'strict') {
-    return { isQuestion: false, reason: 'sin marcadores de pregunta (modo estricto)' };
+    return {
+      isQuestion: false,
+      reason: 'sin marcadores de pregunta (modo estricto)',
+      // Ambigua igualmente: `strict` decide cuánto se arriesga la heurística,
+      // no si el modelo puede opinar. Estricto + clasificador es de hecho la
+      // combinación más precisa que hay — nada de adivinar por palabras, y el
+      // modelo resolviendo las dudas.
+      ambiguous: true,
+    };
   }
 
   // Sobre el texto CRUDO: el acento sobrevive aquí y no en `normalized`.
@@ -242,5 +265,14 @@ export function looksLikeQuestion(
     }
   }
 
-  return { isQuestion: false, reason: 'sin marcadores de pregunta' };
+  /*
+   * Aquí es donde muere el techo de esta heurística, y por eso se marca como
+   * duda en lugar de como descarte.
+   *
+   * "Una persona que conozca de DevOps debería conocer también de seguridad"
+   * llega aquí, y es una pregunta: quien la dice espera que le contesten. Lo
+   * que la hace pregunta no está en el léxico —está en que es una afirmación
+   * dirigida a alguien— así que ninguna lista la va a coger nunca.
+   */
+  return { isQuestion: false, reason: 'sin marcadores de pregunta', ambiguous: true };
 }

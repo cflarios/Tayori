@@ -25,12 +25,22 @@ export class TranscriptBuffer {
    * completo hasta ahora) o incrementales (sólo lo nuevo). Gemini Live envía
    * fragmentos incrementales, así que concatenamos.
    */
-  ingest(speaker: Speaker, text: string, isFinal: boolean): TranscriptSegment {
+  ingest(
+    speaker: Speaker,
+    text: string,
+    isFinal: boolean,
+    /**
+     * `true` si `text` ya es el turno entero. Ver `TranscriptEvent.cumulative`:
+     * concatenarlo escribiría la frase dos veces, que es un fallo que se vio en
+     * pantalla con la API en tiempo real de OpenAI.
+     */
+    cumulative = false
+  ): TranscriptSegment {
     const now = Date.now();
     const existing = this.open.get(speaker);
 
     if (existing) {
-      existing.text = joinFragments(existing.text, text);
+      existing.text = cumulative ? text.trim() : joinFragments(existing.text, text);
       existing.isFinal = isFinal;
       if (isFinal) {
         existing.endedAt = now;

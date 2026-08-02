@@ -2677,8 +2677,21 @@ function BehaviourCard({
         >
           <option value="off">Solo con hotkey</option>
           <option value="heuristic">Automático (heurística local)</option>
+          <option value="heuristic+classifier">Automático + clasificador (usa el modelo)</option>
         </select>
       </Row>
+
+      {settings.autoTriggerMode === 'heuristic+classifier' && (
+        <div className="warn">
+          Cuando la heurística no vea ningún marcador, le preguntará al modelo si esa
+          intervención pedía respuesta. Es lo que caza las preguntas que llegan como
+          afirmaciones —<em>«una persona que sepa DevOps tendría que saber de seguridad»</em>—
+          y que ninguna lista de palabras puede detectar.
+          <br />
+          <strong>Cuesta una consulta más</strong> por cada intervención ambigua, aunque al
+          final no se responda. Con Ollama es gratis; con un modelo de pago, no.
+        </div>
+      )}
 
       {settings.autoTriggerMode !== 'off' && (
         <>

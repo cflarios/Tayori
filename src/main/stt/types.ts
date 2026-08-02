@@ -15,6 +15,21 @@ export interface TranscriptEvent {
   text: string;
   /** `false` mientras el motor aún puede revisar el texto. */
   isFinal: boolean;
+  /**
+   * `true` si `text` es el turno **entero hasta ahora**, no lo nuevo.
+   *
+   * Los motores no se ponen de acuerdo en esto y la diferencia no es cosmética:
+   * Gemini Live manda fragmentos incrementales que hay que concatenar, y la API
+   * en tiempo real de OpenAI manda incrementos **y además** el turno completo al
+   * cerrarlo. Tratar lo segundo como incremental escribe la frase dos veces —
+   * pasó, se vio en pantalla, y la primera copia salía encima con las palabras
+   * partidas porque unir trozos de token mete espacios donde no van.
+   *
+   * Sin este campo la única alternativa era que el buffer adivinara comparando
+   * prefijos, que es exactamente la clase de heurística que falla el día que
+   * alguien repite una frase a propósito.
+   */
+  cumulative?: boolean;
 }
 
 export interface STTStartOptions {

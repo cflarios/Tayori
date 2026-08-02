@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { looksLikeQuestion } from '../src/main/core/question-detector';
+import { worthClassifying } from '../src/main/core/question-classifier';
 
 /** Helper para que los casos se lean como una tabla. */
 const isQ = (text: string): boolean => looksLikeQuestion(text).isQuestion;
@@ -250,5 +251,44 @@ describe('casos del log del 28/07', () => {
     expect(looksLikeQuestion('vale ya').isQuestion).toBe(false);
     expect(looksLikeQuestion('perfecto gracias').isQuestion).toBe(false);
     expect(looksLikeQuestion('¿Y?').isQuestion).toBe(false);
+  });
+});
+
+/**
+ * El filtro de coste del clasificador.
+ *
+ * El segundo escalón cuesta una consulta por intervención, así que sólo puede
+ * escalar lo que la heurística no supo decidir. Preguntarle a un modelo si
+ * "vale, perfecto" es una pregunta cuesta lo mismo que preguntarle algo útil, y
+ * la respuesta ya se sabe.
+ */
+describe('worthClassifying', () => {
+  it('escala lo ambiguo: las frases sin ningún marcador', () => {
+    // El caso real que motivó todo esto: una pregunta dicha como afirmación.
+    const verdict = looksLikeQuestion(
+      'Una persona que conozca de DevOps debería conocer también de seguridad.'
+    );
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(true);
+  });
+
+  it('NO escala una muletilla', () => {
+    const verdict = looksLikeQuestion('¿me escuchas?');
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(false);
+  });
+
+  it('NO escala una frase demasiado corta', () => {
+    const verdict = looksLikeQuestion('ya');
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(false);
+  });
+
+  it('escala también en modo estricto: la sensibilidad no decide esto', () => {
+    // `strict` decide cuánto se arriesga la heurística, no si el modelo puede
+    // opinar. Estricto + clasificador es la combinación más precisa que hay.
+    const verdict = looksLikeQuestion('Si una persona sabe DevOps, sabría de seguridad.', 'strict');
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(true);
   });
 });

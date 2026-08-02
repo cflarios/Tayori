@@ -226,9 +226,14 @@ describe('OpenAILiveSTT · lo que vuelve', () => {
     await esperar();
     await stt.stop();
 
+    // Los dos van marcados como acumulativos: el parcial porque lo acumula el
+    // propio carril, y el final porque la API manda el turno entero.
     expect(segments).toEqual([
-      { speaker: 'them', text: 'hola ', isFinal: false },
-      { speaker: 'them', text: 'hola qué tal', isFinal: true },
+      // Se acumula tal cual llega, espacio final incluido: recortar aquí
+      // partiría un token que todavía puede continuar. De limpiarlo se encarga
+      // el buffer al guardarlo.
+      { speaker: 'them', text: 'hola ', isFinal: false, cumulative: true },
+      { speaker: 'them', text: 'hola qué tal', isFinal: true, cumulative: true },
     ]);
   });
 
@@ -270,5 +275,86 @@ describe('OpenAILiveSTT · lo que vuelve', () => {
       session?: { audio?: { input?: { transcription?: Record<string, unknown> } } };
     };
     expect(ultimo.session?.audio?.input?.transcription?.prompt).toBeUndefined();
+  });
+});
+
+/**
+ * La duplicación, que se vio en pantalla antes que en ningún test.
+ *
+ * Los `delta` son incrementales y el `completed` trae el turno ENTERO. La
+ * primera versión los emitía tal cual y el buffer los concatenaba, así que la
+ * frase aparecía dos veces — y la primera copia con las palabras partidas,
+ * porque pegar trozos de token con la heurística de espacios del buffer mete
+ * separadores donde no van ("conoz ca", "ingen ieros").
+ */
+describe('OpenAILiveSTT · el texto no se duplica', () => {
+  it('acumula los deltas en crudo y los marca como acumulativos', async () => {
+    const stt = await arrancar();
+    const segments: TranscriptEvent[] = [];
+    stt.events.on('segment', (event: TranscriptEvent) => segments.push(event));
+
+    // Trozos de token, tal y como llegan: sin espacios entre "conoz" y "ca".
+    for (const delta of ['Una persona que ', 'conoz', 'ca de DevOps']) {
+      sockets[0]!.send(
+        JSON.stringify({ type: 'conversation.item.input_audio_transcription.delta', delta })
+      );
+    }
+    await esperar();
+    await stt.stop();
+
+    // Sin espacios inventados: la palabra no se parte.
+    expect(segments.at(-1)?.text).toBe('Una persona que conozca de DevOps');
+    expect(segments.every((s) => s.cumulative)).toBe(true);
+  });
+
+  it('el final reemplaza a los parciales, no se suma', async () => {
+    const stt = await arrancar();
+    const segments: TranscriptEvent[] = [];
+    stt.events.on('segment', (event: TranscriptEvent) => segments.push(event));
+
+    sockets[0]!.send(
+      JSON.stringify({
+        type: 'conversation.item.input_audio_transcription.delta',
+        delta: 'Una persona que conozca de DevOps',
+      })
+    );
+    sockets[0]!.send(
+      JSON.stringify({
+        type: 'conversation.item.input_audio_transcription.completed',
+        transcript: 'Una persona que conozca de DevOps debería saber de seguridad.',
+      })
+    );
+    await esperar();
+    await stt.stop();
+
+    const final = segments.at(-1)!;
+    expect(final.isFinal).toBe(true);
+    expect(final.cumulative).toBe(true);
+    expect(final.text).toBe('Una persona que conozca de DevOps debería saber de seguridad.');
+  });
+
+  it('el turno siguiente empieza de cero', async () => {
+    // Si `turnText` no se vaciara al cerrar, la segunda frase saldría pegada a
+    // la primera y el transcript crecería sin parar dentro de un solo segmento.
+    const stt = await arrancar();
+    const segments: TranscriptEvent[] = [];
+    stt.events.on('segment', (event: TranscriptEvent) => segments.push(event));
+
+    sockets[0]!.send(
+      JSON.stringify({ type: 'conversation.item.input_audio_transcription.delta', delta: 'primera' })
+    );
+    sockets[0]!.send(
+      JSON.stringify({
+        type: 'conversation.item.input_audio_transcription.completed',
+        transcript: 'primera frase',
+      })
+    );
+    sockets[0]!.send(
+      JSON.stringify({ type: 'conversation.item.input_audio_transcription.delta', delta: 'segunda' })
+    );
+    await esperar();
+    await stt.stop();
+
+    expect(segments.at(-1)?.text).toBe('segunda');
   });
 });

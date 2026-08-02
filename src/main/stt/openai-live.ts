@@ -128,6 +128,8 @@ class Lane {
   private readonly vad: EnergyVAD;
   /** Audio enviado y aún sin cerrar. La API rechaza un commit casi vacío. */
   private uncommittedBytes = 0;
+  /** Lo transcrito del turno en curso, pegado en crudo. Ver `handleMessage`. */
+  private turnText = '';
 
   /**
    * Audio que llega mientras la sesión se reconecta. Acotado: preferimos perder
@@ -201,6 +203,7 @@ class Lane {
         this.upsampler.reset();
         this.vad.reset();
         this.uncommittedBytes = 0;
+        this.turnText = '';
         this.flushPending();
         settle();
       });
@@ -297,24 +300,43 @@ class Lane {
        * viva, y `isFinal` es lo que deja al detector de preguntas evaluar el
        * turno una sola vez, cuando ya no va a cambiar.
        */
+      /*
+       * Los dos se emiten como **acumulativos**, y ahí está el arreglo de un
+       * fallo que se vio en pantalla: la frase salía dos veces.
+       *
+       * Los `delta` son incrementales y el `completed` trae el turno ENTERO, así
+       * que dejar que el buffer concatenara los dos escribía todo por duplicado.
+       * Y encima la primera copia salía con las palabras partidas —"conoz ca",
+       * "ingen ieros"— porque unir trozos de token con la heurística de espacios
+       * del buffer mete separadores donde no van.
+       *
+       * Se resuelve acumulando aquí, que es donde se sabe cómo funciona este
+       * protocolo: los deltas se pegan **en crudo**, sin inventar espacios, y lo
+       * que se manda hacia fuera es siempre el turno completo hasta ahora.
+       */
       case 'conversation.item.input_audio_transcription.delta':
         if (event.delta) {
+          this.turnText += event.delta;
           this.emitter.emit('segment', {
             speaker: this.speaker,
-            text: event.delta,
+            text: this.turnText,
             isFinal: false,
+            cumulative: true,
           });
         }
         return;
 
       case 'conversation.item.input_audio_transcription.completed':
+        // El texto del `completed` es el bueno: viene ya revisado y puntuado.
         if (event.transcript) {
           this.emitter.emit('segment', {
             speaker: this.speaker,
             text: event.transcript,
             isFinal: true,
+            cumulative: true,
           });
         }
+        this.turnText = '';
         return;
 
       /*
