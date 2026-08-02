@@ -4,6 +4,15 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.4.0](https://github.com/cflarios/Tayori/compare/v0.3.0...v0.4.0) (2026-08-02)
+
+
+### Features
+
+* asistente de configuración, publicación MQTT y dos fallos silenciosos ([c1285eb](https://github.com/cflarios/Tayori/commit/c1285eb07863a9d8c02a68e6efe1c24353f29913))
+* dashboard por secciones y espejo de respuestas en el móvil ([ceb0351](https://github.com/cflarios/Tayori/commit/ceb0351ed88f036983ab078c4a9264a3aaaf3beb))
+* renombrar el proyecto a Tayori ([24b9d8b](https://github.com/cflarios/Tayori/commit/24b9d8b698c1699da041d9cf04b51f81d3a1dd99))
+
 ## [0.3.0](https://github.com/cflarios/jarvis-job/compare/v0.2.0...v0.3.0) (2026-07-31)
 
 
