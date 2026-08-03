@@ -751,9 +751,10 @@ partir de ahí manda lo que el usuario elija. La comprobación mira
 `stored.uiLanguage` y no el valor ya resuelto, para que poner inglés a propósito
 en un Windows en español no se deshaga en el arranque siguiente.
 
-### La traducción, terminada: qué se tradujo y qué no
+### La traducción: qué se tradujo y qué no
 
-La app está entera en los dos idiomas. Lo que **no** se tradujo, y por qué:
+La app está en los dos idiomas —con una segunda pasada que hizo falta, más
+abajo—. Lo que **no** se tradujo, y por qué:
 
 | Qué | Por qué se queda en español |
 |---|---|
@@ -785,6 +786,54 @@ apuntarlo a los textos del overlay parecía correcto —mismos tres modos— y d
 **otra cosa**. Los del overlay dicen *qué es* cada fuente; los del dashboard
 explican *por qué* elegirla. Una tabla de traducciones invita a reutilizar por
 la forma de la clave en lugar de por lo que dice el texto.
+
+### Lo que la sección de arriba daba por terminado y no lo estaba
+
+Agosto de 2026, segunda pasada. La app **no** estaba entera: quedaban un botón
+de «En pausa», una barra lateral que decía «Ajustes», la tarjeta de modelos
+locales completa y la guía de modelos entera. Todo se veía abriendo el dashboard
+en inglés y bajando; nada de eso lo detectaba el compilador, porque una cadena
+suelta dentro de un JSX es código perfectamente válido.
+
+**El tipo sólo protege lo que ya pasa por la tabla.** `Record<UIKey, string>`
+garantiza que ninguna clave se quede sin traducir, y no dice absolutamente nada
+de los textos que nunca llegaron a ser claves. Ésa es la mitad del problema que
+esta migración no cubre, y la única forma de encontrarla resultó ser mirar cada
+archivo — un grep de acentos deja fuera «Ajustes», «Actualizar registro» y
+cualquier frase sin una sola tilde.
+
+Cuatro cosas que salieron de esta pasada y no eran traducir:
+
+- **Había claves escritas y sin usar.** `nav.footer`, `hk.rejectedOne`,
+  `about.what`, `local.forChat` y seis más existían en las dos tablas mientras
+  el componente seguía con su literal al lado. Traducir y **enchufar** son dos
+  trabajos, y el segundo no deja rastro si se olvida.
+- **Un `t()` que faltaba pintaba la clave.** `ContextSlot` enseñaba
+  `ctx.cvHint` literalmente debajo del hueco del CV, en los dos idiomas.
+- **Un dato guardado no puede llevar un idioma dentro.** El título de una
+  conversación sin nombre se escribía en disco como «Conversación sin título» y
+  se comparaba contra esa cadena para saber si ya tenía nombre. Ahora se guarda
+  **vacío** y el rótulo lo pone el dashboard: el que sabe en qué idioma está
+  mirando alguien es quien pinta, nunca quien persiste.
+- **`m()` podía reventar construyendo un error.** Lee los ajustes en cada
+  llamada, y si `app` no está disponible la excepción sustituía a la causa real:
+  el «se quedó sin presupuesto razonando» de OpenAI salía como un
+  `Cannot read properties of undefined`. Ahora cae al idioma por defecto. Una
+  función que traduce mensajes de error no puede ser una fuente de errores.
+
+**La guía de modelos también entró**, con sus ~95 claves de prosa. Se valoró
+darle un diccionario propio dentro de `model-guide.ts` —es un documento, no una
+pantalla— y se descartó: dos mecanismos de traducción son dos formas distintas
+de olvidarse de una clave, y en la tabla común hereda gratis el test de que los
+huecos `{…}` coinciden entre idiomas. `renderModelGuide` pasa a recibir el
+idioma, y sus notas de modelo y precios son claves como cualquier otra.
+
+**Y la página del teléfono dejó de ser «sin interpolación».** Lo era a propósito
+—ningún dato del usuario tocaba el marcado— y ahora recibe una cosa: su
+diccionario, como JSON con los `<` escapados y leído desde el script con
+`textContent`. Se escapa aunque el texto sea nuestro, porque la excepción «esto
+lo escribimos nosotros» sobrevive exactamente hasta la primera clave con
+marcado dentro.
 
 ### El asistente, repasado con alguien delante
 
