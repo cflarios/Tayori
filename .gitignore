@@ -26,6 +26,9 @@ Thumbs.db
 .idea/
 *.swp
 
+# Permisos locales de Claude Code: son de esta máquina, no del proyecto
+.claude/settings.local.json
+
 # Cache de herramientas
 .eslintcache
 coverage/
