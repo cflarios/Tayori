@@ -4,6 +4,33 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.0.0](https://github.com/cflarios/Tayori/compare/v0.4.0...v1.0.0) (2026-08-03)
+
+
+### Features
+
+* añadir ChatGPT (OpenAI) como proveedor de respuestas ([4e74358](https://github.com/cflarios/Tayori/commit/4e74358432fa3f5c4cce9640be37dd03f73f69ba))
+* DeepSeek como quinto proveedor, y tres arreglos de UX ([76adc07](https://github.com/cflarios/Tayori/commit/76adc07452f0621647073a51159506a7c1794fc6))
+* repaso del asistente, «Acerca de» y probar cada clave donde se pega ([834e634](https://github.com/cflarios/Tayori/commit/834e6342a5907c0aebd163e140d38dc0249d82c9))
+* skills locales en formato SKILL.md ([006dbbb](https://github.com/cflarios/Tayori/commit/006dbbb60ad2733db7677333ddf54af15584dca6))
+* soporte de inglés y español, con inglés por defecto ([50f2f8a](https://github.com/cflarios/Tayori/commit/50f2f8af7bcc2bb2604ac429c65d2f99e290599e))
+* terminar la traducción de la interfaz al inglés ([9c5047f](https://github.com/cflarios/Tayori/commit/9c5047f99417929f914106e7a724aa0a83b9e2c6))
+* transcripción con OpenAI, en directo y por turnos ([d379b59](https://github.com/cflarios/Tayori/commit/d379b595624f4320e91fef2c3dedc66f33bebe47))
+
+
+### Bug Fixes
+
+* "explica X" es una petición, aunque no lleve signo de interrogación ([714d599](https://github.com/cflarios/Tayori/commit/714d5998abbdf2bbc400ce54ecf8f07be2294153))
+* el aviso de "falta configurar la IA" se quedaba pegado ([22d2f41](https://github.com/cflarios/Tayori/commit/22d2f417862aab77161f50c75903ace187899ef6))
+* el chip «Ambos» enseñaba la clave en crudo, y la navegación se traduce ([f407ff2](https://github.com/cflarios/Tayori/commit/f407ff2f9c54d4b6e77d152a0f5034dc374e4907))
+* la frase salía dos veces, y las preguntas sin signo no disparaban ([d9242a4](https://github.com/cflarios/Tayori/commit/d9242a41401d15184e020b61ee65e57294378404))
+* openai-live no arrancaba, y no habría cerrado ningún turno ([ed3840a](https://github.com/cflarios/Tayori/commit/ed3840a6a08b6b7c347ff549de80419c648914a8))
+
+
+### Documentation
+
+* registrar la segunda pasada de traducción y por qué hizo falta ([54c75da](https://github.com/cflarios/Tayori/commit/54c75da36c10d2ddfd69f6efd63b9f5fe3bf466a))
+
 ## [0.4.0](https://github.com/cflarios/Tayori/compare/v0.3.0...v0.4.0) (2026-08-02)
 
 
