@@ -166,6 +166,82 @@ export const en = {
   'overlay.qaReviewPrompt':
     'Review your previous answers. Say only the ones you would change, and to which.',
 
+  'mqtt.password': 'Broker password',
+  'mqtt.passwordHint': 'Stored encrypted with DPAPI, same as the API keys, and never shown again.',
+  'mqtt.passwordPlaceholder': 'Paste the broker password',
+
+  // ───────────────────── Ajustes · modelo ─────────────────────
+  'model.title': 'Answering model',
+  'model.hint': 'Who writes the suggestions you see in the overlay.',
+  'model.provider': 'Provider',
+  'model.model': 'Model',
+  'model.pick': '— pick a model —',
+  'model.none': '—',
+  'model.other': 'Other… (type the id)',
+  'model.idPlaceholder': 'e.g. claude-opus-4-8',
+  'model.noneAvailable': 'No models available. Check the Ollama status further down.',
+  'model.catalogHint':
+    'The list is the models the app knows about. If your account has access to another one, pick «Other…» and type its id; an id that does not exist fails on the first question, so confirm it with «Test connection».',
+  'model.test': 'Test connection',
+  'model.ollamaContext': 'Ollama context window',
+  'model.ollamaContextDesc':
+    'Ollama does NOT use the model’s: it applies 2048 tokens by default and drops whatever does not fit WITHOUT any error, starting from the beginning. The symptom is the model forgetting what you just told it. Raising it uses more memory.',
+  'model.ctxDefault': '2048 · Ollama’s default',
+  'model.ctxRecommended': '8192 · recommended',
+  'model.ctxLongCv': '16384 · with a long CV or screenshots',
+  'model.ctxHeavy': '32768 · asks for a fair bit of memory',
+
+  // ───────────────────── Ajustes · modelo de pantalla ─────────────────────
+  'screen.title': 'Screen model',
+  'screen.hint':
+    'The one that solves `Ctrl+Alt+C` (code) and `Ctrl+Alt+Q` (quizzes). It can be different from the one that answers what is being said: that one needs speed, this one needs to read a screenshot properly. **It has to accept images.**',
+  'screen.providerDesc': '«The same one» uses the answering model above, which is how it worked before.',
+  'screen.same': 'The same one that answers',
+  'screen.claude': 'Claude (cloud)',
+  'screen.gemini': 'Gemini (cloud)',
+  'screen.openai': 'ChatGPT (cloud)',
+  'screen.ollama': 'Ollama (local)',
+  'screen.noModels': 'No models available. If it is Ollama, check that the server is running.',
+  'screen.visionOnly': 'Only the ones that accept images can read your screen.',
+  'screen.visionOnlyCloud':
+    'Only the ones that accept images can read your screen. If your account has access to another model, pick «Other…» and type its id.',
+  'screen.seesImages': ' · sees images',
+  'screen.noVision': ' · no vision',
+  'screen.blind':
+    '**{model}** does not accept images, so it cannot read the screen: the code and quiz buttons will fail with a warning instead of answering. Pick a multimodal one — with Ollama, `qwen2.5vl`, `llava` or `gemma3`.',
+  'screen.allOllama':
+    'You are using Ollama for everything. If the chosen model does not see images, the screen actions will not work: this is where it pays off to split them and leave a multimodal one just for this.',
+
+  // ───────────────────── Ajustes · claves ─────────────────────
+  'keys.title': 'API keys',
+  'keys.hint':
+    'Stored encrypted with DPAPI in your Windows profile, and only the main process reads them. They are never shown back and never leave this machine except towards the provider you choose.',
+  'keys.configured': 'configured',
+  'keys.missing': 'not set',
+  'keys.placeholder': 'Paste your API key',
+  'keys.replace': '•••••••• (type to replace)',
+  'keys.save': 'Save',
+  'keys.test': 'Test',
+  'keys.testing': 'Testing…',
+  'keys.clear': 'Delete',
+  'keys.ok': 'connection works',
+  'keys.failed': 'failed',
+  'keys.anthropic': 'Anthropic (Claude)',
+  'keys.anthropicHint': 'console.anthropic.com → API Keys',
+  'keys.google': 'Google (Gemini)',
+  'keys.googleHint':
+    'aistudio.google.com → Get API key. Also needed to transcribe with Gemini Live.',
+  'keys.openai': 'OpenAI (ChatGPT)',
+  'keys.openaiHint':
+    'platform.openai.com → API keys. Works for the answers and also to transcribe with the OpenAI engines.',
+  'keys.deepseek': 'DeepSeek',
+  'keys.deepseekHint':
+    'platform.deepseek.com → API keys. Answers only: they have no transcription models, and their models do not read images.',
+  'keys.ollama': 'Ollama (local)',
+  'keys.ollamaBadge': 'no key needed',
+  'keys.ollamaHint':
+    'It runs on your machine, so there is nothing to paste here. What is worth checking is that the server is alive and has some model downloaded.',
+
   // ───────────────────── Ajustes · secciones ─────────────────────
   'sec.general': 'General',
   'sec.generalHint': 'Whether the overlay shows up when you share your screen, and how it looks meanwhile.',

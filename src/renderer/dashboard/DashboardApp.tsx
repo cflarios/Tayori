@@ -22,7 +22,7 @@ import {
   formatAccelerator,
 } from '@shared/accelerator';
 import { translate, UI_LANG_LABEL, UI_LANGS, type UIKey, type UILang } from '@shared/i18n';
-import { LangProvider, renderMarkup, useT } from '@renderer/i18n';
+import { LangProvider, renderMarkup, Tx, useT } from '@renderer/i18n';
 import { Icon, type IconName } from './icons';
 import { SetupWizard } from './SetupWizard';
 import type {
@@ -127,7 +127,7 @@ function SecretField({
   hint,
   present,
   /** Qué se pide, si no es una API key. El componente lo reutiliza el broker. */
-  placeholder = 'Pega tu API key',
+  placeholder = 'keys.placeholder',
   onSave,
   onClear,
   /**
@@ -140,14 +140,15 @@ function SecretField({
    */
   onTest,
 }: {
-  label: string;
-  hint: string;
+  label: UIKey;
+  hint: UIKey;
   present: boolean;
-  placeholder?: string;
+  placeholder?: UIKey;
   onSave: (value: string) => Promise<void>;
   onClear: () => Promise<void>;
   onTest?: () => Promise<{ ok: boolean; error?: string }>;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
@@ -180,40 +181,40 @@ function SecretField({
   return (
     <div style={{ padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span className="row__label">{label}</span>
+        <span className="row__label">{t(label)}</span>
         <span className={present ? 'badge badge--ok' : 'badge badge--missing'}>
-          {present ? 'configurada' : 'sin configurar'}
+          {present ? t('keys.configured') : t('keys.missing')}
         </span>
       </div>
-      <div className="row__desc">{hint}</div>
+      <div className="row__desc">{t(hint)}</div>
       <div className="field">
         <input
           type="password"
           value={draft}
-          placeholder={present ? '•••••••• (escribe para reemplazar)' : placeholder}
+          placeholder={present ? t('keys.replace') : t(placeholder)}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void save();
           }}
         />
         <button className="btn" disabled={busy || !draft.trim()} onClick={() => void save()}>
-          Guardar
+          {t('keys.save')}
         </button>
         {onTest && present && (
           <button className="btn" disabled={busy} onClick={() => void test()}>
-            {busy ? 'Probando…' : 'Probar'}
+            {busy ? t('keys.testing') : t('keys.test')}
           </button>
         )}
         {present && (
           <button className="btn btn--danger" disabled={busy} onClick={() => void onClear()}>
-            Borrar
+            {t('keys.clear')}
           </button>
         )}
       </div>
       {tested && (
         <div className="field">
           <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
-            {tested.ok ? 'conexión correcta' : (tested.error ?? 'falló')}
+            {tested.ok ? t('keys.ok') : (tested.error ?? t('keys.failed'))}
           </span>
         </div>
       )}
@@ -1181,9 +1182,9 @@ function MqttCard({
         </Row>
 
         <SecretField
-          label="Contraseña del broker"
-          hint="Se guarda cifrada con DPAPI, igual que las API keys, y no vuelve a mostrarse."
-          placeholder="Pega la contraseña del broker"
+          label="mqtt.password"
+          hint="mqtt.passwordHint"
+          placeholder="mqtt.passwordPlaceholder"
           present={presence.mqtt}
           onSave={(v) => saveSecret('mqtt', v)}
           onClear={() => clearSecret('mqtt')}
@@ -1521,6 +1522,7 @@ function AboutCard() {
  * dice que no le hace falta, y el mismo botón que los demás.
  */
 function OllamaCheck() {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
 
@@ -1537,20 +1539,17 @@ function OllamaCheck() {
   return (
     <div style={{ padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span className="row__label">Ollama (local)</span>
-        <span className="badge badge--ok">no necesita clave</span>
+        <span className="row__label">{t('keys.ollama')}</span>
+        <span className="badge badge--ok">{t('keys.ollamaBadge')}</span>
       </div>
-      <div className="row__desc">
-        Corre en tu máquina, así que aquí no hay nada que pegar. Lo que sí conviene comprobar es que
-        el servidor está vivo y tiene algún modelo descargado.
-      </div>
+      <div className="row__desc">{t('keys.ollamaHint')}</div>
       <div className="field">
         <button className="btn" disabled={busy} onClick={() => void test()}>
-          {busy ? 'Probando…' : 'Probar'}
+          {busy ? t('keys.testing') : t('keys.test')}
         </button>
         {tested && (
           <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
-            {tested.ok ? 'conexión correcta' : (tested.error ?? 'falló')}
+            {tested.ok ? t('keys.ok') : (tested.error ?? t('keys.failed'))}
           </span>
         )}
       </div>
@@ -1567,41 +1566,39 @@ function ApiKeysCard({
   saveSecret: (key: SecretKey, value: string) => Promise<void>;
   clearSecret: (key: SecretKey) => Promise<void>;
 }) {
+  const t = useT();
   return (
     <section className="card">
-      <h2 className="card__title">API keys</h2>
-      <p className="card__hint">
-        Se guardan cifradas con DPAPI en tu perfil de Windows y sólo las lee el proceso principal.
-        Nunca se muestran de vuelta ni salen de esta máquina salvo hacia el proveedor que elijas.
-      </p>
+      <h2 className="card__title">{t('keys.title')}</h2>
+      <p className="card__hint">{t('keys.hint')}</p>
 
       <SecretField
-        label="Anthropic (Claude)"
-        hint="console.anthropic.com → API Keys"
+        label="keys.anthropic"
+        hint="keys.anthropicHint"
         present={presence.anthropic}
         onSave={(v) => saveSecret('anthropic', v)}
         onClear={() => clearSecret('anthropic')}
         onTest={() => window.api.llm.testConnection('claude')}
       />
       <SecretField
-        label="Google (Gemini)"
-        hint="aistudio.google.com → Get API key. Necesaria también para la transcripción con Gemini Live."
+        label="keys.google"
+        hint="keys.googleHint"
         present={presence.google}
         onSave={(v) => saveSecret('google', v)}
         onClear={() => clearSecret('google')}
         onTest={() => window.api.llm.testConnection('gemini')}
       />
       <SecretField
-        label="OpenAI (ChatGPT)"
-        hint="platform.openai.com → API keys. Sirve para las respuestas y también para transcribir con los motores de OpenAI."
+        label="keys.openai"
+        hint="keys.openaiHint"
         present={presence.openai}
         onSave={(v) => saveSecret('openai', v)}
         onClear={() => clearSecret('openai')}
         onTest={() => window.api.llm.testConnection('openai')}
       />
       <SecretField
-        label="DeepSeek"
-        hint="platform.deepseek.com → API keys. Sólo responde: no tienen modelos de transcripción, y sus modelos no leen imágenes."
+        label="keys.deepseek"
+        hint="keys.deepseekHint"
         present={presence.deepseek}
         onSave={(v) => saveSecret('deepseek', v)}
         onClear={() => clearSecret('deepseek')}
@@ -1625,6 +1622,7 @@ function ApiKeysCard({
  * cada frase suelta de una reunión.
  */
 function ScreenModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
   /*
    * El resultado se guarda JUNTO al proveedor que lo pidió, y se descarta por
    * comparación al pintar. Es el mismo patrón que el selector principal, y por
@@ -1663,19 +1661,12 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
 
   return (
     <section className="card" id="screen-model">
-      <h2 className="card__title">Modelo para la pantalla</h2>
+      <h2 className="card__title">{t('screen.title')}</h2>
       <p className="card__hint">
-        El que resuelve <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> (código) y <kbd>Ctrl</kbd>+
-        <kbd>Alt</kbd>+<kbd>Q</kbd> (tests). Puede ser distinto del que responde a lo que se habla:
-        aquello pide rapidez, y esto pide leer bien una captura.{' '}
-        <strong>Tiene que admitir imágenes.</strong>
+        <Tx k="screen.hint" />
       </p>
 
-      <Row
-        icon="cpu"
-        label="Proveedor"
-        desc="«El mismo» usa el modelo de respuestas de arriba, que es como funcionaba antes."
-      >
+      <Row icon="cpu" label={t('model.provider')} desc={t('screen.providerDesc')}>
         <select
           value={provider}
           onChange={(e) =>
@@ -1687,28 +1678,28 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
             })
           }
         >
-          <option value="same">El mismo que para responder</option>
-          <option value="claude">Claude (nube)</option>
-          <option value="gemini">Gemini (nube)</option>
-          <option value="openai">ChatGPT (nube)</option>
+          <option value="same">{t('screen.same')}</option>
+          <option value="claude">{t('screen.claude')}</option>
+          <option value="gemini">{t('screen.gemini')}</option>
+          <option value="openai">{t('screen.openai')}</option>
           {/* DeepSeek no sale aquí: ninguno de sus modelos lee imágenes, y esta
               tarjeta existe para elegir el que SÍ tiene que leer la pantalla.
               Ofrecerlo sería ofrecer la opción que garantiza que los dos botones
               fallen. Se puede escribir a mano si algún día sacan uno con visión. */}
-          <option value="ollama">Ollama (local)</option>
+          <option value="ollama">{t('screen.ollama')}</option>
         </select>
       </Row>
 
       {provider !== 'same' && (
         <Row
           icon="monitor"
-          label="Modelo"
+          label={t('model.model')}
           desc={
             models.length === 0
-              ? 'Sin modelos disponibles. Si es Ollama, comprueba que el servidor está corriendo.'
+              ? t('screen.noModels')
               : provider === 'ollama'
-                ? 'Sólo los que admiten imágenes pueden leer tu pantalla.'
-                : 'Sólo los que admiten imágenes pueden leer tu pantalla. Si tu cuenta tiene acceso a otro modelo, elige «Otro…» y escribe su id.'
+                ? t('screen.visionOnly')
+                : t('screen.visionOnlyCloud')
           }
         >
           <ModelPicker
@@ -1717,7 +1708,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
               ...m,
               // La visión decide si este modelo sirve para lo único que hace
               // esta tarjeta, así que va en la etiqueta y no en una nota aparte.
-              label: `${m.label}${m.supportsVision ? ' · ve imágenes' : ' · sin visión'}`,
+              label: `${m.label}${m.supportsVision ? t('screen.seesImages') : t('screen.noVision')}`,
             }))}
             value={target.model}
             onChange={(screenModel) => void patch({ screenModel })}
@@ -1727,17 +1718,13 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
 
       {blind && (
         <div className="warn">
-          <strong>{target.model}</strong> no admite imágenes, así que no puede leer la pantalla: los
-          botones de código y de test fallarán con un aviso en lugar de responder. Elige un
-          multimodal — con Ollama, <code>qwen2.5vl</code>, <code>llava</code> o <code>gemma3</code>.
+          <Tx k="screen.blind" vars={{ model: target.model }} />
         </div>
       )}
 
       {provider === 'same' && settings.llmProviderId === 'ollama' && (
         <div className="warn">
-          Estás usando Ollama para todo. Si el modelo elegido no ve imágenes, las acciones de
-          pantalla no funcionarán: aquí es donde conviene separarlas y dejar un multimodal sólo para
-          esto.
+          <Tx k="screen.allOllama" />
         </div>
       )}
     </section>
@@ -2330,6 +2317,7 @@ function ModelPicker({
   value: string;
   onChange: (model: string) => void;
 }) {
+  const t = useT();
   /** El usuario pidió escribirlo; se recuerda aunque borre el campo. */
   const [manual, setManual] = useState(false);
 
@@ -2363,21 +2351,21 @@ function ModelPicker({
             navegador pinta la primera como elegida sin disparar onChange y la
             UI miente. Ya costó un rato una vez. */}
         {!typing && !known && (
-          <option value="">{models.length === 0 ? '—' : '— elige un modelo —'}</option>
+          <option value="">{models.length === 0 ? t('model.none') : t('model.pick')}</option>
         )}
         {models.map((m) => (
           <option key={m.id} value={m.id}>
             {m.label}
           </option>
         ))}
-        {allowCustom && <option value={CUSTOM_MODEL}>Otro… (escribir el id)</option>}
+        {allowCustom && <option value={CUSTOM_MODEL}>{t('model.other')}</option>}
       </select>
 
       {typing && (
         <input
           type="text"
           className="modelpick__id"
-          placeholder="p. ej. claude-opus-4-8"
+          placeholder={t('model.idPlaceholder')}
           value={value}
           autoFocus
           // Se normaliza en cada tecla: un id pegado desde la documentación
@@ -2390,6 +2378,7 @@ function ModelPicker({
 }
 
 function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
   const provider = settings.llmProviderId;
 
   /**
@@ -2460,10 +2449,10 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
 
   return (
     <section className="card">
-      <h2 className="card__title">Modelo de respuestas</h2>
-      <p className="card__hint">Quién genera las sugerencias que ves en el overlay.</p>
+      <h2 className="card__title">{t('model.title')}</h2>
+      <p className="card__hint">{t('model.hint')}</p>
 
-      <Row icon="cpu" label="Proveedor">
+      <Row icon="cpu" label={t('model.provider')}>
         <select
           value={settings.llmProviderId}
           onChange={(e) => void patch({ llmProviderId: e.target.value as LLMProviderId })}
@@ -2478,14 +2467,14 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
 
       <Row
         icon="sliders"
-        label="Modelo"
+        label={t('model.model')}
         desc={
           // El diagnóstico detallado lo da el panel de estado de abajo; aquí
           // solo se apunta hacia él para no decir lo mismo dos veces.
           provider === 'ollama' && models.length === 0
-            ? 'Sin modelos disponibles. Mira el estado de Ollama más abajo.'
+            ? t('model.noneAvailable')
             : provider !== 'ollama'
-              ? 'La lista son los modelos que la app conoce. Si tu cuenta tiene acceso a otro, elige «Otro…» y escribe su id; un id que no existe da error en la primera pregunta, así que comprueba con «Probar conexión».'
+              ? t('model.catalogHint')
               : undefined
         }
       >
@@ -2501,11 +2490,11 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
 
       <div className="field">
         <button className="btn" disabled={busy} onClick={() => void runTest()}>
-          {busy ? 'Probando…' : 'Probar conexión'}
+          {busy ? t('keys.testing') : t('model.test')}
         </button>
         {test && (
           <span className={test.ok ? 'badge badge--ok' : 'badge badge--missing'}>
-            {test.ok ? 'conexión correcta' : (test.error ?? 'falló')}
+            {test.ok ? t('keys.ok') : (test.error ?? t('keys.failed'))}
           </span>
         )}
       </div>
@@ -2518,18 +2507,18 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       {(provider === 'ollama' || settings.screenProviderId === 'ollama') && (
         <Row
           icon="file"
-          label="Ventana de contexto de Ollama"
-          desc="Ollama NO usa la del modelo: aplica 2048 tokens por defecto y descarta lo que no cabe SIN dar ningún error, empezando por el principio. El síntoma es que el modelo olvida lo que le acabas de decir. Subirlo gasta más memoria."
+          label={t('model.ollamaContext')}
+          desc={t('model.ollamaContextDesc')}
         >
           <select
             value={settings.ollamaContextTokens}
             onChange={(e) => void patch({ ollamaContextTokens: Number(e.target.value) })}
           >
-            <option value={2048}>2048 · el defecto de Ollama</option>
+            <option value={2048}>{t('model.ctxDefault')}</option>
             <option value={4096}>4096</option>
-            <option value={8192}>8192 · recomendado</option>
-            <option value={16384}>16384 · con CV largo o capturas</option>
-            <option value={32768}>32768 · pide bastante memoria</option>
+            <option value={8192}>{t('model.ctxRecommended')}</option>
+            <option value={16384}>{t('model.ctxLongCv')}</option>
+            <option value={32768}>{t('model.ctxHeavy')}</option>
           </select>
         </Row>
       )}

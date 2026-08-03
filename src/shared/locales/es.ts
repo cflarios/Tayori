@@ -147,6 +147,82 @@ export const es: Record<UIKey, string> = {
   'overlay.qaReviewPrompt':
     'Revisa tus respuestas anteriores. Di sólo las que cambiarías y por cuál.',
 
+  'mqtt.password': 'Contraseña del broker',
+  'mqtt.passwordHint': 'Se guarda cifrada con DPAPI, igual que las API keys, y no vuelve a mostrarse.',
+  'mqtt.passwordPlaceholder': 'Pega la contraseña del broker',
+
+  // ───────────────────── Ajustes · modelo ─────────────────────
+  'model.title': 'Modelo de respuestas',
+  'model.hint': 'Quién genera las sugerencias que ves en el overlay.',
+  'model.provider': 'Proveedor',
+  'model.model': 'Modelo',
+  'model.pick': '— elige un modelo —',
+  'model.none': '—',
+  'model.other': 'Otro… (escribir el id)',
+  'model.idPlaceholder': 'p. ej. claude-opus-4-8',
+  'model.noneAvailable': 'Sin modelos disponibles. Mira el estado de Ollama más abajo.',
+  'model.catalogHint':
+    'La lista son los modelos que la app conoce. Si tu cuenta tiene acceso a otro, elige «Otro…» y escribe su id; un id que no existe da error en la primera pregunta, así que comprueba con «Probar conexión».',
+  'model.test': 'Probar conexión',
+  'model.ollamaContext': 'Ventana de contexto de Ollama',
+  'model.ollamaContextDesc':
+    'Ollama NO usa la del modelo: aplica 2048 tokens por defecto y descarta lo que no cabe SIN dar ningún error, empezando por el principio. El síntoma es que el modelo olvida lo que le acabas de decir. Subirlo gasta más memoria.',
+  'model.ctxDefault': '2048 · el defecto de Ollama',
+  'model.ctxRecommended': '8192 · recomendado',
+  'model.ctxLongCv': '16384 · con CV largo o capturas',
+  'model.ctxHeavy': '32768 · pide bastante memoria',
+
+  // ───────────────────── Ajustes · modelo de pantalla ─────────────────────
+  'screen.title': 'Modelo para la pantalla',
+  'screen.hint':
+    'El que resuelve `Ctrl+Alt+C` (código) y `Ctrl+Alt+Q` (tests). Puede ser distinto del que responde a lo que se habla: aquello pide rapidez, y esto pide leer bien una captura. **Tiene que admitir imágenes.**',
+  'screen.providerDesc': '«El mismo» usa el modelo de respuestas de arriba, que es como funcionaba antes.',
+  'screen.same': 'El mismo que para responder',
+  'screen.claude': 'Claude (nube)',
+  'screen.gemini': 'Gemini (nube)',
+  'screen.openai': 'ChatGPT (nube)',
+  'screen.ollama': 'Ollama (local)',
+  'screen.noModels': 'Sin modelos disponibles. Si es Ollama, comprueba que el servidor está corriendo.',
+  'screen.visionOnly': 'Sólo los que admiten imágenes pueden leer tu pantalla.',
+  'screen.visionOnlyCloud':
+    'Sólo los que admiten imágenes pueden leer tu pantalla. Si tu cuenta tiene acceso a otro modelo, elige «Otro…» y escribe su id.',
+  'screen.seesImages': ' · ve imágenes',
+  'screen.noVision': ' · sin visión',
+  'screen.blind':
+    '**{model}** no admite imágenes, así que no puede leer la pantalla: los botones de código y de test fallarán con un aviso en lugar de responder. Elige un multimodal — con Ollama, `qwen2.5vl`, `llava` o `gemma3`.',
+  'screen.allOllama':
+    'Estás usando Ollama para todo. Si el modelo elegido no ve imágenes, las acciones de pantalla no funcionarán: aquí es donde conviene separarlas y dejar un multimodal sólo para esto.',
+
+  // ───────────────────── Ajustes · claves ─────────────────────
+  'keys.title': 'API keys',
+  'keys.hint':
+    'Se guardan cifradas con DPAPI en tu perfil de Windows y sólo las lee el proceso principal. Nunca se muestran de vuelta ni salen de esta máquina salvo hacia el proveedor que elijas.',
+  'keys.configured': 'configurada',
+  'keys.missing': 'sin configurar',
+  'keys.placeholder': 'Pega tu API key',
+  'keys.replace': '•••••••• (escribe para reemplazar)',
+  'keys.save': 'Guardar',
+  'keys.test': 'Probar',
+  'keys.testing': 'Probando…',
+  'keys.clear': 'Borrar',
+  'keys.ok': 'conexión correcta',
+  'keys.failed': 'falló',
+  'keys.anthropic': 'Anthropic (Claude)',
+  'keys.anthropicHint': 'console.anthropic.com → API Keys',
+  'keys.google': 'Google (Gemini)',
+  'keys.googleHint':
+    'aistudio.google.com → Get API key. Necesaria también para la transcripción con Gemini Live.',
+  'keys.openai': 'OpenAI (ChatGPT)',
+  'keys.openaiHint':
+    'platform.openai.com → API keys. Sirve para las respuestas y también para transcribir con los motores de OpenAI.',
+  'keys.deepseek': 'DeepSeek',
+  'keys.deepseekHint':
+    'platform.deepseek.com → API keys. Sólo responde: no tienen modelos de transcripción, y sus modelos no leen imágenes.',
+  'keys.ollama': 'Ollama (local)',
+  'keys.ollamaBadge': 'no necesita clave',
+  'keys.ollamaHint':
+    'Corre en tu máquina, así que aquí no hay nada que pegar. Lo que sí conviene comprobar es que el servidor está vivo y tiene algún modelo descargado.',
+
   // ───────────────────── Ajustes · secciones ─────────────────────
   'sec.general': 'General',
   'sec.generalHint': 'Si el overlay aparece al compartir pantalla, y cómo se ve mientras tanto.',
