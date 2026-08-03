@@ -368,6 +368,184 @@ export const es: Record<UIKey, string> = {
   'sk.noDescription': 'Sin description en el frontmatter.',
   'ctx.import': 'Importar .txt / .md',
 
+  // ───────────────────── Ajustes · historial ─────────────────────
+  'hist.save': 'Guardar conversaciones',
+  'hist.on': 'Activo. Se escriben en {where}.',
+  'hist.off': 'Apagado. Nada toca el disco: la app vuelve a escuchar sin guardar.',
+  'hist.yourFolder': 'tu carpeta de datos',
+  'hist.emptyOn': 'Todavía no hay ninguna conversación guardada.',
+  'hist.emptyOff': 'No hay nada guardado.',
+  'hist.meta': '{date} · {turns} respuestas · {segments} intervenciones',
+  'hist.delete': 'Borrar',
+  'hist.noQuestion': '(sin pregunta aislada)',
+  'hist.transcript': 'Transcripción',
+  'hist.showLast': 'Mostrar solo las {count} últimas',
+  'hist.showAll': 'Ver las {count} conversaciones',
+  'hist.clearConfirm': 'Se borran las {count} conversaciones. No hay deshacer.',
+  'hist.clearYes': 'Sí, borrar todo',
+  'hist.cancel': 'Cancelar',
+  'hist.clearAll': 'Borrar todo el historial',
+
+  // ───────────────────── Ajustes · atajos ─────────────────────
+  'hk.rejectedOne':
+    'Windows rechazó este atajo: **{keys}**. Otra aplicación lo tiene tomado, así que **no hará nada** hasta que elijas otro.',
+  'hk.rejectedMany':
+    'Windows rechazó estos atajos: **{keys}**. Otra aplicación los tiene tomados, así que **no harán nada** hasta que elijas otros.',
+  'hk.reset': 'Restablecer',
+  'hk.resetDesc': 'Devuelve los diez atajos a sus valores de fábrica.',
+  'hk.resetButton': 'Valores por defecto',
+  'hk.askNow': 'Responder ahora',
+  'hk.screenshotAndAsk': 'Capturar pantalla y responder',
+  'hk.solveOnScreen': 'Resolver el código de la pantalla',
+  'hk.solveQuiz': 'Responder el test de la pantalla',
+  'hk.toggleOverlay': 'Mostrar u ocultar el overlay',
+  'hk.toggleListening': 'Empezar o parar de escuchar',
+  'hk.toggleClickThrough': 'Alternar clics atravesables',
+  'hk.moveUp': 'Mover el overlay arriba',
+  'hk.moveDown': 'Mover el overlay abajo',
+  'hk.moveLeft': 'Mover el overlay a la izquierda',
+  'hk.moveRight': 'Mover el overlay a la derecha',
+
+  // ───────────────────── Ajustes · diagnóstico ─────────────────────
+  'diag.testStt': 'Probar la transcripción',
+  'diag.testSttDesc':
+    'Conecta de verdad con el motor configurado: con un motor de nube negocia el modelo, con Whisper ejecuta el binario sobre un audio de prueba.',
+  'diag.works': 'Funciona.',
+  'diag.failed': 'Falló.',
+  'diag.copy': 'Copiar',
+  'diag.copied': 'Copiado',
+  'diag.emptyLog': 'Todavía no hay nada registrado en esta sesión.',
+
+  // ───────────────────── Ajustes · acerca de ─────────────────────
+  'about.what':
+    'Un asistente que escucha una reunión o una entrevista, transcribe quién dice qué y te sugiere respuestas en un panel flotante que **no aparece cuando compartes pantalla**. También resuelve el código o el test que tengas delante, leyéndolo de una captura.',
+  'about.version': 'Versión',
+  'about.author': 'Autor',
+  'about.license': 'Licencia',
+  'about.licenseDesc': 'Código abierto, sin monetización.',
+  'about.dataTitle': 'Qué hace con lo que oye',
+  'about.dataHint': 'Es lo que conviene tener claro antes de dejarlo escuchando algo importante.',
+  'about.audio':
+    '**El audio nunca toca el disco.** Los fragmentos van al motor de transcripción y se descartan en el acto. No hay archivos de audio, ni siquiera temporales.',
+  'about.text':
+    '**El texto sí se guarda, si tú quieres.** Con el historial activo, las respuestas y la transcripción completa —incluido lo que dijo la otra persona— van a un JSON en tu carpeta de datos. Se apaga entero desde *Historial*, y con él apagado no se escribe nada.',
+  'about.noServer':
+    '**No hay servidor intermedio.** Las llamadas van directas al proveedor que elijas, con tu clave. Las claves se guardan cifradas con DPAPI y nunca salen hacia el renderer.',
+  'about.offline':
+    '**Puede funcionar sin conexión.** Con Whisper local y Ollama no sale nada de tu máquina.',
+  'about.legal':
+    'Usarlo es cosa tuya: muchas empresas restringen los asistentes de IA en sus procesos de selección, y las plataformas de evaluación técnica suelen prohibirlos en sus condiciones. En varias jurisdicciones, además, guardar la transcripción de una conversación cuenta igual que grabarla.',
+
+  // ───────────────────── Ajustes · espejo del móvil ─────────────────────
+  'ph.turnOn': 'Encender el espejo',
+  'ph.onLan': 'Sirviendo en tu red local. El enlace caduca al apagarlo.',
+  'ph.onLocal': 'Sirviendo en tu máquina. El enlace caduca al apagarlo.',
+  'ph.offDesc': 'Apagado: no hay ningún puerto abierto ni nada que leer desde fuera.',
+  'ph.allowLan': 'Permitir acceso desde la red local',
+  'ph.lanOn': 'Cualquier dispositivo de tu red que tenga el enlace puede leer las respuestas.',
+  'ph.lanOff': 'Sólo esta máquina puede conectarse. Un teléfono necesita esto encendido.',
+  'ph.lanWarn':
+    'El enlace lleva un token que caduca al apagar el espejo, pero mientras esté encendido **quien tenga ese enlace y esté en tu red puede leer tus respuestas**. En una red de invitados o de una oficina, esto es una decisión, no un detalle. La primera vez Windows puede pedirte permiso del firewall: sin concederlo, el teléfono no conecta.',
+  'ph.offHint':
+    'Enciende el espejo para generar el enlace y el código QR. Se genera uno nuevo cada vez, así que un enlace guardado en el móvil deja de valer solo.',
+  'ph.scan': 'Escanea esto con el teléfono',
+  'ph.copyLink': 'Copiar el enlace',
+  'ph.copied': '¡Copiado!',
+  'ph.noClients': 'Ningún teléfono conectado todavía.',
+  'ph.clients': '{count} teléfono(s) conectado(s).',
+  'ph.loopbackWarn':
+    'El espejo sólo escucha en `127.0.0.1`, así que este enlace únicamente funciona en este ordenador. Enciende «Permitir acceso desde la red local» para que lo alcance el teléfono.',
+  'ph.altsTitle': 'Si ese enlace no carga',
+  'ph.altsHint':
+    'Tu equipo tiene más de una dirección de red. Prueba con estas; sólo una llega al teléfono.',
+  'ph.sentTitle': 'Qué se manda y qué no',
+  'ph.sentHint':
+    'Van las **respuestas** y si la escucha está activa. **No va la transcripción**: lo que dijo la otra persona no se duplica en un segundo dispositivo por comodidad. Todo se queda en tu red — el puente lo sirve tu propio ordenador, sin ninguna nube por medio, y se apaga con la app.',
+
+  // ───────────────────── Ajustes · MQTT ─────────────────────
+  'mq.publish': 'Publicar en un broker',
+  'mq.brokerTitle': 'Broker',
+  'mq.brokerHint':
+    'El esquema decide el cifrado: `mqtt://` va en claro y `mqtts://` cifrado.',
+  'mq.address': 'Dirección',
+  'mq.addressDesc': 'Incluye el puerto: 1883 en claro, 8883 con TLS.',
+  'mq.topic': 'Tema',
+  'mq.topicDesc': 'Se publica en este tema y en su hijo «/text».',
+  'mq.user': 'Usuario',
+  'mq.userDesc': 'Déjalo vacío si tu broker acepta conexiones anónimas.',
+  'mq.subscribeTitle': 'A qué se suscribe tu dispositivo',
+  'mq.qos':
+    'Se publican con QoS 1 y **sin retener**: un mensaje retenido se entrega al suscribirse, así que una placa que arranca por la mañana ejecutaría la respuesta de ayer.',
+  'mq.published': 'publicado',
+  'mq.outWarn':
+    '**Esto saca tus respuestas de la app.** Si el broker está en internet, el texto sale de tu red; si está en tu LAN, cualquiera con acceso al tema puede leerlo. Un broker sin usuario ni TLS es un tablón de anuncios — usa `mqtts://` fuera de tu red.',
+  'mq.connected': 'Conectado al broker',
+  'mq.connecting': 'Conectando…',
+  'mq.noConnection': 'Sin conexión',
+  'mq.off': 'Apagado',
+  'mq.publishedCount': '{count} respuesta(s) publicada(s) en esta sesión.',
+  'mq.nothingPublished': 'Todavía no se ha publicado nada.',
+
+  'mq.publishDesc':
+    'Cada respuesta terminada se publica en MQTT. Las que fallan o se cancelan no: un dispositivo no puede distinguir un error de una respuesta.',
+  'mq.brokerHint2': 'En una red que no sea la tuya, esto último no es opcional.',
+  'mq.twoTopics':
+    'Dos temas, porque son dos consumidores distintos. Si tu placa sólo quiere las letras de un test, el segundo le ahorra meter un parser de JSON.',
+  'mq.jsonTopic': 'JSON con id, pregunta, respuesta, modelo y disparo',
+  'mq.textTopic': 'sólo el texto de la respuesta, en crudo',
+  'mq.testPublish': 'Publicar un mensaje de prueba',
+  'mq.yourDevice':
+    'Y lo que haga tu dispositivo con lo que reciba es cosa tuya: aquí se publica y ahí se acaba nuestra parte.',
+
+  // ───────────────────── Ajustes · audio y flecos ─────────────────────
+  'aud.captureTitle': 'Captura de audio',
+  'aud.listening': 'Escuchando',
+  'aud.paused': 'En pausa',
+  'aud.devices': 'Micrófono: {mic} · Sistema: {system}',
+  'aud.active': 'activo',
+  'aud.inactive': 'inactivo',
+  'aud.stop': 'Detener',
+  'aud.start': 'Empezar a escuchar',
+  'aud.sourcesTitle': 'Qué se escucha',
+  'aud.sourcesHint':
+    'Decide qué entra en el contexto que se manda al modelo. Con «solo la salida del sistema» tu micrófono ni siquiera se abre.',
+  'aud.sources': 'Fuentes de audio',
+  'aud.both': 'Micrófono y salida del sistema',
+  'aud.systemOnly': 'Solo la salida del sistema',
+  'aud.micOnly': 'Solo el micrófono',
+  'aud.inertWarn':
+    'Con esta combinación **no se disparará ninguna respuesta automática**: el disparo espera a {wanted} y aquí no se abre esa fuente.',
+  'aud.seeTrigger': 'Ver el disparo automático',
+  'nav.attention': 'Algo requiere tu atención',
+  'nav.wizard': 'Configuración guiada',
+  'nav.footer': 'Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.',
+  'ph.qrAlt': 'Código QR con el enlace del espejo',
+  'local.title': 'Qué modelo local le pega a tu equipo',
+  'local.hint':
+    'Ollama no cuesta dinero y no envía nada fuera de tu máquina, pero elegir mal cuesta una descarga de varios gigas para acabar con respuestas de un minuto. Esto es lo que encaja con lo que tienes.',
+  'local.ram': 'de RAM',
+  'local.cores': '{cores} núcleos · {cpu}',
+  'local.gpu': 'GPU:',
+  'local.forChat': 'Para conversar',
+  'local.forScreen': 'Para leer la pantalla',
+  'local.alreadyInstalled': 'ya instalado',
+  'local.copied': '¡copiado!',
+  'local.guide': 'Guía completa',
+  'local.guideDesc':
+    'Todos los modelos locales por tramo de memoria, los multimodales que pueden leer tu pantalla, los de pago ordenados por precio y cuánto cuesta de verdad cada pulsación. Se genera para tu equipo y se abre en el navegador.',
+  'local.openGuide': 'Abrir la guía',
+  'local.guideFailed': 'No se pudo abrir la guía.',
+
+  'aud.hintBoth':
+    'El modelo sabe lo que ya has respondido, así que no te sugiere repetirlo. Por defecto el auto-disparo no reacciona a tu propia voz.',
+  'aud.hintSystem':
+    'Tu micrófono no se abre siquiera. Evita cualquier posibilidad de que tus respuestas entren en el contexto, a cambio de que el modelo no sepa qué has dicho ya.',
+  'aud.hintMic':
+    'Solo se transcribe lo que dices tú. Útil para dictar notas, no para una entrevista: el interlocutor no se escucha, así que el auto-disparo por defecto no puede saltar.',
+
+  'aud.captureHint':
+    'Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es lo que permite distinguir quién habla sin diarización.',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':

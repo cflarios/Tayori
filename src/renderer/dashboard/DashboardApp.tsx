@@ -228,6 +228,7 @@ function SecretField({
  * "Ellos", el pipeline está bien.
  */
 function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioLevels }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const listening = status.state === 'listening';
 
@@ -243,21 +244,19 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
 
   return (
     <section className="card">
-      <h2 className="card__title">Captura de audio</h2>
-      <p className="card__hint">
-        Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es
-        lo que permite distinguir quién habla sin diarización.
-      </p>
+      <h2 className="card__title">{t('aud.captureTitle')}</h2>
+      <p className="card__hint">{t('aud.captureHint')}</p>
 
       <Row
         icon="power"
-        label={listening ? 'Escuchando' : 'En pausa'}
+        label={listening ? t('aud.listening') : t('aud.paused')}
         desc={
           status.state === 'error'
-            ? (status.error ?? 'Error desconocido')
-            : `Micrófono: ${status.micActive ? 'activo' : 'inactivo'} · Sistema: ${
-                status.loopbackActive ? 'activo' : 'inactivo'
-              }`
+            ? (status.error ?? t('overlay.unknownError'))
+            : t('aud.devices', {
+                mic: status.micActive ? t('aud.active') : t('aud.inactive'),
+                system: status.loopbackActive ? t('aud.active') : t('aud.inactive'),
+              })
         }
       >
         <button
@@ -266,10 +265,10 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
           onClick={() => void toggle()}
         >
           {status.state === 'starting'
-            ? 'Iniciando…'
+            ? t('overlay.starting')
             : listening
-              ? 'Detener'
-              : 'Empezar a escuchar'}
+              ? t('aud.stop')
+              : t('aud.start')}
         </button>
       </Row>
 
@@ -469,7 +468,7 @@ export function DashboardApp() {
     setPresence(await window.api.secrets.clear(key));
   }, []);
 
-  if (!settings) return <div className="loading">Cargando…</div>;
+  if (!settings) return <div className="loading">…</div>;
 
   /*
    * El asistente sustituye al dashboard entero mientras está abierto, y no es
@@ -536,7 +535,7 @@ export function DashboardApp() {
               >
                 <Icon name={SECTIONS[id].icon} />
                 <span className="navitem__label">{t(SECTIONS[id].label)}</span>
-                {alerts[id] && <span className="navitem__dot" title="Algo requiere tu atención" />}
+                {alerts[id] && <span className="navitem__dot" title={t('nav.attention')} />}
               </button>
             ))}
           </nav>
@@ -547,7 +546,7 @@ export function DashboardApp() {
               porque no pertenece a ninguna — las cruza todas. */}
             <button className="navitem navitem--ghost" onClick={() => setWizard(true)}>
               <Icon name="compass" />
-              <span className="navitem__label">Configuración guiada</span>
+              <span className="navitem__label">{t('nav.wizard')}</span>
             </button>
             <p className="nav__note">
               Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.
@@ -831,33 +830,36 @@ function AudioSourcesCard({
   patch: PatchFn;
   go: (id: SectionId) => void;
 }) {
+  const t = useT();
   return (
     <section className="card">
-      <h2 className="card__title">Qué se escucha</h2>
-      <p className="card__hint">
-        Decide qué entra en el contexto que se manda al modelo. Con «solo la salida del sistema» tu
-        micrófono ni siquiera se abre.
-      </p>
+      <h2 className="card__title">{t('aud.sourcesTitle')}</h2>
+      <p className="card__hint">{t('aud.sourcesHint')}</p>
 
-      <Row icon="speaker" label="Fuentes de audio" desc={AUDIO_SOURCE_HINT[settings.audioSources]}>
+      <Row
+        icon="speaker"
+        label={t('aud.sources')}
+        desc={t(AUDIO_SOURCE_HINT[settings.audioSources])}
+      >
         <select
           value={settings.audioSources}
           onChange={(e) => void patch({ audioSources: e.target.value as Settings['audioSources'] })}
         >
-          <option value="both">Micrófono y salida del sistema</option>
-          <option value="system">Solo la salida del sistema</option>
-          <option value="mic">Solo el micrófono</option>
+          <option value="both">{t('aud.both')}</option>
+          <option value="system">{t('aud.systemOnly')}</option>
+          <option value="mic">{t('aud.micOnly')}</option>
         </select>
       </Row>
 
       {autoTriggerIsInert(settings) && (
         <div className="warn">
-          Con esta combinación <strong>no se disparará ninguna respuesta automática</strong>: el
-          disparo espera a {SPEAKER_LABEL[settings.autoTriggerSpeaker]} y aquí no se abre esa
-          fuente.
+          <Tx
+            k="aud.inertWarn"
+            vars={{ wanted: t(SPEAKER_LABEL[settings.autoTriggerSpeaker]) }}
+          />
           <div className="field">
             <Jump to="behaviour" go={go}>
-              Ver el disparo automático
+              {t('aud.seeTrigger')}
             </Jump>
           </div>
         </div>
@@ -878,6 +880,7 @@ function AudioSourcesCard({
  * CSS.
  */
 function QrCode({ modules }: { modules: boolean[][] }) {
+  const t = useT();
   const size = modules.length;
   if (size === 0) return null;
   const quiet = 4;
@@ -888,7 +891,7 @@ function QrCode({ modules }: { modules: boolean[][] }) {
       className="qr"
       viewBox={`0 0 ${side} ${side}`}
       role="img"
-      aria-label="Código QR con el enlace del espejo"
+      aria-label={t('ph.qrAlt')}
       shapeRendering="crispEdges"
     >
       <rect x="0" y="0" width={side} height={side} fill="#fff" />
@@ -912,6 +915,7 @@ function QrCode({ modules }: { modules: boolean[][] }) {
  * él, la única forma de saber si funciona es levantarse a mirar.
  */
 function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
   const [status, setStatus] = useState<PhoneMirrorStatus | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -936,11 +940,13 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
           <Icon name="phone" size={19} />
         </span>
         <div className="hero__text">
-          <div className="hero__title">Encender el espejo</div>
+          <div className="hero__title">{t('ph.turnOn')}</div>
           <div className="hero__desc">
             {running
-              ? `Sirviendo en tu ${settings.phoneMirrorLan ? 'red local' : 'máquina'}. El enlace caduca al apagarlo.`
-              : 'Apagado: no hay ningún puerto abierto ni nada que leer desde fuera.'}
+              ? settings.phoneMirrorLan
+                ? t('ph.onLan')
+                : t('ph.onLocal')
+              : t('ph.offDesc')}
           </div>
         </div>
         <Switch on={on} onChange={(v) => void patch({ phoneMirrorEnabled: v })} />
@@ -951,11 +957,11 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
           <Icon name="wifi" size={19} />
         </span>
         <div className="hero__text">
-          <div className="hero__title">Permitir acceso desde la red local</div>
+          <div className="hero__title">{t('ph.allowLan')}</div>
           <div className="hero__desc">
             {settings.phoneMirrorLan
-              ? 'Cualquier dispositivo de tu red que tenga el enlace puede leer las respuestas.'
-              : 'Sólo esta máquina puede conectarse. Un teléfono necesita esto encendido.'}
+              ? t('ph.lanOn')
+              : t('ph.lanOff')}
           </div>
         </div>
         <Switch on={settings.phoneMirrorLan} onChange={(v) => void patch({ phoneMirrorLan: v })} />
@@ -965,18 +971,14 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
           el momento en que el alcance cambia. */}
       {on && settings.phoneMirrorLan && (
         <div className="warn">
-          El enlace lleva un token que caduca al apagar el espejo, pero mientras esté encendido{' '}
-          <strong>quien tenga ese enlace y esté en tu red puede leer tus respuestas</strong>. En una
-          red de invitados o de una oficina, esto es una decisión, no un detalle. La primera vez
-          Windows puede pedirte permiso del firewall: sin concederlo, el teléfono no conecta.
+          <Tx k="ph.lanWarn" />
         </div>
       )}
 
       {!on && (
         <section className="card">
           <p className="card__hint" style={{ marginBottom: 0 }}>
-            Enciende el espejo para generar el enlace y el código QR. Se genera uno nuevo cada vez,
-            así que un enlace guardado en el móvil deja de valer solo.
+            {t('ph.offHint')}
           </p>
         </section>
       )}
@@ -989,7 +991,7 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
           para que TypeScript sepa que aquí dentro hay estado. */}
       {on && status?.running && (
         <section className="card">
-          <h2 className="card__title">Escanea esto con el teléfono</h2>
+          <h2 className="card__title">{t('ph.scan')}</h2>
           <p className="card__hint">
             Abre la cámara del móvil y apunta. Si prefieres, escribe el enlace a mano — es el mismo.
           </p>
@@ -1005,7 +1007,7 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
                     void window.api.clipboard.write(status.url).then(() => setCopied(true));
                   }}
                 >
-                  {copied ? '¡Copiado!' : 'Copiar el enlace'}
+                  {copied ? t('ph.copied') : t('ph.copyLink')}
                 </button>
               </div>
               {/*
@@ -1015,19 +1017,15 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
               */}
               <div className={status.clients > 0 ? 'pair__live' : 'pair__idle'}>
                 {status.clients === 0
-                  ? 'Ningún teléfono conectado todavía.'
-                  : `${status.clients} teléfono${status.clients === 1 ? '' : 's'} conectado${
-                      status.clients === 1 ? '' : 's'
-                    }.`}
+                  ? t('ph.noClients')
+                  : t('ph.clients', { count: status.clients })}
               </div>
             </div>
           </div>
 
           {!settings.phoneMirrorLan && (
             <div className="warn">
-              El espejo sólo escucha en <code>127.0.0.1</code>, así que este enlace únicamente
-              funciona en este ordenador. Enciende «Permitir acceso desde la red local» para que lo
-              alcance el teléfono.
+              <Tx k="ph.loopbackWarn" />
             </div>
           )}
 
@@ -1040,11 +1038,10 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
           {status.alternates.length > 0 && (
             <>
               <div className="ctxbar" style={{ marginTop: 18 }}>
-                <span className="ctxbar__label">Si ese enlace no carga</span>
+                <span className="ctxbar__label">{t('ph.altsTitle')}</span>
               </div>
               <p className="card__hint" style={{ marginBottom: 6 }}>
-                Tu equipo tiene más de una dirección de red. Prueba con estas; sólo una llega al
-                teléfono.
+                {t('ph.altsHint')}
               </p>
               <ul className="pair__alts">
                 {status.alternates.map((url) => (
@@ -1059,12 +1056,9 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
       )}
 
       <section className="card">
-        <h2 className="card__title">Qué se manda y qué no</h2>
+        <h2 className="card__title">{t('ph.sentTitle')}</h2>
         <p className="card__hint" style={{ marginBottom: 0 }}>
-          Van las <strong>respuestas</strong> y si la escucha está activa.{' '}
-          <strong>No va la transcripción</strong>: lo que dijo la otra persona no se duplica en un
-          segundo dispositivo por comodidad. Todo se queda en tu red — el puente lo sirve tu propio
-          ordenador, sin ninguna nube por medio, y se apaga con la app.
+          <Tx k="ph.sentHint" />
         </p>
       </section>
     </>
@@ -1096,6 +1090,7 @@ function MqttCard({
   saveSecret: (key: SecretKey, value: string) => Promise<void>;
   clearSecret: (key: SecretKey) => Promise<void>;
 }) {
+  const t = useT();
   const [status, setStatus] = useState<MqttStatus | null>(null);
   const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
 
@@ -1114,11 +1109,8 @@ function MqttCard({
           <Icon name="broadcast" size={19} />
         </span>
         <div className="hero__text">
-          <div className="hero__title">Publicar en un broker</div>
-          <div className="hero__desc">
-            Cada respuesta terminada se publica en MQTT. Las que fallan o se cancelan no: un
-            dispositivo no puede distinguir un error de una respuesta.
-          </div>
+          <div className="hero__title">{t('mq.publish')}</div>
+          <div className="hero__desc">{t('mq.publishDesc')}</div>
         </div>
         <Switch on={on} onChange={(v) => void patch({ mqttEnabled: v })} />
       </div>
@@ -1126,13 +1118,12 @@ function MqttCard({
       {on && <MqttStatusLine status={status} />}
 
       <section className="card">
-        <h2 className="card__title">Broker</h2>
+        <h2 className="card__title">{t('mq.brokerTitle')}</h2>
         <p className="card__hint">
-          El esquema decide el cifrado: <code>mqtt://</code> va en claro y <code>mqtts://</code>{' '}
-          cifrado. En una red que no sea la tuya, esto último no es opcional.
+          <Tx k="mq.brokerHint" /> {t('mq.brokerHint2')}
         </p>
 
-        <Row icon="cloud" label="Dirección" desc="Incluye el puerto: 1883 en claro, 8883 con TLS.">
+        <Row icon="cloud" label={t('mq.address')} desc={t('mq.addressDesc')}>
           <input
             type="text"
             className="modelpick__id"
@@ -1143,7 +1134,7 @@ function MqttCard({
           />
         </Row>
 
-        <Row icon="file" label="Tema" desc="Se publica en este tema y en su hijo «/text».">
+        <Row icon="file" label={t('mq.topic')} desc={t('mq.topicDesc')}>
           <input
             type="text"
             className="modelpick__id"
@@ -1156,8 +1147,8 @@ function MqttCard({
 
         <Row
           icon="key"
-          label="Usuario"
-          desc="Déjalo vacío si tu broker acepta conexiones anónimas."
+          label={t('mq.user')}
+          desc={t('mq.userDesc')}
         >
           <input
             type="text"
@@ -1179,25 +1170,20 @@ function MqttCard({
 
       {on && (
         <section className="card">
-          <h2 className="card__title">A qué se suscribe tu dispositivo</h2>
-          <p className="card__hint">
-            Dos temas, porque son dos consumidores distintos. Si tu placa sólo quiere las letras de
-            un test, el segundo le ahorra meter un parser de JSON.
-          </p>
+          <h2 className="card__title">{t('mq.subscribeTitle')}</h2>
+          <p className="card__hint">{t('mq.twoTopics')}</p>
 
           <ul className="pair__alts">
             <li>
-              <code>{topics.json}</code> — JSON con id, pregunta, respuesta, modelo y disparo
+              <code>{topics.json}</code> — {t('mq.jsonTopic')}
             </li>
             <li>
-              <code>{topics.text}</code> — sólo el texto de la respuesta, en crudo
+              <code>{topics.text}</code> — {t('mq.textTopic')}
             </li>
           </ul>
 
           <p className="card__hint" style={{ marginTop: 14 }}>
-            Se publican con QoS 1 y <strong>sin retener</strong>: un mensaje retenido se entrega al
-            suscribirse, así que una placa que arranca por la mañana ejecutaría la respuesta de
-            ayer.
+            <Tx k="mq.qos" />
           </p>
 
           <div className="field">
@@ -1208,11 +1194,11 @@ function MqttCard({
                 void window.api.mqtt.test().then(setTested);
               }}
             >
-              Publicar un mensaje de prueba
+              {t('mq.testPublish')}
             </button>
             {tested && (
               <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
-                {tested.ok ? 'publicado' : (tested.error ?? 'falló')}
+                {tested.ok ? t('mq.published') : (tested.error ?? t('keys.failed'))}
               </span>
             )}
           </div>
@@ -1220,10 +1206,7 @@ function MqttCard({
       )}
 
       <div className="warn">
-        <strong>Esto saca tus respuestas de la app.</strong> Si el broker está en internet, el texto
-        sale de tu red; si está en tu LAN, cualquiera con acceso al tema puede leerlo. Un broker sin
-        usuario ni TLS es un tablón de anuncios. Y lo que haga tu dispositivo con lo que reciba es
-        cosa tuya: aquí se publica y ahí se acaba nuestra parte.
+        <Tx k="mq.outWarn" /> {t('mq.yourDevice')}
       </div>
     </>
   );
@@ -1231,16 +1214,19 @@ function MqttCard({
 
 /** Estado de la conexión, con el contador que es la única confirmación real. */
 function MqttStatusLine({ status }: { status: MqttStatus | null }) {
+  // El hook va ANTES del `return null`: React exige que el número de hooks no
+  // cambie entre renders, y salir antes de llamarlo rompe esa regla.
+  const t = useT();
   if (!status) return null;
 
   const label =
     status.state === 'connected'
-      ? 'Conectado al broker'
+      ? t('mq.connected')
       : status.state === 'connecting'
-        ? 'Conectando…'
+        ? t('mq.connecting')
         : status.state === 'error'
-          ? 'Sin conexión'
-          : 'Apagado';
+          ? t('mq.noConnection')
+          : t('mq.off');
 
   return (
     <>
@@ -1252,8 +1238,8 @@ function MqttStatusLine({ status }: { status: MqttStatus | null }) {
           <div className="hero__title">{label}</div>
           <div className="hero__desc">
             {status.published > 0
-              ? `${status.published} respuesta${status.published === 1 ? '' : 's'} publicada${status.published === 1 ? '' : 's'} en esta sesión.`
-              : 'Todavía no se ha publicado nada.'}
+              ? t('mq.publishedCount', { count: status.published })
+              : t('mq.nothingPublished')}
           </div>
         </div>
       </div>
@@ -1414,6 +1400,7 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
  * depender de que haya leído el README.
  */
 function AboutCard() {
+  const t = useT();
   const [info, setInfo] = useState<{ version: string; author: string } | null>(null);
 
   useEffect(() => {
@@ -1431,51 +1418,40 @@ function AboutCard() {
           test que tengas delante, leyéndolo de una captura.
         </p>
 
-        <Row icon="check" label="Versión">
+        <Row icon="check" label={t('about.version')}>
           <code className="aboutval">{info?.version ?? '…'}</code>
         </Row>
-        <Row icon="check" label="Autor">
+        <Row icon="check" label={t('about.author')}>
           <code className="aboutval">{info?.author ?? '@cflarios'}</code>
         </Row>
-        <Row icon="check" label="Licencia" desc="Código abierto, sin monetización.">
+        <Row icon="check" label={t('about.license')} desc={t('about.licenseDesc')}>
           <code className="aboutval">MIT</code>
         </Row>
       </section>
 
       <section className="card">
-        <h2 className="card__title">Qué hace con lo que oye</h2>
+        <h2 className="card__title">{t('about.dataTitle')}</h2>
         <p className="card__hint">
           Es lo que conviene tener claro antes de dejarlo escuchando algo importante.
         </p>
 
         <div className="about">
           <p>
-            <strong>El audio nunca toca el disco.</strong> Los fragmentos van al motor de
-            transcripción y se descartan en el acto. No hay archivos de audio, ni siquiera
-            temporales.
+            <Tx k="about.audio" />
           </p>
           <p>
-            <strong>El texto sí se guarda, si tú quieres.</strong> Con el historial activo, las
-            respuestas y la transcripción completa —incluido lo que dijo la otra persona— van a un
-            JSON en tu carpeta de datos. Se apaga entero desde <em>Historial</em>, y con él apagado
-            no se escribe nada.
+            <Tx k="about.text" />
           </p>
           <p>
-            <strong>No hay servidor intermedio.</strong> Las llamadas van directas al proveedor que
-            elijas, con tu clave. Las claves se guardan cifradas con DPAPI y nunca salen hacia el
-            renderer.
+            <Tx k="about.noServer" />
           </p>
           <p>
-            <strong>Puede funcionar sin conexión.</strong> Con Whisper local y Ollama no sale nada
-            de tu máquina.
+            <Tx k="about.offline" />
           </p>
         </div>
 
         <div className="warn">
-          Usarlo es cosa tuya: muchas empresas restringen los asistentes de IA en sus procesos de
-          selección, y las plataformas de evaluación técnica suelen prohibirlos en sus condiciones.
-          En varias jurisdicciones, además, guardar la transcripción de una conversación cuenta
-          igual que grabarla.
+          {t('about.legal')}
         </div>
       </section>
     </>
@@ -1718,6 +1694,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
  * leer de forma fiable desde aquí.
  */
 function LocalModelGuide() {
+  const t = useT();
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
   const [copied, setCopied] = useState('');
   const [guide, setGuide] = useState<{ ok: boolean; error?: string } | null>(null);
@@ -1770,12 +1747,8 @@ function LocalModelGuide() {
 
   return (
     <section className="card" id="local-models">
-      <h2 className="card__title">Qué modelo local le pega a tu equipo</h2>
-      <p className="card__hint">
-        Ollama no cuesta dinero y no envía nada fuera de tu máquina, pero elegir mal cuesta una
-        descarga de varios gigas para acabar con respuestas de un minuto. Esto es lo que encaja con
-        lo que tienes.
-      </p>
+      <h2 className="card__title">{t('local.title')}</h2>
+      <p className="card__hint">{t('local.hint')}</p>
 
       <div className="specs">
         <span className="specs__item">
@@ -1814,8 +1787,8 @@ function LocalModelGuide() {
       */}
       <Row
         icon="book"
-        label="Guía completa"
-        desc="Todos los modelos locales por tramo de memoria, los multimodales que pueden leer tu pantalla, los de pago ordenados por precio y cuánto cuesta de verdad cada pulsación. Se genera para tu equipo y se abre en el navegador."
+        label={t('local.guide')}
+        desc={t('local.guideDesc')}
       >
         <button
           className="btn"
@@ -1823,12 +1796,14 @@ function LocalModelGuide() {
             void window.api.guide.open().then(setGuide);
           }}
         >
-          Abrir la guía
+          {t('local.openGuide')}
         </button>
       </Row>
 
       {guide && !guide.ok && (
-        <div className="warn">No se pudo abrir la guía: {guide.error ?? 'error desconocido'}</div>
+        <div className="warn">
+          {t('local.guideFailed')} {guide.error ?? t('overlay.unknownError')}
+        </div>
       )}
 
       <p className="card__hint" style={{ marginTop: 12, marginBottom: 0 }}>
@@ -1867,6 +1842,7 @@ function HotkeyField({
   duplicated: boolean;
   onChange: (accelerator: string) => void;
 }) {
+  const t = useT();
   const [capturing, setCapturing] = useState(false);
   const [rejected, setRejected] = useState(false);
 
@@ -1899,7 +1875,7 @@ function HotkeyField({
 
   return (
     <Row
-      label={HOTKEY_LABEL[action]}
+      label={t(HOTKEY_LABEL[action])}
       desc={
         rejected
           ? 'Un atajo global necesita al menos Ctrl, Alt o Shift: sin modificador, esa tecla dejaría de funcionar en todo el sistema.'
@@ -1946,6 +1922,7 @@ function HotkeysCard({
      aunque no esté abierta, y para eso el aviso no puede vivir aquí dentro. */
   failed: string[];
 }) {
+  const t = useT();
   const duplicated = duplicateAccelerators(settings.hotkeys);
   const actions = Object.keys(HOTKEY_LABEL) as (keyof HotkeyMap)[];
 
@@ -1984,11 +1961,11 @@ function HotkeysCard({
 
       <div className="row">
         <div>
-          <div className="row__label">Restablecer</div>
-          <div className="row__desc">Devuelve los diez atajos a sus valores de fábrica.</div>
+          <div className="row__label">{t('hk.reset')}</div>
+          <div className="row__desc">{t('hk.resetDesc')}</div>
         </div>
         <button className="btn" onClick={() => void patch({ hotkeys: DEFAULT_HOTKEYS })}>
-          Valores por defecto
+          {t('hk.resetButton')}
         </button>
       </div>
     </section>
@@ -2005,6 +1982,7 @@ function HotkeysCard({
  * de Gemini Live y una sala en silencio producían exactamente la misma pantalla.
  */
 function DiagnosticsCard() {
+  const t = useT();
   const [log, setLog] = useState('');
   const [location, setLocation] = useState('');
   const [copied, setCopied] = useState(false);
@@ -2048,17 +2026,17 @@ function DiagnosticsCard() {
 
       <Row
         icon="activity"
-        label="Probar la transcripción"
-        desc="Conecta de verdad con el motor configurado: con Gemini Live negocia el modelo, con Whisper ejecuta el binario sobre un audio de prueba."
+        label={t('diag.testStt')}
+        desc={t('diag.testSttDesc')}
       >
         <button className="btn" disabled={testing} onClick={() => void runTest()}>
-          {testing ? 'Probando…' : 'Probar'}
+          {testing ? t('keys.testing') : t('keys.test')}
         </button>
       </Row>
 
       {result && (
         <div className={result.ok ? 'diag diag--ok' : 'warn'}>
-          <strong>{result.ok ? 'Funciona.' : 'Falló.'}</strong> {result.detail}
+          <strong>{result.ok ? t('diag.works') : t('diag.failed')}</strong> {result.detail}
         </div>
       )}
 
@@ -2067,11 +2045,11 @@ function DiagnosticsCard() {
           Actualizar registro
         </button>
         <button className="btn" disabled={!log} onClick={() => void copy()}>
-          {copied ? 'Copiado' : 'Copiar'}
+          {copied ? t('diag.copied') : t('diag.copy')}
         </button>
       </div>
 
-      <pre className="logview">{log || 'Todavía no hay nada registrado en esta sesión.'}</pre>
+      <pre className="logview">{log || t('diag.emptyLog')}</pre>
     </section>
   );
 }
@@ -2094,6 +2072,7 @@ const dateFormat = new Intl.DateTimeFormat('es-ES', {
  * transcripciones de otras personas, tienes que poder ver qué hay y quitarlo.
  */
 function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
   const [items, setItems] = useState<ConversationSummary[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Conversation | null>(null);
@@ -2153,11 +2132,11 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
     <section className="card">
       <Row
         icon="history"
-        label="Guardar conversaciones"
+        label={t('hist.save')}
         desc={
           settings.historyEnabled
-            ? `Activo. Se escriben en ${location || 'tu carpeta de datos'}.`
-            : 'Apagado. Nada toca el disco: la app vuelve a escuchar sin guardar.'
+            ? t('hist.on', { where: location || t('hist.yourFolder') })
+            : t('hist.off')
         }
       >
         <Switch on={settings.historyEnabled} onChange={(v) => void patch({ historyEnabled: v })} />
@@ -2165,9 +2144,7 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
 
       {items.length === 0 && (
         <p className="card__hint" style={{ marginBottom: 0 }}>
-          {settings.historyEnabled
-            ? 'Todavía no hay ninguna conversación guardada.'
-            : 'No hay nada guardado.'}
+          {settings.historyEnabled ? t('hist.emptyOn') : t('hist.emptyOff')}
         </p>
       )}
 
@@ -2180,13 +2157,15 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
             >
               <span className="conv__name">{item.title}</span>
               <span className="conv__meta">
-                {dateFormat.format(item.startedAt)} · {item.turnCount} respuesta
-                {item.turnCount === 1 ? '' : 's'} · {item.segmentCount} intervencion
-                {item.segmentCount === 1 ? '' : 'es'}
+                {t('hist.meta', {
+                  date: dateFormat.format(item.startedAt),
+                  turns: item.turnCount,
+                  segments: item.segmentCount,
+                })}
               </span>
             </button>
             <button className="btn btn--danger" onClick={() => void remove(item.id)}>
-              Borrar
+              {t('hist.delete')}
             </button>
           </div>
 
@@ -2194,7 +2173,7 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
             <div className="conv__body">
               {detail.turns.map((turn) => (
                 <div key={turn.id} className="turn">
-                  <div className="turn__q">{turn.question || '(sin pregunta aislada)'}</div>
+                  <div className="turn__q">{turn.question || t('hist.noQuestion')}</div>
                   <div className={`turn__a${turn.error ? ' turn__a--error' : ''}`}>
                     {turn.error ?? turn.answer}
                   </div>
@@ -2206,12 +2185,12 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
 
               {detail.segments.length > 0 && (
                 <>
-                  <div className="conv__subtitle">Transcripción</div>
+                  <div className="conv__subtitle">{t('hist.transcript')}</div>
                   <div className="conv__transcript">
                     {detail.segments.map((seg) => (
                       <div key={seg.id} className="conv__line">
                         <span className={`transcript-who transcript-who--${seg.speaker}`}>
-                          {seg.speaker === 'me' ? 'Yo' : 'Ellos'}
+                          {seg.speaker === 'me' ? t('overlay.me') : t('overlay.them')}
                         </span>
                         <span>{seg.text}</span>
                       </div>
@@ -2228,8 +2207,8 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         <div className="field">
           <button className="btn" onClick={() => setShowAll(!showAll)}>
             {showAll
-              ? `Mostrar solo las ${VISIBLE} últimas`
-              : `Ver las ${items.length} conversaciones`}
+              ? t('hist.showLast', { count: VISIBLE })
+              : t('hist.showAll', { count: items.length })}
           </button>
         </div>
       )}
@@ -2239,18 +2218,18 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
           {confirmingClear ? (
             <>
               <span className="row__desc" style={{ flex: 1 }}>
-                Se borran las {items.length} conversaciones. No hay deshacer.
+                {t('hist.clearConfirm', { count: items.length })}
               </span>
               <button className="btn btn--danger" onClick={() => void clearAll()}>
-                Sí, borrar todo
+                {t('hist.clearYes')}
               </button>
               <button className="btn" onClick={() => setConfirmingClear(false)}>
-                Cancelar
+                {t('hist.cancel')}
               </button>
             </>
           ) : (
             <button className="btn btn--danger" onClick={() => setConfirmingClear(true)}>
-              Borrar todo el historial
+              {t('hist.clearAll')}
             </button>
           )}
         </div>
@@ -2786,16 +2765,10 @@ function TranscriptionCard({
  * CONTEXTO enviado al modelo. Los textos lo dicen explícitamente porque es la
  * confusión natural — y avisan de la combinación que deja el disparo inerte.
  */
-const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], string> = {
-  both:
-    'El modelo sabe lo que ya has respondido, así que no te sugiere repetirlo. ' +
-    'Por defecto el auto-disparo no reacciona a tu propia voz.',
-  system:
-    'Tu micrófono no se abre siquiera. Evita cualquier posibilidad de que tus ' +
-    'respuestas entren en el contexto, a cambio de que el modelo no sepa qué has dicho ya.',
-  mic:
-    'Solo se transcribe lo que dices tú. Útil para dictar notas, no para una entrevista: ' +
-    'el interlocutor no se escucha, así que el auto-disparo por defecto no puede saltar.',
+const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], UIKey> = {
+  both: 'aud.hintBoth',
+  system: 'aud.hintSystem',
+  mic: 'aud.hintMic',
 };
 
 /**

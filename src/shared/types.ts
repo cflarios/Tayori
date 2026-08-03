@@ -1,4 +1,4 @@
-import type { UILang } from './i18n';
+import type { UIKey, UILang } from './i18n';
 
 /**
  * Tipos compartidos entre main, preload y renderer.
@@ -773,18 +773,18 @@ export function clampFontScale(value: number): number {
  * Etiquetas de los atajos, para poder listarlos sin repetir los textos en cada
  * sitio que los enseñe. El orden es el de la tabla del README.
  */
-export const HOTKEY_LABEL: Record<keyof HotkeyMap, string> = {
-  askNow: 'Responder ahora',
-  screenshotAndAsk: 'Capturar pantalla y responder',
-  solveOnScreen: 'Resolver el código de la pantalla',
-  solveQuiz: 'Responder el test de la pantalla',
-  toggleOverlay: 'Mostrar u ocultar el overlay',
-  toggleListening: 'Empezar o parar de escuchar',
-  toggleClickThrough: 'Alternar clics atravesables',
-  moveUp: 'Mover el overlay arriba',
-  moveDown: 'Mover el overlay abajo',
-  moveLeft: 'Mover el overlay a la izquierda',
-  moveRight: 'Mover el overlay a la derecha',
+export const HOTKEY_LABEL: Record<keyof HotkeyMap, UIKey> = {
+  askNow: 'hk.askNow',
+  screenshotAndAsk: 'hk.screenshotAndAsk',
+  solveOnScreen: 'hk.solveOnScreen',
+  solveQuiz: 'hk.solveQuiz',
+  toggleOverlay: 'hk.toggleOverlay',
+  toggleListening: 'hk.toggleListening',
+  toggleClickThrough: 'hk.toggleClickThrough',
+  moveUp: 'hk.moveUp',
+  moveDown: 'hk.moveDown',
+  moveLeft: 'hk.moveLeft',
+  moveRight: 'hk.moveRight',
 };
 
 /**

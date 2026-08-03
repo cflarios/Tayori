@@ -387,6 +387,184 @@ export const en = {
   'sk.noDescription': 'No description in the frontmatter.',
   'ctx.import': 'Import .txt / .md',
 
+  // ───────────────────── Ajustes · historial ─────────────────────
+  'hist.save': 'Save conversations',
+  'hist.on': 'On. They are written to {where}.',
+  'hist.off': 'Off. Nothing touches the disk: the app goes back to listening without saving.',
+  'hist.yourFolder': 'your data folder',
+  'hist.emptyOn': 'No conversation saved yet.',
+  'hist.emptyOff': 'Nothing saved.',
+  'hist.meta': '{date} · {turns} answers · {segments} remarks',
+  'hist.delete': 'Delete',
+  'hist.noQuestion': '(no isolated question)',
+  'hist.transcript': 'Transcript',
+  'hist.showLast': 'Show only the last {count}',
+  'hist.showAll': 'See all {count} conversations',
+  'hist.clearConfirm': 'All {count} conversations get deleted. There is no undo.',
+  'hist.clearYes': 'Yes, delete everything',
+  'hist.cancel': 'Cancel',
+  'hist.clearAll': 'Delete the whole history',
+
+  // ───────────────────── Ajustes · atajos ─────────────────────
+  'hk.rejectedOne':
+    'Windows rejected this shortcut: **{keys}**. Another application has it taken, so **it will do nothing** until you pick a different one.',
+  'hk.rejectedMany':
+    'Windows rejected these shortcuts: **{keys}**. Another application has them taken, so **they will do nothing** until you pick different ones.',
+  'hk.reset': 'Reset',
+  'hk.resetDesc': 'Puts the ten shortcuts back to their factory values.',
+  'hk.resetButton': 'Default values',
+  'hk.askNow': 'Answer now',
+  'hk.screenshotAndAsk': 'Capture the screen and answer',
+  'hk.solveOnScreen': 'Solve the code on screen',
+  'hk.solveQuiz': 'Answer the quiz on screen',
+  'hk.toggleOverlay': 'Show or hide the overlay',
+  'hk.toggleListening': 'Start or stop listening',
+  'hk.toggleClickThrough': 'Toggle click-through',
+  'hk.moveUp': 'Move the overlay up',
+  'hk.moveDown': 'Move the overlay down',
+  'hk.moveLeft': 'Move the overlay left',
+  'hk.moveRight': 'Move the overlay right',
+
+  // ───────────────────── Ajustes · diagnóstico ─────────────────────
+  'diag.testStt': 'Test the transcription',
+  'diag.testSttDesc':
+    'It really connects to the configured engine: with a cloud engine it negotiates the model, with Whisper it runs the binary over a test audio clip.',
+  'diag.works': 'It works.',
+  'diag.failed': 'It failed.',
+  'diag.copy': 'Copy',
+  'diag.copied': 'Copied',
+  'diag.emptyLog': 'Nothing logged in this session yet.',
+
+  // ───────────────────── Ajustes · acerca de ─────────────────────
+  'about.what':
+    'An assistant that listens to a meeting or an interview, transcribes who says what and suggests answers in a floating panel that **does not show up when you share your screen**. It also solves the code or the quiz in front of you, reading it from a screenshot.',
+  'about.version': 'Version',
+  'about.author': 'Author',
+  'about.license': 'License',
+  'about.licenseDesc': 'Open source, no monetisation.',
+  'about.dataTitle': 'What it does with what it hears',
+  'about.dataHint': 'This is what is worth being clear about before leaving it listening to something important.',
+  'about.audio':
+    '**Audio never touches the disk.** The chunks go to the transcription engine and are dropped on the spot. There are no audio files, not even temporary ones.',
+  'about.text':
+    '**Text is saved, if you want it to be.** With the history on, the answers and the full transcript —including what the other person said— go to a JSON in your data folder. It is turned off entirely from *History*, and with it off nothing gets written.',
+  'about.noServer':
+    '**There is no server in between.** The calls go straight to the provider you choose, with your key. The keys are stored encrypted with DPAPI and never travel to the renderer.',
+  'about.offline':
+    '**It can work offline.** With Whisper local and Ollama nothing leaves your machine.',
+  'about.legal':
+    'Using it is on you: many companies restrict AI assistants in their hiring processes, and technical assessment platforms usually forbid them in their terms. In several jurisdictions, on top of that, keeping the transcript of a conversation counts the same as recording it.',
+
+  // ───────────────────── Ajustes · espejo del móvil ─────────────────────
+  'ph.turnOn': 'Turn the mirror on',
+  'ph.onLan': 'Serving on your local network. The link expires when you turn it off.',
+  'ph.onLocal': 'Serving on this machine. The link expires when you turn it off.',
+  'ph.offDesc': 'Off: no port open and nothing to read from outside.',
+  'ph.allowLan': 'Allow access from the local network',
+  'ph.lanOn': 'Any device on your network holding the link can read the answers.',
+  'ph.lanOff': 'Only this machine can connect. A phone needs this turned on.',
+  'ph.lanWarn':
+    'The link carries a token that expires when you turn the mirror off, but while it is on **anyone holding that link and sitting on your network can read your answers**. On a guest or office network, that is a decision, not a detail. The first time, Windows may ask you for firewall permission: without granting it, the phone will not connect.',
+  'ph.offHint':
+    'Turn the mirror on to generate the link and the QR code. A new one is generated every time, so a link saved on the phone stops working by itself.',
+  'ph.scan': 'Scan this with your phone',
+  'ph.copyLink': 'Copy the link',
+  'ph.copied': 'Copied!',
+  'ph.noClients': 'No phone connected yet.',
+  'ph.clients': '{count} phone(s) connected.',
+  'ph.loopbackWarn':
+    'The mirror only listens on `127.0.0.1`, so this link works on this computer only. Turn on «Allow access from the local network» so the phone can reach it.',
+  'ph.altsTitle': 'If that link does not load',
+  'ph.altsHint':
+    'Your machine has more than one network address. Try these; only one of them reaches the phone.',
+  'ph.sentTitle': 'What gets sent and what does not',
+  'ph.sentHint':
+    'The **answers** go, and whether listening is active. **The transcript does not go**: what the other person said is not duplicated onto a second device for convenience. Everything stays on your network — the bridge is served by your own computer, with no cloud in between, and it shuts down with the app.',
+
+  // ───────────────────── Ajustes · MQTT ─────────────────────
+  'mq.publish': 'Publish to a broker',
+  'mq.brokerTitle': 'Broker',
+  'mq.brokerHint':
+    'The scheme decides the encryption: `mqtt://` goes in the clear and `mqtts://` encrypted.',
+  'mq.address': 'Address',
+  'mq.addressDesc': 'Include the port: 1883 in the clear, 8883 with TLS.',
+  'mq.topic': 'Topic',
+  'mq.topicDesc': 'It publishes to this topic and to its «/text» child.',
+  'mq.user': 'User',
+  'mq.userDesc': 'Leave it empty if your broker accepts anonymous connections.',
+  'mq.subscribeTitle': 'What your device subscribes to',
+  'mq.qos':
+    'They are published with QoS 1 and **without retaining**: a retained message is delivered on subscribe, so a board booting up in the morning would act on yesterday’s answer.',
+  'mq.published': 'published',
+  'mq.outWarn':
+    '**This takes your answers out of the app.** If the broker is on the internet, the text leaves your network; if it is on your LAN, anyone with access to the topic can read it. A broker with no user and no TLS is a noticeboard — use `mqtts://` outside your network.',
+  'mq.connected': 'Connected to the broker',
+  'mq.connecting': 'Connecting…',
+  'mq.noConnection': 'No connection',
+  'mq.off': 'Off',
+  'mq.publishedCount': '{count} answer(s) published in this session.',
+  'mq.nothingPublished': 'Nothing has been published yet.',
+
+  'mq.publishDesc':
+    'Every finished answer is published to MQTT. The ones that fail or get cancelled are not: a device cannot tell an error apart from an answer.',
+  'mq.brokerHint2': 'On a network that is not yours, the latter is not optional.',
+  'mq.twoTopics':
+    'Two topics, because they are two different consumers. If your board only wants the letters of a quiz, the second one saves it from adding a JSON parser.',
+  'mq.jsonTopic': 'JSON with id, question, answer, model and trigger',
+  'mq.textTopic': 'just the answer text, raw',
+  'mq.testPublish': 'Publish a test message',
+  'mq.yourDevice':
+    'And what your device does with what it receives is up to you: we publish here, and that is where our part ends.',
+
+  // ───────────────────── Ajustes · audio y flecos ─────────────────────
+  'aud.captureTitle': 'Audio capture',
+  'aud.listening': 'Listening',
+  'aud.paused': 'Paused',
+  'aud.devices': 'Microphone: {mic} · System: {system}',
+  'aud.active': 'active',
+  'aud.inactive': 'inactive',
+  'aud.stop': 'Stop',
+  'aud.start': 'Start listening',
+  'aud.sourcesTitle': 'What it listens to',
+  'aud.sourcesHint':
+    'It decides what goes into the context sent to the model. With «system output only» your microphone is not even opened.',
+  'aud.sources': 'Audio sources',
+  'aud.both': 'Microphone and system output',
+  'aud.systemOnly': 'System output only',
+  'aud.micOnly': 'Microphone only',
+  'aud.inertWarn':
+    'With this combination **no automatic answer will fire**: the trigger is waiting for {wanted} and that source is not opened here.',
+  'aud.seeTrigger': 'See the automatic trigger',
+  'nav.attention': 'Something needs your attention',
+  'nav.wizard': 'Guided setup',
+  'nav.footer': 'Everything is stored on your machine. Nothing is uploaded to any server of ours.',
+  'ph.qrAlt': 'QR code with the mirror link',
+  'local.title': 'Which local model suits your machine',
+  'local.hint':
+    'Ollama costs no money and sends nothing off your machine, but choosing wrong costs a download of several gigabytes to end up with one-minute answers. This is what fits what you have.',
+  'local.ram': 'of RAM',
+  'local.cores': '{cores} cores · {cpu}',
+  'local.gpu': 'GPU:',
+  'local.forChat': 'For conversation',
+  'local.forScreen': 'For reading the screen',
+  'local.alreadyInstalled': 'already installed',
+  'local.copied': 'copied!',
+  'local.guide': 'Full guide',
+  'local.guideDesc':
+    'Every local model by memory tier, the multimodal ones that can read your screen, the paid ones sorted by price and what each screen press really costs. It is generated for your machine and opens in your browser.',
+  'local.openGuide': 'Open the guide',
+  'local.guideFailed': 'The guide could not be opened.',
+
+  'aud.hintBoth':
+    'The model knows what you have already answered, so it does not suggest repeating it. By default the auto-trigger does not react to your own voice.',
+  'aud.hintSystem':
+    'Your microphone is not even opened. It rules out any chance of your answers entering the context, in exchange for the model not knowing what you have already said.',
+  'aud.hintMic':
+    'Only what you say gets transcribed. Useful for dictating notes, not for an interview: the other person is not heard, so the default auto-trigger cannot fire.',
+
+  'aud.captureHint':
+    'Two independent sources: your microphone and the system output. Keeping them apart is what makes it possible to tell who is speaking without diarisation.',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':
