@@ -223,8 +223,14 @@ const api = {
     /** Modelos de un proveedor concreto, aunque no sea el activo. */
     listModelsFor: (providerId: LLMProviderId): Promise<ModelInfo[]> =>
       ipcRenderer.invoke(IPC.llmListModels, providerId),
-    testConnection: (): Promise<{ ok: boolean; error?: string }> =>
-      ipcRenderer.invoke(IPC.llmTestConnection),
+    /** Sin `providerId` prueba el activo; con él, el que se le pase. */
+    testConnection: (providerId?: LLMProviderId): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC.llmTestConnection, providerId),
+  },
+
+  app: {
+    getInfo: (): Promise<{ version: string; author: string }> =>
+      ipcRenderer.invoke(IPC.appGetInfo),
   },
 
   /**

@@ -703,6 +703,59 @@ más barato que cualquier otra cosa de la tabla, y eso cambia la receta de «tod
 nube, lo más barato que funciona» — con la advertencia de que el modelo de
 pantalla tiene que ser otro.
 
+### El asistente, repasado con alguien delante
+
+Segunda pasada sobre el wizard, con la app abierta y anotando. Cinco cosas, y el
+hilo común es el mismo: **el asistente sabía cosas que no decía**.
+
+- **No se podía retroceder desde todos los pasos ni saltar ninguno.** Cada paso
+  traía su «Atrás» y ninguno traía «Siguiente», así que para pasar de largo un
+  paso que no aplicaba —ya tengo la clave, ya tengo los modelos— había que
+  ejecutarlo igualmente. Ahora la navegación vive en la barra de progreso, junto
+  a los puntos, porque es de la misma naturaleza que ellos: dice dónde estás y
+  te deja moverte. Los botones de cada paso siguen siendo su **acción**.
+- **Si los modelos recomendados ya estaban, los descargaba otra vez.** `ollama
+  pull` sobre algo ya descargado no rompe nada, pero tarda comprobando el
+  manifest y deja mirando una barra por trabajo que no hace falta. Ahora se
+  detecta, se dice «ya descargado» junto a cada uno, y el botón pasa a «Usar
+  estos modelos». La comparación tolera la etiqueta implícita —Ollama lista
+  `llama3.2:latest` para lo que se bajó como `llama3.2`— porque una comparación
+  exacta mandaría a repetir varios gigas que ya están.
+- **El paso de la voz ofrecía las cinco opciones a todo el mundo**, contradiciendo
+  la decisión que se acababa de tomar dos pantallas antes: quien eligió «en mi
+  equipo» para que no salga nada tenía que volver a esquivar los motores de
+  nube, y quien eligió la nube veía una descarga de 150 MB. Ahora se ofrece lo
+  que encaja con el camino, y en la nube **OpenAI va primero y recomendado**:
+  es el modelo que su propio fabricante señala para audio en directo, que es
+  literalmente lo que hace esta app.
+- **El botón de probar estaba lejos de las claves**, y probaba **el proveedor
+  activo**: para saber si la clave de DeepSeek valía había que cambiarse a
+  DeepSeek, probar y volver. La pregunta que uno se hace al pegar una clave es
+  «¿ésta sirve?», y se responde donde se pega. `llmTestConnection` acepta ahora
+  un `providerId` para poder preguntar por uno que no es el activo.
+- **Y Ollama entra en esa misma tarjeta aunque no tenga clave.** Fue la duda del
+  repaso y se resolvió así porque la tarjeta no va de claves, va de «¿está esto
+  listo para responder?». Ollama entra en esa pregunta igual que los demás; lo
+  único que cambia es que su respuesta depende de que el servidor esté vivo y no
+  de una credencial. Por eso no tiene campo de texto —no hay nada que pegar— y
+  sí tiene el mismo botón.
+
+La misma detección de «ya está descargado» se aplicó a la tarjeta de modelos
+locales del dashboard, que seguía ofreciendo copiar un `ollama pull` de algo que
+ya estaba en la máquina.
+
+### La versión, a la vista
+
+Media hora se fue investigando un fallo que **ya estaba arreglado**, porque
+nadie sabía qué build corría en la máquina donde se vio. Un número a la vista lo
+habría dicho en dos segundos.
+
+De ahí la sección «Acerca de»: qué es la app, la versión, el autor y la licencia,
+más un resumen de qué hace con lo que oye. Ese resumen se repite —está en el
+README y en cada sección que abre una salida— y la repetición es deliberada: es
+lo que alguien necesita saber antes de dejar esto escuchando una entrevista, y
+no se puede depender de que haya leído el README.
+
 ### Tres cosas de UX que sólo se ven en una máquina limpia
 
 Salieron de probar la app en un ordenador donde no había nada configurado, que

@@ -66,6 +66,25 @@ export function SetupWizard({
   const steps: Step[] = ['welcome', 'brain', 'voice', 'context', 'done'];
   const at = steps.indexOf(step);
 
+  /*
+   * Navegación libre, arriba del todo y no dentro de cada paso.
+   *
+   * Antes cada paso traía su «Atrás» y ninguno traía «Siguiente»: se podía
+   * retroceder desde unos sitios y desde otros no, y para saltarse un paso que
+   * no aplicaba —ya tengo la clave, ya tengo los modelos— había que ejecutarlo
+   * igualmente. Un asistente del que no se puede salir es una jaula, y uno por
+   * el que no se puede pasar de largo es casi lo mismo.
+   *
+   * El botón de cada paso sigue siendo su acción («Instalar», «Guardar y
+   * probar»); esto es sólo moverse. Por eso «Siguiente» dice «Saltar» cuando el
+   * paso todavía no se ha hecho: pasar de largo sin hacerlo es legítimo, pero
+   * conviene que se note.
+   */
+  const goTo = (index: number): void => {
+    const next = steps[Math.min(Math.max(index, 0), steps.length - 1)];
+    if (next) setStep(next);
+  };
+
   return (
     <div className="wiz">
       <header className="wiz__head">
@@ -80,13 +99,36 @@ export function SetupWizard({
         </button>
       </header>
 
-      <div className="wiz__rail">
-        {steps.map((id, index) => (
-          <span
-            key={id}
-            className={`wiz__dot${index === at ? ' wiz__dot--now' : ''}${index < at ? ' wiz__dot--done' : ''}`}
-          />
-        ))}
+      <div className="wiz__nav">
+        <button className="btn btn--ghost" disabled={at === 0} onClick={() => goTo(at - 1)}>
+          ← Atrás
+        </button>
+
+        <div className="wiz__rail">
+          {steps.map((id, index) => (
+            <span
+              key={id}
+              className={`wiz__dot${index === at ? ' wiz__dot--now' : ''}${index < at ? ' wiz__dot--done' : ''}`}
+            />
+          ))}
+        </div>
+
+        <button
+          className="btn btn--ghost"
+          // Desde la bienvenida no se puede saltar: sin camino elegido, el paso
+          // siguiente no sabría qué enseñar. Se deshabilita en lugar de no hacer
+          // nada al pulsarlo — un botón que no responde es indistinguible de uno
+          // roto.
+          disabled={at === steps.length - 1 || (step === 'welcome' && !path)}
+          onClick={() => goTo(at + 1)}
+          title={
+            step === 'welcome' && !path
+              ? 'Elige primero si quieres la nube o tu equipo'
+              : 'Pasar al siguiente paso sin hacer éste'
+          }
+        >
+          Saltar →
+        </button>
       </div>
 
       <div className="wiz__body">
@@ -125,6 +167,7 @@ export function SetupWizard({
           <VoiceStep
             settings={settings}
             presence={presence}
+            path={path}
             patch={patch}
             onDone={() => setStep('context')}
           />
@@ -447,8 +490,14 @@ function LocalStep({
   const [progress, setProgress] = useState<SetupProgress | null>(null);
   const [error, setError] = useState('');
 
+  /** Modelos que Ollama dice tener ya descargados. */
+  const [downloaded, setDownloaded] = useState<string[]>([]);
+
   const check = useCallback((): void => {
-    void window.api.ollama.getStatus().then((status) => setReachable(status.reachable));
+    void window.api.ollama.getStatus().then((status) => {
+      setReachable(status.reachable);
+      setDownloaded(status.models.map((m) => m.id));
+    });
     void window.api.setup.ollamaInstalled().then(setInstalled);
   }, []);
 
@@ -482,12 +531,34 @@ function LocalStep({
 
   const advice = specs ? adviseLocalModels(specs) : null;
 
+  /**
+   * Si un modelo recomendado ya está descargado.
+   *
+   * Se tolera la etiqueta implícita: Ollama lista `llama3.2:latest` para lo que
+   * se descargó como `llama3.2`, y una comparación exacta mandaría a repetir
+   * una descarga de varios gigas que ya está hecha.
+   */
+  const has = (model: string): boolean => {
+    const base = model.includes(':') ? model : `${model}:latest`;
+    return downloaded.some((id) => id === model || id === base);
+  };
+
+  /** Los dos ya están: no hay nada que descargar, sólo que elegirlos. */
+  const nothingToDownload = Boolean(
+    advice && has(advice.chat.model) && has(advice.vision.model)
+  );
+
   const download = async (): Promise<void> => {
     if (!advice) return;
-    setBusy('Descargando modelos…');
+    setBusy(nothingToDownload ? 'Configurando…' : 'Descargando modelos…');
     setError('');
     try {
       for (const model of [advice.chat.model, advice.vision.model]) {
+        // Lo que ya está no se vuelve a pedir: `ollama pull` sobre un modelo
+        // descargado no rompe nada, pero tarda en comprobar el manifest y deja
+        // al usuario mirando una barra por trabajo que no hace falta.
+        if (has(model)) continue;
+
         const result = await window.api.setup.pullModel(model);
         if (!result.ok) {
           setError(result.error ?? `No se pudo descargar ${model}.`);
@@ -627,18 +698,23 @@ function LocalStep({
       {reachable === true && advice && (
         <>
           <p className="wiz__lead">
-            Ollama está listo. Estos son los dos modelos que le pegan a tu equipo: uno para
-            conversar y otro para leer la pantalla.
+            {nothingToDownload
+              ? 'Ollama está listo y ya tienes descargados los dos modelos que le pegan a tu equipo. No hay nada que bajar: sólo queda dejarlos elegidos.'
+              : 'Ollama está listo. Estos son los dos modelos que le pegan a tu equipo: uno para conversar y otro para leer la pantalla.'}
           </p>
 
           <div className="wiz__models">
             <div className="wizmodel">
-              <span className="wizmodel__role">Para conversar</span>
+              <span className="wizmodel__role">
+                Para conversar {has(advice.chat.model) && <em>· ya descargado</em>}
+              </span>
               <code className="wizmodel__id">{advice.chat.model}</code>
               <span className="wizmodel__note">{advice.chat.note}</span>
             </div>
             <div className="wizmodel">
-              <span className="wizmodel__role">Para leer la pantalla</span>
+              <span className="wizmodel__role">
+                Para leer la pantalla {has(advice.vision.model) && <em>· ya descargado</em>}
+              </span>
               <code className="wizmodel__id">{advice.vision.model}</code>
               <span className="wizmodel__note">{advice.vision.note}</span>
             </div>
@@ -646,10 +722,12 @@ function LocalStep({
 
           <div className="warn">{advice.caveat}</div>
 
-          <p className="wiz__note">
-            Son varios GB entre los dos y se descargan una sola vez. Verás el tamaño exacto en
-            cuanto empiece.
-          </p>
+          {!nothingToDownload && (
+            <p className="wiz__note">
+              Son varios GB entre los dos y se descargan una sola vez. Verás el tamaño exacto en
+              cuanto empiece. Si alguno ya lo tienes, se salta.
+            </p>
+          )}
 
           {avance}
 
@@ -660,7 +738,7 @@ function LocalStep({
               Atrás
             </button>
             <button className="btn btn--primary" disabled={Boolean(busy)} onClick={() => void download()}>
-              {busy ? 'Descargando…' : 'Descargar y configurar'}
+              {busy || (nothingToDownload ? 'Usar estos modelos' : 'Descargar y configurar')}
             </button>
           </div>
         </>
@@ -686,11 +764,22 @@ function LocalStep({
 function VoiceStep({
   settings,
   presence,
+  path,
   patch,
   onDone,
 }: {
   settings: Settings;
   presence: SecretsPresence;
+  /**
+   * El camino elegido en la bienvenida, que aquí decide qué se ofrece.
+   *
+   * Enseñar las cinco opciones a todo el mundo era incoherente con lo que la
+   * persona acaba de decidir: quien eligió «en mi equipo» para no mandar nada
+   * fuera no debería tener que volver a esquivar los motores de nube dos
+   * pantallas después, y quien eligió la nube no quiere descargar 150 MB de
+   * Whisper. Se ofrece lo que encaja con la decisión ya tomada.
+   */
+  path: Path | null;
   patch: (p: Partial<Settings>) => Promise<void>;
   onDone: () => void;
 }) {
@@ -706,9 +795,17 @@ function VoiceStep({
 
   const ready = status.binaryInstalled && status.modelInstalled;
   const canUseGemini = presence.google;
+  const canUseOpenAI = presence.openai;
 
-  const pickGemini = async (): Promise<void> => {
-    await patch({ sttProviderId: 'gemini-live' });
+  /*
+   * Con «en tu equipo» sólo se ofrece Whisper. Los de nube no son peores, son
+   * lo contrario de lo que esa elección pedía.
+   */
+  const showCloud = path !== 'local';
+  const showLocal = path !== 'cloud';
+
+  const pick = async (sttProviderId: Settings['sttProviderId']): Promise<void> => {
+    await patch({ sttProviderId });
     onDone();
   };
 
@@ -739,29 +836,68 @@ function VoiceStep({
   return (
     <>
       <p className="wiz__lead">
-        Para saber qué te preguntan hay que convertir el audio en texto. Dos formas, y la
-        diferencia es dónde va tu voz.
+        {showCloud && showLocal
+          ? 'Para saber qué te preguntan hay que convertir el audio en texto. La diferencia entre las opciones es dónde va tu voz.'
+          : showLocal
+            ? 'Para saber qué te preguntan hay que convertir el audio en texto. Elegiste que todo corra en tu equipo, así que aquí sólo está la opción que no manda tu voz a ningún sitio.'
+            : 'Para saber qué te preguntan hay que convertir el audio en texto. Elegiste la nube, así que éstas son las que no te obligan a descargar nada.'}
       </p>
 
       <div className="wiz__choices">
-        <button className="choice" disabled={!canUseGemini} onClick={() => void pickGemini()}>
-          <span className="choice__title">Gemini Live · ~300 ms</span>
-          <span className="choice__note">
-            {canUseGemini
-              ? 'Lo más rápido. Usa la clave de Google que ya has puesto; el audio se envía a Google.'
-              : 'Necesita una clave de Google, y no has configurado ninguna.'}
-          </span>
-        </button>
+        {/* OpenAI primero, y recomendado: es el modelo que su propio fabricante
+            señala para audio en directo, que es literalmente lo que hace esta
+            app. Gemini Live va igual de rápido y tiene la ventaja de compartir
+            clave con las respuestas. */}
+        {showCloud && (
+          <button
+            className={`choice${canUseOpenAI ? ' choice--on' : ''}`}
+            disabled={!canUseOpenAI}
+            onClick={() => void pick('openai-live')}
+          >
+            <span className="choice__title">
+              OpenAI en directo · ~300 ms {canUseOpenAI && '· recomendado'}
+            </span>
+            <span className="choice__note">
+              {canUseOpenAI
+                ? 'El modelo que OpenAI recomienda para audio en vivo. Usa la clave que ya has puesto; el audio se envía a OpenAI.'
+                : 'Necesita una clave de OpenAI, y no has configurado ninguna.'}
+            </span>
+          </button>
+        )}
 
-        <button className="choice" disabled={busy} onClick={() => void pickWhisper()}>
-          <span className="choice__title">Whisper local · ~1–2 s</span>
-          <span className="choice__note">
-            {ready
-              ? 'Ya instalado. Funciona sin conexión y tu voz no sale del equipo.'
-              : 'Tu voz no sale del equipo. Hay que descargar unos 150 MB una sola vez.'}
-          </span>
-        </button>
+        {showCloud && (
+          <button className="choice" disabled={!canUseGemini} onClick={() => void pick('gemini-live')}>
+            <span className="choice__title">Gemini Live · ~300 ms</span>
+            <span className="choice__note">
+              {canUseGemini
+                ? 'Igual de rápido. Usa la clave de Google que ya has puesto; el audio se envía a Google.'
+                : 'Necesita una clave de Google, y no has configurado ninguna.'}
+            </span>
+          </button>
+        )}
+
+        {showLocal && (
+          <button className="choice" disabled={busy} onClick={() => void pickWhisper()}>
+            <span className="choice__title">Whisper local · ~1–2 s</span>
+            <span className="choice__note">
+              {ready
+                ? 'Ya instalado. Funciona sin conexión y tu voz no sale del equipo.'
+                : 'Tu voz no sale del equipo. Hay que descargar unos 150 MB una sola vez.'}
+            </span>
+          </button>
+        )}
       </div>
+
+      {/* Sin ninguna clave de nube, el camino de nube se queda sin opciones
+          pulsables: hay que decir por dónde se sale en lugar de dejar dos
+          botones grises. */}
+      {showCloud && !showLocal && !canUseOpenAI && !canUseGemini && (
+        <div className="warn">
+          No hay ninguna clave que sirva para transcribir. Vuelve atrás y pon la de OpenAI o la de
+          Google, o usa <strong>Whisper local</strong> desde el dashboard: funciona sin ninguna
+          clave.
+        </div>
+      )}
 
       {busy && (
         <div className="progress">

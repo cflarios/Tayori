@@ -340,13 +340,27 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.skillsOpenFolder, () => openSkillsFolder());
   ipcMain.handle(IPC.skillsFolder, () => skillsFolder());
 
-  ipcMain.handle(IPC.llmTestConnection, async () => {
+  /*
+   * Con `providerId` se prueba un proveedor que NO es el activo.
+   *
+   * Lo pide el botón que hay junto a cada API key: la pregunta ahí es "¿sirve
+   * esta clave?", y obligar a cambiar de proveedor para averiguarlo convertía
+   * una comprobación en un cambio de configuración que luego hay que deshacer.
+   */
+  ipcMain.handle(IPC.llmTestConnection, async (_e, providerId?: LLMProviderId) => {
     try {
-      return await createLLMProvider(settingsStore.get()).testConnection();
+      const settings = settingsStore.get();
+      const target = providerId ? { ...settings, llmProviderId: providerId } : settings;
+      return await createLLMProvider(target).testConnection();
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
+
+  ipcMain.handle(IPC.appGetInfo, () => ({
+    version: app.getVersion(),
+    author: '@cflarios',
+  }));
 
   // ── Ollama ──
   ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));

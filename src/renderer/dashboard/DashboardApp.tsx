@@ -116,6 +116,15 @@ function SecretField({
   placeholder = 'Pega tu API key',
   onSave,
   onClear,
+  /**
+   * Comprueba que la clave sirve de verdad, aquí mismo.
+   *
+   * Estaba abajo, en la tarjeta del modelo, y probaba **el proveedor activo**:
+   * para saber si la clave de DeepSeek valía había que cambiarse a DeepSeek,
+   * probar y volver. La pregunta que uno se hace al pegar una clave es "¿esta
+   * sirve?", y se responde donde se pega.
+   */
+  onTest,
 }: {
   label: string;
   hint: string;
@@ -123,9 +132,11 @@ function SecretField({
   placeholder?: string;
   onSave: (value: string) => Promise<void>;
   onClear: () => Promise<void>;
+  onTest?: () => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
 
   const save = async (): Promise<void> => {
     if (!draft.trim()) return;
@@ -133,6 +144,20 @@ function SecretField({
     try {
       await onSave(draft);
       setDraft('');
+      // Una clave nueva invalida el veredicto anterior: dejarlo puesto diría
+      // "conexión correcta" sobre la clave que se acaba de reemplazar.
+      setTested(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async (): Promise<void> => {
+    if (!onTest) return;
+    setBusy(true);
+    setTested(null);
+    try {
+      setTested(await onTest());
     } finally {
       setBusy(false);
     }
@@ -160,12 +185,24 @@ function SecretField({
         <button className="btn" disabled={busy || !draft.trim()} onClick={() => void save()}>
           Guardar
         </button>
+        {onTest && present && (
+          <button className="btn" disabled={busy} onClick={() => void test()}>
+            {busy ? 'Probando…' : 'Probar'}
+          </button>
+        )}
         {present && (
           <button className="btn btn--danger" disabled={busy} onClick={() => void onClear()}>
             Borrar
           </button>
         )}
       </div>
+      {tested && (
+        <div className="field">
+          <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
+            {tested.ok ? 'conexión correcta' : (tested.error ?? 'falló')}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -281,7 +318,8 @@ type SectionId =
   | 'skills'
   | 'history'
   | 'hotkeys'
-  | 'diagnostics';
+  | 'diagnostics'
+  | 'about';
 
 const SECTIONS: Record<SectionId, { icon: IconName; label: string; hint: React.ReactNode }> = {
   general: {
@@ -349,6 +387,11 @@ const SECTIONS: Record<SectionId, { icon: IconName; label: string; hint: React.R
     label: 'Diagnóstico',
     hint: 'Si algo no funciona, esto es lo que hay que mirar antes que nada.',
   },
+  about: {
+    icon: 'book',
+    label: 'Acerca de',
+    hint: 'Qué es Tayori, qué versión tienes y qué hace con tus datos.',
+  },
 };
 
 const SECTION_ORDER: SectionId[] = [
@@ -364,6 +407,7 @@ const SECTION_ORDER: SectionId[] = [
   'history',
   'hotkeys',
   'diagnostics',
+  'about',
 ];
 
 /**
@@ -592,6 +636,7 @@ export function DashboardApp() {
               <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
             )}
             {section === 'diagnostics' && <DiagnosticsCard />}
+            {section === 'about' && <AboutCard />}
           </div>
         </div>
       </main>
@@ -1368,7 +1413,141 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
   );
 }
 
+// ─────────────────────────────── Acerca de ───────────────────────────────
+
+/**
+ * Qué es esto, qué versión y qué hace con tus datos.
+ *
+ * La versión importa más de lo que parece: media hora se fue en investigar un
+ * fallo que ya estaba arreglado, porque nadie sabía qué build estaba corriendo
+ * en la máquina donde se vio. Un número a la vista lo habría dicho en dos
+ * segundos, y por eso está aquí y no escondido en el log.
+ *
+ * El resumen de privacidad se repite —está también en el README y en cada
+ * sección que abre una salida— y la repetición es deliberada: es lo que alguien
+ * necesita saber antes de dejar esto escuchando una entrevista, y no se puede
+ * depender de que haya leído el README.
+ */
+function AboutCard() {
+  const [info, setInfo] = useState<{ version: string; author: string } | null>(null);
+
+  useEffect(() => {
+    void window.api.app.getInfo().then(setInfo);
+  }, []);
+
+  return (
+    <>
+      <section className="card">
+        <h2 className="card__title">Tayori</h2>
+        <p className="card__hint">
+          Un asistente que escucha una reunión o una entrevista, transcribe quién dice qué y te
+          sugiere respuestas en un panel flotante que <strong>no aparece cuando compartes
+          pantalla</strong>. También resuelve el código o el test que tengas delante, leyéndolo de
+          una captura.
+        </p>
+
+        <Row icon="check" label="Versión">
+          <code className="aboutval">{info?.version ?? '…'}</code>
+        </Row>
+        <Row icon="check" label="Autor">
+          <code className="aboutval">{info?.author ?? '@cflarios'}</code>
+        </Row>
+        <Row icon="check" label="Licencia" desc="Código abierto, sin monetización.">
+          <code className="aboutval">MIT</code>
+        </Row>
+      </section>
+
+      <section className="card">
+        <h2 className="card__title">Qué hace con lo que oye</h2>
+        <p className="card__hint">
+          Es lo que conviene tener claro antes de dejarlo escuchando algo importante.
+        </p>
+
+        <div className="about">
+          <p>
+            <strong>El audio nunca toca el disco.</strong> Los fragmentos van al motor de
+            transcripción y se descartan en el acto. No hay archivos de audio, ni siquiera
+            temporales.
+          </p>
+          <p>
+            <strong>El texto sí se guarda, si tú quieres.</strong> Con el historial activo, las
+            respuestas y la transcripción completa —incluido lo que dijo la otra persona— van a un
+            JSON en tu carpeta de datos. Se apaga entero desde <em>Historial</em>, y con él apagado
+            no se escribe nada.
+          </p>
+          <p>
+            <strong>No hay servidor intermedio.</strong> Las llamadas van directas al proveedor que
+            elijas, con tu clave. Las claves se guardan cifradas con DPAPI y nunca salen hacia el
+            renderer.
+          </p>
+          <p>
+            <strong>Puede funcionar sin conexión.</strong> Con Whisper local y Ollama no sale nada
+            de tu máquina.
+          </p>
+        </div>
+
+        <div className="warn">
+          Usarlo es cosa tuya: muchas empresas restringen los asistentes de IA en sus procesos de
+          selección, y las plataformas de evaluación técnica suelen prohibirlos en sus condiciones.
+          En varias jurisdicciones, además, guardar la transcripción de una conversación cuenta
+          igual que grabarla.
+        </div>
+      </section>
+    </>
+  );
+}
+
 // ──────────────────────────── Modelos · claves ────────────────────────────
+
+/**
+ * Ollama, en la tarjeta de las claves aunque no tenga ninguna.
+ *
+ * Fue una decisión con dudas y ésta es la razón de resolverla así: la tarjeta
+ * no va de claves, va de **«¿está esto listo para responder?»**. Ollama entra
+ * en esa pregunta igual que los demás; lo único que cambia es que su respuesta
+ * no depende de una credencial sino de que el servidor esté vivo. Dejarlo fuera
+ * obligaría a buscar esa comprobación en otro sitio sólo porque es local.
+ *
+ * Por eso no tiene campo de texto: no hay nada que pegar. Tiene la etiqueta que
+ * dice que no le hace falta, y el mismo botón que los demás.
+ */
+function OllamaCheck() {
+  const [busy, setBusy] = useState(false);
+  const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
+
+  const test = async (): Promise<void> => {
+    setBusy(true);
+    setTested(null);
+    try {
+      setTested(await window.api.llm.testConnection('ollama'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="row__label">Ollama (local)</span>
+        <span className="badge badge--ok">no necesita clave</span>
+      </div>
+      <div className="row__desc">
+        Corre en tu máquina, así que aquí no hay nada que pegar. Lo que sí conviene comprobar es
+        que el servidor está vivo y tiene algún modelo descargado.
+      </div>
+      <div className="field">
+        <button className="btn" disabled={busy} onClick={() => void test()}>
+          {busy ? 'Probando…' : 'Probar'}
+        </button>
+        {tested && (
+          <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
+            {tested.ok ? 'conexión correcta' : (tested.error ?? 'falló')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ApiKeysCard({
   presence,
@@ -1393,6 +1572,7 @@ function ApiKeysCard({
         present={presence.anthropic}
         onSave={(v) => saveSecret('anthropic', v)}
         onClear={() => clearSecret('anthropic')}
+        onTest={() => window.api.llm.testConnection('claude')}
       />
       <SecretField
         label="Google (Gemini)"
@@ -1400,6 +1580,7 @@ function ApiKeysCard({
         present={presence.google}
         onSave={(v) => saveSecret('google', v)}
         onClear={() => clearSecret('google')}
+        onTest={() => window.api.llm.testConnection('gemini')}
       />
       <SecretField
         label="OpenAI (ChatGPT)"
@@ -1407,6 +1588,7 @@ function ApiKeysCard({
         present={presence.openai}
         onSave={(v) => saveSecret('openai', v)}
         onClear={() => clearSecret('openai')}
+        onTest={() => window.api.llm.testConnection('openai')}
       />
       <SecretField
         label="DeepSeek"
@@ -1414,7 +1596,9 @@ function ApiKeysCard({
         present={presence.deepseek}
         onSave={(v) => saveSecret('deepseek', v)}
         onClear={() => clearSecret('deepseek')}
+        onTest={() => window.api.llm.testConnection('deepseek')}
       />
+      <OllamaCheck />
     </section>
   );
 }
@@ -1567,9 +1751,15 @@ function LocalModelGuide() {
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
   const [copied, setCopied] = useState('');
   const [guide, setGuide] = useState<{ ok: boolean; error?: string } | null>(null);
+  /** Lo que Ollama dice tener descargado. Vacío si no está corriendo. */
+  const [installed, setInstalled] = useState<string[]>([]);
 
   useEffect(() => {
     void window.api.system.getSpecs().then(setSpecs);
+    void window.api.ollama
+      .getStatus()
+      .then((status) => setInstalled(status.models.map((m) => m.id)))
+      .catch(() => setInstalled([]));
   }, []);
 
   useEffect(() => {
@@ -1584,6 +1774,29 @@ function LocalModelGuide() {
   const pull = (model: string): void => {
     void window.api.clipboard.write(`ollama pull ${model}`).then(() => setCopied(model));
   };
+
+  /**
+   * Si el modelo recomendado ya está descargado.
+   *
+   * Se compara tolerando la etiqueta implícita: Ollama lista `llama3.2:latest`
+   * para lo que uno descargó como `llama3.2`, así que una comparación exacta
+   * diría que falta algo que está ahí — y mandaría a repetir una descarga de
+   * varios gigas.
+   */
+  const has = (model: string): boolean => {
+    const base = model.includes(':') ? model : `${model}:latest`;
+    return installed.some((id) => id === model || id === base);
+  };
+
+  /** El botón de copiar el `pull`, o la confirmación de que ya no hace falta. */
+  const action = (model: string): React.ReactNode =>
+    has(model) ? (
+      <span className="badge badge--ok">ya instalado</span>
+    ) : (
+      <button className="btn btn--small" onClick={() => pull(model)}>
+        {copied === model ? '¡copiado!' : `ollama pull ${model}`}
+      </button>
+    );
 
   return (
     <section className="card" id="local-models">
@@ -1613,15 +1826,11 @@ function LocalModelGuide() {
       </p>
 
       <Row icon="waveform" label="Para conversar" desc={advice.chat.note}>
-        <button className="btn btn--small" onClick={() => pull(advice.chat.model)}>
-          {copied === advice.chat.model ? '¡copiado!' : `ollama pull ${advice.chat.model}`}
-        </button>
+        {action(advice.chat.model)}
       </Row>
 
       <Row icon="monitor" label="Para leer la pantalla" desc={advice.vision.note}>
-        <button className="btn btn--small" onClick={() => pull(advice.vision.model)}>
-          {copied === advice.vision.model ? '¡copiado!' : `ollama pull ${advice.vision.model}`}
-        </button>
+        {action(advice.vision.model)}
       </Row>
 
       <div className="warn">{advice.caveat}</div>

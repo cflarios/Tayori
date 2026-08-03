@@ -603,6 +603,14 @@ condiciones, y varias detectan pegado masivo aunque no vean la ventana.
 
 Comprueba qué aplica en tu caso; la responsabilidad de usar esto es tuya.
 
+## Acerca de
+
+Dashboard → **Acerca de** resume qué es la app, qué versión tienes, la licencia
+y qué hace con lo que oye. El número de versión está ahí a propósito: es el
+primer dato que hace falta para saber si un fallo que ves sigue existiendo.
+
+Autor: **@cflarios**. MIT, sin monetización.
+
 ## Documentación
 
 Tres archivos, con trabajos distintos:

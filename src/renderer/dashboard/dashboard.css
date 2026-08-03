@@ -1187,10 +1187,29 @@ kbd {
 
 /* Cinco puntos: cuántos pasos son y por cuál vas. Un asistente sin final
    visible se vive como un formulario sin fondo. */
+/*
+ * La barra de navegación: atrás, el progreso, y saltar.
+ *
+ * Los dos botones flanquean los puntos en lugar de ir dentro del paso porque
+ * son de la MISMA naturaleza que ellos: dicen dónde estás y te dejan moverte.
+ * Las acciones de cada paso —instalar, guardar— siguen dentro, que es donde
+ * pertenecen.
+ */
+.wiz__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 32px 0;
+}
+
+.wiz__nav .btn {
+  flex-shrink: 0;
+}
+
 .wiz__rail {
   display: flex;
   gap: 6px;
-  padding: 18px 32px 0;
 }
 
 .wiz__dot {
@@ -1676,4 +1695,32 @@ kbd {
   .pane__body {
     padding: 18px 20px 48px;
   }
+}
+
+/* ── Acerca de ── */
+
+.aboutval {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 3px 8px;
+  /* Seleccionable: el número de versión existe para poder pegarlo en un
+     informe de fallo, y un texto que no se puede copiar obliga a transcribirlo
+     a mano. */
+  user-select: text;
+}
+
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #8b9096;
+}
+
+.about strong {
+  color: var(--text);
 }

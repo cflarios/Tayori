@@ -66,6 +66,9 @@ export const IPC = {
   llmListModels: 'llm:list-models',
   llmTestConnection: 'llm:test-connection',
 
+  /** Versión y autoría, para la sección «Acerca de». */
+  appGetInfo: 'app:get-info',
+
   /**
    * Las skills que hay ahora mismo en disco.
    *
