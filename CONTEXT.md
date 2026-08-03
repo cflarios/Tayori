@@ -1163,6 +1163,62 @@ turno; esto no es streaming. Para eso está Gemini Live.
   prohibición de preámbulos, y la regla de no inventar datos fuera de
   `<contexto>` — una respuesta genérica es recuperable, una mentira detectada no.
 
+### Inyección de prompts: el sobre y la regla
+
+Cuatro cosas de las que entran al prompt **las escribe otro**: la transcripción,
+la pregunta que sale de ella, el `<contexto>` —un CV lo escribes tú, una oferta
+de empleo la pegas de un anuncio ajeno— y lo que se lea en una captura. Ninguna
+necesita un atacante dedicado para traer una orden: basta el enunciado de un
+ejercicio con letra pequeña.
+
+**Dos defensas, y hacen falta las dos.** `core/untrusted.ts` desarma las
+etiquetas del sobre y tira los caracteres invisibles; `INJECTION_RULE`, en el
+system prompt, dice que lo de dentro es material reportado y nunca instrucciones.
+Sin la primera, la regla se esquiva escribiendo `</transcripcion>` y siguiendo
+fuera del sobre. Sin la segunda, el sobre son dos etiquetas que el modelo no
+tiene ningún motivo para respetar.
+
+**Lo que se descartó: filtrar frases.** Borrar «ignore previous instructions» y
+compañía no funciona —se parafrasea, se cambia de idioma, se parte la frase— y
+aquí los falsos positivos duelen de verdad: esta app se usa en entrevistas
+técnicas, y quien se entrevista de seguridad va a decir esa frase en voz alta
+como tema de conversación. Borrarla rompería la app en la entrevista donde más
+falta hace, y dejaría la transcripción que lee el usuario diciendo algo distinto
+de lo que se dijo. Por eso `looksLikeInjection` **marca y no borra**: mete un
+aviso dentro del sobre. Un falso positivo así no cuesta nada, porque le recuerda
+al modelo algo que ya era verdad.
+
+**La regla obliga a avisar, no sólo a no obedecer.** Callarse una orden
+escondida en una captura deja a alguien leyendo una respuesta rara sin saber por
+qué lo es; el mismo criterio de siempre en este proyecto.
+
+**Tres sitios donde el texto ajeno se colaba fuera del sobre**, y que fue lo que
+costó encontrar:
+
+- **La memoria de la conversación.** `request.history` viaja como mensajes `user`
+  de verdad —eso es lo que hace que el modelo trate sus respuestas anteriores
+  como suyas— y por tanto sin sobre alrededor. Una orden frenada en
+  `<transcripcion>` volvía limpia en la consulta siguiente. Se desarma en
+  `remember()`, que es la única puerta a esa memoria; el historial de disco
+  guarda el texto literal, que es lo que hay que poder releer.
+- **El nombre de un context pack**, no sólo su contenido.
+- **La skill.** Una skill SÍ son instrucciones, así que no va en un sobre de
+  material; lo que se le quita es poder cerrar `</instruccion_activa>` y seguir
+  escribiendo como si fuera el mensaje de sistema. Un `SKILL.md` se instala
+  copiando una carpeta que te pasan.
+
+**El turno de usuario se unificó por esto.** Estaba copiado en los cinco
+proveedores. Mientras era formato, la duplicación se aguantaba; siendo una
+frontera de seguridad, no: una defensa que hay que acordarse de repetir en cinco
+archivos —y en el sexto el día que se añada un proveedor— es una defensa que se
+va a olvidar. Ahora sale de `llm/user-turn.ts`, y el parámetro `sendsImages`
+conserva la diferencia que ya existía (DeepSeek no manda capturas, y anunciarle
+una que no ha recibido es invitarle a inventarse el enunciado).
+
+Lo que los tests **no** pueden afirmar es que el modelo obedezca la regla. Lo que
+sí se comprueba, y es lo que se comprueba, es que la orden no pueda salirse de su
+sobre en ninguno de los cinco proveedores.
+
 ### Skills: la tercera cosa que entra en el prompt
 
 Agosto de 2026. Ya había dos formas de influir en la respuesta —el perfil y los

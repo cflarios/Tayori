@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { m } from '../i18n';
+import { buildUserTurn } from './user-turn';
 import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -90,7 +91,7 @@ export class ClaudeProvider implements LLMProvider {
         source: { type: 'base64', media_type: image.mime, data: image.base64 },
       });
     }
-    content.push({ type: 'text', text: buildUserTurn(request) });
+    content.push({ type: 'text', text: buildUserTurn(request, true) });
 
     const withEffort = !EFFORT_UNSUPPORTED.has(this.model);
     let emitted = 0;
@@ -224,24 +225,3 @@ function historyMessages(request: AnswerRequest): Anthropic.MessageParam[] {
   return messages;
 }
 
-/** Compone el turno de usuario: transcripción como contexto, pregunta al final. */
-function buildUserTurn(request: AnswerRequest): string {
-  const parts = [`<transcripcion>\n${request.transcript || '(sin audio aún)'}\n</transcripcion>`];
-
-  if (request.question) {
-    parts.push(`<pregunta>\n${request.question}\n</pregunta>`);
-  }
-  if (request.images?.length) {
-    parts.push('El usuario adjuntó una captura de su pantalla; tenla en cuenta.');
-  }
-
-  // La instrucción va al final: es la posición que el modelo atiende con más
-  // fuerza, y además mantiene estable el prefijo cacheable de arriba.
-  parts.push(
-    request.question
-      ? 'Responde a la pregunta de <pregunta>.'
-      : 'Responde a la última pregunta del entrevistador en la transcripción.'
-  );
-
-  return parts.join('\n\n');
-}

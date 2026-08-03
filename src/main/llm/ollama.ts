@@ -1,5 +1,6 @@
 import { Ollama } from 'ollama';
 import { m } from '../i18n';
+import { buildUserTurn } from './user-turn';
 import type { LLMProviderId, ModelInfo, OllamaStatus } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -148,7 +149,7 @@ export class OllamaProvider implements LLMProvider {
             ]),
           {
             role: 'user',
-            content: buildUserTurn(request),
+            content: buildUserTurn(request, false),
             // Ollama espera las imágenes como base64 en el propio mensaje, y
             // sólo se adjuntan si el modelo las entiende.
             ...(this.supportsVision && request.images?.length
@@ -303,15 +304,3 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   return new LLMError(m('err.ollamaError', { message }), providerId);
 }
 
-function buildUserTurn(request: AnswerRequest): string {
-  const parts = [`<transcripcion>\n${request.transcript || '(sin audio aún)'}\n</transcripcion>`];
-
-  if (request.question) parts.push(`<pregunta>\n${request.question}\n</pregunta>`);
-  parts.push(
-    request.question
-      ? 'Responde a la pregunta de <pregunta>.'
-      : 'Responde a la última pregunta del entrevistador en la transcripción.'
-  );
-
-  return parts.join('\n\n');
-}

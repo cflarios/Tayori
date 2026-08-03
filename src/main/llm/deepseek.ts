@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { m } from '../i18n';
+import { buildUserTurn } from './user-turn';
 import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -106,7 +107,7 @@ export class DeepSeekProvider implements LLMProvider {
                 { role: 'user' as const, content: turn.question },
                 { role: 'assistant' as const, content: turn.answer },
               ]),
-            { role: 'user', content: buildUserTurn(request) },
+            { role: 'user', content: buildUserTurn(request, false) },
           ],
         },
         { signal }
@@ -172,18 +173,3 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   return new LLMError(err instanceof Error ? err.message : String(err), providerId);
 }
 
-/** Compone el turno de usuario: transcripción como contexto, pregunta al final. */
-function buildUserTurn(request: AnswerRequest): string {
-  const parts = [`<transcripcion>\n${request.transcript || '(sin audio aún)'}\n</transcripcion>`];
-
-  if (request.question) parts.push(`<pregunta>\n${request.question}\n</pregunta>`);
-  // No se menciona ninguna captura: este proveedor no la manda, y decirle al
-  // modelo que hay una imagen que no ha recibido es invitarle a inventársela.
-  parts.push(
-    request.question
-      ? 'Responde a la pregunta de <pregunta>.'
-      : 'Responde a la última pregunta del entrevistador en la transcripción.'
-  );
-
-  return parts.join('\n\n');
-}

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { m } from '../i18n';
+import { buildUserTurn } from './user-turn';
 import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -38,7 +39,7 @@ export class GeminiProvider implements LLMProvider {
     for (const image of request.images ?? []) {
       parts.push({ inlineData: { mimeType: image.mime, data: image.base64 } });
     }
-    parts.push({ text: buildUserTurn(request) });
+    parts.push({ text: buildUserTurn(request, true) });
 
     try {
       const stream = await this.client.models.generateContentStream({
@@ -104,18 +105,3 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   return new LLMError(m('err.geminiError', { message }), providerId);
 }
 
-function buildUserTurn(request: AnswerRequest): string {
-  const parts = [`<transcripcion>\n${request.transcript || '(sin audio aún)'}\n</transcripcion>`];
-
-  if (request.question) parts.push(`<pregunta>\n${request.question}\n</pregunta>`);
-  if (request.images?.length) {
-    parts.push('El usuario adjuntó una captura de su pantalla; tenla en cuenta.');
-  }
-  parts.push(
-    request.question
-      ? 'Responde a la pregunta de <pregunta>.'
-      : 'Responde a la última pregunta del entrevistador en la transcripción.'
-  );
-
-  return parts.join('\n\n');
-}

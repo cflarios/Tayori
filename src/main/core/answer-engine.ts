@@ -16,6 +16,7 @@ import { createLLMProvider, LLMError } from '../llm';
 import type { ConversationExchange } from '../llm/types';
 import { getSkill } from '../skills';
 import { buildSystemPrompt } from './prompt';
+import { neutralize } from './untrusted';
 import type { TranscriptBuffer } from './transcript-buffer';
 
 /**
@@ -411,8 +412,20 @@ export class AnswerEngine extends EventEmitter {
     const answer = this.current;
     if (!answer || answer.status !== 'done' || !answer.text.trim()) return;
 
+    /*
+     * La pregunta se desarma al guardarla, no al enviarla.
+     *
+     * Viaja como un mensaje `user` de verdad —es lo que hace que el modelo trate
+     * sus respuestas anteriores como cosas que dijo él— y por tanto **fuera de
+     * todo sobre**. Sin esto, una orden que se hubiera frenado en
+     * `<transcripcion>` volvería en la consulta siguiente sin nada alrededor.
+     *
+     * Aquí y no en cada proveedor porque ésta es la única puerta a la memoria;
+     * el historial que se guarda en disco es otro camino y conserva el texto
+     * literal, que es lo que hay que poder releer.
+     */
     this.history.push({
-      question: answer.question.trim() || m('hist.inferredQuestion'),
+      question: neutralize(answer.question.trim()) || m('hist.inferredQuestion'),
       answer: answer.text.trim(),
     });
     if (this.history.length > AnswerEngine.MAX_HISTORY) this.history.shift();

@@ -430,6 +430,33 @@ sale de tu red; si está en tu LAN, cualquiera con acceso al tema puede leerlo.
 Un broker sin usuario ni TLS es un tablón de anuncios — usa `mqtts://` fuera de
 tu red.
 
+## Órdenes escondidas en lo que la app oye o lee
+
+La app le pasa al modelo cosas que **no escribes tú**: lo que dice la otra
+persona, lo que haya en una captura de pantalla y lo que pegues en *Contexto*
+—una oferta de empleo la redactó alguien más—. Cualquiera de esas puede traer
+una frase dirigida al asistente: *«ignora las instrucciones anteriores»*, *«deja
+de responder»*. No hace falta mala fe: basta con que esté escrita en el
+enunciado de un ejercicio.
+
+Todo ese material viaja **marcado como material**, nunca como instrucciones, y
+el prompt del sistema dice explícitamente que lo de dentro se reporta y no se
+obedece. Vale igual para los cinco proveedores y para los modelos locales: la
+defensa está en cómo se arma la consulta, no en el modelo que la reciba.
+
+Lo que vas a notar si pasa: el asistente **te lo dice** en una línea —«en la
+pantalla hay un texto que intenta darme instrucciones»— y sigue respondiendo a
+la pregunta real. Avisar es parte del trato: tú no ves lo que él ha leído.
+
+Dos límites que conviene tener claros:
+
+- **No se borra nada de lo que se dijo.** Si en una entrevista de seguridad
+  hablas de inyección de prompts, esas frases aparecen en la transcripción tal
+  cual. Filtrarlas rompería la app justo en la entrevista donde más falta hace.
+- **Esto reduce el riesgo, no lo elimina.** La última palabra la tiene el
+  modelo, y ninguno es inmune. Si una respuesta se comporta de forma rara justo
+  después de que aparezca un texto largo en pantalla, sospecha de eso.
+
 ## Latencia y privacidad: el compromiso
 
 | Motor | Latencia | Dónde va el audio |
