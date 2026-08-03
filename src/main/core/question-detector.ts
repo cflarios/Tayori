@@ -34,8 +34,47 @@ const IMPERATIVE_PROMPTS = [
   'cuentame', 'cuéntame', 'hablame', 'háblame', 'explicame', 'explícame',
   'describeme', 'descríbeme', 'dime', 'dame un ejemplo', 'ponme un ejemplo',
   'imagina', 'supon', 'supón',
+  // Las formas con "-nos" son tan imperativas como las de "-me", y en una
+  // reunión con varias personas son las que salen. Éstas sí valen en cualquier
+  // posición: nadie dice "explicanos" sin estar pidiendo algo.
+  'cuentanos', 'explicanos', 'hablanos', 'describenos', 'dinos',
   'tell me', 'walk me through', 'talk me through', 'give me an example',
   'describe a time', 'explain how', 'explain why', 'take me through',
+];
+
+/**
+ * Verbos en imperativo que abren una petición, **sólo al principio**.
+ *
+ * El hueco que tapan salió de una prueba real: «Explica un poco el rol de un
+ * SRE» se descartó, y la misma pregunta con otra forma —«¿Podrías explicar un
+ * poco el rol de un SRE?»— disparó sin problema. Las dos piden exactamente lo
+ * mismo; sólo una está formulada como pregunta, y **la gente usa las dos**.
+ *
+ * Era además una asimetría entre idiomas: en inglés los imperativos pelados ya
+ * estaban cubiertos —`explain`, `describe`, `tell` viven en la lista de
+ * aperturas— y en español sólo se reconocían las formas con pronombre
+ * (`explícame`, `cuéntame`). Quien dice «explica» sin el «me» pedía lo mismo.
+ *
+ * **Sólo al principio, y esto no es negociable.** Estos verbos son idénticos a
+ * la tercera persona del indicativo, que aparece a todas horas en mitad de una
+ * frase: «el informe explica que…», «él describe el problema». Al principio de
+ * una intervención, en cambio, es una petición casi siempre.
+ *
+ * Se quedan fuera a propósito, y no por olvido:
+ *
+ * | Verbo | Por qué no |
+ * |---|---|
+ * | `cuenta` | Es también sustantivo, y «cuenta con» significa otra cosa |
+ * | `indica` | «indica que…» en tercera persona es lo normal, no la excepción |
+ * | `desarrolla` | «desarrolla software» abre una frase perfectamente afirmativa |
+ * | `habla` | «habla muy rápido» describe a alguien, no pide nada |
+ *
+ * Van sin acentos porque se comparan contra el texto ya normalizado.
+ */
+const IMPERATIVE_OPENERS = [
+  'explica', 'describe', 'define', 'compara', 'enumera', 'resume', 'detalla',
+  'profundiza', 'amplia', 'aclara', 'ejemplifica', 'justifica', 'argumenta',
+  'ilustra', 'menciona',
 ];
 
 /** Frases demasiado cortas casi nunca son preguntas reales que valga responder. */
@@ -153,6 +192,21 @@ export interface QuestionVerdict {
   isQuestion: boolean;
   /** Por qué se decidió así. Se registra para poder afinar la heurística. */
   reason: string;
+  /**
+   * `true` si el descarte es una **duda**, no una certeza.
+   *
+   * Lo mira el segundo escalón para decidir si vale la pena gastar una consulta
+   * preguntándole al modelo. Una muletilla o una frase de dos palabras se
+   * descartan con certeza; una oración larga sin ningún marcador puede ser
+   * perfectamente una pregunta dicha en forma de afirmación, y eso una lista de
+   * palabras no lo puede saber.
+   *
+   * Es un campo y no una comparación del texto de `reason` a propósito: ese
+   * texto está escrito para que lo lea una persona, y atarle lógica lo convierte
+   * en una API que se rompe al reescribir un mensaje. Es la misma razón por la
+   * que los errores de los proveedores se distinguen por clase y no por cadena.
+   */
+  ambiguous?: boolean;
 }
 
 /**
@@ -181,6 +235,7 @@ export function looksLikeQuestion(
   const hasStrongMarker =
     raw.includes('?') ||
     INTERROGATIVE_OPENERS.includes(firstWord) ||
+    IMPERATIVE_OPENERS.includes(firstWord) ||
     IMPERATIVE_PROMPTS.some((prompt) => normalized.startsWith(prompt));
 
   const minWords = hasStrongMarker ? MIN_WORDS_WITH_MARKER : MIN_WORDS;
@@ -200,6 +255,18 @@ export function looksLikeQuestion(
     }
   }
 
+  /*
+   * El verbo en imperativo pelado: "explica el rol de un SRE".
+   *
+   * Va aquí arriba, con las demás señales fuertes, y no abajo con las reglas de
+   * `balanced`: pedir algo es igual de explícito que preguntarlo, así que el
+   * modo estricto también tiene que verlo. Que la petición no lleve signo de
+   * interrogación no la vuelve dudosa.
+   */
+  if (IMPERATIVE_OPENERS.includes(firstWord)) {
+    return { isQuestion: true, reason: `verbo en imperativo: "${firstWord}"` };
+  }
+
   // El signo de interrogación explícito es señal fuerte cuando el motor lo pone.
   if (raw.includes('?')) {
     return { isQuestion: true, reason: 'signo de interrogación' };
@@ -213,7 +280,15 @@ export function looksLikeQuestion(
   // A partir de aquí, sólo en `balanced`. Son las reglas que recuperan las
   // preguntas que el ASR entrega sin signos, a cambio de algún disparo de más.
   if (sensitivity === 'strict') {
-    return { isQuestion: false, reason: 'sin marcadores de pregunta (modo estricto)' };
+    return {
+      isQuestion: false,
+      reason: 'sin marcadores de pregunta (modo estricto)',
+      // Ambigua igualmente: `strict` decide cuánto se arriesga la heurística,
+      // no si el modelo puede opinar. Estricto + clasificador es de hecho la
+      // combinación más precisa que hay — nada de adivinar por palabras, y el
+      // modelo resolviendo las dudas.
+      ambiguous: true,
+    };
   }
 
   // Sobre el texto CRUDO: el acento sobrevive aquí y no en `normalized`.
@@ -242,5 +317,14 @@ export function looksLikeQuestion(
     }
   }
 
-  return { isQuestion: false, reason: 'sin marcadores de pregunta' };
+  /*
+   * Aquí es donde muere el techo de esta heurística, y por eso se marca como
+   * duda en lugar de como descarte.
+   *
+   * "Una persona que conozca de DevOps debería conocer también de seguridad"
+   * llega aquí, y es una pregunta: quien la dice espera que le contesten. Lo
+   * que la hace pregunta no está en el léxico —está en que es una afirmación
+   * dirigida a alguien— así que ninguna lista la va a coger nunca.
+   */
+  return { isQuestion: false, reason: 'sin marcadores de pregunta', ambiguous: true };
 }

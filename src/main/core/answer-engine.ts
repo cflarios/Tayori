@@ -13,6 +13,7 @@ import {
 import { settingsStore } from '../config/store';
 import { createLLMProvider, LLMError } from '../llm';
 import type { ConversationExchange } from '../llm/types';
+import { getSkill } from '../skills';
 import { buildSystemPrompt } from './prompt';
 import type { TranscriptBuffer } from './transcript-buffer';
 
@@ -206,8 +207,12 @@ export class AnswerEngine extends EventEmitter {
    * tope de tokens de ESTA consulta sin tocar los ajustes. Es lo que permite
    * resolver lo que hay en pantalla en mitad de una entrevista y que la
    * siguiente pregunta hablada siga saliendo en cuatro viñetas.
+   *
+   * @param skillId Skill sólo para esta consulta, del prefijo `/skill` de la
+   *        pestaña de escritura. Sin él manda `settings.activeSkillId`, que es
+   *        la que está puesta en el overlay.
    */
-  async ask(trigger: AnswerTrigger, question?: string): Promise<void> {
+  async ask(trigger: AnswerTrigger, question?: string, skillId?: string): Promise<void> {
     // Abortar antes de arrancar es lo que garantiza la invariante de "una sola
     // en vuelo" sin importar desde dónde se llame.
     this.abort();
@@ -300,9 +305,18 @@ export class AnswerEngine extends EventEmitter {
         return;
       }
 
+      /*
+       * La skill se resuelve aquí y no en quien llama para que las tres vías
+       * —el prefijo escrito, el chip del overlay y el disparo automático—
+       * pasen por la misma puerta. `getSkill` devuelve `undefined` si está rota
+       * o si el id ya no existe, que es lo que hace que una carpeta borrada no
+       * deje la app mandando un prompt a medias.
+       */
+      const skill = getSkill(skillId ?? settings.activeSkillId);
+
       const stream = provider.streamAnswer(
         {
-          systemPrompt: buildSystemPrompt(settings, forced),
+          systemPrompt: buildSystemPrompt(settings, forced, skill),
           transcript: this.transcript.format(
             this.transcript.recent(settings.manualContextSeconds)
           ),

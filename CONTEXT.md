@@ -665,6 +665,207 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
   del nombre con hash que Vite da a los assets en producción. Eso obliga a
   permitir `blob:` en `script-src` del audio-worker (ver §6).
 
+### DeepSeek: compatible con OpenAI, y ciego
+
+Quinto proveedor, agosto de 2026. Dos cosas lo hacen distinto de los otros
+cuatro, y las dos condicionan dónde se le deja aparecer.
+
+**Su API es compatible con la de OpenAI**, así que se usa el mismo SDK que ya
+estaba instalado cambiándole la `baseURL`. Cero dependencias nuevas y ningún
+cliente HTTP a mano. Pero se entra por **Chat Completions y no por la Responses
+API**: aquélla es de OpenAI, no del formato compatible. Se pierden `store:false`
+y `reasoning.effort`, y ninguno hace falta — DeepSeek no guarda las respuestas
+para recuperarlas por API, y el esfuerzo no es un parámetro suyo.
+
+**Ninguno de sus modelos lee imágenes.** Ni la página de precios ni la
+referencia de la API mencionan entrada de imagen para ninguno de los dos. Eso no
+lo convierte en peor proveedor, lo convierte en un proveedor **para conversar**,
+y el diseño lo refleja en tres sitios:
+
+- `supportsVision: false` en el catálogo, que es lo que hace que el selector lo
+  marque «sin visión».
+- **No aparece en el desplegable del modelo de pantalla.** Esa tarjeta existe
+  para elegir el modelo que tiene que leer la captura; ofrecer ahí el único que
+  no puede es ofrecer la opción que garantiza que los dos botones fallen.
+- El proveedor **descarta la captura con un aviso en el log** en lugar de
+  mandarla, y **no le dice al modelo que hay una imagen**. Decírselo sin
+  mandarla es invitarle a inventarse lo que hay en ella.
+
+**El catálogo son dos ids, y R1 no está.** El usuario pidió «V4 Pro, V4 Flash y
+R1», y R1 ya no existe: el `list models` de DeepSeek devuelve hoy exactamente
+`deepseek-v4-flash` y `deepseek-v4-pro`, y su tabla de precios tampoco lista ni
+`deepseek-reasoner` ni `deepseek-chat`. La familia V4 los sustituyó. Quien
+conserve acceso a alguno lo escribe en «Otro…».
+
+Los precios sí se reproducen en la guía porque se pudieron verificar: 0,28 $ por
+millón en Flash y 0,87 $ en Pro, entrada y salida. Es entre tres y diez veces
+más barato que cualquier otra cosa de la tabla, y eso cambia la receta de «todo
+nube, lo más barato que funciona» — con la advertencia de que el modelo de
+pantalla tiene que ser otro.
+
+### Tres cosas de UX que sólo se ven en una máquina limpia
+
+Salieron de probar la app en un ordenador donde no había nada configurado, que
+es el escenario que quien la desarrolla nunca reproduce.
+
+**«No lo tienes instalado» era mentira la mitad de las veces.** El asistente
+decidía con `probeOllama`, que pregunta si el **servidor** contesta — no si
+Ollama está instalado. Quien lo instalaba y volvía con el servicio parado se
+encontraba otra vez el botón de instalar, y volver a instalar por encima no
+arregla nada. Ahora son dos preguntas distintas: `ollamaInstalled()` lanza
+`ollama --version` (si el ejecutable no está, `spawn` falla con ENOENT y ya está
+respondido) y la pantalla de «instalado pero parado» dice lo único que hay que
+hacer, que es abrirlo una vez.
+
+**La instalación no enseñaba ningún avance**, y es la parte que tarda minutos.
+Lo curioso es que el main **ya emitía los mensajes** —«Instalando con winget…»,
+«Esperando a que arranque el servidor…»— y nadie los pintaba: el bloque de
+progreso vivía dentro de la rama de «Ollama ya está listo», donde durante la
+instalación no se entra. Es el mismo patrón que `registerHotkeys` devolviendo
+los aceleradores rechazados que nadie recogía: el dato existía y no llegaba a la
+pantalla.
+
+Y como **winget no informa del porcentaje**, la barra no puede fingir uno: se
+pinta un fragmento que la recorre. Una barra parada al 0% durante tres minutos
+se lee como «esto se ha colgado», que fue exactamente lo que pasó.
+
+**El aviso de «falta configurar la IA» que no se iba ya estaba arreglado** en
+otro commit —la difusión de `onSecrets`—, pero se probó con una build anterior.
+Se anota porque la conclusión importa: un fallo reportado dos veces no siempre
+es un fallo que siga ahí, y comprobar la versión antes de "arreglarlo" otra vez
+cuesta menos que el arreglo.
+
+### El «DUDA:» que se puso en todas las líneas
+
+Probado con un modelo local pequeño, el modo test contestaba **todas** las
+preguntas con `DUDA:` delante. Y estaba pedido: la regla decía «si dudas en una,
+empieza ESA línea por DUDA:» sin decir en ningún sitio que fuera la excepción.
+
+Es la misma lección que ya está escrita dos veces en este archivo —**antes de
+culpar al modelo, leer lo que se le pidió**— y el mismo matiz sobre los modelos
+pequeños: cumplen mal los topes y se curan en salud, así que lo que en un modelo
+grande es un matiz, en uno pequeño hay que decirlo como una prohibición.
+
+Ahora la regla dice tres cosas donde antes decía una: que la marca es la
+excepción y no el formato, que marcarlo todo **no informa de nada** —quien lee
+la usa para decidir en cuáles arriesga, y en todas las líneas da lo mismo que no
+estuviera— y que detrás siempre va la mejor opción igualmente.
+
+### Los dos motores de OpenAI, y el que se descartó
+
+Agosto de 2026. La petición fue «OpenAI tiene modelos de transcripción, y creo
+que usaremos `gpt-live-transcribe` por defecto para reuniones». Los dos nombres
+que se propusieron **existen los dos**, verificados contra la referencia de
+OpenAI y contra los tipos del SDK instalado — pero sólo uno encaja aquí, y el
+motivo de que el otro no encaje es una decisión que este proyecto tomó el primer
+día.
+
+| Modelo | Para qué es | Aquí |
+|---|---|---|
+| `gpt-live-transcribe` | Audio **en directo**: micrófonos, llamadas, streams | El motor `openai-live`, y el defecto sensato para reuniones |
+| `gpt-transcribe` | Voz **grabada** | El motor `openai-transcribe`: un VAD produce exactamente eso, trozos ya cerrados |
+| `gpt-4o-transcribe-diarize` | Separar hablantes | **Descartado**, ver abajo |
+
+**Por qué no la diarización.** Esta app **ya sabe quién habla**: el micrófono es
+«yo» y el loopback del sistema son «ellos», y ese reparto está tomado a
+conciencia desde el principio porque el origen del stream es más exacto que
+cualquier diarización. Un modelo que adivina hablantes no aporta nada a un dato
+que ya es exacto. Encima **no admite `prompt`**, así que costaría el sesgo de
+vocabulario, que es la palanca de calidad más barata que hay aquí. Lo único que
+aportaría de verdad es distinguir a varias personas **dentro** de «ellos» —una
+reunión de cuatro donde ahora todo cae bajo la misma etiqueta— y eso es una
+**función distinta**, no una mejora de la transcripción. Si algún día se quiere,
+se diseña como tal.
+
+**Y por qué dos motores y no uno.** Es la misma pareja que ya existe con Gemini,
+y responde a la pregunta de siempre: qué duele más, la latencia o los errores.
+
+| | Latencia | Qué manda | Parciales |
+|---|---|---|---|
+| `openai-live` | ~300 ms | Streaming continuo | Sí |
+| `openai-transcribe` | ~1 s por turno | El turno entero de una vez | No |
+
+El segundo **oye la frase completa antes de decidir**, así que acierta más en
+nombres propios y en finales de palabra. El primero empieza a escribir antes.
+Ninguno es «el bueno».
+
+#### La restricción que condicionó el diseño: 24 kHz
+
+La API en tiempo real de OpenAI **sólo acepta PCM a 24000 Hz**. No es una
+lectura entre líneas: los tipos del SDK lo dicen con esas palabras
+—`rate?: 24000`, *"Only a 24kHz sample rate is supported"*— y todo el pipeline
+de esta app está normalizado a **16 kHz** porque es lo que quieren Whisper y
+Gemini Live.
+
+Subir el worklet a 24 kHz para contentar a un motor habría empeorado a los otros
+tres, así que la conversión vive contenida en `stt/resample.ts`, y ahí hay dos
+cosas que conviene no «simplificar»:
+
+- **Aquí la interpolación lineal SÍ basta**, al revés que en el worklet. Aquel
+  caso era decimar 48 → 16 kHz, donde lo que hay por encima de la nueva Nyquist
+  **se pliega** dentro de la banda de la voz — por eso hubo que meter un
+  Butterworth de 8º orden. Al subir de frecuencia no se pliega nada: aparecen
+  **imágenes** por encima de 8 kHz, y la interpolación lineal ya las atenúa. Un
+  reconocedor de voz vive por debajo de esos 8 kHz. Subir de frecuencia no
+  inventa detalle; sólo hace que el audio entre por la puerta.
+- **El estado entre bloques no es opcional.** El audio llega en trozos de
+  ~100 ms, diez por segundo y por hablante. Un remuestreador sin memoria empieza
+  cada bloque desde cero y deja una discontinuidad en cada unión: diez
+  chasquidos por segundo que el reconocedor oye como consonantes que nadie dijo.
+  La transcripción sale peor y **no hay nada en el log que lo insinúe**. Tiene
+  test —una rampa partida en dos bloques que debe seguir siendo monótona— y la
+  fase se lleva en enteros porque un `float` acumulando 2/3 deriva en minutos.
+
+#### Dos fallos que sólo salieron ejecutándolo, y los dos eran del protocolo
+
+Se escribió contra la referencia y aun así falló al primer intento. Merece la
+pena registrar los dos porque las lecciones son distintas.
+
+**El primero fue ruidoso: `turn_detection`.** La primera versión mandaba
+`{ type: 'semantic_vad' }` razonando que el servidor corta mejor por final de
+idea que por silencio. La API contestó *"Turn detection is not supported for
+this transcription model"* y la sesión no arrancó. Lo peor no es el error, es
+que **la documentación mostraba `turn_detection: null` y no se copió**: se
+sustituyó por algo que parecía mejor. La regla que ya estaba escrita para los
+model IDs de Gemini vale igual aquí — lo que dice la referencia se copia, no se
+mejora.
+
+**El segundo no habría dado ningún error, y ése es el importante.** Con
+`turn_detection` apagado, **el turno lo cierra el cliente**: hay que mandar
+`input_audio_buffer.commit`. El modelo emite los parciales solo, así que sin el
+commit la transcripción **se ve en pantalla y todo parece funcionar** — pero no
+llega nunca un segmento final, y el auto-disparo sólo evalúa finales. El
+resultado habría sido una app que transcribe de maravilla y no responde jamás,
+sin una sola línea en el log. Se cierra con el `EnergyVAD` de siempre, el mismo
+de whisper-local y con los mismos 700 ms, para que «cuándo termina una frase»
+siga decidiéndose en un solo sitio.
+
+De ahí que el motor tenga tests contra un **WebSocket de verdad**, y no contra
+un cliente simulado: los dos fallos vivían en lo que se manda por el cable, que
+es justo lo que un mock da por bueno. Es la misma decisión que con el broker de
+MQTT.
+
+**Y de ahí también `PROMPT_UNSUPPORTED`.** Qué parámetros acepta cada modelo de
+transcripción no se puede saber desde aquí —la documentación habla de "keyword
+hints" sin dar el nombre del campo— y equivocarse **tumba la sesión entera** en
+lugar de degradar. Si el `prompt` se rechaza, se apunta el modelo y se reconecta
+sin sesgo: se pierde precisión en los nombres propios, que es mucho mejor que
+perder la transcripción. Mismo patrón que `EFFORT_UNSUPPORTED` en `claude.ts`,
+por tercera vez en este proyecto.
+
+#### Lo que sale gratis y lo que no
+
+`openai-live` se abre con `intent=transcription`, así que la sesión **es** un
+transcriptor. Eso ahorra toda la pelea que Gemini Live obliga a mantener: allí
+el modelo es conversacional y va a intentar responder, de ahí su instrucción de
+silencio, el `modelTurn` que se tira y una salida que se paga sin usarla. Aquí
+no hay salida generada.
+
+A cambio, la app depende ahora de `ws` **de forma explícita**. Ya estaba en el
+árbol —lo arrastran `mqtt` y `@google/genai`— pero apoyarse en una dependencia
+transitiva es apoyarse en que un tercero no la cambie, así que se declara. No
+añade descarga.
+
 ### Audio directo: saltarse la transcripción entera
 
 `gemini-audio` no es un motor de transcripción más. Manda el WAV del turno **al
@@ -776,6 +977,200 @@ turno; esto no es streaming. Para eso está Gemini Live.
   mientras alguien te mira a la cara. De ahí el máximo de 4 viñetas, la
   prohibición de preámbulos, y la regla de no inventar datos fuera de
   `<contexto>` — una respuesta genérica es recuperable, una mentira detectada no.
+
+### Skills: la tercera cosa que entra en el prompt
+
+Agosto de 2026. Ya había dos formas de influir en la respuesta —el perfil y los
+context packs— y la petición era una tercera. El riesgo obvio era acabar con
+tres mecanismos que hacen lo mismo con nombres distintos, así que lo primero fue
+delimitar qué decide cada uno:
+
+| | Decide | Si falta |
+|---|---|---|
+| Perfil | La **forma** | La respuesta no cabe en el panel, o el código sale sin código |
+| Context pack | El **material** | Correcta pero genérica: no es tuya |
+| Skill | La **manera** | Correcta y tuya, pero suena a generada |
+
+Esa tercera columna es la que no tenía respuesta antes, y es un fallo caro en
+esta app concreta: **la respuesta se lee en voz alta**. Las muletillas de modelo
+—«es importante destacar», los pares de adjetivos, el cierre que resume— cantan
+mucho antes habladas que escritas.
+
+**El formato es el de Anthropic y se implementa a mano.** Una carpeta con un
+`SKILL.md`, frontmatter con `name` y `description`, cuerpo en Markdown. Elegir
+un formato que ya existe es lo que hace que una skill escrita para otra
+herramienta funcione tal cual, y no traer una dependencia para leerlo es la
+regla de siempre: partir por `---` y leer dos claves son treinta líneas, y su
+fallo **se ve** —la skill no carga y lo dice—. Es la misma frontera que dejó
+fuera a `electron-store` y que sí justificó el codificador de QR, cuyo fallo era
+invisible.
+
+El parser acepta continuación en las líneas indentadas —una `description` de
+verdad no cabe en 80 columnas— e **ignora las claves que no conoce**, para que
+un SKILL.md con campos de otra herramienta no se caiga por traer de más.
+
+#### El reparto de autoridad, que es lo que hace que funcione
+
+La decisión de diseño está aquí y no es evidente: la skill **se suma** al
+perfil, va **la última** del system prompt, y lleva su precedencia **escrita**:
+
+> Manda sobre CÓMO se dice. NO cambia el formato. Donde discrepen sobre la
+> MANERA de escribir, gana la skill; donde discrepen sobre la FORMA, gana la
+> regla de formato.
+
+Sin esa frase, una skill de tono y unas reglas de formato que llevan la palabra
+«obligatorias» encima se contradicen en cuanto la primera pide algo que la
+segunda limita, y **el empate lo rompe el modelo en silencio**: distinto según
+el proveedor y según la frase, que es la peor clase de comportamiento — el que
+no se puede reproducir ni explicar.
+
+Va la última, después incluso del contexto, porque es la posición que el modelo
+atiende con más fuerza y porque una skill existe justamente para corregir la
+manera de escribir que traen las reglas de arriba. Puesta antes, se diluye.
+
+#### Cuatro decisiones que parecen recortes y no lo son
+
+- **Una sola skill activa.** Dos instrucciones sobre cómo escribir se
+  contradicen enseguida —una pide frases cortas, otra un registro cuidado— y el
+  resultado dependería del orden en que estuvieran encendidas. Con una, lo que
+  se lee es lo que se pidió.
+- **Los scripts y assets del formato se ignoran.** No es una fase pendiente:
+  ejecutar un script que hay en una carpeta de datos es ejecutar código sin
+  revisar, en el proceso que tiene las API keys descifradas. El día que se
+  quiera, se diseña con esa frase delante.
+- **`/skill` sólo funciona escribiendo, no hablando.** Un «/humanizar» dicho en
+  voz alta llega del reconocedor como «humanizar» o como «barra humanizar»
+  según el motor: reconocerlo ahí sería adivinar.
+- **El prefijo sólo cuenta si la skill existe.** Si cualquier `/palabra` se
+  tratara como invocación, escribir «/etc está lleno de configuración» perdería
+  la primera palabra y el modelo respondería a otra cosa **sin que nada lo
+  avisara**. Con la lista delante, lo que no casa se queda como texto. Tiene
+  test, porque es el fallo silencioso de esta función.
+
+#### Y dos que cubren fallos mudos
+
+- **Una skill rota se lista igual, con su motivo.** Desaparecer sin decir nada
+  deja a alguien mirando una carpeta que sí existe. Y `getSkill()` devuelve
+  `undefined` para las rotas, así que un `activeSkillId` que apunta a una
+  carpeta que alguien estropeó **se comporta como si no hubiera skill** en lugar
+  de mandar medio prompt.
+- **El cuerpo vacío es el único error de verdad.** Sin `name` se usa el id de la
+  carpeta y sin `description` la lista se ve sosa, pero las dos funcionan. Una
+  skill sin instrucciones no hace **nada** y aparecería encendida en el
+  desplegable diciendo lo contrario.
+
+**La skill entra también en `gemini-audio`.** Con ese motor la respuesta la
+escribe el reconocedor, así que si se hubiera quedado fuera habría un motor en
+el que encender una skill no hace nada — y desde la pantalla los dos casos se
+ven idénticos.
+
+### El techo de la heurística, y el escalón que faltaba
+
+`AutoTriggerMode` prometía `heuristic+classifier` **desde el primer día en el
+tipo**, y ese código no existía. Se implementó en agosto de 2026 empujado por un
+caso concreto, sacado de una conversación real:
+
+> «Una persona que conozca de DevOps debería conocer también de seguridad.»
+> «Si una persona sabe DevOps, necesariamente tendría que saber de seguridad.»
+
+Las dos son **preguntas**: quien las dice está esperando que le contesten. Y las
+dos llegan del reconocedor como oraciones afirmativas, sin signo y sin ningún
+interrogativo. La reacción natural es añadir marcadores a la lista, y es la
+equivocada: **lo que las hace preguntas no está en el léxico**. Está en que son
+afirmaciones dirigidas a alguien que espera respuesta. Ninguna lista de palabras
+lo va a coger nunca, y añadir «debería» ya se probó y se descartó porque dispara
+con «creo que debería haber estudiado más».
+
+Así que el techo de `question-detector.ts` no era falta de reglas: era el
+método. De ahí el segundo escalón, que le pregunta al modelo.
+
+Tres reglas lo hacen viable, y las tres importan:
+
+- **Sólo se escala la duda, nunca la certeza.** Una muletilla o una frase de dos
+  palabras se descartan gratis. Pagar una consulta para que un modelo confirme
+  que «vale, perfecto» no es una pregunta es tirar el dinero.
+- **Nunca bloquea.** Reloj propio de 8 s y `AbortSignal`. Si el modelo tarda o
+  falla, el veredicto es «no era una pregunta» y todo sigue como en `heuristic`.
+  Un clasificador caído no puede dejar la escucha colgada.
+- **Cuesta, y se dice en pantalla.** Es una consulta más por intervención
+  ambigua, y en un modelo que razona ni siquiera es barata. Por eso no es el
+  valor por defecto.
+
+**El campo `ambiguous`, y por qué no es el texto de `reason`.** La primera
+versión decidía si escalar comparando el prefijo de la cadena del motivo, y un
+test lo cazó en cuanto se escribió: el motivo del modo estricto empieza igual,
+así que la decisión dependía de cómo estuviera **redactado un mensaje** pensado
+para que lo lea una persona. Es la misma lección que ya estaba escrita para los
+errores de los proveedores —se distinguen por clase, no por cadena— aplicada a
+un sitio nuevo.
+
+De paso se decidió que **`strict` también escala**. La sensibilidad gobierna
+cuánto se arriesga la heurística; el modo gobierna si el modelo puede opinar.
+Estricto + clasificador es de hecho la combinación más precisa que existe: cero
+adivinanzas por palabras, y el modelo resolviendo las dudas.
+
+### Pedir no es preguntar, y la mitad de la gente pide
+
+Del log de una prueba real, con diez segundos de diferencia:
+
+    20:04:58  descartado (sin marcadores): "Explica un poco el rol de un SRE"
+    20:05:08  disparando (signo de interrogación): "¿Podrías explicar un poco el rol de un SRE?"
+
+Las dos piden exactamente lo mismo. Sólo la segunda está **formulada** como
+pregunta, y ahí estaba el fallo: la heurística tenía `explícame` pero no
+`explica` a secas.
+
+**Y era una asimetría entre idiomas que llevaba ahí desde el principio.** En
+inglés los imperativos pelados ya estaban cubiertos —`explain`, `describe`,
+`tell` viven en `INTERROGATIVE_OPENERS`— y en español sólo se reconocían las
+formas con pronombre. Quien dice «explica» sin el «me» está pidiendo lo mismo.
+
+`IMPERATIVE_OPENERS` los añade con dos condiciones que sí importan:
+
+- **Sólo al principio de la intervención.** Estos verbos son idénticos a la
+  tercera persona del indicativo, que aparece a todas horas: «el informe
+  explica que…», «ese diagrama resume bastante bien». Al principio es una
+  petición casi siempre; en medio, casi nunca. Hay test de las dos caras.
+- **Cuentan también en modo estricto.** Pedir algo es tan explícito como
+  preguntarlo; que no lleve signo de interrogación no lo vuelve dudoso.
+
+Cuatro verbos se quedaron **fuera a propósito**, y conviene que no los añada
+nadie luego: `cuenta` (es sustantivo, y «cuenta con» significa otra cosa),
+`indica` («indica que…» en tercera persona es lo normal), `desarrolla`
+(«desarrolla software») y `habla` («habla muy rápido»). Es el mismo criterio
+que dejó fuera a «debería».
+
+**Lo que esto no arregla**, y hay que saberlo: cubre la forma imperativa, que es
+frecuente y barata de detectar. Las peticiones que no son ni preguntas ni
+imperativos —una afirmación lanzada para que la rebatas— siguen necesitando el
+clasificador. Una lista de verbos tiene el mismo techo que una lista de
+interrogativos; sólo lo tiene un poco más arriba.
+
+### La frase que salía dos veces
+
+Se vio en pantalla antes que en ningún test, y la firma lo decía todo:
+
+    ¿ Qué opin as del concepto de Ops? … ¿Qué opinas del concepto de Ops? …
+      └── parciales acumulados            └── el turno completo, otra vez
+
+Dos fallos encadenados, los dos del motor `openai-live`:
+
+- **Los `delta` son incrementales y el `completed` trae el turno ENTERO.** El
+  buffer concatena porque su contrato dice que todo es incremental —lo es en
+  Gemini Live—, así que el final se pegaba detrás de lo ya acumulado.
+- **Y la primera copia salía con las palabras partidas** («conoz ca», «ingen
+  ieros») porque `joinFragments` mete un espacio cuando ninguno de los dos
+  lados lo trae, y los deltas de OpenAI son trozos de token.
+
+Se arregla en el sitio donde se conoce el protocolo: el carril acumula sus
+propios deltas **en crudo** y marca lo que emite como `cumulative`, con lo que
+el buffer reemplaza en lugar de concatenar. La alternativa —que el buffer
+adivinara comparando prefijos— es la clase de heurística que falla el día que
+alguien repite una frase a propósito.
+
+La lección para el siguiente motor: **antes de emitir, mirar si los parciales
+del proveedor son incrementales o acumulativos.** No hay un estándar, y los dos
+que hay en esta app no coinciden.
 
 ### Modo código: por qué es un camino aparte y no un prompt más
 
@@ -1004,7 +1399,8 @@ el campo `thinking` y las siguientes ya salen con presupuesto.
 
 ### El catálogo de modelos es una sugerencia, no una frontera
 
-`CLAUDE_MODELS` y `GEMINI_MODELS` están escritos en el código, así que envejecen:
+`CLAUDE_MODELS`, `GEMINI_MODELS` y `OPENAI_MODELS` están escritos en el código,
+así que envejecen:
 cada modelo nuevo del proveedor tardaba en poder usarse **lo que tardara una
 versión de la app**, aunque la cuenta ya tuviera acceso. La lista sigue siendo lo
 primero que se ve —es lo que quiere casi todo el mundo y evita teclear un id de
@@ -1099,6 +1495,16 @@ devuelve identificadores numéricos, pero `auxAttributes.glRenderer` trae la
 cadena de ANGLE —`"ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 …)"`— de la
 que se puede extraer el nombre comercial sin depender de nada externo.
 
+**Esa cadena la escribe el driver, y no todos la escriben igual.** Con drivers
+recientes de NVIDIA llega el id PCI pegado al nombre —`"NVIDIA GeForce RTX 5070
+Ti (0x00002C05)"`— y se colaba entero en una línea que se lee de un vistazo.
+`cleanRenderer` lo quita, y tiene test: el patrón se acota a lo que parece un id
+hexadecimal justamente para no llevarse por delante el paréntesis de un
+`"Intel(R) UHD Graphics 620"`, que sí forma parte del nombre. El id se elimina y
+no se esconde detrás de nada porque no responde a la única pregunta de esa
+tarjeta —qué modelo local le pega a esta máquina—, igual que la VRAM que no se
+puede medir no se estima.
+
 Los tramos salen de una regla sencilla: un modelo cuantizado a 4 bits ocupa
 ~0,6 GB por cada mil millones de parámetros, más el sistema y la ventana de
 contexto. De ahí que un 7B pida ~8 GB libres y un 14B ronde los 16 GB. Los
@@ -1131,6 +1537,112 @@ lleva la lista y además **aprende en caliente**: si un modelo futuro también l
 rechaza, la primera petición lo detecta, reintenta sin el parámetro y las
 siguientes ya salen bien. La lección general es que un parámetro comprobado
 contra un modelo no está comprobado para su familia.
+
+### ChatGPT va por la Responses API, y no es una preferencia
+
+El proveedor de OpenAI (agosto de 2026) se pidió como «añade ChatGPT». Lo que no
+es evidente es que la elección de **API** decide más que la de proveedor:
+
+- **Chat Completions no deja gobernar el razonamiento.** Los modelos GPT-5
+  piensan antes de contestar, y ahí no hay forma de pedirles que piensen poco.
+  La única palanca de latencia que existe —`reasoning.effort`— vive en la
+  Responses API, y esta app se lee de reojo mientras alguien te mira a la cara.
+  Se manda `low` por el mismo motivo que el `effort` de Claude.
+- **`store: false`, y esto es lo que de verdad importa.** La Responses API
+  **guarda por defecto** cada respuesta en la cuenta de OpenAI para poder
+  recuperarla luego por API. Es decir: el valor de fábrica del proveedor deja
+  una copia de lo que se dijo en tu entrevista en un sitio del que esta app no
+  sabe nada. Contradice la línea que §4 lleva defendiendo desde el principio, y
+  por eso se apaga en **todas** las llamadas, incluida la de «Probar conexión».
+  Tiene test contra un servidor real, no contra un cliente simulado: un mock
+  habría pasado igual mandando `store: true`.
+
+**Y la trampa del presupuesto aparece por tercera vez.** `max_output_tokens`
+cuenta los tokens de razonamiento **y** los de la respuesta, exactamente igual
+que `num_predict` en Ollama. Con el tope de 2.200 del modo código, un modelo que
+piensa puede gastárselo entero deliberando y terminar sin escribir un carácter,
+sin ningún error. Ya está documentado dos veces en este archivo —Ollama y el
+reloj del primer token— y aun así hubo que volver a resolverlo aquí, así que
+conviene decirlo como regla y no como anécdota:
+
+> Cuando un proveedor tiene un solo número para «cuánto puedes generar», hay que
+> comprobar si el razonamiento sale de ese número **antes** de fiarse del tope.
+
+`budgetFor(maxTokens, withReasoning)` presta 4.000 tokens aparte. Es menos que
+los 8.000 de Ollama porque con `effort: 'low'` el razonamiento es mucho más
+corto que el de un modelo local de la familia *thinking*, y porque sólo se
+cobran los que se usen.
+
+**`reasoning` se aprende en caliente**, igual que `EFFORT_UNSUPPORTED` en
+`claude.ts` y `KNOWN_THINKERS` en `ollama.ts`. Los modelos sin razonamiento
+—un `gpt-4o` escrito a mano en «Otro…»— devuelven un 400 por un parámetro que
+el usuario no sabe que se está enviando, así que fallarían **todas** sus
+preguntas: es el fallo de Haiku 4.5 calcado. La primera petición lo descubre,
+reintenta sin el bloque y las siguientes ya salen bien.
+
+**El catálogo son los tres GPT-5.6, y los nombres no ayudan.** «Sol», «terra» y
+«luna» no dicen cuál es el grande —a diferencia de `mini`/`nano`, o de
+Haiku/Sonnet/Opus— así que el papel de cada uno **hay que ir a leerlo** en lugar
+de deducirlo, que es exactamente el tipo de suposición que este documento existe
+para desmentir. Verificado contra la referencia de OpenAI:
+
+| Modelo | Qué es | Precio (entrada / salida por millón) |
+|---|---|---|
+| `gpt-5.6-luna` | Cargas sensibles al coste | 0,20 $ / 1,20 $ |
+| `gpt-5.6-terra` | Equilibra capacidad y coste | 2 $ / 12 $ |
+| `gpt-5.6-sol` | Modelo de frontera, trabajo complejo | 5 $ / 30 $ |
+
+Los tres aceptan **texto e imagen**, que es la condición para poder salir
+también en el selector del modelo de pantalla. Eso también se comprobó en lugar
+de darlo por hecho: un modelo sin visión ahí no degrada, **se inventa el
+enunciado entero** y la respuesta parece perfecta.
+
+**El defecto es Terra**, por el mismo motivo por el que en Claude es Sonnet y no
+Opus: esta app dispara una consulta por cada pregunta que oye, así que arrancar
+con el modelo caro se lo cobra a alguien que no ha elegido nada. Luna es de otro
+orden de magnitud —30 veces más barato de salida que Sol— y es la respuesta
+buena para quien mire la factura de la escucha automática.
+
+**Los precios de OpenAI sí se reproducen en la guía**, con fecha, porque se
+pudieron verificar contra su referencia oficial igual que los de Anthropic. Los
+de Google siguen sin reproducirse: la asimetría no es pereza, es el criterio de
+siempre — una cifra que no se pudo verificar hace más daño en una tabla de
+precios que un hueco reconocido.
+
+### Lo que costó añadir ChatGPT, y no era el proveedor
+
+El archivo del proveedor y su entrada en el factory son la parte fácil, y el
+`never` exhaustivo de `llm/index.ts` la hace además a prueba de olvidos. Lo caro
+fueron **tres sitios que el compilador no señala**, y los tres tienen la misma
+forma: una condición escrita a mano que enumera los proveedores de entonces.
+
+| Dónde | Qué pasaba si se olvida |
+|---|---|
+| `providerReady()` en el dashboard | Cae al `else`: la sección «Modelos» sale con aviso de "sin configurar" **con la clave puesta** |
+| El `configured` del overlay | El panel enseña "Falta configurar la IA" para siempre, con el proveedor funcionando |
+| `alreadyThere` en el asistente | Dice "ya tienes una clave" mirando la de otro proveedor |
+
+Las tres decidían la misma pregunta —*¿está configurado esto?*— con tres
+condiciones distintas, y ninguna rompe el build al añadir un id: la cadena de
+ternarios simplemente cae al último caso. En el asistente se sustituyó por
+indexar `presence[choice.secret]`, que no puede quedarse atrás. Las otras dos
+siguen siendo cadenas de `if`, y aquí queda anotado que **son el sitio donde
+mirar** al añadir el siguiente.
+
+Dos cosas más que salieron al pasar, ninguna causada por OpenAI:
+
+- **El asistente borraba modelos de otros proveedores.** El camino local
+  escribía el mapa `llmModels` entero a mano —`{ claude: '', gemini: '', ollama:
+  … }`— con un `as` encima que lo dejaba pasar callando. Quien probaba lo local
+  perdía el modelo que tuviera elegido en la nube. El camino de la nube ya
+  documentaba exactamente esta lección **y el otro no la había aplicado**. Ahora
+  fusiona con lo que hubiera, y sin el `as`, que es lo que además obliga al
+  build a avisar si mañana falta una clave.
+- **El canal IPC de los secretos mentía en el tipo.** `secretsSet` declaraba
+  `key: 'anthropic' | 'google'` mientras el preload ya mandaba `SecretKey`, y la
+  contraseña de MQTT se guardaba por ahí desde hacía tiempo sin aparecer en esa
+  unión. No fallaba nada —el tipo no llega en tiempo de ejecución— pero era una
+  lista escrita a mano condenada a envejecer: ahora es `SecretKey`.
 
 Para Gemini Live, la documentación de Google listaba **tres model IDs distintos**
 en páginas diferentes. La forma de la API se verificó contra los tipos del SDK
@@ -1425,6 +1937,17 @@ capturas de pantalla**, no solo compilando.
 ### NO verificado — requiere claves o intervención manual
 
 - **Streaming real de tokens** de Claude/Gemini (necesita API key del usuario).
+- **ChatGPT contra la API real de OpenAI.** Sí está verificado **el contrato**:
+  `tests/openai-provider.test.ts` levanta un servidor HTTP de verdad que habla
+  la Responses API por SSE, y fija lo que sale (`store: false`, el bloque
+  `reasoning`, el presupuesto prestado, el historial como mensajes, la captura
+  como `input_image`) y lo que se hace con lo que vuelve (negativa, presupuesto
+  agotado, reintento sin `reasoning`, cancelación). Los ids del catálogo, sus
+  papeles, sus precios y que aceptan imágenes salen de la referencia de OpenAI,
+  consultada el 1 de agosto de 2026. Lo que **no** se ha comprobado es una
+  llamada real contra sus servidores: que la cuenta tenga acceso a esos tres
+  modelos. Lo dirá «Probar conexión» — el botón está y el error que devuelve ya
+  distingue clave inválida, sin acceso, sin saldo y modelo inexistente.
 - **Transcripción en vivo** con Gemini Live (ídem).
 - **Auto-disparo sobre habla real** (la heurística sí está cubierta por tests).
 - **Whisper local end-to-end**: los assets **ya están descargados** y se
@@ -1448,6 +1971,25 @@ capturas de pantalla**, no solo compilando.
   **firma** del método: es el fallo silencioso del modo, porque una respuesta
   perfecta sobre una firma mal leída no se distingue de una buena hasta que el
   evaluador la rechaza.
+- **Los dos motores de OpenAI contra sus servidores.** `openai-transcribe` está
+  verificado de extremo a extremo contra un servidor HTTP real: que el turno
+  sale como WAV, con el modelo bueno, con el sesgo de vocabulario, sin forzar
+  idioma cuando es `auto`, y que un carril que nadie escucha no gasta ni una
+  petición. `openai-live` está verificado **contra un WebSocket local real** —el
+  `session.update` con `turn_detection: null`, el audio remuestreado a 24 kHz,
+  el commit al final del turno y su ausencia mientras se habla, los parciales y
+  el final por separado, y la degradación sin `prompt`—, y su handshake contra
+  la API de verdad ya se probó: fue lo que destapó los dos fallos del protocolo.
+  Lo que **sigue sin comprobarse** es una reunión entera de principio a fin: que
+  los turnos se cierren donde tienen que cerrarse con voz real, y qué tal
+  transcribe comparado con Whisper local. Eso es escuchar y juzgar, y necesita
+  a alguien delante.
+- **Que una skill cambie de verdad el tono de una respuesta.** Verificado que
+  llega al prompt —dónde va, con qué precedencia y que el perfil sobrevive—, y
+  la carga desde disco contra carpetas de verdad, con sus casos raros. Lo que
+  falta es lo que sólo se ve leyendo la salida: si con «Que no suene a IA»
+  puesta el modelo deja de escribir «es importante destacar». Es una prueba a
+  ojo y necesita una clave.
 - **La prueba en una videollamada real** (Meet / Teams / Zoom / OBS). La
   verificación se hizo con captura GDI/BitBlt.
   `WDA_EXCLUDEFROMCAPTURE` cubre también las rutas DXGI y Windows Graphics

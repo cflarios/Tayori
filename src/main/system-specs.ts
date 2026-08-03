@@ -45,8 +45,12 @@ export async function getSystemSpecs(): Promise<SystemSpecs> {
 /**
  * "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)"
  * → "NVIDIA GeForce RTX 3060".
+ *
+ * Se exporta para poder fijarlo con un test: lo que sale de aquí se enseña tal
+ * cual en la tarjeta de "qué modelo local le pega a tu equipo" y en la guía, y
+ * el formato de esta cadena lo decide el driver, no nosotros.
  */
-function cleanRenderer(renderer: string | undefined): string | undefined {
+export function cleanRenderer(renderer: string | undefined): string | undefined {
   if (!renderer) return undefined;
 
   const inside = /^ANGLE \((.*)\)$/.exec(renderer.trim());
@@ -56,5 +60,19 @@ function cleanRenderer(renderer: string | undefined): string | undefined {
   // nombre comercial, y arrastra detrás la versión de shaders.
   const parts = inside[1].split(',').map((part) => part.trim());
   const device = parts[1] ?? parts[0] ?? '';
-  return device.replace(/\s*Direct3D\d+.*$/i, '').replace(/\s*vs_\d.*$/i, '').trim() || undefined;
+  return (
+    device
+      .replace(/\s*Direct3D\d+.*$/i, '')
+      .replace(/\s*vs_\d.*$/i, '')
+      /*
+       * El id PCI del dispositivo, que algunos drivers meten detrás del nombre:
+       * "NVIDIA GeForce RTX 5070 Ti (0x00002C05)". No aporta nada a la única
+       * pregunta que esto responde —¿qué modelo local le pega a esta máquina?—
+       * y ensucia una línea que se lee de un vistazo. Va al final del encadenado
+       * a propósito: con "Direct3D11" detrás, el paréntesis no cierra el string,
+       * así que quitarlo antes exigiría un patrón más frágil.
+       */
+      .replace(/\s*\(0x[0-9a-f]+\)/gi, '')
+      .trim() || undefined
+  );
 }

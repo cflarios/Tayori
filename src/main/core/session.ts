@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BrowserWindow } from 'electron';
 import { IPC } from '@shared/ipc';
+import { parseSkillInvocation } from '@shared/skills';
 import {
   autoTriggerIsInert,
   conversationTitle,
@@ -13,6 +14,7 @@ import {
   type ImageAttachment,
   type PromptProfileId,
   type ScreenTask,
+  type Settings,
   type Speaker,
   type TranscriptSegment,
 } from '@shared/types';
@@ -28,6 +30,8 @@ import {
   type STTProvider,
   type TranscriptEvent,
 } from '../stt';
+import { getSkill, listSkills } from '../skills';
+import { classifyQuestion, worthClassifying } from './question-classifier';
 import { buildSystemPrompt } from './prompt';
 import { TranscriptBuffer } from './transcript-buffer';
 import { AnswerEngine } from './answer-engine';
@@ -357,9 +361,22 @@ class SessionOrchestrator {
     return null;
   }
 
-  /** Responde a un texto escrito a mano en el overlay. */
+  /**
+   * Responde a un texto escrito a mano en el overlay.
+   *
+   * Es la única vía que admite el prefijo `/skill`, y no por casualidad: es la
+   * única en la que hay alguien tecleando. Un `/humanizar` dicho en voz alta
+   * llegaría por el reconocedor como "humanizar" o como "barra humanizar",
+   * según el motor, así que reconocerlo ahí sería adivinar.
+   *
+   * Se resuelve contra la lista real de skills: lo que no casa con ninguna se
+   * queda como texto. Sin esa comprobación, escribir «/etc está lleno de
+   * configuración» perdería la primera palabra y el modelo respondería a otra
+   * pregunta sin que nada lo dijera.
+   */
   askWithText(text: string): Promise<void> {
-    return this.answers.ask('manual-input', text);
+    const { skillId, text: question } = parseSkillInvocation(text, listSkills());
+    return this.answers.ask('manual-input', question, skillId);
   }
 
   /**
@@ -430,13 +447,23 @@ class SessionOrchestrator {
 
     const settings = settingsStore.get();
     try {
-      // El contexto se pasa como función y no como valor: el motor de audio
-      // directo lo consulta en cada turno, y para entonces el perfil o la
-      // memoria pueden haber cambiado.
-      const provider = createSTTProvider(settings, () => ({
-        systemPrompt: buildSystemPrompt(settingsStore.get()),
-        history: this.answers.historySnapshot(),
-      }));
+      /*
+       * El contexto se pasa como función y no como valor: el motor de audio
+       * directo lo consulta en cada turno, y para entonces el perfil, la skill
+       * o la memoria pueden haber cambiado.
+       *
+       * La skill entra también aquí. Con `gemini-audio` la respuesta la escribe
+       * el motor de transcripción, así que si esto se quedara fuera habría un
+       * motor en el que encender una skill no haría nada — y desde la pantalla
+       * los dos casos se ven idénticos.
+       */
+      const provider = createSTTProvider(settings, () => {
+        const current = settingsStore.get();
+        return {
+          systemPrompt: buildSystemPrompt(current, undefined, getSkill(current.activeSkillId)),
+          history: this.answers.historySnapshot(),
+        };
+      });
 
       provider.events.on('segment', (event: TranscriptEvent) => this.onSegment(event));
 
@@ -515,7 +542,12 @@ class SessionOrchestrator {
 
   private onSegment(event: TranscriptEvent): void {
     this.lastSegmentAt = Date.now();
-    const segment = this.transcript.ingest(event.speaker, event.text, event.isFinal);
+    const segment = this.transcript.ingest(
+      event.speaker,
+      event.text,
+      event.isFinal,
+      event.cumulative
+    );
     this.broadcast(IPC.onTranscript, segment);
 
     if (event.isFinal) {
@@ -629,6 +661,29 @@ class SessionOrchestrator {
     if (!full) return;
 
     const verdict = looksLikeQuestion(full, settings.autoTriggerSensitivity);
+
+    /*
+     * Segundo escalón: lo que la heurística no supo decidir se le pregunta al
+     * modelo.
+     *
+     * Sólo escala los descartes "sin marcadores", que son los ambiguos de
+     * verdad. Una muletilla o una frase de dos palabras siguen descartándose
+     * gratis — pagar una consulta para que confirme que "vale, perfecto" no es
+     * una pregunta sería tirar el dinero.
+     *
+     * Va por una rama aparte y asíncrona porque no puede retrasar al camino
+     * normal: quien tenga el modo en `heuristic` no espera ni un milisegundo de
+     * más por código que no usa.
+     */
+    if (
+      !verdict.isQuestion &&
+      settings.autoTriggerMode === 'heuristic+classifier' &&
+      worthClassifying(verdict)
+    ) {
+      void this.classifyAndMaybeAsk(speaker, full, settings);
+      return;
+    }
+
     if (!verdict.isQuestion) {
       // Se registra el descarte: es la única forma de saber por qué la app "no
       // responde" sin ponerse a adivinar. Una prueba real gastó cinco frases
@@ -640,6 +695,34 @@ class SessionOrchestrator {
       return;
     }
 
+    this.fire(speaker, full, verdict.reason, parts.length);
+  }
+
+  /**
+   * Le pregunta al modelo y dispara si dice que sí.
+   *
+   * El descarte se anuncia **después** de la consulta, no antes: enseñar "no era
+   * una pregunta" y responderla dos segundos más tarde sería peor que callarse.
+   */
+  private async classifyAndMaybeAsk(
+    speaker: Speaker,
+    full: string,
+    settings: Settings
+  ): Promise<void> {
+    console.log(`[auto] sin marcadores; preguntando al clasificador: "${full.slice(0, 60)}"`);
+    const verdict = await classifyQuestion(full, settings);
+
+    if (!verdict.isQuestion) {
+      console.log(`[auto] descartado (${verdict.reason}): "${full.slice(0, 80)}"`);
+      this.broadcast(IPC.onAutoSkip, { text: full, reason: verdict.reason });
+      return;
+    }
+
+    this.fire(speaker, full, verdict.reason, 1);
+  }
+
+  /** El disparo en sí, común a los dos escalones. */
+  private fire(speaker: Speaker, full: string, reason: string, partCount: number): void {
     // Red de seguridad contra dobles disparos por caminos distintos (el cierre
     // del motor y el temporizador de silencio pueden coincidir).
     const now = Date.now();
@@ -649,10 +732,8 @@ class SessionOrchestrator {
     }
     this.lastAutoTrigger = now;
 
-    const fragmentos = parts.length > 1 ? ` [${parts.length} fragmentos unidos]` : '';
-    console.log(
-      `[auto:${speaker}] disparando (${verdict.reason})${fragmentos}: "${full.slice(0, 80)}"`
-    );
+    const fragmentos = partCount > 1 ? ` [${partCount} fragmentos unidos]` : '';
+    console.log(`[auto:${speaker}] disparando (${reason})${fragmentos}: "${full.slice(0, 80)}"`);
     void this.answers.ask('auto', full);
   }
 

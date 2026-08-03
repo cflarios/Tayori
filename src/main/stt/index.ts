@@ -2,6 +2,8 @@ import type { Settings } from '@shared/types';
 import { getSecret } from '../config/secrets';
 import { GeminiLiveSTT } from './gemini-live';
 import { GeminiAudioSTT, type AudioAnswerContext } from './gemini-audio';
+import { OpenAILiveSTT } from './openai-live';
+import { OpenAITranscribeSTT } from './openai-transcribe';
 import { testWhisperBinary, WhisperLocalSTT } from './whisper-local';
 import type { STTProvider } from './types';
 
@@ -42,6 +44,19 @@ export async function testSTTConnection(
       return await new GeminiLiveSTT(apiKey).testConnection(settings.language);
     }
 
+    if (
+      settings.sttProviderId === 'openai-live' ||
+      settings.sttProviderId === 'openai-transcribe'
+    ) {
+      const apiKey = getSecret('openai');
+      if (!apiKey) {
+        return { ok: false, detail: 'Falta la API key de OpenAI. Configúrala más arriba.' };
+      }
+      return settings.sttProviderId === 'openai-live'
+        ? await new OpenAILiveSTT(apiKey).testConnection(settings.language)
+        : await new OpenAITranscribeSTT(apiKey).testConnection();
+    }
+
     return await testWhisperBinary(settings.whisperModel);
   } catch (err) {
     return { ok: false, detail: err instanceof Error ? err.message : String(err) };
@@ -79,6 +94,20 @@ export function createSTTProvider(
         throw new Error('El motor de audio directo requiere el contexto de respuesta.');
       }
       return new GeminiAudioSTT(apiKey, settings.llmModels.gemini || 'gemini-2.5-flash', answerContext);
+    }
+
+    case 'openai-live':
+    case 'openai-transcribe': {
+      const apiKey = getSecret('openai');
+      if (!apiKey) {
+        throw new Error(
+          'Falta la API key de OpenAI. Configúrala en el dashboard para transcribir con ella, ' +
+            'o cambia la transcripción a Whisper local.'
+        );
+      }
+      return settings.sttProviderId === 'openai-live'
+        ? new OpenAILiveSTT(apiKey)
+        : new OpenAITranscribeSTT(apiKey);
     }
 
     case 'whisper-local':

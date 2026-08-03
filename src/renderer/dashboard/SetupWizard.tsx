@@ -113,6 +113,7 @@ export function SetupWizard({
 
         {step === 'brain' && path === 'local' && (
           <LocalStep
+            settings={settings}
             specs={specs}
             patch={patch}
             onDone={() => setStep('voice')}
@@ -277,6 +278,22 @@ const CLOUD_PROVIDERS = [
     where: 'aistudio.google.com → Get API key',
     note: 'Más barato, y la misma clave sirve para transcribir en directo.',
   },
+  {
+    id: 'openai' as const,
+    secret: 'openai' as const,
+    label: 'ChatGPT (OpenAI)',
+    model: 'gpt-5.6-terra',
+    where: 'platform.openai.com → API keys',
+    note: 'Si ya pagas OpenAI. Responde y también transcribe.',
+  },
+  {
+    id: 'deepseek' as const,
+    secret: 'deepseek' as const,
+    label: 'DeepSeek',
+    model: 'deepseek-v4-flash',
+    where: 'platform.deepseek.com → API keys',
+    note: 'El más barato con diferencia. No lee imágenes, así que la pantalla pide otro.',
+  },
 ];
 
 function CloudStep({
@@ -299,7 +316,10 @@ function CloudStep({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const alreadyThere = choice.secret === 'anthropic' ? presence.anthropic : presence.google;
+  // Se indexa por la clave del propio proveedor y no con una cadena de
+  // ternarios: con dos proveedores aquello se leía, con el tercero ya era una
+  // rama que hay que actualizar cada vez y que no avisa cuando se olvida.
+  const alreadyThere = presence[choice.secret];
 
   const apply = async (): Promise<void> => {
     setBusy(true);
@@ -402,17 +422,26 @@ function CloudStep({
  * sacado y que un usuario nuevo no tiene forma de saber.
  */
 function LocalStep({
+  settings,
   specs,
   patch,
   onDone,
   onBack,
 }: {
+  settings: Settings;
   specs: SystemSpecs | null;
   patch: (p: Partial<Settings>) => Promise<void>;
   onDone: () => void;
   onBack: () => void;
 }) {
   const [reachable, setReachable] = useState<boolean | null>(null);
+  /**
+   * Instalado no es lo mismo que corriendo, y confundirlos era un fallo real:
+   * quien instalaba Ollama y volvía al asistente con el servicio parado se
+   * encontraba otra vez «No lo tienes instalado» y el botón de instalar. Volver
+   * a instalar por encima no arregla nada; lo que hay que hacer es abrirlo.
+   */
+  const [installed, setInstalled] = useState<boolean | null>(null);
   const [canInstall, setCanInstall] = useState(false);
   const [busy, setBusy] = useState('');
   const [progress, setProgress] = useState<SetupProgress | null>(null);
@@ -420,6 +449,7 @@ function LocalStep({
 
   const check = useCallback((): void => {
     void window.api.ollama.getStatus().then((status) => setReachable(status.reachable));
+    void window.api.setup.ollamaInstalled().then(setInstalled);
   }, []);
 
   useEffect(() => {
@@ -435,8 +465,14 @@ function LocalStep({
       const result = await window.api.setup.installOllama();
       if (!result.ok) {
         setError(result.error ?? 'No se pudo instalar.');
+        // Se relee el estado en lugar de dejarlo como estaba: el caso más
+        // común de fallo es "se instaló pero el servidor no arrancó", y ahí lo
+        // correcto es pasar a la pantalla de «ábrelo una vez», no repetir la
+        // instalación.
+        check();
         return;
       }
+      setInstalled(true);
       setReachable(true);
     } finally {
       setBusy('');
@@ -459,11 +495,19 @@ function LocalStep({
         }
       }
 
-      // Los dos papeles quedan separados desde el primer día: el de conversar
-      // pide latencia y el de la pantalla pide vista.
+      /*
+       * Los dos papeles quedan separados desde el primer día: el de conversar
+       * pide latencia y el de la pantalla pide vista.
+       *
+       * Se fusiona con lo que ya hubiera, por lo mismo que en el camino de la
+       * nube: elegir local no es motivo para borrar el modelo que alguien tenía
+       * elegido en Claude, Gemini o ChatGPT. La versión anterior escribía el
+       * mapa entero a mano, así que además había que acordarse de añadirle una
+       * clave con cada proveedor nuevo — y el `as` la dejaba pasar callando.
+       */
       await patch({
         llmProviderId: 'ollama',
-        llmModels: { claude: '', gemini: '', ollama: advice.chat.model } as Settings['llmModels'],
+        llmModels: { ...settings.llmModels, ollama: advice.chat.model },
         screenProviderId: 'ollama',
         screenModel: advice.vision.model,
       });
@@ -479,20 +523,78 @@ function LocalStep({
       ? Math.round(((progress.receivedBytes ?? 0) / progress.totalBytes) * 100)
       : null;
 
+  /**
+   * El avance, visible en TODAS las fases.
+   *
+   * Antes vivía dentro de la rama de "Ollama ya está listo", así que durante la
+   * instalación —que es justo la parte que tarda minutos— no se veía nada: el
+   * botón cambiaba de texto y ahí se quedaba. El main ya emitía los mensajes
+   * («Instalando con winget…», «Esperando a que arranque el servidor…»); lo que
+   * faltaba era enseñarlos.
+   *
+   * El porcentaje sólo aparece cuando lo hay: winget no da progreso, así que
+   * pintar una barra al 0% durante tres minutos mentiría más que el texto.
+   */
+  const avance = busy ? (
+    <div className="progress">
+      <div className="progress__label">
+        {progress?.model ? `${progress.model} — ` : ''}
+        {progress?.message ?? busy}
+        {pct !== null ? ` · ${pct}%` : ''}
+      </div>
+      <div className="progress__bar">
+        <div
+          className={`progress__fill${pct === null ? ' progress__fill--idle' : ''}`}
+          style={pct !== null ? { width: `${pct}%` } : undefined}
+        />
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       {reachable === false && (
         <>
           <p className="wiz__lead">
-            Ollama es el programa que ejecuta los modelos en tu equipo. No lo tienes instalado.
+            Ollama es el programa que ejecuta los modelos en tu equipo.{' '}
+            {installed
+              ? 'Ya lo tienes instalado, pero su servidor no está respondiendo.'
+              : 'No lo tienes instalado.'}
           </p>
-          {canInstall ? (
+
+          {/*
+            Instalado y parado: instalar otra vez no arregla nada. Lo que hace
+            falta es abrirlo una vez — Ollama se queda residente después.
+          */}
+          {installed ? (
+            <>
+              <p className="wiz__note">
+                Ábrelo desde el menú de inicio y vuelve aquí. Se queda corriendo en segundo plano,
+                así que esto sólo hay que hacerlo una vez.
+              </p>
+              {error && <div className="warn">{error}</div>}
+              <div className="field wiz__actions">
+                <button className="btn" onClick={onBack}>
+                  Atrás
+                </button>
+                <button className="btn btn--primary" onClick={check}>
+                  Volver a comprobar
+                </button>
+              </div>
+            </>
+          ) : canInstall ? (
             <>
               <p className="wiz__note">
                 Lo instalo con <code>winget</code>, el gestor de paquetes de Windows — así no
                 descargo ningún ejecutable por mi cuenta. Windows te pedirá permiso con su propio
                 aviso.
               </p>
+
+              {/* La instalación tarda minutos: sin esto, el único indicio de
+                  que algo pasa era el texto del botón. */}
+              {avance}
+              {error && <div className="warn">{error}</div>}
+
               <div className="field wiz__actions">
                 <button className="btn" onClick={onBack} disabled={Boolean(busy)}>
                   Atrás
@@ -549,18 +651,7 @@ function LocalStep({
             cuanto empiece.
           </p>
 
-          {busy && (
-            <div className="progress">
-              <div className="progress__label">
-                {progress?.model ? `${progress.model} — ` : ''}
-                {progress?.message ?? busy}
-                {pct !== null ? ` · ${pct}%` : ''}
-              </div>
-              <div className="progress__bar">
-                <div className="progress__fill" style={{ width: `${pct ?? 0}%` }} />
-              </div>
-            </div>
-          )}
+          {avance}
 
           {error && <div className="warn">{error}</div>}
 
@@ -828,5 +919,7 @@ function DoneStep({
 const STT_LABEL: Record<Settings['sttProviderId'], string> = {
   'gemini-live': 'Gemini Live (en la nube)',
   'gemini-audio': 'Gemini audio directo',
+  'openai-live': 'OpenAI en directo (en la nube)',
+  'openai-transcribe': 'OpenAI por turnos (en la nube)',
   'whisper-local': 'Whisper local (sin conexión)',
 };

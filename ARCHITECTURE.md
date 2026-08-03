@@ -36,7 +36,7 @@ flowchart TB
     DEVICE["Broker → tu dispositivo<br/>ESP32, script, …"]
 
     WHISPER["whisper-server.exe<br/>proceso hijo"]
-    CLOUD["Anthropic · Google · Ollama"]
+    CLOUD["Anthropic · Google · OpenAI · DeepSeek · Ollama"]
 
     WORKER -- "PCM 16 kHz" --> CAPTURE
     CAPTURE --> SESSION
@@ -165,6 +165,14 @@ respuesta es el modelo que oyó el audio.
 | `whisper-local` | ~825 ms | A ningún sitio | Sí |
 | `gemini-live` | ~300 ms, en streaming | A Google | Sí |
 | `gemini-audio` | ~2 s, incluye la respuesta | A Google | Sí |
+| `openai-live` | ~300 ms, en streaming | A OpenAI | Sí |
+| `openai-transcribe` | ~1 s, turno cerrado | A OpenAI | Sí |
+
+**`openai-live` remuestrea a 24 kHz** porque la API en tiempo real de OpenAI no
+acepta otra cosa, mientras el resto del pipeline va a 16 kHz. La conversión vive
+en `stt/resample.ts`, contenida en el único motor que la necesita; CONTEXT.md
+explica por qué ahí la interpolación lineal basta y por qué el estado entre
+bloques no es opcional.
 
 ---
 
@@ -212,11 +220,26 @@ flowchart TB
     CTX --> QA["kind: qa<br/>reutilizar casi literal"]
     CTX --> NOTES["kind: notes"]
 
+    SYS --> SKILL["Skill activa<br/>SKILL.md · va la ÚLTIMA"]
+
     MSG["Mensajes"] --> HIST["Últimos 8 intercambios<br/>user / assistant reales"]
     MSG --> NOW["Turno actual:<br/>transcripción + pregunta"]
 
     VOC["kind: vocabulary"] -.-> ASR["NO va al prompt:<br/>va al reconocedor de voz"]
 ```
+
+**Las tres piezas del system prompt responden a preguntas distintas**, y
+confundirlas es lo que hace que una de ellas no se note:
+
+| | Qué aporta | Ejemplo |
+|---|---|---|
+| Perfil | La **forma** de la respuesta | 4 viñetas · bloque de código · una línea por pregunta |
+| Context pack | El **material** | El CV, la oferta, respuestas preparadas |
+| Skill | La **manera** de escribir | Qué palabras evitar, qué ritmo, qué tono |
+
+Por eso una skill **se suma** al perfil en vez de sustituirlo, y por eso va la
+última del prompt con su precedencia escrita: manda sobre la manera, y el perfil
+sigue mandando sobre la forma. Ver `skillBlock` en `core/prompt.ts`.
 
 Dos cosas que no son obvias:
 
@@ -288,6 +311,7 @@ Todo bajo `%APPDATA%\interview-helper` (`app.getPath('userData')`).
 | `settings.json` | Toda la configuración | JSON, tolera BOM |
 | `secrets.json` | API keys cifradas con DPAPI | JSON, **nunca sale al renderer** |
 | `conversations/*.json` | Historial, uno por conversación | JSON, escritura atómica |
+| `skills/<id>/SKILL.md` | Skills del usuario | Markdown con frontmatter |
 | `logs/main.log` | Registro del proceso principal | Texto, rota a 1 MB |
 | `whisper/` | Binarios y modelos GGML | Descargados bajo demanda |
 
@@ -338,11 +362,23 @@ que ese archivo expone. Ninguno puede devolver una API key.
 
 El orquestador no cambia.
 
-**Un proveedor de respuestas nuevo** (OpenAI, Groq…):
+**Un proveedor de respuestas nuevo** (Groq, Mistral…):
 
 1. Un archivo en `src/main/llm/` que implemente `LLMProvider`.
 2. Entrada en el mapa de `llm/index.ts` y un id en `LLMProviderId`.
 3. Renderizar `request.history` como mensajes reales, no dentro del prompt.
+4. Si lleva credencial, un campo en `SecretsPresence` — el `Record` obliga a
+   `getPresence()` a devolverlo y al dashboard a enseñarlo.
+
+Lo que **no** avisa el compilador, y hay que mirar a mano, está en la lista de
+ChatGPT en [CONTEXT.md](CONTEXT.md#lo-que-costó-añadir-chatgpt-y-no-era-el-proveedor):
+las tres pantallas que deciden "¿está configurado?" con una condición propia.
+
+**Una skill nueva:** no se toca código. Una carpeta en
+`%APPDATA%\interview-helper\skills` con un `SKILL.md` dentro —frontmatter con
+`name` y `description`, el cuerpo en Markdown— y «Recargar» en el dashboard. Las
+de serie viven en `main/skills/built-in.ts` y una carpeta con su mismo id las
+sustituye.
 
 **Un perfil de prompt nuevo:** una entrada en `PROFILES` (`core/prompt.ts`), su
 id en `PromptProfileId`, sus reglas de formato en `RULES`, sus huecos en
@@ -396,9 +432,10 @@ npm run typecheck && npm run lint && npm test
 | `main/core/transcript-buffer.ts` | Ventana rodante de la conversación |
 | `main/capture/audio.ts` | Puente con la ventana oculta de captura |
 | `main/stt/*` | Los tres motores y los assets de Whisper |
-| `main/llm/*` | Claude, Gemini, Ollama |
+| `main/llm/*` | Claude, Gemini, ChatGPT, DeepSeek, Ollama |
 | `main/config/*` | Settings, secretos DPAPI, historial |
 | `main/bridge/*` | Salidas hacia fuera: espejo del móvil (HTTP + SSE) y publicación MQTT |
+| `main/skills/*` | Carga de los SKILL.md del usuario y la que viene de serie |
 | `main/setup/*` | Lo que el asistente instala solo: Ollama vía winget y la descarga de modelos |
 | `main/windows/*` | Ventanas, stealth, arrastre manual |
 | `main/logging.ts` | Log a archivo del proceso principal |

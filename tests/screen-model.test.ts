@@ -51,7 +51,13 @@ describe('screenModelFor', () => {
     const target = screenModelFor(
       settings({
         llmProviderId: 'ollama',
-        llmModels: { claude: 'claude-sonnet-5', gemini: 'gemini-2.5-flash', ollama: 'llama3.2:3b' },
+        llmModels: {
+          claude: 'claude-sonnet-5',
+          gemini: 'gemini-2.5-flash',
+          openai: 'gpt-5.6-terra',
+          deepseek: 'deepseek-v4-flash',
+          ollama: 'llama3.2:3b',
+        },
         screenProviderId: 'ollama',
         screenModel: 'qwen2.5vl:7b',
       })
@@ -248,5 +254,36 @@ describe('alignAutoTrigger', () => {
     expect(alignAutoTrigger(current, { autoTriggerSpeaker: 'me' })).toEqual({
       autoTriggerSpeaker: 'me',
     });
+  });
+});
+
+/**
+ * La marca "DUDA:" del modo test, que dejó de servir por usarse siempre.
+ *
+ * Probado con un modelo local pequeño, respondía TODAS las líneas con "DUDA:"
+ * delante. Y estaba pedido: la regla decía «si dudas, empieza esa línea por
+ * DUDA:» sin decir en ningún sitio que fuera la excepción. Un modelo que marca
+ * todo está obedeciendo, y la marca deja de informar de nada — que es
+ * exactamente igual que no tenerla.
+ */
+describe('la regla de la duda en el modo test', () => {
+  it('dice que es la excepción, no el formato', () => {
+    // Se comprueban trozos que caben en una línea: el prompt va envuelto a 80
+    // columnas y afirmar una frase larga rompería el test al reajustar el texto.
+    const prompt = buildSystemPrompt(settings(), 'quiz');
+    expect(prompt).toContain('es la EXCEPCIÓN, no el formato');
+    expect(prompt).toContain('si está en todas las líneas');
+  });
+
+  it('prohíbe explícitamente marcarlo todo', () => {
+    // Sin esta frase, un modelo pequeño se cura en salud y marca cada línea.
+    const prompt = buildSystemPrompt(settings(), 'quiz');
+    expect(prompt).toContain('Marcarlo todo no informa de nada');
+  });
+
+  it('sigue exigiendo la mejor opción detrás de la marca', () => {
+    // Negarse a responder tampoco ayuda a nadie: en un test con penalización
+    // hay que poder decidir si se arriesga, y para eso hace falta la opción.
+    expect(buildSystemPrompt(settings(), 'quiz')).toContain('Nunca es "DUDA:" a secas');
   });
 });

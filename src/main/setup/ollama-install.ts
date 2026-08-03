@@ -37,6 +37,31 @@ const INSTALL_TIMEOUT_MS = 10 * 60_000;
 const SERVER_WAIT_MS = 90_000;
 const SERVER_POLL_MS = 2_000;
 
+/**
+ * `true` si Ollama está **instalado**, corra o no su servidor.
+ *
+ * Son dos estados distintos y confundirlos producía un fallo de verdad:
+ * `probeOllama` responde si el **servidor** contesta, y el asistente enseñaba
+ * «No lo tienes instalado» —con su botón de instalar— a quien acababa de
+ * instalarlo y sólo tenía el servicio parado. Volver a instalar por encima no
+ * arregla nada; lo que hace falta es abrirlo.
+ *
+ * Se comprueba lanzando `ollama --version`, que es lo más barato y no toca la
+ * red: si el ejecutable no está en el PATH, `spawn` falla con ENOENT y ya está
+ * respondida la pregunta.
+ */
+export function ollamaInstalled(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = spawn('ollama', ['--version'], { windowsHide: true });
+    probe.on('error', () => resolve(false));
+    probe.on('close', (code) => resolve(code === 0));
+    setTimeout(() => {
+      probe.kill();
+      resolve(false);
+    }, 5_000).unref();
+  });
+}
+
 /** `true` si existe el camino limpio de instalación en esta máquina. */
 export function wingetAvailable(): Promise<boolean> {
   return new Promise((resolve) => {

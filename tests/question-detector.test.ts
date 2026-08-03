@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { looksLikeQuestion } from '../src/main/core/question-detector';
+import { worthClassifying } from '../src/main/core/question-classifier';
 
 /** Helper para que los casos se lean como una tabla. */
 const isQ = (text: string): boolean => looksLikeQuestion(text).isQuestion;
@@ -250,5 +251,113 @@ describe('casos del log del 28/07', () => {
     expect(looksLikeQuestion('vale ya').isQuestion).toBe(false);
     expect(looksLikeQuestion('perfecto gracias').isQuestion).toBe(false);
     expect(looksLikeQuestion('¿Y?').isQuestion).toBe(false);
+  });
+});
+
+/**
+ * El filtro de coste del clasificador.
+ *
+ * El segundo escalón cuesta una consulta por intervención, así que sólo puede
+ * escalar lo que la heurística no supo decidir. Preguntarle a un modelo si
+ * "vale, perfecto" es una pregunta cuesta lo mismo que preguntarle algo útil, y
+ * la respuesta ya se sabe.
+ */
+describe('worthClassifying', () => {
+  it('escala lo ambiguo: las frases sin ningún marcador', () => {
+    // El caso real que motivó todo esto: una pregunta dicha como afirmación.
+    const verdict = looksLikeQuestion(
+      'Una persona que conozca de DevOps debería conocer también de seguridad.'
+    );
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(true);
+  });
+
+  it('NO escala una muletilla', () => {
+    const verdict = looksLikeQuestion('¿me escuchas?');
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(false);
+  });
+
+  it('NO escala una frase demasiado corta', () => {
+    const verdict = looksLikeQuestion('ya');
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(false);
+  });
+
+  it('escala también en modo estricto: la sensibilidad no decide esto', () => {
+    // `strict` decide cuánto se arriesga la heurística, no si el modelo puede
+    // opinar. Estricto + clasificador es la combinación más precisa que hay.
+    const verdict = looksLikeQuestion('Si una persona sabe DevOps, sabría de seguridad.', 'strict');
+    expect(verdict.isQuestion).toBe(false);
+    expect(worthClassifying(verdict)).toBe(true);
+  });
+});
+
+/**
+ * El imperativo pelado: «explica X» en lugar de «¿podrías explicar X?».
+ *
+ * Salió de una prueba real y del log: «Explica un poco el rol de un SRE» se
+ * descartó, y la misma petición formulada como pregunta disparó sin problema.
+ * Las dos piden lo mismo y la gente usa las dos — apoyarse en que venga
+ * formulada como pregunta es perder la mitad.
+ *
+ * Era además una asimetría entre idiomas: en inglés `explain` y `describe` ya
+ * estaban cubiertos y en español sólo las formas con pronombre.
+ */
+describe('peticiones en imperativo', () => {
+  it('caza el caso exacto que falló', () => {
+    const verdict = looksLikeQuestion('Explica un poco el rol de un SRE');
+    expect(verdict.isQuestion).toBe(true);
+  });
+
+  it('reconoce los verbos de petición más habituales', () => {
+    for (const texto of [
+      'Explica qué es un SRE',
+      'Describe el proceso de despliegue',
+      'Compara Kubernetes con Docker Swarm',
+      'Resume las ventajas de esa arquitectura',
+      'Define qué entiendes por observabilidad',
+      'Profundiza en el tema de los secretos',
+    ]) {
+      expect(looksLikeQuestion(texto).isQuestion, texto).toBe(true);
+    }
+  });
+
+  it('también en modo estricto, porque pedir es tan explícito como preguntar', () => {
+    // Que no lleve signo de interrogación no vuelve dudosa a una petición.
+    expect(looksLikeQuestion('Explica el rol de un SRE', 'strict').isQuestion).toBe(true);
+  });
+
+  it('las formas con "-nos" valen en cualquier posición', () => {
+    // Nadie dice "explícanos" sin estar pidiendo algo, así que no hace falta
+    // que encabece la frase.
+    expect(looksLikeQuestion('Y ahora explicanos cómo lo desplegarías').isQuestion).toBe(true);
+  });
+
+  it('NO dispara con el mismo verbo en tercera persona', () => {
+    /*
+     * Es el precio de esta regla y por eso los verbos sólo cuentan al PRINCIPIO:
+     * en mitad de una frase son indistinguibles del indicativo, que aparece a
+     * todas horas.
+     */
+    for (const texto of [
+      'El informe explica que hubo una caída del servicio',
+      'Mi compañero describe el problema de otra forma',
+      'Ese diagrama resume bastante bien la arquitectura',
+    ]) {
+      expect(looksLikeQuestion(texto).isQuestion, texto).toBe(false);
+    }
+  });
+
+  it('deja fuera los verbos que se confunden con una afirmación', () => {
+    // `cuenta` es sustantivo y "cuenta con" significa otra cosa; `indica` y
+    // `desarrolla` abren frases afirmativas de lo más normal.
+    for (const texto of [
+      'Cuenta con tres años de experiencia en AWS',
+      'Indica que el despliegue falló por un timeout',
+      'Desarrolla software para el sector bancario',
+    ]) {
+      expect(looksLikeQuestion(texto).isQuestion, texto).toBe(false);
+    }
   });
 });

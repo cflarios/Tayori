@@ -896,6 +896,68 @@ body {
   border-bottom-color: #60a5fa;
 }
 
+/* ── Skills ── */
+
+/*
+ * En el overlay las skills sólo tienen esta cara: el autocompletado de `/skill`
+ * dentro de la pestaña de escritura. El desplegable que hubo aquí se quitó —
+ * ocupaba sitio permanente en un panel que existe para leer, por un ajuste que
+ * se toca una vez. Elegir la skill fija es cosa del dashboard.
+ */
+
+.skillmenu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  max-height: 108px;
+  overflow-y: auto;
+}
+
+.skillmenu__item {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: inherit;
+  text-align: left;
+  color: #c8ccd0;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.skillmenu__item:hover {
+  background: rgba(96, 165, 250, 0.16);
+  color: #ffffff;
+}
+
+.skillmenu__id {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 10.5px;
+  color: #a8c7ff;
+  flex-shrink: 0;
+}
+
+.skillmenu__name {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* «No hay ninguna que se llame así» es información: sin esto, escribir un
+   nombre inventado se ve igual que un autocompletado roto. */
+.skillmenu__empty {
+  font-size: 10.5px;
+  color: #6b7075;
+  padding: 4px 6px;
+}
+
 /* ── Pestaña de escritura ── */
 
 .compose {

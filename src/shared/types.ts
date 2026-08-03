@@ -59,8 +59,13 @@ export interface CaptureStatus {
 
 // ──────────────────────────────── Providers ─────────────────────────────────
 
-export type LLMProviderId = 'claude' | 'gemini' | 'ollama';
-export type STTProviderId = 'gemini-live' | 'whisper-local' | 'gemini-audio';
+export type LLMProviderId = 'claude' | 'gemini' | 'openai' | 'deepseek' | 'ollama';
+export type STTProviderId =
+  | 'gemini-live'
+  | 'whisper-local'
+  | 'gemini-audio'
+  | 'openai-live'
+  | 'openai-transcribe';
 
 export interface ModelInfo {
   id: string;
@@ -73,6 +78,40 @@ export interface ImageAttachment {
   mime: 'image/jpeg' | 'image/png';
   /** Sin el prefijo `data:`. */
   base64: string;
+}
+
+// ────────────────────────────────── Skills ──────────────────────────────────
+
+/**
+ * Una instrucción suelta que refina **cómo** responde el modelo.
+ *
+ * Formato de Anthropic: una carpeta con un `SKILL.md` que lleva frontmatter y
+ * el cuerpo en Markdown. Ver `shared/skills.ts` para el parser y
+ * `main/skills/` para la carga.
+ *
+ * No se confunde con las otras dos cosas que acaban en el mismo prompt: el
+ * perfil dice **qué forma** tiene la respuesta y los context packs aportan
+ * **material**. Una skill cambia la **manera** — el tono, las palabras que
+ * evita, el ritmo — y por eso se suma a un perfil en lugar de sustituirlo.
+ */
+export interface Skill {
+  /** Sale del nombre de la carpeta, que es lo que se escribe tras `/` o `$`. */
+  id: string;
+  /** Del frontmatter. Si falta, el id. */
+  name: string;
+  description: string;
+  /** El cuerpo del SKILL.md: lo que de verdad se le manda al modelo. */
+  instructions: string;
+  /** Las que vienen con la app. No se pueden borrar, sí sustituir. */
+  builtIn: boolean;
+  /**
+   * Por qué no se puede usar.
+   *
+   * Una skill rota se lista igualmente, con su motivo. Desaparecer sin decir
+   * nada dejaría a alguien mirando una carpeta que sí existe y preguntándose
+   * por qué la app no la ve.
+   */
+  error?: string;
 }
 
 // ──────────────────────────────── Respuestas ────────────────────────────────
@@ -402,6 +441,21 @@ export interface Settings {
   contextPacks: ContextPack[];
 
   /**
+   * Skill aplicada a todas las respuestas. Vacío = ninguna.
+   *
+   * Es un solo id y no una lista **a propósito**. Dos instrucciones sobre cómo
+   * escribir se contradicen enseguida —una pide frases cortas y otra un registro
+   * cuidado— y el modelo resuelve el empate en silencio, así que el resultado
+   * dependería del orden en que estuvieran encendidas. Con una sola, lo que se
+   * lee en pantalla es lo que se le pidió.
+   *
+   * Se queda puesta entre consultas porque el caso que la justifica —«que no
+   * suene a IA»— no es algo que se quiera para un mensaje: se quiere para toda
+   * la conversación. Para un mensaje suelto está el prefijo `/skill`.
+   */
+  activeSkillId: string;
+
+  /**
    * Lenguaje de programación de las soluciones del modo código.
    *
    * `auto` deja que lo deduzca de la pantalla, que es lo correcto cuando hay un
@@ -615,6 +669,8 @@ export const DEFAULT_SETTINGS: Settings = {
   llmModels: {
     claude: 'claude-sonnet-5',
     gemini: 'gemini-2.5-flash',
+    openai: 'gpt-5.6-terra',
+    deepseek: 'deepseek-v4-flash',
     ollama: '',
   },
   // `same` reproduce el comportamiento de antes de que esto existiera.
@@ -635,6 +691,9 @@ export const DEFAULT_SETTINGS: Settings = {
   promptProfileId: 'interview',
   customPrompt: '',
   contextPacks: [],
+  // Ninguna skill activa: una instrucción que cambia el tono de todas las
+  // respuestas se enciende a propósito, no viene puesta de fábrica.
+  activeSkillId: '',
   codeLanguage: 'auto',
 
   hotkeys: DEFAULT_HOTKEYS,
@@ -868,16 +927,63 @@ export interface PhoneMirrorStatus {
  * línea, o con un espacio duro— y el proveedor responde 404. El mensaje que
  * llega es "el modelo indicado no existe", que manda a buscar el modelo bueno
  * cuando el modelo ya era el bueno. Un id de modelo no lleva espacios en
- * ninguno de los tres proveedores, así que quitarlos no puede romper nada.
+ * ninguno de los proveedores, así que quitarlos no puede romper nada.
  */
 export function normalizeModelId(raw: string): string {
   return raw.replace(/\s+/g, '').trim();
+}
+
+/**
+ * Si el proveedor elegido puede responder ahora mismo.
+ *
+ * Vive aquí, y en `shared/`, porque **tres pantallas hacían esta misma cuenta
+ * por separado**: el aviso del dashboard, el estado central del overlay y el
+ * paso del asistente. Cada una era una cadena de `if` con los proveedores de
+ * cuando se escribió, y ninguna rompía el build al añadir uno nuevo — la
+ * cadena simplemente caía al último caso y contestaba por el proveedor
+ * equivocado. Añadir ChatGPT lo dejó a la vista: preguntar por Ollama y que
+ * respondiera la clave de Google.
+ *
+ * El `Record` es lo que lo arregla de verdad: un id nuevo en `LLMProviderId`
+ * **no compila** hasta que alguien decida qué necesita ese proveedor para
+ * poder responder.
+ */
+const READY_BY_PROVIDER: Record<
+  LLMProviderId,
+  (settings: Settings, presence: SecretsPresence) => boolean
+> = {
+  // Ollama no necesita credencial, pero SÍ un modelo elegido: sin él cada
+  // pregunta falla con "no hay ningún modelo seleccionado".
+  ollama: (settings) => Boolean(settings.llmModels.ollama),
+  claude: (_settings, presence) => presence.anthropic,
+  gemini: (_settings, presence) => presence.google,
+  openai: (_settings, presence) => presence.openai,
+  deepseek: (_settings, presence) => presence.deepseek,
+};
+
+export function providerIsReady(settings: Settings, presence: SecretsPresence): boolean {
+  return READY_BY_PROVIDER[settings.llmProviderId](settings, presence);
 }
 
 /** Las keys nunca viajan al renderer; solo si están presentes o no. */
 export interface SecretsPresence {
   anthropic: boolean;
   google: boolean;
+  /**
+   * API key de OpenAI.
+   *
+   * Vale para responder y para transcribir, igual que la de Google: los motores
+   * `openai-live` y `openai-transcribe` usan ésta misma. La de Anthropic es la
+   * única que sólo sirve para responder.
+   */
+  openai: boolean;
+  /**
+   * API key de DeepSeek.
+   *
+   * Sólo responde: no tienen modelos de transcripción, así que la voz la sigue
+   * resolviendo otro motor.
+   */
+  deepseek: boolean;
   /**
    * Contraseña del broker MQTT.
    *

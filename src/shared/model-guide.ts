@@ -113,9 +113,10 @@ const VISION_MODELS: LocalModel[] = [
 /**
  * Nube, ordenada por lo que cuesta.
  *
- * Los precios de Anthropic están verificados contra su referencia y llevan
- * fecha; los de Google no se copian porque no se pudieron verificar igual, y
- * una cifra inventada en una tabla de precios es peor que una remisión.
+ * Los precios de Anthropic y los de OpenAI están verificados contra la
+ * referencia oficial de cada uno y llevan fecha; los de Google no se copian
+ * porque no se pudieron verificar igual, y una cifra inventada en una tabla de
+ * precios es peor que una remisión a la página del proveedor.
  */
 interface CloudModel {
   id: string;
@@ -163,6 +164,55 @@ const CLOUD_MODELS: CloudModel[] = [
       'credencial tienes oído y respuesta. El precio no se reproduce aquí porque no se pudo ' +
       'verificar con la misma fuente que los de Anthropic.',
   },
+  {
+    id: 'gpt-5.6-luna',
+    label: 'GPT-5.6 Luna',
+    price: '0,20 $ / 1,20 $ por millón de tokens (entrada / salida)',
+    vision: 'Sí',
+    note:
+      'El más barato de toda esta tabla, por un orden de magnitud. Es el modelo de OpenAI ' +
+      'para cargas sensibles al precio: la opción obvia si lo que te preocupa es lo que gasta ' +
+      'la escucha automática.',
+  },
+  {
+    id: 'gpt-5.6-terra',
+    label: 'GPT-5.6 Terra',
+    price: '2 $ / 12 $',
+    vision: 'Sí',
+    note:
+      'El equilibrio entre capacidad y coste, y el que la app pone por defecto en OpenAI. ' +
+      'Razona antes de responder; la app le pide el esfuerzo más bajo para que eso no se ' +
+      'note en la latencia.',
+  },
+  {
+    id: 'deepseek-v4-flash',
+    label: 'DeepSeek V4 Flash',
+    price: '0,28 $ / 0,28 $ (0,14 $ la entrada ya cacheada)',
+    vision: 'NO',
+    note:
+      'El más barato de toda la tabla, y por bastante. Ventana de 1M de tokens. No lee ' +
+      'imágenes, así que NO sirve para las acciones de pantalla: es la opción de conversar ' +
+      'cuando lo que preocupa es lo que gasta la escucha automática.',
+  },
+  {
+    id: 'deepseek-v4-pro',
+    label: 'DeepSeek V4 Pro',
+    price: '0,87 $ / 0,87 $ (0,435 $ la entrada ya cacheada)',
+    vision: 'NO',
+    note:
+      'El grande de DeepSeek, todavía por debajo de lo que cuesta el más barato de ' +
+      'Anthropic. Tampoco lee imágenes.',
+  },
+  {
+    id: 'gpt-5.6-sol',
+    label: 'GPT-5.6 Sol',
+    price: '5 $ / 30 $',
+    vision: 'Sí',
+    note:
+      'El modelo de frontera de OpenAI, para trabajo complejo. La salida es la más cara de ' +
+      'la tabla: como Opus, tiene más sentido SÓLO para la pantalla que para contestar cada ' +
+      'frase de una reunión.',
+  },
 ];
 
 /** Combinaciones que responden a "y yo qué pongo". */
@@ -192,9 +242,12 @@ const RECIPES: Recipe[] = [
   {
     title: 'Todo nube, lo más barato que funciona',
     who: 'No quieres instalar nada y tu máquina no da para modelos locales.',
-    chat: 'Claude Haiku 4.5 o Gemini 2.5 Flash',
+    chat: 'DeepSeek V4 Flash o GPT-5.6 Luna',
     screen: 'Claude Sonnet 5',
-    cost: 'Bajo, pero se paga cada pregunta: también las que dispara la escucha automática.',
+    cost:
+      'Lo más barato que funciona. Conversar sale casi gratis y sólo se paga de verdad ' +
+      'cada pulsación de pantalla. Ojo: el de conversar tiene que ser uno cualquiera, pero ' +
+      'el de la pantalla TIENE que leer imágenes, y DeepSeek no lee.',
   },
   {
     title: 'Sin concesiones',
@@ -362,9 +415,15 @@ export function renderModelGuide(specs: SystemSpecs, generatedAt = new Date()): 
 
 <h2>Modelos de pago, de más barato a más caro</h2>
 <p>
-  Los precios de Anthropic están verificados contra su referencia oficial y son por millón
-  de tokens. Un token viene a ser tres cuartos de palabra; lo que se paga en cada consulta
-  es el contexto que envías (tu CV, la transcripción, la captura) más lo que responde.
+  Los precios de Anthropic, OpenAI y DeepSeek están verificados contra la referencia
+  oficial de cada uno y son por millón de tokens. Un token viene a ser tres cuartos de palabra; lo que
+  se paga en cada consulta es el contexto que envías (tu CV, la transcripción, la captura)
+  más lo que responde.
+</p>
+<p>
+  Los de Google <strong>no se reproducen aquí</strong>: no se pudieron verificar contra una
+  referencia con la misma fiabilidad, y en una tabla de precios una cifra inventada hace
+  más daño que un hueco. Esa columna remite a la página del proveedor a propósito.
 </p>
 <table>
   <tr><th>Modelo</th><th>Precio</th><th>Ve imágenes</th><th>Notas</th></tr>
@@ -388,9 +447,12 @@ export function renderModelGuide(specs: SystemSpecs, generatedAt = new Date()): 
 </p>
 <table>
   <tr><th>Modelo de pantalla</th><th>Coste aproximado por pulsación</th></tr>
+  <tr><td>GPT-5.6 Luna</td><td class="num">dos décimas de céntimo</td></tr>
   <tr><td>Claude Haiku 4.5</td><td class="num">medio céntimo</td></tr>
+  <tr><td>GPT-5.6 Terra</td><td class="num">céntimo y medio</td></tr>
   <tr><td>Claude Sonnet 5</td><td class="num">unos 2 céntimos</td></tr>
   <tr><td>Claude Opus 5</td><td class="num">unos 4 céntimos</td></tr>
+  <tr><td>GPT-5.6 Sol</td><td class="num">unos 4 céntimos</td></tr>
 </table>
 <p>
   Son órdenes de magnitud, no una factura: el coste real depende de cuánto contexto tengas
@@ -427,11 +489,12 @@ ${RECIPES.map(
   esta guía sugiere.
 </p>
 <p>
-  <strong>Los precios cambian y los modelos también.</strong> Los de Anthropic están
-  verificados a la fecha de arriba; los nombres de los modelos de Ollama envejecen. Antes
-  de descargar varios gigas, la lista viva está en
+  <strong>Los precios cambian y los modelos también.</strong> Los de Anthropic y OpenAI
+  están verificados a la fecha de arriba; los nombres de los modelos de Ollama envejecen.
+  Antes de descargar varios gigas, la lista viva está en
   <code>ollama.com/library</code>, y los precios en
-  <code>platform.claude.com/docs/en/pricing</code> y <code>ai.google.dev/pricing</code>.
+  <code>platform.claude.com/docs/en/pricing</code>,
+  <code>developers.openai.com/api/docs/pricing</code> y <code>ai.google.dev/pricing</code>.
 </p>
 <p>
   <strong>Qué tal se le da a un modelo TU examen.</strong> Nada sustituye a probarlo: haz

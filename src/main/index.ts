@@ -19,6 +19,7 @@ import type {
   MqttStatus,
   PhoneMirrorStatus,
   ScreenTask,
+  SecretKey,
   Settings,
 } from '@shared/types';
 import { settingsStore } from './config/store';
@@ -51,6 +52,7 @@ import { captureScreen } from './capture/screenshot';
 import { session as sessionOrchestrator } from './core/session';
 import { createLLMProvider, listModelsFor } from './llm';
 import { probeOllama } from './llm/ollama';
+import { listSkills, openSkillsFolder, reloadSkills, skillsFolder } from './skills';
 import { ensureWhisperReady, getWhisperStatus } from './stt/whisper-assets';
 import { testSTTConnection } from './stt';
 import { whisperServer } from './stt/whisper-server';
@@ -58,7 +60,12 @@ import { initLogging, logLocation, readLogTail } from './logging';
 import { getSystemSpecs } from './system-specs';
 import { mqttBridge } from './bridge/mqtt';
 import { phoneBridge } from './bridge/phone';
-import { installOllama, pullModel, wingetAvailable } from './setup/ollama-install';
+import {
+  installOllama,
+  ollamaInstalled,
+  pullModel,
+  wingetAvailable,
+} from './setup/ollama-install';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -204,13 +211,29 @@ function registerIpcHandlers(): void {
 
   // ── Secretos (las keys nunca salen hacia el renderer) ──
   ipcMain.handle(IPC.secretsGetPresence, () => getPresence());
-  ipcMain.handle(IPC.secretsSet, (_e, key: 'anthropic' | 'google', value: string) => {
+  // El tipo es `SecretKey` y no una lista escrita a mano: ésta ya se había
+  // quedado atrás con la contraseña de MQTT —que se guardaba igual, porque el
+  // preload sí manda el tipo bueno— y volvería a quedarse con el siguiente
+  // proveedor. Un `Record` compartido es lo que hace que el build lo cace.
+  /*
+   * Las dos difunden la presencia además de devolverla.
+   *
+   * Quien la cambia es el dashboard, pero quien la necesita es también el
+   * overlay: su aviso de «Falta configurar la IA» sale de aquí. Sin la difusión,
+   * pegar la clave que falta dejaba el aviso puesto hasta reiniciar, que es
+   * exactamente el momento en el que alguien concluye que la app está rota.
+   */
+  ipcMain.handle(IPC.secretsSet, (_e, key: SecretKey, value: string) => {
     setSecret(key, value);
-    return getPresence();
+    const presence = getPresence();
+    broadcast(IPC.onSecrets, presence);
+    return presence;
   });
-  ipcMain.handle(IPC.secretsClear, (_e, key: 'anthropic' | 'google') => {
+  ipcMain.handle(IPC.secretsClear, (_e, key: SecretKey) => {
     clearSecret(key);
-    return getPresence();
+    const presence = getPresence();
+    broadcast(IPC.onSecrets, presence);
+    return presence;
   });
 
   // ── Ventanas ──
@@ -311,6 +334,12 @@ function registerIpcHandlers(): void {
     return listModelsFor(providerId ?? settings.llmProviderId, settings);
   });
 
+  // ── Skills ──
+  ipcMain.handle(IPC.skillsList, () => listSkills());
+  ipcMain.handle(IPC.skillsReload, () => reloadSkills());
+  ipcMain.handle(IPC.skillsOpenFolder, () => openSkillsFolder());
+  ipcMain.handle(IPC.skillsFolder, () => skillsFolder());
+
   ipcMain.handle(IPC.llmTestConnection, async () => {
     try {
       return await createLLMProvider(settingsStore.get()).testConnection();
@@ -363,6 +392,7 @@ function registerIpcHandlers(): void {
    * enseña el enlace a ollama.com en lugar de un botón que va a fallar.
    */
   ipcMain.handle(IPC.setupCanInstall, () => wingetAvailable());
+  ipcMain.handle(IPC.setupOllamaInstalled, () => ollamaInstalled());
 
   ipcMain.handle(IPC.setupInstallOllama, () =>
     installOllama(settingsStore.get().ollamaBaseUrl, (progress) =>

@@ -22,6 +22,7 @@ import type {
   SecretsPresence,
   SetupProgress,
   Settings,
+  Skill,
   SystemSpecs,
   TranscriptSegment,
 } from '@shared/types';
@@ -54,6 +55,14 @@ const api = {
     set: (key: SecretKey, value: string): Promise<SecretsPresence> =>
       ipcRenderer.invoke(IPC.secretsSet, key, value),
     clear: (key: SecretKey): Promise<SecretsPresence> => ipcRenderer.invoke(IPC.secretsClear, key),
+    /**
+     * Se guardó o se borró una clave, en cualquier ventana.
+     *
+     * Lo escucha el overlay: su aviso de «Falta configurar la IA» depende de
+     * esto, y sin el evento se quedaba con la respuesta del arranque. Viaja la
+     * presencia —cuatro booleanos—, nunca una clave.
+     */
+    onChange: (cb: (p: SecretsPresence) => void) => subscribe<SecretsPresence>(IPC.onSecrets, cb),
   },
 
   window: {
@@ -168,6 +177,8 @@ const api = {
   setup: {
     /** `false` cuando no hay winget: entonces se ofrece el enlace, no el botón. */
     canInstall: (): Promise<boolean> => ipcRenderer.invoke(IPC.setupCanInstall),
+    /** Si Ollama está instalado, corra o no su servidor. */
+    ollamaInstalled: (): Promise<boolean> => ipcRenderer.invoke(IPC.setupOllamaInstalled),
     installOllama: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.setupInstallOllama),
     pullModel: (model: string): Promise<{ ok: boolean; error?: string }> =>
@@ -214,6 +225,21 @@ const api = {
       ipcRenderer.invoke(IPC.llmListModels, providerId),
     testConnection: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.llmTestConnection),
+  },
+
+  /**
+   * Skills: instrucciones locales que refinan cómo responde el modelo.
+   *
+   * Sólo se leen. El renderer no puede escribir un SKILL.md, y no es una
+   * carencia: lo que hay en esa carpeta lo pone la persona con su editor, que
+   * es lo que hace que se pueda versionar, compartir y revisar antes de que
+   * acabe dentro de un prompt.
+   */
+  skills: {
+    list: (): Promise<Skill[]> => ipcRenderer.invoke(IPC.skillsList),
+    reload: (): Promise<Skill[]> => ipcRenderer.invoke(IPC.skillsReload),
+    openFolder: (): Promise<void> => ipcRenderer.invoke(IPC.skillsOpenFolder),
+    folder: (): Promise<string> => ipcRenderer.invoke(IPC.skillsFolder),
   },
 
   whisper: {

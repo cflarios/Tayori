@@ -2,6 +2,8 @@ import { screenModelFor, type LLMProviderId, type ModelInfo, type Settings } fro
 import { getSecret } from '../config/secrets';
 import { ClaudeProvider, CLAUDE_MODELS } from './claude';
 import { GeminiProvider, GEMINI_MODELS } from './gemini';
+import { OpenAIProvider, OPENAI_MODELS } from './openai';
+import { DeepSeekProvider, DEEPSEEK_MODELS } from './deepseek';
 import { OllamaProvider } from './ollama';
 import { LLMError, type LLMProvider } from './types';
 
@@ -11,8 +13,10 @@ export type { AnswerRequest, LLMProvider } from './types';
 /**
  * Construye el proveedor de respuestas según los settings.
  *
- * Añadir OpenAI, Groq o cualquier otro es: un archivo que implemente
- * `LLMProvider` más un `case` aquí. Nada más del sistema cambia.
+ * Añadir Groq o cualquier otro es: un archivo que implemente `LLMProvider` más
+ * un `case` aquí. Nada más del **sistema** cambia — pero sí hay tres pantallas
+ * que deciden "¿está configurado esto?" con una condición propia que el `never`
+ * de abajo no cubre; están enumeradas en CONTEXT.md §4.
  *
  * @param forScreen Usa el proveedor de las acciones de pantalla (código y
  *        test), que puede ser distinto del de conversar: lo hablado necesita
@@ -49,6 +53,28 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       return new GeminiProvider(apiKey, model || 'gemini-2.5-flash');
     }
 
+    case 'openai': {
+      const apiKey = getSecret('openai');
+      if (!apiKey) {
+        throw new LLMError(
+          'Falta la API key de OpenAI. Configúrala en el dashboard o cambia de proveedor.',
+          'openai'
+        );
+      }
+      return new OpenAIProvider(apiKey, model || 'gpt-5.6-terra');
+    }
+
+    case 'deepseek': {
+      const apiKey = getSecret('deepseek');
+      if (!apiKey) {
+        throw new LLMError(
+          'Falta la API key de DeepSeek. Configúrala en el dashboard o cambia de proveedor.',
+          'deepseek'
+        );
+      }
+      return new DeepSeekProvider(apiKey, model || 'deepseek-v4-flash');
+    }
+
     case 'ollama':
       return new OllamaProvider(settings.ollamaBaseUrl, model, settings.ollamaContextTokens);
 
@@ -64,8 +90,9 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
  * Modelos de un proveedor sin necesidad de credenciales.
  *
  * El dashboard necesita poblar el selector antes de que el usuario haya
- * configurado la key, así que Claude y Gemini devuelven su catálogo estático.
- * Ollama sí consulta la red, porque su lista depende de lo que haya descargado.
+ * configurado la key, así que los proveedores de nube devuelven su catálogo
+ * estático. Ollama sí consulta la red, porque su lista depende de lo que haya
+ * descargado.
  */
 export async function listModelsFor(
   providerId: LLMProviderId,
@@ -73,5 +100,7 @@ export async function listModelsFor(
 ): Promise<ModelInfo[]> {
   if (providerId === 'claude') return CLAUDE_MODELS;
   if (providerId === 'gemini') return GEMINI_MODELS;
+  if (providerId === 'openai') return OPENAI_MODELS;
+  if (providerId === 'deepseek') return DEEPSEEK_MODELS;
   return new OllamaProvider(settings.ollamaBaseUrl, '').listModels();
 }

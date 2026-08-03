@@ -66,6 +66,22 @@ export const IPC = {
   llmListModels: 'llm:list-models',
   llmTestConnection: 'llm:test-connection',
 
+  /**
+   * Las skills que hay ahora mismo en disco.
+   *
+   * Lo piden los dos renderers y por motivos distintos: el dashboard para
+   * listarlas, y el overlay para poder autocompletar `/nombre` y para su
+   * selector. Un `invoke` y no un evento porque el disco no cambia solo —
+   * cambia cuando alguien edita una carpeta, y para eso está `skillsReload`.
+   */
+  skillsList: 'skills:list',
+  /** Relee la carpeta. Es lo que hace que editar un SKILL.md se note sin reiniciar. */
+  skillsReload: 'skills:reload',
+  /** Crea la carpeta si hace falta y la abre en el explorador. */
+  skillsOpenFolder: 'skills:open-folder',
+  /** Dónde vive la carpeta, para poder enseñar la ruta como hace el historial. */
+  skillsFolder: 'skills:folder',
+
   whisperGetStatus: 'whisper:get-status',
   whisperInstall: 'whisper:install',
 
@@ -111,6 +127,14 @@ export const IPC = {
   mqttTest: 'mqtt:test',
 
   setupCanInstall: 'setup:can-install',
+  /**
+   * Si Ollama está instalado, corra o no.
+   *
+   * Distinto de `ollamaGetStatus`, que pregunta por el **servidor**. Confundir
+   * los dos hacía que el asistente ofreciera instalar Ollama a quien ya lo
+   * tenía y sólo lo tenía parado.
+   */
+  setupOllamaInstalled: 'setup:ollama-installed',
   setupInstallOllama: 'setup:install-ollama',
   setupPullModel: 'setup:pull-model',
 
@@ -185,6 +209,16 @@ export const IPC = {
 
   /** Cambió la conexión con el broker, o se publicó algo. */
   onMqttStatus: 'event:mqtt-status',
+
+  /**
+   * Se guardó o se borró una API key.
+   *
+   * Existe porque el overlay decide con esto si enseña «Falta configurar la
+   * IA», y sin el evento ese aviso sólo se calculaba al arrancar: pegabas la
+   * clave que faltaba en el dashboard y el panel seguía diciendo que faltaba.
+   * Viaja la **presencia**, nunca la clave.
+   */
+  onSecrets: 'event:secrets',
 
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',

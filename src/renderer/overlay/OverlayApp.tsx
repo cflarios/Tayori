@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-format';
-import { clampFontScale } from '@shared/types';
+import { clampFontScale, providerIsReady } from '@shared/types';
+import { matchSkills } from '@shared/skills';
 import type {
   Answer,
   AudioLevels,
@@ -11,6 +12,7 @@ import type {
   OverlaySize,
   ScreenTask,
   Settings,
+  Skill,
   TranscriptSegment,
 } from '@shared/types';
 
@@ -533,6 +535,17 @@ function ProfileChips({
   );
 }
 
+/*
+ * Aquí hubo un desplegable de skills, y se quitó.
+ *
+ * Pasaba el criterio de "¿lo necesitarías a mitad de una llamada?" pero fallaba
+ * el otro, que en este panel pesa más: **cada control que sube al overlay le
+ * quita sitio a lo que se ha venido a leer**. La skill activa se elige una vez
+ * y se olvida —no es como el perfil, que se alterna— así que su sitio es el
+ * dashboard, y para el caso puntual está `/skill` en la pestaña de escritura,
+ * que no ocupa ni un píxel hasta que se teclea la barra.
+ */
+
 /**
  * Acciones rápidas sobre la última respuesta.
  *
@@ -718,7 +731,7 @@ function IdleHero({
     // único que se puede hacer, en lugar de un aviso aparte encima del panel.
     setup: {
       title: 'Falta configurar la IA',
-      sub: 'Pega una API key de Anthropic o de Google para empezar',
+      sub: 'Pega una API key de Anthropic, Google u OpenAI para empezar',
       action: 'Abrir configuración',
     },
     idle: {
@@ -857,7 +870,7 @@ function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => voi
  * única situación en la que la app toma el foco, y el aviso del pie lo dice
  * porque es justo el comportamiento que el resto del programa evita.
  */
-function ComposePane({ onSend }: { onSend: (text: string) => void }) {
+function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: string) => void }) {
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -866,6 +879,19 @@ function ComposePane({ onSend }: { onSend: (text: string) => void }) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  /*
+   * `null` mientras no se esté invocando nada; una lista —aunque esté vacía—
+   * en cuanto el texto empieza por `/` o `$`. La diferencia es lo que permite
+   * decir "no hay ninguna que se llame así" en lugar de no decir nada, que es
+   * indistinguible de que el autocompletado esté roto.
+   */
+  const matches = matchSkills(draft, skills);
+
+  const complete = (id: string): void => {
+    setDraft(`/${id} `);
+    inputRef.current?.focus();
+  };
 
   const send = (): void => {
     const text = draft.trim();
@@ -876,19 +902,51 @@ function ComposePane({ onSend }: { onSend: (text: string) => void }) {
 
   return (
     <div className="compose" data-interactive>
+      {matches && (
+        <div className="skillmenu">
+          {matches.length === 0 ? (
+            <span className="skillmenu__empty">Ninguna skill con ese nombre</span>
+          ) : (
+            matches.map((skill) => (
+              <button
+                key={skill.id}
+                type="button"
+                className="skillmenu__item"
+                onClick={() => complete(skill.id)}
+              >
+                <code className="skillmenu__id">/{skill.id}</code>
+                <span className="skillmenu__name">{skill.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
       <textarea
         ref={inputRef}
         className="compose__input"
-        placeholder="Escribe tu pregunta y pulsa Enter…"
+        placeholder="Escribe tu pregunta y pulsa Enter… · /skill para invocar una"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           // Enter envía; Shift+Enter salta línea. No se usa Ctrl+Enter porque
           // es un hotkey GLOBAL: lo intercepta el main y nunca llegaría aquí.
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            send();
+          if (e.key !== 'Enter' || e.shiftKey) return;
+          e.preventDefault();
+
+          /*
+           * Con el menú abierto, Enter **completa** en lugar de enviar. Es lo
+           * que hace cualquier chat, y aquí además evita el caso tonto: enviar
+           * "/hum" a medias no invoca nada —el prefijo sólo cuenta si casa con
+           * una skill de verdad— así que el modelo recibiría esa palabra suelta
+           * como si fuera la pregunta. El segundo Enter ya envía.
+           */
+          const first = matches?.[0];
+          if (first) {
+            complete(first.id);
+            return;
           }
+          send();
         }}
       />
       <div className="compose__foot">
@@ -1217,6 +1275,7 @@ export function OverlayApp() {
   const [notice, setNotice] = useState<string | null>(null);
   const [memory, setMemory] = useState({ turns: 0, max: 8 });
   const [skip, setSkip] = useState<{ text: string; reason: string } | null>(null);
+  const [skills, setSkills] = useState<Skill[]>([]);
 
   useChromeMouse();
   const onDragStart = useOverlayDrag();
@@ -1237,27 +1296,58 @@ export function OverlayApp() {
     };
   }, [tab]);
 
+  /*
+   * La lista de skills se refresca al abrir la pestaña de escritura, además de
+   * al arrancar.
+   *
+   * No hay evento de "cambió la carpeta" y no se ha puesto uno: eso obligaría a
+   * vigilar un directorio del usuario para siempre por un cambio que ocurre
+   * dos veces al mes. Releer al entrar cubre el caso real —crear una skill y
+   * usarla sin reiniciar— y cuesta una lectura de disco en el momento en el que
+   * el usuario acaba de decidir escribir, no en mitad de una respuesta.
+   */
+  useEffect(() => {
+    if (tab === 'write') void window.api.skills.list().then(setSkills);
+  }, [tab]);
+
   useEffect(() => {
     const { api } = window;
 
     void api.settings.get().then(setSettings);
     void api.capture.getStatus().then(setStatus);
     void api.memory.get().then(setMemory);
-    // Ollama no necesita clave, pero SÍ un modelo elegido: sin él cada consulta
-    // falla con "no hay ningún modelo seleccionado", y antes ese caso pasaba por
-    // configurado y no mostraba ningún aviso. Claude y Gemini exigen su clave.
-    void Promise.all([api.settings.get(), api.secrets.getPresence()]).then(
-      ([current, presence]) => {
-        setConfigured(
-          (current.llmProviderId === 'ollama' && Boolean(current.llmModels.ollama)) ||
-            (current.llmProviderId === 'claude' && presence.anthropic) ||
-            (current.llmProviderId === 'gemini' && presence.google)
-        );
-      }
-    );
+    void api.skills.list().then(setSkills);
+
+    /*
+     * "¿Está configurada la IA?" se vuelve a preguntar en CADA cambio, no sólo
+     * al arrancar.
+     *
+     * El fallo que arregla se ve en pantalla y no en ningún log: bastaba con
+     * probar otro proveedor un momento —uno sin clave— para que el panel se
+     * quedara con «Falta configurar la IA» **para siempre**, aunque se volviera
+     * al de antes. El aviso se calculaba una vez al montar y nada lo revisaba.
+     *
+     * Y se recalcula por los dos lados, porque el veredicto depende de dos
+     * cosas que cambian por separado: el proveedor elegido (settings) y si su
+     * clave sirve (secrets). Escuchar sólo una dejaba la mitad de los casos
+     * mintiendo — pegar la clave que falta y que el aviso siguiera ahí es el
+     * más frustrante de los dos.
+     */
+    const recheck = (current?: Settings): void => {
+      void Promise.all([current ? Promise.resolve(current) : api.settings.get(), api.secrets.getPresence()]).then(
+        ([settingsNow, presence]) => setConfigured(providerIsReady(settingsNow, presence))
+      );
+    };
+    recheck();
 
     const unsubs = [
-      api.settings.onChange(setSettings),
+      api.settings.onChange((next) => {
+        setSettings(next);
+        recheck(next);
+      }),
+      // Sin argumento a propósito: lo que llega por ahí es la presencia, no los
+      // settings, y `recheck` los pediría de nuevo igualmente.
+      api.secrets.onChange(() => recheck()),
       api.capture.onStatus(setStatus),
       api.capture.onLevels(setLevels),
       api.screenshot.onCaptured(setShot),
@@ -1417,7 +1507,10 @@ export function OverlayApp() {
             {tab === 'listen' ? (
               <TranscriptPane segments={segments} />
             ) : (
-              <ComposePane onSend={(text) => void window.api.ask.withText(text)} />
+              <ComposePane
+                skills={skills}
+                onSend={(text) => void window.api.ask.withText(text)}
+              />
             )}
           </div>
         )

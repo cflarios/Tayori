@@ -3,8 +3,9 @@ import type { ImageAttachment, LLMProviderId, ModelInfo } from '@shared/types';
 /**
  * Contrato de un proveedor de respuestas.
  *
- * El orquestador no sabe si detrás hay Claude, Gemini u Ollama. Añadir OpenAI o
- * Groq después es un archivo nuevo más una entrada en el mapa de `index.ts`.
+ * El orquestador no sabe si detrás hay Claude, Gemini, ChatGPT u Ollama. Añadir
+ * Groq o cualquier otro es un archivo nuevo más una entrada en el mapa de
+ * `index.ts`.
  */
 
 /**

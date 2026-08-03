@@ -24,10 +24,14 @@ borrar una conversación o borrarlas todas.
 
 - **Escucha dos fuentes por separado**: tu micrófono y el audio del sistema. Eso
   permite saber quién habla sin diarización.
-- **Transcribe en vivo** con Gemini Live (~300 ms) o Whisper local (offline).
-- **Sugiere respuestas** con Claude, Gemini u Ollama, en streaming.
+- **Transcribe en vivo** con OpenAI (`gpt-live-transcribe`), Gemini Live
+  (~300 ms) o Whisper local (offline).
+- **Sugiere respuestas** con Claude, Gemini, ChatGPT, DeepSeek u Ollama, en streaming.
 - **Detecta preguntas** dirigidas a ti y responde sin que pulses nada, o solo con
-  hotkey si prefieres controlarlo.
+  hotkey si prefieres controlarlo. Con el **clasificador** activado también caza
+  las que llegan disfrazadas de afirmación —*«una persona que sepa DevOps tendría
+  que saber de seguridad»*—, que ninguna lista de palabras puede detectar; cuesta
+  una consulta extra por cada intervención dudosa.
 - **Adjunta capturas de pantalla** como contexto visual para preguntas sobre
   código o diagramas en pantalla.
 - **Resuelve el código que tengas delante**: `Ctrl+Alt+C` lee la pantalla —un
@@ -36,15 +40,23 @@ borrar una conversación o borrarlas todas.
 - **Responde cuestionarios**: `Ctrl+Alt+Q` lee la pregunta de test que haya en
   pantalla y da la opción correcta en la primera línea. Si no lo tiene claro lo
   dice, porque en un examen con penalización hay que saber si arriesgas.
+- **Skills**: instrucciones tuyas en formato `SKILL.md` que cambian cómo suena
+  la respuesta —el tono y las palabras, no el formato—. Se activan desde el
+  overlay o escribiendo `/nombre`.
 - **Se oculta de la captura de pantalla**, con un switch para volverlo visible.
 
 ## Requisitos
 
 - Windows 10 versión 2004 o superior (Windows 11 recomendado).
 - Node.js 20+ y npm, solo para compilar desde el código.
-- Al menos una API key: [Anthropic](https://console.anthropic.com) o
-  [Google AI Studio](https://aistudio.google.com). Ollama y Whisper local no
+- Al menos una API key: [Anthropic](https://console.anthropic.com),
+  [Google AI Studio](https://aistudio.google.com), [OpenAI](https://platform.openai.com)
+  o [DeepSeek](https://platform.deepseek.com). Ollama y Whisper local no
   necesitan ninguna.
+  - Las de Google y OpenAI valen además para **transcribir**. Las de Anthropic y
+    DeepSeek sólo responden: si son las únicas que pones, la voz la resuelve
+    Whisper local.
+  - **DeepSeek no lee imágenes**, así que no sirve para los botones de pantalla.
 
 ## Instalación
 
@@ -74,8 +86,8 @@ La primera vez que abres el dashboard sale un asistente que lo deja todo
 funcionando sin que tengas que saber qué es un proveedor ni cuánta RAM tienes.
 Mide tu equipo y te propone uno de dos caminos:
 
-- **En la nube.** Eliges Claude o Gemini, pegas la API key y listo. Nada que
-  instalar. Pagas por uso al proveedor.
+- **En la nube.** Eliges Claude, Gemini, ChatGPT o DeepSeek, pegas la API key y listo.
+  Nada que instalar. Pagas por uso al proveedor.
 - **En tu equipo.** Si no tienes Ollama, lo instala con `winget` —el gestor de
   paquetes de Windows, con su aviso de permiso— y descarga los dos modelos que
   le pegan a tu hardware: uno para conversar y otro para leer la pantalla.
@@ -100,7 +112,7 @@ vuelvas.
    la única forma de abrirla: no hay atajo ni se abre sola. Arriba del todo hay
    una guía de **primeros pasos** con las cuatro cosas que hay que hacer; se
    marca sola según las completas y desaparece al terminar.
-3. Pega tu API key de Anthropic o de Google.
+3. Pega tu API key de Anthropic, Google, OpenAI o DeepSeek.
 4. Elige **qué se escucha**. Por defecto son ambas fuentes; si prefieres que el
    asistente no procese tus propias respuestas, cambia a *Solo la salida del
    sistema*.
@@ -199,8 +211,8 @@ imágenes y avisa antes de que lo descubras a mitad de examen.
 
 ### Un modelo que no está en la lista
 
-Los desplegables de Claude y de Gemini traen los modelos que la app conoce, y esa
-lista envejece con cada versión. Si tu cuenta tiene acceso a otro, elige
+Los desplegables de los proveedores de nube traen los modelos que la app conoce,
+y esa lista envejece con cada versión. Si tu cuenta tiene acceso a otro, elige
 **«Otro…»** y escribe su id: se guarda tal cual y se usa como cualquiera de la
 lista. Un id inventado no falla al guardarlo, falla en la primera pregunta, así
 que confírmalo con **Probar conexión**.
@@ -208,6 +220,59 @@ que confírmalo con **Probar conexión**.
 Con **Ollama no aparece esa opción**, a propósito: ahí la lista no es un catálogo
 nuestro sino lo que tu servidor local dice tener descargado, y escribir el nombre
 de un modelo que no está instalado no lo instala.
+
+## Skills
+
+Una skill es una instrucción tuya que cambia **cómo** responde el modelo. No es
+lo mismo que un perfil ni que un contexto, y la diferencia es la que hace que
+las tres cosas se puedan combinar:
+
+| | Decide | Ejemplo |
+|---|---|---|
+| **Perfil** | La forma de la respuesta | 4 viñetas, bloque de código, una línea por pregunta |
+| **Contexto** | El material | Tu CV, la oferta, respuestas preparadas |
+| **Skill** | La manera de escribir | Qué palabras evitar, qué ritmo, qué tono |
+
+La app trae una: **«Que no suene a IA»**, que quita las fórmulas de relleno y el
+vocabulario que delata a un modelo. Es el fallo que más se nota cuando la
+respuesta se lee en voz alta.
+
+### Escribir una
+
+Cada skill es una **carpeta** con un archivo `SKILL.md` dentro. Es el formato de
+Anthropic, así que una skill escrita para otra herramienta suele funcionar tal
+cual:
+
+```markdown
+---
+name: Respuestas de sistemas
+description: Para entrevistas de diseño de sistemas: números antes que nombres.
+---
+
+Empieza siempre por el número: cuántas peticiones por segundo, cuántos GB,
+cuántos usuarios. Un diseño sin magnitudes no se puede evaluar.
+
+Nombra la tecnología concreta sólo después de haber dicho qué problema resuelve.
+Nunca listes tres alternativas sin elegir una.
+```
+
+Dashboard → **Skills** → *Abrir carpeta* te lleva a
+`%APPDATA%\interview-helper\skills`. Crea la carpeta, pega el archivo y pulsa
+**Recargar**: el nombre de la carpeta es lo que se escribe tras la barra.
+
+Los **scripts y assets** que el formato admite se ignoran a propósito. Sólo se
+lee el `SKILL.md`.
+
+### Usarlas
+
+- **Para toda la conversación**: el desplegable *Skill* del overlay, o el
+  dashboard. Se aplica a todo, incluidas las respuestas automáticas.
+- **Para un mensaje suelto**: escribe `/nombre` (o `$nombre`) al principio en la
+  pestaña de escritura. Se autocompleta al teclear la barra.
+
+Sólo hay **una activa a la vez**, y no es una limitación pendiente: dos
+instrucciones sobre cómo escribir se contradicen enseguida, y el modelo rompe
+el empate en silencio.
 
 ## Modo código
 
@@ -369,9 +434,22 @@ tu red.
 
 | Motor | Latencia | Dónde va el audio |
 |---|---|---|
+| OpenAI en directo | ~300 ms | A OpenAI |
+| OpenAI por turnos | ~1 s, con la frase entera oída antes de decidir | A OpenAI |
 | Gemini Live | ~300 ms | A Google |
 | Gemini audio directo | ~1–2 s, pero **sustituye también la llamada al modelo** | A Google |
 | Whisper local | ~0,8–1,5 s | A ningún sitio |
+
+**Los dos de OpenAI** usan los modelos que OpenAI recomienda para cada caso:
+`gpt-live-transcribe` para audio en directo —micrófonos y llamadas, que es lo
+que hace esta app— y `gpt-transcribe` para voz ya grabada. El segundo espera a
+que termines la frase, así que acierta más en nombres propios y siglas a cambio
+de un segundo de latencia. Los dos usan la misma API key que las respuestas.
+
+No se usa `gpt-4o-transcribe-diarize` **a propósito**: separa hablantes, y esta
+app ya sabe quién habla porque escucha el micrófono y la salida del sistema por
+separado. Además ese modelo no admite sesgo de vocabulario, que es lo que hace
+que tu CV mejore el reconocimiento de nombres propios.
 
 **Gemini audio directo** no transcribe y luego pregunta: manda tu voz al propio
 modelo, que devuelve transcripción y respuesta a la vez. Una transcripción mala
@@ -392,8 +470,10 @@ y lo abre en el navegador. Ahí está lo que no cabe en una columna de ajustes:
   descarga y la RAM que conviene tener libre.
 - Los **multimodales** —los únicos que pueden leer tu pantalla— por separado,
   porque es el error más caro: elegir uno de texto deja los dos botones muertos.
-- Los de pago ordenados por precio, con las cifras de Anthropic verificadas
-  contra su referencia y fechadas.
+- Los de pago ordenados por precio, con las cifras de Anthropic y de OpenAI
+  verificadas contra la referencia oficial de cada uno y fechadas. Las de Google
+  **no se reproducen**: no se pudieron verificar igual, y un precio inventado
+  engaña más que un hueco reconocido.
 - **Cuánto cuesta de verdad una pulsación de pantalla**: una captura ronda los
   4.800 tokens de entrada, así que sale por céntimos incluso con el modelo caro.
   Lo que suma no es eso, es la escucha automática.
@@ -501,6 +581,19 @@ copia de tus respuestas fuera de la ventana protegida.
 internet, así que con esto encendido el texto de tus respuestas puede salir de
 tu máquina y de tu red. Tampoco incluye la transcripción, y también empieza
 apagado.
+
+**2 quater. Lo que el proveedor guarda por su cuenta.** La API de OpenAI
+**almacena por defecto** cada respuesta en tu cuenta para poder recuperarla
+después; la app lo desactiva explícitamente (`store: false`) en todas sus
+llamadas. Eso cubre lo que depende de nosotros, pero no las políticas de
+retención propias de cada proveedor: lo que envíes a Anthropic, a Google o a
+OpenAI se rige por las suyas, y ninguna es cosa de esta app.
+
+**2 quinquies. Las skills viajan dentro del prompt.** Lo que escribas en un
+`SKILL.md` se envía al proveedor en **cada consulta** mientras esa skill esté
+activa. No se ejecuta nada —los scripts de la carpeta se ignoran— pero una skill
+que te pasen por ahí es texto que va a salir de tu máquina: trátala como
+tratarías cualquier cosa que fueras a pegar en un chat.
 
 **3. Dónde vives esa conversación.** Muchas empresas restringen el uso de
 asistentes de IA en sus procesos de selección, con independencia de lo que

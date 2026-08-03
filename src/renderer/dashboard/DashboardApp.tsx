@@ -12,6 +12,7 @@ import {
   mqttTopics,
   packsForProfile,
   PROFILE_SLOTS,
+  providerIsReady,
   screenModelFor,
   speakersFor,
 } from '@shared/types';
@@ -33,6 +34,7 @@ import type {
   SecretKey,
   SecretsPresence,
   Settings,
+  Skill,
   SystemSpecs,
   ContextKind,
 } from '@shared/types';
@@ -276,6 +278,7 @@ type SectionId =
   | 'transcription'
   | 'behaviour'
   | 'context'
+  | 'skills'
   | 'history'
   | 'hotkeys'
   | 'diagnostics';
@@ -321,6 +324,11 @@ const SECTIONS: Record<SectionId, { icon: IconName; label: string; hint: React.R
     label: 'Contexto',
     hint: 'Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de parafrasearse.',
   },
+  skills: {
+    icon: 'sparkles',
+    label: 'Skills',
+    hint: 'Instrucciones locales en formato SKILL.md que refinan CÓMO responde el modelo: el tono y las palabras, no el formato. Se activan aquí o escribiendo /nombre en la pestaña de escritura.',
+  },
   history: {
     icon: 'history',
     label: 'Historial',
@@ -352,6 +360,7 @@ const SECTION_ORDER: SectionId[] = [
   'transcription',
   'behaviour',
   'context',
+  'skills',
   'history',
   'hotkeys',
   'diagnostics',
@@ -379,6 +388,8 @@ export function DashboardApp() {
   const [presence, setPresence] = useState<SecretsPresence>({
     anthropic: false,
     google: false,
+    openai: false,
+    deepseek: false,
     mqtt: false,
   });
   const [status, setStatus] = useState<CaptureStatus>({
@@ -477,7 +488,7 @@ export function DashboardApp() {
   const alerts: Partial<Record<SectionId, boolean>> = {
     general: !settings.stealthEnabled,
     audio: status.state === 'error',
-    models: !providerReady(settings, presence),
+    models: !providerIsReady(settings, presence),
     behaviour: autoTriggerIsInert(settings),
     hotkeys: failedHotkeys.length > 0 || duplicateAccelerators(settings.hotkeys).size > 0,
   };
@@ -575,6 +586,7 @@ export function DashboardApp() {
               <BehaviourCard settings={settings} patch={patch} go={go} />
             )}
             {section === 'context' && <ContextCard settings={settings} patch={patch} />}
+            {section === 'skills' && <SkillsCard settings={settings} patch={patch} />}
             {section === 'history' && <HistoryCard settings={settings} patch={patch} />}
             {section === 'hotkeys' && (
               <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
@@ -587,16 +599,13 @@ export function DashboardApp() {
   );
 }
 
-/**
- * Si el proveedor elegido puede responder. Ollama cuenta como configurado sin
- * credencial —no la necesita—, pero sí necesita un modelo elegido: sin él, cada
- * pregunta falla con "no hay ningún modelo seleccionado".
+/*
+ * La regla de "¿puede responder este proveedor?" vive en `shared/types.ts`.
+ *
+ * Estaba escrita aquí y otra vez en el overlay, con cadenas de `if` distintas,
+ * y eran dos sitios que había que acordarse de tocar con cada proveedor nuevo
+ * sin que nada avisara si se olvidaba uno.
  */
-function providerReady(settings: Settings, presence: SecretsPresence): boolean {
-  if (settings.llmProviderId === 'ollama') return Boolean(settings.llmModels.ollama);
-  if (settings.llmProviderId === 'claude') return presence.anthropic;
-  return presence.google;
-}
 
 /**
  * Estado de la escucha, y el mando para cambiarlo.
@@ -1211,6 +1220,154 @@ function MqttStatusLine({ status }: { status: MqttStatus | null }) {
   );
 }
 
+// ─────────────────────────────────── Skills ───────────────────────────────────
+
+/**
+ * Las skills que hay en disco, y cuál está puesta.
+ *
+ * Se listan también las **rotas**, con su motivo. Es la diferencia entre "no
+ * has creado ninguna" y "la tuya tiene un fallo": esconder la segunda deja a
+ * alguien mirando una carpeta que sí existe sin ninguna pista de por qué la app
+ * no la ve, y ése es exactamente el fallo mudo que este proyecto persigue.
+ *
+ * No hay editor. Un SKILL.md se escribe con el editor de cada uno, se versiona
+ * y se comparte; meter un textarea aquí sería reinventar peor algo que ya
+ * funciona, y además convertiría la carpeta en un formato de esta app en lugar
+ * de en el formato que ya es.
+ */
+function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [folder, setFolder] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void window.api.skills.list().then(setSkills);
+    void window.api.skills.folder().then(setFolder);
+  }, []);
+
+  const refresh = async (): Promise<void> => {
+    setBusy(true);
+    try {
+      setSkills(await window.api.skills.reload());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const active = skills.find((skill) => skill.id === settings.activeSkillId && !skill.error);
+
+  return (
+    <>
+      <section className="card">
+        <div className="skillhead">
+          <div>
+            <h2 className="card__title">Carpeta de skills</h2>
+            <p className="card__hint">
+              Cada skill es una carpeta con un archivo <code>SKILL.md</code> dentro: frontmatter
+              con <code>name</code> y <code>description</code>, y debajo las instrucciones. Los
+              scripts y los assets que admite el formato <strong>se ignoran</strong> — ver la nota
+              de abajo.
+            </p>
+          </div>
+          <button className="btn" disabled={busy} onClick={() => void refresh()}>
+            <Icon name="refresh" size={15} />
+            {busy ? 'Releyendo…' : 'Recargar'}
+          </button>
+        </div>
+
+        <div className="skillfolder">
+          <span className="skillfolder__icon">
+            <Icon name="folder" size={18} />
+          </span>
+          <div className="skillfolder__text">
+            <div className="skillfolder__title">Añade aquí tus skills</div>
+            <code className="skillfolder__path">{folder || '…'}</code>
+          </div>
+          <button className="btn" onClick={() => void window.api.skills.openFolder()}>
+            Abrir carpeta
+          </button>
+        </div>
+
+        <div className="warn">
+          Lo que pongas ahí acaba <strong>dentro del prompt</strong> que se manda a tu proveedor.
+          No es código que se ejecute —los scripts se ignoran a propósito— pero sí es texto que
+          sale de tu máquina en cada consulta, así que trata una skill de terceros como tratarías
+          cualquier otra cosa que vayas a pegar en un chat.
+        </div>
+      </section>
+
+      <section className="card">
+        <h2 className="card__title">Skill activa</h2>
+        <p className="card__hint">
+          Se aplica a <strong>todas</strong> las respuestas hasta que la quites, incluidas las que
+          dispara la escucha automática. Para usar una sólo en un mensaje, escribe{' '}
+          <code>/nombre</code> al principio en la pestaña de escritura del overlay.
+        </p>
+
+        <Row
+          icon="sparkles"
+          label="Instrucción"
+          desc={
+            active
+              ? 'Manda sobre el tono y las palabras. El formato lo sigue decidiendo el perfil.'
+              : 'Sin ninguna puesta, el modelo responde como siempre.'
+          }
+        >
+          <select
+            value={active ? active.id : ''}
+            onChange={(e) => void patch({ activeSkillId: e.target.value })}
+          >
+            <option value="">Ninguna</option>
+            {skills
+              .filter((skill) => !skill.error)
+              .map((skill) => (
+                <option key={skill.id} value={skill.id}>
+                  {skill.name}
+                </option>
+              ))}
+          </select>
+        </Row>
+
+        {skills.length === 0 && (
+          <p className="card__hint">
+            No hay ninguna skill todavía. Crea una carpeta con un <code>SKILL.md</code> dentro y
+            pulsa «Recargar».
+          </p>
+        )}
+
+        <ul className="skills">
+          {skills.map((skill) => (
+            <li
+              key={skill.id}
+              className={`skill${skill.id === settings.activeSkillId && !skill.error ? ' skill--on' : ''}`}
+            >
+              <span className="skill__icon">
+                <Icon name="sparkles" size={16} />
+              </span>
+              <div className="skill__body">
+                <div className="skill__head">
+                  <span className="skill__name">{skill.name}</span>
+                  {/* El id va al lado del nombre porque es lo que se teclea tras
+                      la barra, y no tiene por qué parecerse al título. */}
+                  <code className="skill__id">{skill.id}</code>
+                  {skill.builtIn && <span className="skill__tag">De serie</span>}
+                </div>
+                {skill.error ? (
+                  <p className="skill__error">{skill.error}</p>
+                ) : (
+                  <p className="skill__desc">
+                    {skill.description || 'Sin description en el frontmatter.'}
+                  </p>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
+  );
+}
+
 // ──────────────────────────── Modelos · claves ────────────────────────────
 
 function ApiKeysCard({
@@ -1243,6 +1400,20 @@ function ApiKeysCard({
         present={presence.google}
         onSave={(v) => saveSecret('google', v)}
         onClear={() => clearSecret('google')}
+      />
+      <SecretField
+        label="OpenAI (ChatGPT)"
+        hint="platform.openai.com → API keys. Sirve para las respuestas y también para transcribir con los motores de OpenAI."
+        present={presence.openai}
+        onSave={(v) => saveSecret('openai', v)}
+        onClear={() => clearSecret('openai')}
+      />
+      <SecretField
+        label="DeepSeek"
+        hint="platform.deepseek.com → API keys. Sólo responde: no tienen modelos de transcripción, y sus modelos no leen imágenes."
+        present={presence.deepseek}
+        onSave={(v) => saveSecret('deepseek', v)}
+        onClear={() => clearSecret('deepseek')}
       />
     </section>
   );
@@ -1318,7 +1489,7 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
             void patch({
               screenProviderId: e.target.value as Settings['screenProviderId'],
               // Cambiar de proveedor invalida el modelo elegido: los ids no se
-              // parecen en nada entre Claude, Gemini y Ollama.
+              // parecen en nada entre un proveedor y el siguiente.
               screenModel: '',
             })
           }
@@ -1326,6 +1497,11 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
           <option value="same">El mismo que para responder</option>
           <option value="claude">Claude (nube)</option>
           <option value="gemini">Gemini (nube)</option>
+          <option value="openai">ChatGPT (nube)</option>
+          {/* DeepSeek no sale aquí: ninguno de sus modelos lee imágenes, y esta
+              tarjeta existe para elegir el que SÍ tiene que leer la pantalla.
+              Ofrecerlo sería ofrecer la opción que garantiza que los dos botones
+              fallen. Se puede escribir a mano si algún día sacan uno con visión. */}
           <option value="ollama">Ollama (local)</option>
         </select>
       </Row>
@@ -1918,7 +2094,8 @@ const CUSTOM_MODEL = '__custom__';
 /**
  * Elegir modelo: del catálogo, o escribiéndolo.
  *
- * El catálogo de Claude y de Gemini está escrito en el código, así que envejece:
+ * El catálogo de los proveedores de nube está escrito en el código, así que
+ * envejece:
  * cada modelo nuevo del proveedor tarda en llegar aquí lo que tarde una versión
  * de la app, y mientras tanto no hay forma de usarlo aunque tu cuenta tenga
  * acceso. La lista sigue siendo lo primero que se ve —es lo que quiere el 90% y
@@ -2080,6 +2257,8 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         >
           <option value="claude">Claude (Anthropic)</option>
           <option value="gemini">Gemini (Google)</option>
+          <option value="openai">ChatGPT (OpenAI)</option>
+          <option value="deepseek">DeepSeek</option>
           <option value="ollama">Ollama (local)</option>
         </select>
       </Row>
@@ -2299,11 +2478,32 @@ function TranscriptionCard({
             void patch({ sttProviderId: e.target.value as Settings['sttProviderId'] })
           }
         >
+          <option value="openai-live">OpenAI en directo (nube, el mejor para reuniones)</option>
+          <option value="openai-transcribe">OpenAI por turnos (nube, más preciso)</option>
           <option value="gemini-live">Gemini Live (nube, más rápido)</option>
           <option value="gemini-audio">Gemini audio directo (el modelo oye tu voz)</option>
           <option value="whisper-local">Whisper local (offline, privado)</option>
         </select>
       </Row>
+
+      {(settings.sttProviderId === 'openai-live' ||
+        settings.sttProviderId === 'openai-transcribe') && (
+        <p className="card__hint">
+          {settings.sttProviderId === 'openai-live' ? (
+            <>
+              <code>gpt-live-transcribe</code>, el modelo que OpenAI recomienda para audio en
+              directo. Abre una sesión por hablante y va escribiendo mientras hablan.
+            </>
+          ) : (
+            <>
+              <code>gpt-transcribe</code>, el que OpenAI recomienda para voz ya grabada. Espera a
+              que termines la frase y la transcribe entera, así que acierta más en nombres propios
+              a cambio de aproximadamente un segundo de latencia.
+            </>
+          )}{' '}
+          Usa la API key de OpenAI, la misma que las respuestas.
+        </p>
+      )}
 
       {settings.sttProviderId === 'gemini-audio' && (
         <div className="diag diag--ok">
@@ -2490,8 +2690,21 @@ function BehaviourCard({
         >
           <option value="off">Solo con hotkey</option>
           <option value="heuristic">Automático (heurística local)</option>
+          <option value="heuristic+classifier">Automático + clasificador (usa el modelo)</option>
         </select>
       </Row>
+
+      {settings.autoTriggerMode === 'heuristic+classifier' && (
+        <div className="warn">
+          Cuando la heurística no vea ningún marcador, le preguntará al modelo si esa
+          intervención pedía respuesta. Es lo que caza las preguntas que llegan como
+          afirmaciones —<em>«una persona que sepa DevOps tendría que saber de seguridad»</em>—
+          y que ninguna lista de palabras puede detectar.
+          <br />
+          <strong>Cuesta una consulta más</strong> por cada intervención ambigua, aunque al
+          final no se responda. Con Ollama es gratis; con un modelo de pago, no.
+        </div>
+      )}
 
       {settings.autoTriggerMode !== 'off' && (
         <>
