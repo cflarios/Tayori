@@ -163,7 +163,8 @@ function registerIpcHandlers(): void {
       const overlay = getOverlay();
       if (overlay) setClickThrough(overlay, next.clickThrough);
     }
-    if (patch.hotkeys) {
+    // Encender o apagar uno cambia qué hay registrado igual que reasignarlo.
+    if (patch.hotkeys || patch.disabledHotkeys) {
       applyHotkeys();
     }
     if (patch.overlaySize && patch.overlaySize !== previous.overlaySize) {

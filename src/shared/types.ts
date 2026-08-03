@@ -510,6 +510,23 @@ export interface Settings {
   codeLanguage: string;
 
   hotkeys: HotkeyMap;
+
+  /**
+   * Atajos apagados, por acción.
+   *
+   * Un acelerador global **se lo quita a la aplicación que tenga el foco**, así
+   * que quien no use uno de estos prefiere recuperar la combinación para su
+   * editor antes que dejarla tomada por una app que la ignora. Apagado no es lo
+   * mismo que vacío: el acelerador se conserva para poder volver a encenderlo
+   * sin teclearlo otra vez.
+   *
+   * Se guarda la lista de **apagados** y no un mapa de encendidos a propósito.
+   * Un `Record<keyof HotkeyMap, boolean>` leído de un `settings.json` anterior a
+   * esta función llegaría sin claves, cada una saldría `undefined`, y eso es
+   * falso: actualizar la app apagaría los once atajos de golpe y en silencio.
+   * Con una lista, lo que falta es el array vacío y todo sigue encendido.
+   */
+  disabledHotkeys: (keyof HotkeyMap)[];
   ollamaBaseUrl: string;
 
   /**
@@ -745,6 +762,9 @@ export const DEFAULT_SETTINGS: Settings = {
   codeLanguage: 'auto',
 
   hotkeys: DEFAULT_HOTKEYS,
+  // Los once encendidos, que es como se comportaba la app antes de que esto
+  // existiera. Apagar uno es una decisión, no un valor de fábrica.
+  disabledHotkeys: [],
   ollamaBaseUrl: 'http://127.0.0.1:11434',
   // 8192 y no 2048: es el mínimo con el que caben prompt, transcripción y
   // memoria sin que Ollama empiece a tirar contexto en silencio.
@@ -799,6 +819,32 @@ export const FONT_SCALE = { min: 0.8, max: 1.8, step: 0.05 } as const;
 export function clampFontScale(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.min(FONT_SCALE.max, Math.max(FONT_SCALE.min, value));
+}
+
+/**
+ * Los atajos que de verdad se van a registrar.
+ *
+ * Los apagados salen con el acelerador **en blanco**, no fuera del mapa, y eso
+ * no es un detalle de implementación: `registerHotkeys` y
+ * `duplicateAccelerators` ya se saltaban los vacíos desde el primer día, así
+ * que apagar uno reutiliza ese camino en lugar de abrir un segundo concepto de
+ * "atajo que no cuenta" en cada sitio que los recorre.
+ *
+ * Consecuencia buscada: un atajo apagado ni se registra —la combinación queda
+ * libre para otra aplicación, que es justo para lo que existe el interruptor—
+ * ni puede chocar con otro ni aparecer como rechazado por Windows.
+ */
+export function activeHotkeys(settings: Settings): HotkeyMap {
+  const off = new Set<string>(settings.disabledHotkeys);
+  // Se parte de una copia y se vacían los apagados, en vez de reconstruir el
+  // objeto con `fromEntries`: eso devuelve un `Record<string, string>` que hay
+  // que castear a `HotkeyMap`, y el casteo es justo lo que dejaría de avisar el
+  // día que a `HotkeyMap` le falte una clave.
+  const active: HotkeyMap = { ...settings.hotkeys };
+  for (const action of Object.keys(active) as (keyof HotkeyMap)[]) {
+    if (off.has(action)) active[action] = '';
+  }
+  return active;
 }
 
 /**

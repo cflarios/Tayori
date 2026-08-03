@@ -392,7 +392,7 @@ export const es: Record<UIKey, string> = {
   'hk.rejectedMany':
     'Windows rechazó estos atajos: **{keys}**. Otra aplicación los tiene tomados, así que **no harán nada** hasta que elijas otros.',
   'hk.reset': 'Restablecer',
-  'hk.resetDesc': 'Devuelve los diez atajos a sus valores de fábrica.',
+  'hk.resetDesc': 'Devuelve cada atajo a su combinación de fábrica, y los vuelve a encender todos.',
   'hk.resetButton': 'Valores por defecto',
   'hk.askNow': 'Responder ahora',
   'hk.screenshotAndAsk': 'Capturar pantalla y responder',
@@ -813,6 +813,9 @@ export const es: Record<UIKey, string> = {
   'hk.duplicated': 'Repetido: dos acciones con el mismo atajo hacen que sólo funcione una.',
   'hk.pressCombo': 'Pulsa la combinación…',
   'hk.unassigned': 'Sin asignar',
+  'hk.switchHint':
+    'El interruptor de cada fila apaga ese atajo. Un atajo global le quita la combinación a la aplicación que tenga el foco, así que apagar uno que no uses se la devuelve: deja de registrarse y tu editor, tu juego u otra app pueden volver a usarla. La combinación se conserva, así que volver a encenderlo no obliga a teclearla otra vez.',
+  'hk.offDesc': 'Apagado: la combinación queda libre para otras aplicaciones.',
 
   // ───────────────────── Ajustes · diagnóstico ─────────────────────
   'diag.logAt': 'El registro del proceso principal se guarda en `{where}`.',

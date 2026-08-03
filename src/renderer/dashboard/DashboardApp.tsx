@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WhisperProgress } from '@shared/ipc';
 import {
+  activeHotkeys,
   adviseLocalModels,
   autoTriggerIsInert,
   clampFontScale,
@@ -514,7 +515,8 @@ export function DashboardApp() {
     audio: status.state === 'error',
     models: !providerIsReady(settings, presence),
     behaviour: autoTriggerIsInert(settings),
-    hotkeys: failedHotkeys.length > 0 || duplicateAccelerators(settings.hotkeys).size > 0,
+    hotkeys:
+      failedHotkeys.length > 0 || duplicateAccelerators(activeHotkeys(settings)).size > 0,
   };
 
   return (
@@ -1826,15 +1828,20 @@ function LocalModelGuide() {
 function HotkeyField({
   action,
   accelerator,
+  enabled,
   failed,
   duplicated,
   onChange,
+  onToggle,
 }: {
   action: keyof HotkeyMap;
   accelerator: string;
+  /** Apagado = no se registra, así que la combinación queda libre. */
+  enabled: boolean;
   failed: boolean;
   duplicated: boolean;
   onChange: (accelerator: string) => void;
+  onToggle: (enabled: boolean) => void;
 }) {
   const t = useT();
   const [capturing, setCapturing] = useState(false);
@@ -1871,19 +1878,27 @@ function HotkeyField({
     <Row
       label={t(HOTKEY_LABEL[action])}
       desc={
-        rejected
-          ? t('hk.needsModifier')
-          : failed
-            ? t('hk.taken')
-            : duplicated
-              ? t('hk.duplicated')
-              : undefined
+        // Apagado manda sobre los avisos: un atajo que no se registra no puede
+        // estar tomado por otra app ni chocar con otro, así que enseñar «lo
+        // rechazó Windows» sobre uno apagado sería un aviso sobre algo que no
+        // está pasando.
+        !enabled
+          ? t('hk.offDesc')
+          : rejected
+            ? t('hk.needsModifier')
+            : failed
+              ? t('hk.taken')
+              : duplicated
+                ? t('hk.duplicated')
+                : undefined
       }
     >
       <input
         type="text"
         readOnly
-        className={`hotkey${failed || duplicated || rejected ? ' hotkey--bad' : ''}`}
+        className={`hotkey${enabled && (failed || duplicated || rejected) ? ' hotkey--bad' : ''}${
+          enabled ? '' : ' hotkey--off'
+        }`}
         style={{ width: 190, flex: 'none' }}
         value={
           capturing
@@ -1897,6 +1912,10 @@ function HotkeyField({
         }}
         onKeyDown={onKeyDown}
       />
+      {/* El campo sigue editable con el atajo apagado: dejar preparada la
+          combinación para cuando lo vuelvas a encender es un caso normal, y
+          bloquearlo obligaría a encender, teclear y volver a apagar. */}
+      <Switch on={enabled} onChange={onToggle} />
     </Row>
   );
 }
@@ -1921,11 +1940,21 @@ function HotkeysCard({
   failed: string[];
 }) {
   const t = useT();
-  const duplicated = duplicateAccelerators(settings.hotkeys);
+  // Sobre los ACTIVOS: un atajo apagado no se registra, así que no puede chocar
+  // con otro. Contarlo sería marcar en rojo un conflicto que no existe.
+  const duplicated = duplicateAccelerators(activeHotkeys(settings));
   const actions = Object.keys(HOTKEY_LABEL) as (keyof HotkeyMap)[];
+  const off = new Set(settings.disabledHotkeys);
+
+  const setEnabled = (action: keyof HotkeyMap, enabled: boolean): void => {
+    const next = settings.disabledHotkeys.filter((id) => id !== action);
+    void patch({ disabledHotkeys: enabled ? next : [...next, action] });
+  };
 
   return (
     <section className="card">
+      <p className="card__hint">{t('hk.switchHint')}</p>
+
       {failed.length > 0 && (
         <div className="warn">
           {/* La negrita va DENTRO de la clave: en inglés el énfasis no cae en el
@@ -1944,11 +1973,13 @@ function HotkeysCard({
           key={action}
           action={action}
           accelerator={settings.hotkeys[action]}
+          enabled={!off.has(action)}
           failed={failed.includes(settings.hotkeys[action])}
           duplicated={duplicated.has(settings.hotkeys[action])}
           onChange={(accelerator) =>
             void patch({ hotkeys: { ...settings.hotkeys, [action]: accelerator } })
           }
+          onToggle={(enabled) => setEnabled(action, enabled)}
         />
       ))}
 
@@ -1957,7 +1988,12 @@ function HotkeysCard({
           <div className="row__label">{t('hk.reset')}</div>
           <div className="row__desc">{t('hk.resetDesc')}</div>
         </div>
-        <button className="btn" onClick={() => void patch({ hotkeys: DEFAULT_HOTKEYS })}>
+        {/* Vuelve también los interruptores a su sitio: «valores de fábrica»
+            con tres atajos apagados no serían los de fábrica. */}
+        <button
+          className="btn"
+          onClick={() => void patch({ hotkeys: DEFAULT_HOTKEYS, disabledHotkeys: [] })}
+        >
           {t('hk.resetButton')}
         </button>
       </div>

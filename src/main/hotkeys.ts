@@ -1,5 +1,5 @@
 import { globalShortcut } from 'electron';
-import type { HotkeyMap } from '@shared/types';
+import { activeHotkeys, type HotkeyMap } from '@shared/types';
 import { settingsStore } from './config/store';
 import { getOverlay, nudgeOverlay, toggleOverlayVisibility } from './windows/overlay';
 import { setClickThrough } from './windows/stealth';
@@ -23,7 +23,9 @@ let bound: string[] = [];
 export function registerHotkeys(actions: HotkeyActions): string[] {
   unregisterHotkeys();
 
-  const keys: HotkeyMap = settingsStore.get().hotkeys;
+  // Los apagados llegan en blanco, y `bind` ya ignora lo vacío: la combinación
+  // no se registra, así que queda libre para la aplicación que la quiera.
+  const keys: HotkeyMap = activeHotkeys(settingsStore.get());
   const failed: string[] = [];
 
   const bind = (accelerator: string, handler: () => void): void => {

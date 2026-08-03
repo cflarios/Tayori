@@ -411,7 +411,7 @@ export const en = {
   'hk.rejectedMany':
     'Windows rejected these shortcuts: **{keys}**. Another application has them taken, so **they will do nothing** until you pick different ones.',
   'hk.reset': 'Reset',
-  'hk.resetDesc': 'Puts the ten shortcuts back to their factory values.',
+  'hk.resetDesc': 'Puts every shortcut back to its factory combination, and turns them all back on.',
   'hk.resetButton': 'Default values',
   'hk.askNow': 'Answer now',
   'hk.screenshotAndAsk': 'Capture the screen and answer',
@@ -834,6 +834,9 @@ export const en = {
   'hk.duplicated': 'Repeated: two actions on the same shortcut means only one of them works.',
   'hk.pressCombo': 'Press the combination…',
   'hk.unassigned': 'Unassigned',
+  'hk.switchHint':
+    'The switch on each row turns that shortcut off. A global shortcut takes the combination away from whatever application has focus, so turning off one you do not use hands it back — the combination stops being registered and your editor, your game or another app can use it again. The combination is kept, so turning it back on does not mean typing it in again.',
+  'hk.offDesc': 'Off: the combination is free for other applications.',
 
   // ───────────────────── Ajustes · diagnóstico ─────────────────────
   'diag.logAt': 'The main process log is written to `{where}`.',

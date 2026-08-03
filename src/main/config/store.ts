@@ -39,6 +39,15 @@ function withDefaults(raw: unknown, systemLocale?: string): Settings {
     ...stored,
     llmModels: { ...DEFAULT_SETTINGS.llmModels, ...(stored.llmModels ?? {}) },
     hotkeys: { ...DEFAULT_SETTINGS.hotkeys, ...(stored.hotkeys ?? {}) },
+    /*
+     * La lista de apagados se **normaliza a array**, no se toma tal cual.
+     *
+     * El resto de campos toleran basura porque un valor raro se ve; éste no:
+     * si un `settings.json` editado a mano trae aquí algo que no es un array,
+     * `activeHotkeys` haría `new Set(undefined)` y reventaría al arrancar, con
+     * los once atajos caídos y sin ninguna pista de por qué.
+     */
+    disabledHotkeys: Array.isArray(stored.disabledHotkeys) ? stored.disabledHotkeys : [],
     contextPacks: (stored.contextPacks ?? DEFAULT_SETTINGS.contextPacks).map(normalizePack),
   };
 }

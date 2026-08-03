@@ -1092,6 +1092,24 @@ button.btn--ghost {
   color: #fca5a5;
 }
 
+/*
+ * Atajo apagado: la combinación sigue a la vista pero atenuada.
+ *
+ * No se oculta ni se vacía el campo porque el valor no se ha perdido —está
+ * guardado, esperando a que lo vuelvas a encender— y un hueco en blanco diría
+ * lo contrario. Se atenúa en lugar de deshabilitarse para que se pueda dejar
+ * preparada la combinación con el atajo apagado.
+ */
+.hotkey--off {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.hotkey--off:focus {
+  opacity: 1;
+  text-decoration: none;
+}
+
 /* ── Especificaciones de la máquina ── */
 
 .specs {
