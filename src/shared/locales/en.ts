@@ -212,6 +212,75 @@ export const en = {
   'screen.allOllama':
     'You are using Ollama for everything. If the chosen model does not see images, the screen actions will not work: this is where it pays off to split them and leave a multimodal one just for this.',
 
+  // ───────────────────── Ajustes · general ─────────────────────
+  'gen.stealth': 'Stealth mode',
+  'gen.stealthDesc':
+    'The overlay is excluded from screen capture at the Windows compositor level. Turn it off to record demos or debug the interface.',
+  'gen.clickThrough': 'Click-through',
+  'gen.clickThroughDesc':
+    'The overlay ignores the mouse and clicks reach the window underneath. Recommended during a call.',
+  'gen.stealthWarn':
+    'Stealth mode is off: the overlay **will** show up if you share your screen.',
+  'gen.lookTitle': 'Overlay appearance',
+  'gen.lookHint':
+    'How the floating panel looks. It applies immediately, so it is worth adjusting with the overlay in sight.',
+  'gen.opacity': 'Opacity',
+  'gen.opacityDesc':
+    'Lowering it lets you glimpse what is underneath. Below 60 % the text starts to be hard to read over light backgrounds.',
+  'gen.textSize': 'Text size',
+  'gen.textSizeDesc':
+    'It affects the answer, the code and the transcript; the controls stay the same. The S/M/L/XL sizes make the window bigger, not the letters: this is what you need on a 4K monitor.',
+  'gen.compact': 'Compact mode',
+  'gen.compactDesc':
+    'Leaves only the answer: it folds the profiles, the transcript and the shortcut footer. It is also toggled with the fold button in the overlay.',
+
+  'gen.protects':
+    '**What it protects and what it does not.** Stealth mode excludes the window from the capture pipeline (screen share, OBS, recorders). It does not protect you from a camera pointed at the screen, it does not hide the process from proctoring software that enumerates windows, and it does not hide what you say into the microphone.',
+
+  // ───────────────────── Ajustes · transcripción ─────────────────────
+  'stt.engine': 'Engine',
+  'stt.engineDesc': 'Which audio sources get opened is decided separately.',
+  'stt.goAudio': 'Go to Audio',
+  'stt.openaiLive': 'OpenAI live (cloud, best for meetings)',
+  'stt.openaiTranscribe': 'OpenAI per turn (cloud, more accurate)',
+  'stt.geminiLive': 'Gemini Live (cloud, fastest)',
+  'stt.geminiAudio': 'Gemini direct audio (the model hears your voice)',
+  'stt.whisperLocal': 'Whisper local (offline, private)',
+  'stt.openaiLiveHint':
+    '`gpt-live-transcribe`, the model OpenAI recommends for live audio. It opens one session per speaker and writes while they talk.',
+  'stt.openaiTranscribeHint':
+    '`gpt-transcribe`, the one OpenAI recommends for recorded speech. It waits until you finish the sentence and transcribes it whole, so it gets proper nouns right more often in exchange for about a second of latency.',
+  'stt.openaiKeyNote': 'It uses the OpenAI API key, the same one as the answers.',
+  'stt.geminiAudioNote':
+    'The audio goes **straight to the model**, without passing through a recogniser. A bad transcription can no longer spoil the answer, because the model hears your voice instead of reading what somebody else understood. It uses the Gemini model you pick above, and the question detector stays out of it: the model itself decides whether what you said asked for an answer.',
+  'stt.language': 'Language',
+  'stt.languageDesc': 'Automatic detects the language; fixing it improves accuracy when you get it right.',
+  'stt.auto': 'Automatic',
+  'stt.langEs': 'Spanish',
+  'stt.langEn': 'English',
+  'stt.langPt': 'Portuguese',
+  'stt.langFr': 'French',
+  'stt.langDe': 'German',
+  'stt.forcedWarn':
+    'You are forcing **{lang}**. If you speak another language **you will not see any error**: the recogniser returns plausible text in the language you impose on it, invented from the sounds. If the answers have nothing to do with what you asked, this is the first thing to check.',
+  'stt.whisperModel': 'Whisper model',
+  'stt.whisperModelDesc': 'Bigger models transcribe better and take longer.',
+  'stt.whisperModelDescNonEn':
+    'Bigger models transcribe better and take longer. Outside English the gap between Base and Small is wide: if words come out wrong, this is the first thing to raise.',
+  'stt.whisperReady': 'Whisper ready',
+  'stt.whisperMissing': 'Whisper not installed',
+  'stt.whisperReadyDesc': 'Executable and model downloaded. It works offline.',
+  'stt.whisperMissingDesc': 'Missing {what}. They are downloaded only once.',
+  'stt.whisperBinary': 'the executable (7.6 MB)',
+  'stt.whisperModelPart': 'the model',
+  'stt.and': ' and ',
+  'stt.download': 'Download',
+  'stt.downloading': 'Downloading…',
+  'stt.installed': 'installed',
+  'stt.downloadFailed': 'The download failed.',
+  'stt.progressBinary': 'Executable',
+  'stt.progressModel': 'Model',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':

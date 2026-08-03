@@ -193,6 +193,75 @@ export const es: Record<UIKey, string> = {
   'screen.allOllama':
     'Estás usando Ollama para todo. Si el modelo elegido no ve imágenes, las acciones de pantalla no funcionarán: aquí es donde conviene separarlas y dejar un multimodal sólo para esto.',
 
+  // ───────────────────── Ajustes · general ─────────────────────
+  'gen.stealth': 'Modo invisible',
+  'gen.stealthDesc':
+    'El overlay se excluye de la captura de pantalla a nivel del compositor de Windows. Desactívalo para grabar demos o depurar la interfaz.',
+  'gen.clickThrough': 'Clics atravesables',
+  'gen.clickThroughDesc':
+    'El overlay ignora el ratón y los clics llegan a la ventana de abajo. Recomendado durante una llamada.',
+  'gen.stealthWarn':
+    'El modo invisible está desactivado: el overlay **sí** aparecerá si compartes pantalla.',
+  'gen.lookTitle': 'Aspecto del overlay',
+  'gen.lookHint':
+    'Cómo se ve el panel flotante. Se aplica al momento, así que conviene ajustarlo con el overlay a la vista.',
+  'gen.opacity': 'Opacidad',
+  'gen.opacityDesc':
+    'Bajarla deja entrever lo que hay debajo. Por debajo del 60 % el texto empieza a costar de leer sobre fondos claros.',
+  'gen.textSize': 'Tamaño del texto',
+  'gen.textSizeDesc':
+    'Afecta a la respuesta, al código y a la transcripción; los controles se quedan igual. Los tamaños S/M/L/XL agrandan la ventana, no la letra: esto es lo que hace falta en un monitor 4K.',
+  'gen.compact': 'Modo compacto',
+  'gen.compactDesc':
+    'Deja sólo la respuesta: pliega los perfiles, la transcripción y el pie de atajos. También se activa con el botón de plegar del overlay.',
+
+  'gen.protects':
+    '**Qué protege y qué no.** El modo invisible excluye la ventana del pipeline de captura (screen share, OBS, grabadores). No te protege de una cámara apuntando a la pantalla, no oculta el proceso frente a software de proctoring que enumere ventanas, y no oculta lo que digas por el micrófono.',
+
+  // ───────────────────── Ajustes · transcripción ─────────────────────
+  'stt.engine': 'Motor',
+  'stt.engineDesc': 'Qué fuentes de audio se abren se decide aparte.',
+  'stt.goAudio': 'Ir a Audio',
+  'stt.openaiLive': 'OpenAI en directo (nube, el mejor para reuniones)',
+  'stt.openaiTranscribe': 'OpenAI por turnos (nube, más preciso)',
+  'stt.geminiLive': 'Gemini Live (nube, más rápido)',
+  'stt.geminiAudio': 'Gemini audio directo (el modelo oye tu voz)',
+  'stt.whisperLocal': 'Whisper local (offline, privado)',
+  'stt.openaiLiveHint':
+    '`gpt-live-transcribe`, el modelo que OpenAI recomienda para audio en directo. Abre una sesión por hablante y va escribiendo mientras hablan.',
+  'stt.openaiTranscribeHint':
+    '`gpt-transcribe`, el que OpenAI recomienda para voz ya grabada. Espera a que termines la frase y la transcribe entera, así que acierta más en nombres propios a cambio de aproximadamente un segundo de latencia.',
+  'stt.openaiKeyNote': 'Usa la API key de OpenAI, la misma que las respuestas.',
+  'stt.geminiAudioNote':
+    'El audio va **directo al modelo**, sin pasar por un reconocedor. Una mala transcripción deja de poder estropear la respuesta, porque el modelo oye tu voz en lugar de leer lo que otro entendió. Usa el modelo de Gemini que elijas más arriba, y el detector de preguntas no interviene: decide el propio modelo si lo que dijiste pedía respuesta.',
+  'stt.language': 'Idioma',
+  'stt.languageDesc': 'Automático detecta el idioma; fijarlo mejora la precisión cuando aciertas.',
+  'stt.auto': 'Automático',
+  'stt.langEs': 'Español',
+  'stt.langEn': 'Inglés',
+  'stt.langPt': 'Portugués',
+  'stt.langFr': 'Francés',
+  'stt.langDe': 'Alemán',
+  'stt.forcedWarn':
+    'Estás forzando **{lang}**. Si hablas en otro idioma **no verás ningún error**: el reconocedor devuelve texto plausible en el idioma que le impongas, inventado a partir de los sonidos. Si las respuestas no tienen nada que ver con lo que preguntaste, esto es lo primero que hay que mirar.',
+  'stt.whisperModel': 'Modelo de Whisper',
+  'stt.whisperModelDesc': 'Modelos más grandes transcriben mejor y tardan más.',
+  'stt.whisperModelDescNonEn':
+    'Modelos más grandes transcriben mejor y tardan más. Fuera del inglés la diferencia entre Base y Small es grande: si las palabras salen cambiadas, es lo primero que conviene subir.',
+  'stt.whisperReady': 'Whisper listo',
+  'stt.whisperMissing': 'Whisper sin instalar',
+  'stt.whisperReadyDesc': 'Ejecutable y modelo descargados. Funciona sin conexión.',
+  'stt.whisperMissingDesc': 'Falta {what}. Se descargan una sola vez.',
+  'stt.whisperBinary': 'el ejecutable (7,6 MB)',
+  'stt.whisperModelPart': 'el modelo',
+  'stt.and': ' y ',
+  'stt.download': 'Descargar',
+  'stt.downloading': 'Descargando…',
+  'stt.installed': 'instalado',
+  'stt.downloadFailed': 'Falló la descarga.',
+  'stt.progressBinary': 'Ejecutable',
+  'stt.progressModel': 'Modelo',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':

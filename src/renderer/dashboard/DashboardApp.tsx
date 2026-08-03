@@ -716,11 +716,8 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           <Icon name="eyeOff" size={19} />
         </span>
         <div className="hero__text">
-          <div className="hero__title">Modo invisible</div>
-          <div className="hero__desc">
-            El overlay se excluye de la captura de pantalla a nivel del compositor de Windows.
-            Desactívalo para grabar demos o depurar la interfaz.
-          </div>
+          <div className="hero__title">{t('gen.stealth')}</div>
+          <div className="hero__desc">{t('gen.stealthDesc')}</div>
         </div>
         <Switch
           on={settings.stealthEnabled}
@@ -735,11 +732,8 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           <Icon name="pointer" size={19} />
         </span>
         <div className="hero__text">
-          <div className="hero__title">Clics atravesables</div>
-          <div className="hero__desc">
-            El overlay ignora el ratón y los clics llegan a la ventana de abajo. Recomendado durante
-            una llamada.
-          </div>
+          <div className="hero__title">{t('gen.clickThrough')}</div>
+          <div className="hero__desc">{t('gen.clickThroughDesc')}</div>
         </div>
         <Switch
           on={settings.clickThrough}
@@ -751,17 +745,13 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
 
       {!settings.stealthEnabled && (
         <div className="warn">
-          El modo invisible está desactivado: el overlay <strong>sí</strong> aparecerá si compartes
-          pantalla.
+          <Tx k="gen.stealthWarn" />
         </div>
       )}
 
       <section className="card">
-        <h2 className="card__title">Aspecto del overlay</h2>
-        <p className="card__hint">
-          Cómo se ve el panel flotante. Se aplica al momento, así que conviene ajustarlo con el
-          overlay a la vista.
-        </p>
+        <h2 className="card__title">{t('gen.lookTitle')}</h2>
+        <p className="card__hint">{t('gen.lookHint')}</p>
 
         {/*
           La opacidad y el tamaño de letra existían en `Settings` y sólo se
@@ -770,8 +760,8 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
         */}
         <Row
           icon="contrast"
-          label="Opacidad"
-          desc="Bajarla deja entrever lo que hay debajo. Por debajo del 60 % el texto empieza a costar de leer sobre fondos claros."
+          label={t('gen.opacity')}
+          desc={t('gen.opacityDesc')}
         >
           <div className="slider">
             <input
@@ -788,8 +778,8 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
 
         <Row
           icon="type"
-          label="Tamaño del texto"
-          desc="Afecta a la respuesta, al código y a la transcripción; los controles se quedan igual. Los tamaños S/M/L/XL agrandan la ventana, no la letra: esto es lo que hace falta en un monitor 4K."
+          label={t('gen.textSize')}
+          desc={t('gen.textSizeDesc')}
         >
           <div className="slider">
             <input
@@ -808,8 +798,8 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
 
         <Row
           icon="collapse"
-          label="Modo compacto"
-          desc="Deja sólo la respuesta: pliega los perfiles, la transcripción y el pie de atajos. También se activa con el botón de plegar del overlay."
+          label={t('gen.compact')}
+          desc={t('gen.compactDesc')}
         >
           <Switch
             on={settings.overlayCompact}
@@ -819,10 +809,7 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
       </section>
 
       <div className="warn">
-        <strong>Qué protege y qué no.</strong> El modo invisible excluye la ventana del pipeline de
-        captura (screen share, OBS, grabadores). No te protege de una cámara apuntando a la
-        pantalla, no oculta el proceso frente a software de proctoring que enumere ventanas, y no
-        oculta lo que digas por el micrófono.
+        <Tx k="gen.protects" />
       </div>
     </>
   );
@@ -2627,6 +2614,7 @@ function TranscriptionCard({
   patch: PatchFn;
   go: (id: SectionId) => void;
 }) {
+  const t = useT();
   const [status, setStatus] = useState({ binaryInstalled: false, modelInstalled: false });
   const [progress, setProgress] = useState<WhisperProgress | null>(null);
   const [installing, setInstalling] = useState(false);
@@ -2646,7 +2634,7 @@ function TranscriptionCard({
     setError(null);
     try {
       const result = await window.api.whisper.install();
-      if (!result.ok) setError(result.error ?? 'Falló la descarga.');
+      if (!result.ok) setError(result.error ?? t('stt.downloadFailed'));
       refresh();
     } finally {
       setInstalling(false);
@@ -2664,12 +2652,12 @@ function TranscriptionCard({
     <section className="card">
       <Row
         icon="waveform"
-        label="Motor"
+        label={t('stt.engine')}
         desc={
           <>
-            Qué fuentes de audio se abren se decide aparte.{' '}
+            {t('stt.engineDesc')}{' '}
             <Jump to="audio" go={go}>
-              Ir a Audio
+              {t('stt.goAudio')}
             </Jump>
           </>
         }
@@ -2680,11 +2668,11 @@ function TranscriptionCard({
             void patch({ sttProviderId: e.target.value as Settings['sttProviderId'] })
           }
         >
-          <option value="openai-live">OpenAI en directo (nube, el mejor para reuniones)</option>
-          <option value="openai-transcribe">OpenAI por turnos (nube, más preciso)</option>
-          <option value="gemini-live">Gemini Live (nube, más rápido)</option>
-          <option value="gemini-audio">Gemini audio directo (el modelo oye tu voz)</option>
-          <option value="whisper-local">Whisper local (offline, privado)</option>
+          <option value="openai-live">{t('stt.openaiLive')}</option>
+          <option value="openai-transcribe">{t('stt.openaiTranscribe')}</option>
+          <option value="gemini-live">{t('stt.geminiLive')}</option>
+          <option value="gemini-audio">{t('stt.geminiAudio')}</option>
+          <option value="whisper-local">{t('stt.whisperLocal')}</option>
         </select>
       </Row>
 
@@ -2692,45 +2680,35 @@ function TranscriptionCard({
         settings.sttProviderId === 'openai-transcribe') && (
         <p className="card__hint">
           {settings.sttProviderId === 'openai-live' ? (
-            <>
-              <code>gpt-live-transcribe</code>, el modelo que OpenAI recomienda para audio en
-              directo. Abre una sesión por hablante y va escribiendo mientras hablan.
-            </>
+            <Tx k="stt.openaiLiveHint" />
           ) : (
-            <>
-              <code>gpt-transcribe</code>, el que OpenAI recomienda para voz ya grabada. Espera a
-              que termines la frase y la transcribe entera, así que acierta más en nombres propios a
-              cambio de aproximadamente un segundo de latencia.
-            </>
+            <Tx k="stt.openaiTranscribeHint" />
           )}{' '}
-          Usa la API key de OpenAI, la misma que las respuestas.
+          {t('stt.openaiKeyNote')}
         </p>
       )}
 
       {settings.sttProviderId === 'gemini-audio' && (
         <div className="diag diag--ok">
-          El audio va <strong>directo al modelo</strong>, sin pasar por un reconocedor. Una mala
-          transcripción deja de poder estropear la respuesta, porque el modelo oye tu voz en lugar
-          de leer lo que otro entendió. Usa el modelo de Gemini que elijas más arriba, y el detector
-          de preguntas no interviene: decide el propio modelo si lo que dijiste pedía respuesta.
+          <Tx k="stt.geminiAudioNote" />
         </div>
       )}
 
       <Row
         icon="globe"
-        label="Idioma"
-        desc="Automático detecta el idioma; fijarlo mejora la precisión cuando aciertas."
+        label={t('stt.language')}
+        desc={t('stt.languageDesc')}
       >
         <select
           value={settings.language}
           onChange={(e) => void patch({ language: e.target.value })}
         >
-          <option value="auto">Automático</option>
-          <option value="es">Español</option>
-          <option value="en">Inglés</option>
-          <option value="pt">Portugués</option>
-          <option value="fr">Francés</option>
-          <option value="de">Alemán</option>
+          <option value="auto">{t('stt.auto')}</option>
+          <option value="es">{t('stt.langEs')}</option>
+          <option value="en">{t('stt.langEn')}</option>
+          <option value="pt">{t('stt.langPt')}</option>
+          <option value="fr">{t('stt.langFr')}</option>
+          <option value="de">{t('stt.langDe')}</option>
         </select>
       </Row>
 
@@ -2741,11 +2719,10 @@ function TranscriptionCard({
       */}
       {settings.language !== 'auto' && (
         <div className="warn">
-          Estás forzando <strong>{LANGUAGE_LABEL[settings.language] ?? settings.language}</strong>.
-          Si hablas en otro idioma <strong>no verás ningún error</strong>: el reconocedor devuelve
-          texto plausible en el idioma que le impongas, inventado a partir de los sonidos. Si las
-          respuestas no tienen nada que ver con lo que preguntaste, esto es lo primero que hay que
-          mirar.
+          <Tx
+            k="stt.forcedWarn"
+            vars={{ lang: LANGUAGE_LABEL[settings.language] ?? settings.language }}
+          />
         </div>
       )}
 
@@ -2753,13 +2730,11 @@ function TranscriptionCard({
         <>
           <Row
             icon="cpu"
-            label="Modelo de Whisper"
+            label={t('stt.whisperModel')}
             desc={
               settings.language === 'en' || settings.language === 'auto'
-                ? 'Modelos más grandes transcriben mejor y tardan más.'
-                : 'Modelos más grandes transcriben mejor y tardan más. Fuera del inglés la ' +
-                  'diferencia entre Base y Small es grande: si las palabras salen cambiadas, ' +
-                  'es lo primero que conviene subir.'
+                ? t('stt.whisperModelDesc')
+                : t('stt.whisperModelDescNonEn')
             }
           >
             <select
@@ -2776,27 +2751,32 @@ function TranscriptionCard({
 
           <Row
             icon="download"
-            label={ready ? 'Whisper listo' : 'Whisper sin instalar'}
+            label={ready ? t('stt.whisperReady') : t('stt.whisperMissing')}
             desc={
               ready
-                ? 'Ejecutable y modelo descargados. Funciona sin conexión.'
-                : `Falta ${!status.binaryInstalled ? 'el ejecutable (7,6 MB)' : ''}${
-                    !status.binaryInstalled && !status.modelInstalled ? ' y ' : ''
-                  }${!status.modelInstalled ? 'el modelo' : ''}. Se descargan una sola vez.`
+                ? t('stt.whisperReadyDesc')
+                : t('stt.whisperMissingDesc', {
+                    what: [
+                      !status.binaryInstalled ? t('stt.whisperBinary') : '',
+                      !status.modelInstalled ? t('stt.whisperModelPart') : '',
+                    ]
+                      .filter(Boolean)
+                      .join(t('stt.and')),
+                  })
             }
           >
             {!ready && (
               <button className="btn" disabled={installing} onClick={() => void install()}>
-                {installing ? 'Descargando…' : 'Descargar'}
+                {installing ? t('stt.downloading') : t('stt.download')}
               </button>
             )}
-            {ready && <span className="badge badge--ok">instalado</span>}
+            {ready && <span className="badge badge--ok">{t('stt.installed')}</span>}
           </Row>
 
           {installing && (
             <div className="progress">
               <div className="progress__label">
-                {progress?.target === 'binary' ? 'Ejecutable' : 'Modelo'}
+                {progress?.target === 'binary' ? t('stt.progressBinary') : t('stt.progressModel')}
                 {pct !== null ? ` — ${pct}%` : ''}
               </div>
               <div className="progress__bar">
