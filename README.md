@@ -26,7 +26,7 @@ borrar una conversación o borrarlas todas.
   permite saber quién habla sin diarización.
 - **Transcribe en vivo** con OpenAI (`gpt-live-transcribe`), Gemini Live
   (~300 ms) o Whisper local (offline).
-- **Sugiere respuestas** con Claude, Gemini, ChatGPT u Ollama, en streaming.
+- **Sugiere respuestas** con Claude, Gemini, ChatGPT, DeepSeek u Ollama, en streaming.
 - **Detecta preguntas** dirigidas a ti y responde sin que pulses nada, o solo con
   hotkey si prefieres controlarlo. Con el **clasificador** activado también caza
   las que llegan disfrazadas de afirmación —*«una persona que sepa DevOps tendría
@@ -50,12 +50,13 @@ borrar una conversación o borrarlas todas.
 - Windows 10 versión 2004 o superior (Windows 11 recomendado).
 - Node.js 20+ y npm, solo para compilar desde el código.
 - Al menos una API key: [Anthropic](https://console.anthropic.com),
-  [Google AI Studio](https://aistudio.google.com) u
-  [OpenAI](https://platform.openai.com). Ollama y Whisper local no necesitan
-  ninguna.
-  - La de Google vale además para transcribir con Gemini Live. La de OpenAI
-    **sólo responde**: si es la única que pones, la voz la resuelve Whisper
-    local.
+  [Google AI Studio](https://aistudio.google.com), [OpenAI](https://platform.openai.com)
+  o [DeepSeek](https://platform.deepseek.com). Ollama y Whisper local no
+  necesitan ninguna.
+  - Las de Google y OpenAI valen además para **transcribir**. Las de Anthropic y
+    DeepSeek sólo responden: si son las únicas que pones, la voz la resuelve
+    Whisper local.
+  - **DeepSeek no lee imágenes**, así que no sirve para los botones de pantalla.
 
 ## Instalación
 
@@ -85,7 +86,7 @@ La primera vez que abres el dashboard sale un asistente que lo deja todo
 funcionando sin que tengas que saber qué es un proveedor ni cuánta RAM tienes.
 Mide tu equipo y te propone uno de dos caminos:
 
-- **En la nube.** Eliges Claude, Gemini o ChatGPT, pegas la API key y listo.
+- **En la nube.** Eliges Claude, Gemini, ChatGPT o DeepSeek, pegas la API key y listo.
   Nada que instalar. Pagas por uso al proveedor.
 - **En tu equipo.** Si no tienes Ollama, lo instala con `winget` —el gestor de
   paquetes de Windows, con su aviso de permiso— y descarga los dos modelos que
@@ -111,7 +112,7 @@ vuelvas.
    la única forma de abrirla: no hay atajo ni se abre sola. Arriba del todo hay
    una guía de **primeros pasos** con las cuatro cosas que hay que hacer; se
    marca sola según las completas y desaparece al terminar.
-3. Pega tu API key de Anthropic, de Google o de OpenAI.
+3. Pega tu API key de Anthropic, Google, OpenAI o DeepSeek.
 4. Elige **qué se escucha**. Por defecto son ambas fuentes; si prefieres que el
    asistente no procese tus propias respuestas, cambia a *Solo la salida del
    sistema*.

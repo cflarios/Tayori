@@ -185,6 +185,25 @@ const CLOUD_MODELS: CloudModel[] = [
       'note en la latencia.',
   },
   {
+    id: 'deepseek-v4-flash',
+    label: 'DeepSeek V4 Flash',
+    price: '0,28 $ / 0,28 $ (0,14 $ la entrada ya cacheada)',
+    vision: 'NO',
+    note:
+      'El más barato de toda la tabla, y por bastante. Ventana de 1M de tokens. No lee ' +
+      'imágenes, así que NO sirve para las acciones de pantalla: es la opción de conversar ' +
+      'cuando lo que preocupa es lo que gasta la escucha automática.',
+  },
+  {
+    id: 'deepseek-v4-pro',
+    label: 'DeepSeek V4 Pro',
+    price: '0,87 $ / 0,87 $ (0,435 $ la entrada ya cacheada)',
+    vision: 'NO',
+    note:
+      'El grande de DeepSeek, todavía por debajo de lo que cuesta el más barato de ' +
+      'Anthropic. Tampoco lee imágenes.',
+  },
+  {
     id: 'gpt-5.6-sol',
     label: 'GPT-5.6 Sol',
     price: '5 $ / 30 $',
@@ -223,9 +242,12 @@ const RECIPES: Recipe[] = [
   {
     title: 'Todo nube, lo más barato que funciona',
     who: 'No quieres instalar nada y tu máquina no da para modelos locales.',
-    chat: 'GPT-5.6 Luna o Claude Haiku 4.5',
+    chat: 'DeepSeek V4 Flash o GPT-5.6 Luna',
     screen: 'Claude Sonnet 5',
-    cost: 'Bajo, pero se paga cada pregunta: también las que dispara la escucha automática.',
+    cost:
+      'Lo más barato que funciona. Conversar sale casi gratis y sólo se paga de verdad ' +
+      'cada pulsación de pantalla. Ojo: el de conversar tiene que ser uno cualquiera, pero ' +
+      'el de la pantalla TIENE que leer imágenes, y DeepSeek no lee.',
   },
   {
     title: 'Sin concesiones',
@@ -393,8 +415,8 @@ export function renderModelGuide(specs: SystemSpecs, generatedAt = new Date()): 
 
 <h2>Modelos de pago, de más barato a más caro</h2>
 <p>
-  Los precios de Anthropic y de OpenAI están verificados contra la referencia oficial de
-  cada uno y son por millón de tokens. Un token viene a ser tres cuartos de palabra; lo que
+  Los precios de Anthropic, OpenAI y DeepSeek están verificados contra la referencia
+  oficial de cada uno y son por millón de tokens. Un token viene a ser tres cuartos de palabra; lo que
   se paga en cada consulta es el contexto que envías (tu CV, la transcripción, la captura)
   más lo que responde.
 </p>

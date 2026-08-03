@@ -56,7 +56,7 @@ describe('presencia de las API keys', () => {
     decryptString.mockImplementation((buffer) => buffer.toString('utf-8'));
 
     const { getPresence } = await secrets();
-    expect(getPresence()).toEqual({ anthropic: true, google: false, openai: false, mqtt: false });
+    expect(getPresence()).toEqual({ anthropic: true, google: false, openai: false, deepseek: false, mqtt: false });
   });
 
   it('dice que NO hay clave cuando el ciphertext no se puede descifrar', async () => {
@@ -69,7 +69,7 @@ describe('presencia de las API keys', () => {
     const { getPresence } = await secrets();
     // Antes esto devolvía `true` y el dashboard lo pintaba en verde mientras
     // todas las consultas fallaban con "Falta la API key".
-    expect(getPresence()).toEqual({ anthropic: false, google: false, openai: false, mqtt: false });
+    expect(getPresence()).toEqual({ anthropic: false, google: false, openai: false, deepseek: false, mqtt: false });
   });
 
   it('no confunde una clave rota con la otra', async () => {
@@ -84,6 +84,6 @@ describe('presencia de las API keys', () => {
     });
 
     const { getPresence } = await secrets();
-    expect(getPresence()).toEqual({ anthropic: false, google: true, openai: false, mqtt: false });
+    expect(getPresence()).toEqual({ anthropic: false, google: true, openai: false, deepseek: false, mqtt: false });
   });
 });

@@ -36,7 +36,7 @@ flowchart TB
     DEVICE["Broker → tu dispositivo<br/>ESP32, script, …"]
 
     WHISPER["whisper-server.exe<br/>proceso hijo"]
-    CLOUD["Anthropic · Google · OpenAI · Ollama"]
+    CLOUD["Anthropic · Google · OpenAI · DeepSeek · Ollama"]
 
     WORKER -- "PCM 16 kHz" --> CAPTURE
     CAPTURE --> SESSION
@@ -432,7 +432,7 @@ npm run typecheck && npm run lint && npm test
 | `main/core/transcript-buffer.ts` | Ventana rodante de la conversación |
 | `main/capture/audio.ts` | Puente con la ventana oculta de captura |
 | `main/stt/*` | Los tres motores y los assets de Whisper |
-| `main/llm/*` | Claude, Gemini, ChatGPT, Ollama |
+| `main/llm/*` | Claude, Gemini, ChatGPT, DeepSeek, Ollama |
 | `main/config/*` | Settings, secretos DPAPI, historial |
 | `main/bridge/*` | Salidas hacia fuera: espejo del móvil (HTTP + SSE) y publicación MQTT |
 | `main/skills/*` | Carga de los SKILL.md del usuario y la que viene de serie |

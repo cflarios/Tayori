@@ -389,6 +389,7 @@ export function DashboardApp() {
     anthropic: false,
     google: false,
     openai: false,
+    deepseek: false,
     mqtt: false,
   });
   const [status, setStatus] = useState<CaptureStatus>({
@@ -1407,6 +1408,13 @@ function ApiKeysCard({
         onSave={(v) => saveSecret('openai', v)}
         onClear={() => clearSecret('openai')}
       />
+      <SecretField
+        label="DeepSeek"
+        hint="platform.deepseek.com → API keys. Sólo responde: no tienen modelos de transcripción, y sus modelos no leen imágenes."
+        present={presence.deepseek}
+        onSave={(v) => saveSecret('deepseek', v)}
+        onClear={() => clearSecret('deepseek')}
+      />
     </section>
   );
 }
@@ -1490,6 +1498,10 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
           <option value="claude">Claude (nube)</option>
           <option value="gemini">Gemini (nube)</option>
           <option value="openai">ChatGPT (nube)</option>
+          {/* DeepSeek no sale aquí: ninguno de sus modelos lee imágenes, y esta
+              tarjeta existe para elegir el que SÍ tiene que leer la pantalla.
+              Ofrecerlo sería ofrecer la opción que garantiza que los dos botones
+              fallen. Se puede escribir a mano si algún día sacan uno con visión. */}
           <option value="ollama">Ollama (local)</option>
         </select>
       </Row>
@@ -2246,6 +2258,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
           <option value="claude">Claude (Anthropic)</option>
           <option value="gemini">Gemini (Google)</option>
           <option value="openai">ChatGPT (OpenAI)</option>
+          <option value="deepseek">DeepSeek</option>
           <option value="ollama">Ollama (local)</option>
         </select>
       </Row>

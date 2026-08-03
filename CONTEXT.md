@@ -665,6 +665,92 @@ quien prefiera que sus respuestas no salgan de la máquina en absoluto.
   del nombre con hash que Vite da a los assets en producción. Eso obliga a
   permitir `blob:` en `script-src` del audio-worker (ver §6).
 
+### DeepSeek: compatible con OpenAI, y ciego
+
+Quinto proveedor, agosto de 2026. Dos cosas lo hacen distinto de los otros
+cuatro, y las dos condicionan dónde se le deja aparecer.
+
+**Su API es compatible con la de OpenAI**, así que se usa el mismo SDK que ya
+estaba instalado cambiándole la `baseURL`. Cero dependencias nuevas y ningún
+cliente HTTP a mano. Pero se entra por **Chat Completions y no por la Responses
+API**: aquélla es de OpenAI, no del formato compatible. Se pierden `store:false`
+y `reasoning.effort`, y ninguno hace falta — DeepSeek no guarda las respuestas
+para recuperarlas por API, y el esfuerzo no es un parámetro suyo.
+
+**Ninguno de sus modelos lee imágenes.** Ni la página de precios ni la
+referencia de la API mencionan entrada de imagen para ninguno de los dos. Eso no
+lo convierte en peor proveedor, lo convierte en un proveedor **para conversar**,
+y el diseño lo refleja en tres sitios:
+
+- `supportsVision: false` en el catálogo, que es lo que hace que el selector lo
+  marque «sin visión».
+- **No aparece en el desplegable del modelo de pantalla.** Esa tarjeta existe
+  para elegir el modelo que tiene que leer la captura; ofrecer ahí el único que
+  no puede es ofrecer la opción que garantiza que los dos botones fallen.
+- El proveedor **descarta la captura con un aviso en el log** en lugar de
+  mandarla, y **no le dice al modelo que hay una imagen**. Decírselo sin
+  mandarla es invitarle a inventarse lo que hay en ella.
+
+**El catálogo son dos ids, y R1 no está.** El usuario pidió «V4 Pro, V4 Flash y
+R1», y R1 ya no existe: el `list models` de DeepSeek devuelve hoy exactamente
+`deepseek-v4-flash` y `deepseek-v4-pro`, y su tabla de precios tampoco lista ni
+`deepseek-reasoner` ni `deepseek-chat`. La familia V4 los sustituyó. Quien
+conserve acceso a alguno lo escribe en «Otro…».
+
+Los precios sí se reproducen en la guía porque se pudieron verificar: 0,28 $ por
+millón en Flash y 0,87 $ en Pro, entrada y salida. Es entre tres y diez veces
+más barato que cualquier otra cosa de la tabla, y eso cambia la receta de «todo
+nube, lo más barato que funciona» — con la advertencia de que el modelo de
+pantalla tiene que ser otro.
+
+### Tres cosas de UX que sólo se ven en una máquina limpia
+
+Salieron de probar la app en un ordenador donde no había nada configurado, que
+es el escenario que quien la desarrolla nunca reproduce.
+
+**«No lo tienes instalado» era mentira la mitad de las veces.** El asistente
+decidía con `probeOllama`, que pregunta si el **servidor** contesta — no si
+Ollama está instalado. Quien lo instalaba y volvía con el servicio parado se
+encontraba otra vez el botón de instalar, y volver a instalar por encima no
+arregla nada. Ahora son dos preguntas distintas: `ollamaInstalled()` lanza
+`ollama --version` (si el ejecutable no está, `spawn` falla con ENOENT y ya está
+respondido) y la pantalla de «instalado pero parado» dice lo único que hay que
+hacer, que es abrirlo una vez.
+
+**La instalación no enseñaba ningún avance**, y es la parte que tarda minutos.
+Lo curioso es que el main **ya emitía los mensajes** —«Instalando con winget…»,
+«Esperando a que arranque el servidor…»— y nadie los pintaba: el bloque de
+progreso vivía dentro de la rama de «Ollama ya está listo», donde durante la
+instalación no se entra. Es el mismo patrón que `registerHotkeys` devolviendo
+los aceleradores rechazados que nadie recogía: el dato existía y no llegaba a la
+pantalla.
+
+Y como **winget no informa del porcentaje**, la barra no puede fingir uno: se
+pinta un fragmento que la recorre. Una barra parada al 0% durante tres minutos
+se lee como «esto se ha colgado», que fue exactamente lo que pasó.
+
+**El aviso de «falta configurar la IA» que no se iba ya estaba arreglado** en
+otro commit —la difusión de `onSecrets`—, pero se probó con una build anterior.
+Se anota porque la conclusión importa: un fallo reportado dos veces no siempre
+es un fallo que siga ahí, y comprobar la versión antes de "arreglarlo" otra vez
+cuesta menos que el arreglo.
+
+### El «DUDA:» que se puso en todas las líneas
+
+Probado con un modelo local pequeño, el modo test contestaba **todas** las
+preguntas con `DUDA:` delante. Y estaba pedido: la regla decía «si dudas en una,
+empieza ESA línea por DUDA:» sin decir en ningún sitio que fuera la excepción.
+
+Es la misma lección que ya está escrita dos veces en este archivo —**antes de
+culpar al modelo, leer lo que se le pidió**— y el mismo matiz sobre los modelos
+pequeños: cumplen mal los topes y se curan en salud, así que lo que en un modelo
+grande es un matiz, en uno pequeño hay que decirlo como una prohibición.
+
+Ahora la regla dice tres cosas donde antes decía una: que la marca es la
+excepción y no el formato, que marcarlo todo **no informa de nada** —quien lee
+la usa para decidir en cuáles arriesga, y en todas las líneas da lo mismo que no
+estuviera— y que detrás siempre va la mejor opción igualmente.
+
 ### Los dos motores de OpenAI, y el que se descartó
 
 Agosto de 2026. La petición fue «OpenAI tiene modelos de transcripción, y creo

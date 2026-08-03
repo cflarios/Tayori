@@ -177,6 +177,8 @@ const api = {
   setup: {
     /** `false` cuando no hay winget: entonces se ofrece el enlace, no el botón. */
     canInstall: (): Promise<boolean> => ipcRenderer.invoke(IPC.setupCanInstall),
+    /** Si Ollama está instalado, corra o no su servidor. */
+    ollamaInstalled: (): Promise<boolean> => ipcRenderer.invoke(IPC.setupOllamaInstalled),
     installOllama: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.setupInstallOllama),
     pullModel: (model: string): Promise<{ ok: boolean; error?: string }> =>

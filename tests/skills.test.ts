@@ -270,6 +270,7 @@ describe('providerIsReady', () => {
     anthropic: false,
     google: false,
     openai: false,
+    deepseek: false,
     mqtt: false,
     ...patch,
   });

@@ -127,6 +127,14 @@ export const IPC = {
   mqttTest: 'mqtt:test',
 
   setupCanInstall: 'setup:can-install',
+  /**
+   * Si Ollama está instalado, corra o no.
+   *
+   * Distinto de `ollamaGetStatus`, que pregunta por el **servidor**. Confundir
+   * los dos hacía que el asistente ofreciera instalar Ollama a quien ya lo
+   * tenía y sólo lo tenía parado.
+   */
+  setupOllamaInstalled: 'setup:ollama-installed',
   setupInstallOllama: 'setup:install-ollama',
   setupPullModel: 'setup:pull-model',
 

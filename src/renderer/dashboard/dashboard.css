@@ -620,6 +620,37 @@ button.btn--primary:hover:not(:disabled) {
   transition: width 200ms ease-out;
 }
 
+/*
+ * Trabajo en curso del que NO se sabe el porcentaje.
+ *
+ * winget no informa del avance de su descarga, así que durante la instalación
+ * de Ollama no hay ninguna cifra que enseñar. Una barra parada al 0% durante
+ * tres minutos se lee como "esto se ha colgado" — que es exactamente lo que
+ * pasó al probarlo. Un fragmento que recorre la barra dice lo único cierto:
+ * está trabajando y no se sabe cuánto falta.
+ */
+.progress__fill--idle {
+  width: 35%;
+  animation: progress-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress__fill--idle {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
+
 /* ── Estado de Ollama ── */
 
 .ollama {

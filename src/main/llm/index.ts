@@ -3,6 +3,7 @@ import { getSecret } from '../config/secrets';
 import { ClaudeProvider, CLAUDE_MODELS } from './claude';
 import { GeminiProvider, GEMINI_MODELS } from './gemini';
 import { OpenAIProvider, OPENAI_MODELS } from './openai';
+import { DeepSeekProvider, DEEPSEEK_MODELS } from './deepseek';
 import { OllamaProvider } from './ollama';
 import { LLMError, type LLMProvider } from './types';
 
@@ -63,6 +64,17 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       return new OpenAIProvider(apiKey, model || 'gpt-5.6-terra');
     }
 
+    case 'deepseek': {
+      const apiKey = getSecret('deepseek');
+      if (!apiKey) {
+        throw new LLMError(
+          'Falta la API key de DeepSeek. Configúrala en el dashboard o cambia de proveedor.',
+          'deepseek'
+        );
+      }
+      return new DeepSeekProvider(apiKey, model || 'deepseek-v4-flash');
+    }
+
     case 'ollama':
       return new OllamaProvider(settings.ollamaBaseUrl, model, settings.ollamaContextTokens);
 
@@ -89,5 +101,6 @@ export async function listModelsFor(
   if (providerId === 'claude') return CLAUDE_MODELS;
   if (providerId === 'gemini') return GEMINI_MODELS;
   if (providerId === 'openai') return OPENAI_MODELS;
+  if (providerId === 'deepseek') return DEEPSEEK_MODELS;
   return new OllamaProvider(settings.ollamaBaseUrl, '').listModels();
 }

@@ -124,8 +124,14 @@ Formato (obligatorio):
   diez preguntas, escribe diez líneas.
 - Si una pregunta admite varias opciones correctas, todas en su misma línea.
   Si es de rellenar, el valor exacto.
-- Si dudas en una, empieza ESA línea por "DUDA:" y da igualmente tu mejor
-  opción. Quien lee necesita saber en cuáles arriesga.
+- Responde con la opción a secas. "DUDA:" es la EXCEPCIÓN, no el formato: sólo
+  va delante de una línea cuando de verdad estarías eligiendo entre dos opciones
+  a cara o cruz. Si sabes la respuesta, o si puedes descartar las demás, la línea
+  va limpia.
+- No uses "DUDA:" para curarte en salud. Marcarlo todo no informa de nada: quien
+  lee lo usa para decidir en cuáles arriesga, y si está en todas las líneas deja
+  de servir y da lo mismo que no estuviera.
+- Cuando lo uses, da igualmente tu mejor opción detrás. Nunca es "DUDA:" a secas.
 - Si de una pregunta no se ven todas las opciones, su línea es
   "NO SE VE: " y qué falta, en lugar de responder a medias.
 - Esas dos marcas van traducidas al idioma del test: en un examen en inglés se

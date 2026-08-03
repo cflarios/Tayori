@@ -59,7 +59,7 @@ export interface CaptureStatus {
 
 // ──────────────────────────────── Providers ─────────────────────────────────
 
-export type LLMProviderId = 'claude' | 'gemini' | 'openai' | 'ollama';
+export type LLMProviderId = 'claude' | 'gemini' | 'openai' | 'deepseek' | 'ollama';
 export type STTProviderId =
   | 'gemini-live'
   | 'whisper-local'
@@ -670,6 +670,7 @@ export const DEFAULT_SETTINGS: Settings = {
     claude: 'claude-sonnet-5',
     gemini: 'gemini-2.5-flash',
     openai: 'gpt-5.6-terra',
+    deepseek: 'deepseek-v4-flash',
     ollama: '',
   },
   // `same` reproduce el comportamiento de antes de que esto existiera.
@@ -957,6 +958,7 @@ const READY_BY_PROVIDER: Record<
   claude: (_settings, presence) => presence.anthropic,
   gemini: (_settings, presence) => presence.google,
   openai: (_settings, presence) => presence.openai,
+  deepseek: (_settings, presence) => presence.deepseek,
 };
 
 export function providerIsReady(settings: Settings, presence: SecretsPresence): boolean {
@@ -975,6 +977,13 @@ export interface SecretsPresence {
    * única que sólo sirve para responder.
    */
   openai: boolean;
+  /**
+   * API key de DeepSeek.
+   *
+   * Sólo responde: no tienen modelos de transcripción, así que la voz la sigue
+   * resolviendo otro motor.
+   */
+  deepseek: boolean;
   /**
    * Contraseña del broker MQTT.
    *

@@ -60,7 +60,12 @@ import { initLogging, logLocation, readLogTail } from './logging';
 import { getSystemSpecs } from './system-specs';
 import { mqttBridge } from './bridge/mqtt';
 import { phoneBridge } from './bridge/phone';
-import { installOllama, pullModel, wingetAvailable } from './setup/ollama-install';
+import {
+  installOllama,
+  ollamaInstalled,
+  pullModel,
+  wingetAvailable,
+} from './setup/ollama-install';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -387,6 +392,7 @@ function registerIpcHandlers(): void {
    * enseña el enlace a ollama.com en lugar de un botón que va a fallar.
    */
   ipcMain.handle(IPC.setupCanInstall, () => wingetAvailable());
+  ipcMain.handle(IPC.setupOllamaInstalled, () => ollamaInstalled());
 
   ipcMain.handle(IPC.setupInstallOllama, () =>
     installOllama(settingsStore.get().ollamaBaseUrl, (progress) =>
