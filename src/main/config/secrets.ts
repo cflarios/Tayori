@@ -2,6 +2,7 @@ import { app, safeStorage } from 'electron';
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { SecretKey, SecretsPresence } from '@shared/types';
+import { m } from '../i18n';
 
 /**
  * Almacenamiento de API keys cifrado con `safeStorage`, que en Windows delega
@@ -43,9 +44,7 @@ function write(data: SecretsFile): void {
  */
 function assertEncryptionAvailable(): void {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error(
-      'El cifrado del sistema no está disponible; no se guardará la API key en texto plano.'
-    );
+    throw new Error(m('err.noEncryption'));
   }
 }
 

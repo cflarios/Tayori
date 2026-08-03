@@ -137,7 +137,9 @@ describe('store de conversaciones', () => {
 describe('conversationTitle', () => {
   it('recorta títulos largos y normaliza espacios', () => {
     expect(conversationTitle('  Hola   mundo  ')).toBe('Hola mundo');
-    expect(conversationTitle('')).toBe('Conversación sin título');
+    // Sin nada aprovechable devuelve vacío, no un rótulo: el «sin título» lo
+    // pone el dashboard, que es el único que sabe en qué idioma se está viendo.
+    expect(conversationTitle('')).toBe('');
     expect(conversationTitle('x'.repeat(200))).toHaveLength(58);
   });
 });

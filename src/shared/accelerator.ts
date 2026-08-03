@@ -73,9 +73,16 @@ function normalizeKey(raw: string): string | null {
   return null;
 }
 
-/** Cómo se enseña un acelerador: `Control+Shift+S` → `Ctrl + Shift + S`. */
-export function formatAccelerator(accelerator: string): string {
-  if (!accelerator) return 'Sin asignar';
+/**
+ * Cómo se enseña un acelerador: `Control+Shift+S` → `Ctrl + Shift + S`.
+ *
+ * El texto de «sin asignar» entra por parámetro porque esta función es pura y
+ * no sabe en qué idioma está la interfaz. Quien la llama sí: el dashboard le
+ * pasa su clave traducida, y el guion queda para los tests y para cualquier uso
+ * que no tenga una tabla a mano.
+ */
+export function formatAccelerator(accelerator: string, unassigned = '—'): string {
+  if (!accelerator) return unassigned;
   return accelerator
     .split('+')
     .map((part) => (part === 'Control' ? 'Ctrl' : part))

@@ -19,11 +19,16 @@ import type { Skill } from '@shared/types';
 export const BUILT_IN_SKILLS: Skill[] = [
   {
     id: 'humanizar',
+    /*
+     * El nombre va dos veces a propósito. `name` es lo que se cuela dentro del
+     * system prompt —«ha activado la instrucción "…"»— y los prompts de esta
+     * app se quedan en español; `nameKey` es lo que lee una persona en el
+     * desplegable, y eso sí sigue al idioma de la interfaz.
+     */
     name: 'Que no suene a IA',
-    description:
-      'Quita las marcas de texto generado: las fórmulas de relleno, el ritmo uniforme y el ' +
-      'vocabulario que delata a un modelo. Para cuando la respuesta se va a leer en voz alta ' +
-      'y tiene que sonar tuya.',
+    nameKey: 'sk.humanizeName',
+    description: '',
+    descriptionKey: 'sk.humanizeDesc',
     builtIn: true,
     instructions: `
 Escribe como escribe una persona que sabe de lo que habla y tiene prisa.

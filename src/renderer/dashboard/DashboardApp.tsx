@@ -21,7 +21,8 @@ import {
   formatAccelerator,
 } from '@shared/accelerator';
 import { translate, UI_LANG_LABEL, UI_LANGS, type UIKey, type UILang } from '@shared/i18n';
-import { LangProvider, renderMarkup, Tx, useT } from '@renderer/i18n';
+import { skillDescription, skillName } from '@shared/skills';
+import { LangProvider, renderMarkup, Tx, useT, useUILang } from '@renderer/i18n';
 import { Icon, type IconName } from './icons';
 import { SetupWizard } from './SetupWizard';
 import type {
@@ -279,7 +280,7 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
         <div className="meter">
           <span className="meter__label">
             <Icon name="mic" size={14} />
-            Yo (micrófono)
+            {t('aud.meterMe')}
           </span>
           <div className="meter__bar">
             <div className="meter__fill" style={{ width: `${Math.min(levels.me * 140, 100)}%` }} />
@@ -288,7 +289,7 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
         <div className="meter">
           <span className="meter__label">
             <Icon name="speaker" size={14} />
-            Ellos (sistema)
+            {t('aud.meterThem')}
           </span>
           <div className="meter__bar">
             <div
@@ -521,7 +522,7 @@ export function DashboardApp() {
       <div className="app">
         <aside className="nav">
           <div className="nav__brand">
-            <div className="nav__eyebrow">Ajustes</div>
+            <div className="nav__eyebrow">{t('nav.eyebrow')}</div>
             <div className="nav__app">Tayori</div>
           </div>
 
@@ -548,9 +549,7 @@ export function DashboardApp() {
               <Icon name="compass" />
               <span className="navitem__label">{t('nav.wizard')}</span>
             </button>
-            <p className="nav__note">
-              Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.
-            </p>
+            <p className="nav__note">{t('nav.footer')}</p>
           </div>
         </aside>
 
@@ -642,6 +641,7 @@ export function DashboardApp() {
  * dos gramáticas distintas para el mismo control.
  */
 function ListenButton({ status }: { status: CaptureStatus }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const listening = status.state === 'listening';
 
@@ -657,19 +657,19 @@ function ListenButton({ status }: { status: CaptureStatus }) {
 
   const label =
     status.state === 'starting'
-      ? 'Iniciando…'
+      ? t('overlay.starting')
       : status.state === 'error'
-        ? 'Error de captura'
+        ? t('overlay.captureError')
         : listening
-          ? 'Escuchando'
-          : 'En pausa';
+          ? t('aud.listening')
+          : t('aud.paused');
 
   return (
     <button
       className="listen"
       data-state={status.state}
       disabled={busy || status.state === 'starting'}
-      title={listening ? 'Detener la escucha' : 'Empezar a escuchar'}
+      title={listening ? t('aud.stopTitle') : t('aud.startTitle')}
       onClick={() => void toggle()}
     >
       <span className="listen__dot" />
@@ -984,7 +984,9 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
       )}
 
       {on && status?.error && (
-        <div className="warn">No se pudo abrir el servidor: {status.error}</div>
+        <div className="warn">
+          {t('ph.serverFailed')} {status.error}
+        </div>
       )}
 
       {/* La comprobación va sobre `status` y no sobre el `running` de arriba
@@ -992,9 +994,7 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
       {on && status?.running && (
         <section className="card">
           <h2 className="card__title">{t('ph.scan')}</h2>
-          <p className="card__hint">
-            Abre la cámara del móvil y apunta. Si prefieres, escribe el enlace a mano — es el mismo.
-          </p>
+          <p className="card__hint">{t('ph.scanHint')}</p>
 
           <div className="pair">
             <QrCode modules={status.qr} />
@@ -1339,7 +1339,7 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
               .filter((skill) => !skill.error)
               .map((skill) => (
                 <option key={skill.id} value={skill.id}>
-                  {skill.name}
+                  {skillName(t, skill)}
                 </option>
               ))}
           </select>
@@ -1362,17 +1362,20 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
               </span>
               <div className="skill__body">
                 <div className="skill__head">
-                  <span className="skill__name">{skill.name}</span>
+                  <span className="skill__name">{skillName(t, skill)}</span>
                   {/* El id va al lado del nombre porque es lo que se teclea tras
                       la barra, y no tiene por qué parecerse al título. */}
                   <code className="skill__id">{skill.id}</code>
                   {skill.builtIn && <span className="skill__tag">{t('sk.builtIn')}</span>}
                 </div>
                 {skill.error ? (
-                  <p className="skill__error">{skill.error}</p>
+                  <p className="skill__error">
+                    {t(skill.error)}
+                    {skill.errorDetail ? ` ${skill.errorDetail}` : ''}
+                  </p>
                 ) : (
                   <p className="skill__desc">
-                    {skill.description || t('sk.noDescription')}
+                    {skillDescription(t, skill) || t('sk.noDescription')}
                   </p>
                 )}
               </div>
@@ -1412,10 +1415,7 @@ function AboutCard() {
       <section className="card">
         <h2 className="card__title">Tayori</h2>
         <p className="card__hint">
-          Un asistente que escucha una reunión o una entrevista, transcribe quién dice qué y te
-          sugiere respuestas en un panel flotante que{' '}
-          <strong>no aparece cuando compartes pantalla</strong>. También resuelve el código o el
-          test que tengas delante, leyéndolo de una captura.
+          <Tx k="about.what" />
         </p>
 
         <Row icon="check" label={t('about.version')}>
@@ -1431,9 +1431,7 @@ function AboutCard() {
 
       <section className="card">
         <h2 className="card__title">{t('about.dataTitle')}</h2>
-        <p className="card__hint">
-          Es lo que conviene tener claro antes de dejarlo escuchando algo importante.
-        </p>
+        <p className="card__hint">{t('about.dataHint')}</p>
 
         <div className="about">
           <p>
@@ -1738,10 +1736,10 @@ function LocalModelGuide() {
   /** El botón de copiar el `pull`, o la confirmación de que ya no hace falta. */
   const action = (model: string): React.ReactNode =>
     has(model) ? (
-      <span className="badge badge--ok">ya instalado</span>
+      <span className="badge badge--ok">{t('local.alreadyInstalled')}</span>
     ) : (
       <button className="btn btn--small" onClick={() => pull(model)}>
-        {copied === model ? '¡copiado!' : `ollama pull ${model}`}
+        {copied === model ? t('local.copied') : `ollama pull ${model}`}
       </button>
     );
 
@@ -1752,31 +1750,31 @@ function LocalModelGuide() {
 
       <div className="specs">
         <span className="specs__item">
-          <strong>{specs.totalMemoryGB} GB</strong> de RAM
+          <strong>{specs.totalMemoryGB} GB</strong> {t('local.ram')}
         </span>
         <span className="specs__item">
-          {specs.cpuCores} núcleos · {specs.cpuModel}
+          {t('local.cores', { cores: specs.cpuCores, cpu: specs.cpuModel })}
         </span>
         {specs.gpu && (
           <span className="specs__item">
-            GPU: <strong>{specs.gpu}</strong>
+            {t('local.gpu')} <strong>{specs.gpu}</strong>
           </span>
         )}
       </div>
 
       <p className="card__hint" style={{ marginTop: 12, marginBottom: 4 }}>
-        {advice.tier}
+        {t(advice.tier, { ram: specs.totalMemoryGB })}
       </p>
 
-      <Row icon="waveform" label="Para conversar" desc={advice.chat.note}>
+      <Row icon="waveform" label={t('local.forChat')} desc={t(advice.chat.note)}>
         {action(advice.chat.model)}
       </Row>
 
-      <Row icon="monitor" label="Para leer la pantalla" desc={advice.vision.note}>
+      <Row icon="monitor" label={t('local.forScreen')} desc={t(advice.vision.note)}>
         {action(advice.vision.model)}
       </Row>
 
-      <div className="warn">{advice.caveat}</div>
+      <div className="warn">{t(advice.caveat)}</div>
 
       {/*
         La tarjeta responde "¿qué me pongo?" en dos líneas, que es lo que hace
@@ -1807,11 +1805,7 @@ function LocalModelGuide() {
       )}
 
       <p className="card__hint" style={{ marginTop: 12, marginBottom: 0 }}>
-        La VRAM de la tarjeta gráfica —el dato que de verdad decide si un modelo va rápido— no se
-        puede leer de forma fiable desde aquí, así que <strong>no se estima</strong>: estas
-        recomendaciones se basan en la RAM. Si el modelo no cabe en la GPU, Ollama lo reparte con la
-        CPU y va mucho más lento, aunque quepa en memoria. Los nombres pueden cambiar con el tiempo;
-        la lista viva está en <code>ollama.com/library</code>.
+        <Tx k="local.vramNote" />
       </p>
     </section>
   );
@@ -1878,11 +1872,11 @@ function HotkeyField({
       label={t(HOTKEY_LABEL[action])}
       desc={
         rejected
-          ? 'Un atajo global necesita al menos Ctrl, Alt o Shift: sin modificador, esa tecla dejaría de funcionar en todo el sistema.'
+          ? t('hk.needsModifier')
           : failed
-            ? 'Windows rechazó este atajo: otra aplicación ya lo tiene tomado. Elige otro.'
+            ? t('hk.taken')
             : duplicated
-              ? 'Repetido: dos acciones con el mismo atajo hacen que sólo funcione una.'
+              ? t('hk.duplicated')
               : undefined
       }
     >
@@ -1891,7 +1885,11 @@ function HotkeyField({
         readOnly
         className={`hotkey${failed || duplicated || rejected ? ' hotkey--bad' : ''}`}
         style={{ width: 190, flex: 'none' }}
-        value={capturing ? 'Pulsa la combinación…' : formatAccelerator(accelerator)}
+        value={
+          capturing
+            ? t('hk.pressCombo')
+            : formatAccelerator(accelerator, t('hk.unassigned'))
+        }
         onFocus={() => setCapturing(true)}
         onBlur={() => {
           setCapturing(false);
@@ -1930,19 +1928,14 @@ function HotkeysCard({
     <section className="card">
       {failed.length > 0 && (
         <div className="warn">
-          {failed.length === 1 ? (
-            <>
-              Windows rechazó este atajo: <strong>{formatAccelerator(failed[0] ?? '')}</strong>.
-              Otra aplicación lo tiene tomado, así que <strong>no hará nada</strong> hasta que
-              elijas otro.
-            </>
-          ) : (
-            <>
-              Windows rechazó estos atajos:{' '}
-              <strong>{failed.map(formatAccelerator).join(', ')}</strong>. Otra aplicación los tiene
-              tomados, así que <strong>no harán nada</strong> hasta que elijas otros.
-            </>
-          )}
+          {/* La negrita va DENTRO de la clave: en inglés el énfasis no cae en el
+              mismo sitio de la frase, y partirla en tres trozos lo fijaría. */}
+          <Tx
+            k={failed.length === 1 ? 'hk.rejectedOne' : 'hk.rejectedMany'}
+            vars={{
+              keys: failed.map((accel) => formatAccelerator(accel)).join(', '),
+            }}
+          />
         </div>
       )}
 
@@ -2020,8 +2013,7 @@ function DiagnosticsCard() {
   return (
     <section className="card">
       <p className="card__hint">
-        El registro del proceso principal se guarda en{' '}
-        <code>{location || 'tu carpeta de datos'}</code>.
+        <Tx k="diag.logAt" vars={{ where: location || t('diag.dataFolder') }} />
       </p>
 
       <Row
@@ -2042,7 +2034,7 @@ function DiagnosticsCard() {
 
       <div className="field" style={{ marginTop: 12 }}>
         <button className="btn" onClick={refresh}>
-          Actualizar registro
+          {t('diag.refresh')}
         </button>
         <button className="btn" disabled={!log} onClick={() => void copy()}>
           {copied ? t('diag.copied') : t('diag.copy')}
@@ -2056,12 +2048,27 @@ function DiagnosticsCard() {
 
 // ────────────────────────────── Historial ──────────────────────────────
 
-const dateFormat = new Intl.DateTimeFormat('es-ES', {
-  day: '2-digit',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
+/**
+ * La fecha de cada conversación, en el idioma de la interfaz.
+ *
+ * Estaba clavada a `es-ES`, así que con la app en inglés la lista decía
+ * «03 ago, 18:42». Se construye por idioma y no una vez porque `Intl` no acepta
+ * que le cambien el locale a un formateador ya creado.
+ */
+const DATE_FORMAT: Record<UILang, Intl.DateTimeFormat> = {
+  en: new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }),
+  es: new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }),
+};
 
 /**
  * Historial de conversaciones.
@@ -2073,6 +2080,7 @@ const dateFormat = new Intl.DateTimeFormat('es-ES', {
  */
 function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
+  const dateFormat = DATE_FORMAT[useUILang()];
   const [items, setItems] = useState<ConversationSummary[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Conversation | null>(null);
@@ -2155,7 +2163,7 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
               className="conv__title"
               onClick={() => setOpenId(openId === item.id ? null : item.id)}
             >
-              <span className="conv__name">{item.title}</span>
+              <span className="conv__name">{item.title || t('hist.untitled')}</span>
               <span className="conv__meta">
                 {t('hist.meta', {
                   date: dateFormat.format(item.startedAt),
@@ -2687,7 +2695,11 @@ function TranscriptionCard({
         <div className="warn">
           <Tx
             k="stt.forcedWarn"
-            vars={{ lang: LANGUAGE_LABEL[settings.language] ?? settings.language }}
+            vars={{
+              lang: LANGUAGE_LABEL[settings.language]
+                ? t(LANGUAGE_LABEL[settings.language]!)
+                : settings.language,
+            }}
           />
         </div>
       )}
@@ -2709,7 +2721,7 @@ function TranscriptionCard({
             >
               {WHISPER_MODEL_OPTIONS.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.label}
+                  {t(m.label)}
                 </option>
               ))}
             </select>
@@ -2787,19 +2799,26 @@ const SPEAKER_LABEL: Record<'me' | 'them' | 'any', UIKey> = {
   any: 'beh.speakerAnyShort',
 };
 
-const LANGUAGE_LABEL: Record<string, string> = {
-  es: 'Español',
-  en: 'Inglés',
-  pt: 'Portugués',
-  fr: 'Francés',
-  de: 'Alemán',
+/**
+ * El idioma del reconocedor, escrito en el idioma de la interfaz.
+ *
+ * Son las mismas claves que rotulan el desplegable de arriba: el aviso de
+ * «estás forzando X» tiene que decir X exactamente igual que la opción que se
+ * acaba de elegir, o parecen dos ajustes distintos.
+ */
+const LANGUAGE_LABEL: Record<string, UIKey> = {
+  es: 'stt.langEs',
+  en: 'stt.langEn',
+  pt: 'stt.langPt',
+  fr: 'stt.langFr',
+  de: 'stt.langDe',
 };
 
 /** Duplicado a propósito: el renderer no puede importar del proceso main. */
-const WHISPER_MODEL_OPTIONS = [
-  { id: 'tiny', label: 'Tiny (74 MB) — el más rápido' },
-  { id: 'base', label: 'Base (141 MB) — justo en español' },
-  { id: 'small', label: 'Small (465 MB) — recomendado en español' },
+const WHISPER_MODEL_OPTIONS: { id: string; label: UIKey }[] = [
+  { id: 'tiny', label: 'stt.whisperTiny' },
+  { id: 'base', label: 'stt.whisperBase' },
+  { id: 'small', label: 'stt.whisperSmall' },
 ];
 
 // ────────────────────────────── Comportamiento ──────────────────────────────
@@ -3232,7 +3251,7 @@ function ContextSlot({
           }}
         />
       </div>
-      <p className="slot__hint">{help.hint}</p>
+      <p className="slot__hint">{t(help.hint)}</p>
       <textarea
         placeholder={t(help.placeholder)}
         value={pack?.content ?? ''}

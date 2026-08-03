@@ -7,6 +7,7 @@ import qrcode from 'qrcode-generator';
 import { IPC } from '@shared/ipc';
 import type { Answer, CaptureStatus, PhoneMirrorStatus, Settings } from '@shared/types';
 import { renderPhonePage } from './phone-page';
+import { DEFAULT_UI_LANG, translate, type UIKey, type UILang } from '@shared/i18n';
 
 /**
  * Espejo en el teléfono: un servidor HTTP diminuto que sirve las respuestas a
@@ -78,6 +79,19 @@ class PhoneBridge extends EventEmitter {
   private lan = false;
   private failure: string | undefined;
 
+  /**
+   * El idioma en el que se sirve la página, copiado de los ajustes.
+   *
+   * Se guarda en lugar de leer el almacén desde aquí: este archivo no toca
+   * Electron —es un servidor HTTP y nada más— y traerse `settingsStore` sólo
+   * para una cadena obligaría a levantar medio proceso principal para probarlo.
+   */
+  private lang: UILang = DEFAULT_UI_LANG;
+
+  private say(key: UIKey): string {
+    return translate(this.lang, key);
+  }
+
   /** Lo que ya ha pasado, para quien abre el teléfono a mitad de una respuesta. */
   private answers: Answer[] = [];
   private capture: CaptureStatus | null = null;
@@ -88,6 +102,10 @@ class PhoneBridge extends EventEmitter {
 
   /** Arranca, para o reinicia según los ajustes. Idempotente. */
   apply(settings: Settings): void {
+    // Se copia siempre, incluso al apagarlo: cambiar el idioma con el espejo
+    // parado y encenderlo después tiene que dar la página en el idioma nuevo.
+    this.lang = settings.uiLanguage;
+
     if (!settings.phoneMirrorEnabled) {
       this.stop();
       return;
@@ -231,12 +249,12 @@ class PhoneBridge extends EventEmitter {
       // El caso normal aquí no es un intruso, es un enlace viejo tras reiniciar
       // el espejo. El mensaje dice qué hacer en vez de "403".
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Enlace caducado. Vuelve a escanear el codigo QR del dashboard.\n');
+      res.end(`${this.say('ph.pgExpiredPlain')}\n`);
       return;
     }
 
     if (url.pathname === '/') {
-      const page = renderPhonePage();
+      const page = renderPhonePage(this.lang);
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
         // Nada de esto debe quedarse en la caché del móvil: el token va en la
@@ -255,7 +273,7 @@ class PhoneBridge extends EventEmitter {
     }
 
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('No hay nada aqui.\n');
+    res.end(`${this.say('ph.pgNotFound')}\n`);
   }
 
   private openStream(res: ServerResponse): void {

@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { GoogleGenAI, Modality, type LiveServerMessage, type Session } from '@google/genai';
 import type { Speaker, STTProviderId } from '@shared/types';
 import type { STTProvider, STTStartOptions } from './types';
+import { m } from '../i18n';
 
 /**
  * Transcripción en vivo con la Live API de Gemini sobre WebSocket.
@@ -90,7 +91,12 @@ async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
       promise,
       new Promise<never>((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error(`${label}: sin respuesta en ${CONNECT_TIMEOUT_MS / 1000}s`)),
+          () =>
+            reject(
+              new Error(
+                m('err.handshakeTimeout', { label, seconds: CONNECT_TIMEOUT_MS / 1000 })
+              )
+            ),
           CONNECT_TIMEOUT_MS
         );
       }),
@@ -131,7 +137,9 @@ function rejectOnEarlyClose(): {
       const reason = event.reason?.trim();
       reject(
         new Error(
-          reason ? `${reason} (código ${event.code ?? '?'})` : `cerrado con código ${event.code ?? '?'}`
+          reason
+            ? m('err.closedWithReason', { reason, code: event.code ?? '?' })
+            : m('err.closedWithCode', { code: event.code ?? '?' })
         )
       );
     },
@@ -421,9 +429,7 @@ export class GeminiLiveSTT implements STTProvider {
       }
     }
 
-    throw new Error(
-      `Ningún modelo de Gemini Live está disponible para esta API key.\n${failures.join('\n')}`
-    );
+    throw new Error(m('err.geminiLiveNoModel', { failures: failures.join('\n') }));
   }
 
   push(speaker: Speaker, pcm: Buffer): void {
@@ -450,10 +456,8 @@ export class GeminiLiveSTT implements STTProvider {
       return {
         ok: true,
         detail:
-          `Conectado con "${model}" (salida ${modality}).` +
-          (modality === Modality.AUDIO
-            ? ' Este modelo obliga a devolver audio, que se descarta: transcribe bien, pero esa salida se paga.'
-            : ''),
+          m('diag.geminiLiveOk', { model, modality }) +
+          (modality === Modality.AUDIO ? ` ${m('diag.geminiLiveAudioOut')}` : ''),
       };
     } catch (err) {
       return { ok: false, detail: err instanceof Error ? err.message : String(err) };

@@ -179,7 +179,7 @@ describe('matchSkills', () => {
 
   it('no ofrece una skill rota', () => {
     // Elegirla no haría nada, porque `getSkill` la descarta igualmente.
-    const rota = [skill({ id: 'rota', error: 'sin instrucciones' })];
+    const rota = [skill({ id: 'rota', error: 'sk.errNoBody' })];
     expect(matchSkills('/', rota)).toHaveLength(0);
   });
 

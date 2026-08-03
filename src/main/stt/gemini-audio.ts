@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { GoogleGenAI, Type } from '@google/genai';
 import type { Speaker, STTProviderId } from '@shared/types';
 import { EnergyVAD, type Utterance } from '../core/vad';
+import { m } from '../i18n';
 import { toWav } from './wav';
 import type { STTProvider, STTStartOptions } from './types';
 
@@ -264,7 +265,7 @@ export class GeminiAudioSTT implements STTProvider {
         contents: 'Di OK.',
         config: { maxOutputTokens: 8 },
       });
-      return { ok: true, detail: `Conectado con "${this.model}" (audio directo).` };
+      return { ok: true, detail: m('diag.geminiAudioOk', { model: this.model }) };
     } catch (err) {
       return { ok: false, detail: err instanceof Error ? err.message : String(err) };
     }

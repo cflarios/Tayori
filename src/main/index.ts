@@ -23,6 +23,7 @@ import type {
   Settings,
 } from '@shared/types';
 import { settingsStore } from './config/store';
+import { m } from './i18n';
 import { clearSecret, getPresence, setSecret } from './config/secrets';
 import {
   clearHistory,
@@ -143,14 +144,16 @@ function registerIpcHandlers(): void {
     const next = settingsStore.update(patch);
 
     if (patch.autoTriggerSpeaker && patch.autoTriggerSpeaker !== previous.autoTriggerSpeaker) {
-      const quien = patch.autoTriggerSpeaker === 'them' ? 'el interlocutor' : 'ti';
       console.log(
         `[auto] el disparo pasa a "${patch.autoTriggerSpeaker}" para seguir a ` +
           `audioSources="${next.audioSources}"`
       );
       // Se dice: es un ajuste que el usuario no pidió, aunque sea el que hace
       // que lo que sí pidió funcione.
-      broadcast(IPC.onNotice, `Ahora respondo a lo que diga ${quien}.`);
+      broadcast(
+        IPC.onNotice,
+        m(patch.autoTriggerSpeaker === 'them' ? 'notice.nowThem' : 'notice.nowMe')
+      );
     }
 
     if (patch.stealthEnabled !== undefined && patch.stealthEnabled !== previous.stealthEnabled) {
@@ -379,8 +382,9 @@ function registerIpcHandlers(): void {
    */
   ipcMain.handle(IPC.guideOpen, async () => {
     try {
-      const file = join(app.getPath('userData'), 'guia-modelos.html');
-      writeFileSync(file, renderModelGuide(await getSystemSpecs()), 'utf-8');
+      const file = join(app.getPath('userData'), 'model-guide.html');
+      const specs = await getSystemSpecs();
+      writeFileSync(file, renderModelGuide(specs, settingsStore.get().uiLanguage), 'utf-8');
       await shell.openExternal(pathToFileURL(file).href);
       return { ok: true, path: file };
     } catch (err) {

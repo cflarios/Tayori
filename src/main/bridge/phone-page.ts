@@ -1,10 +1,19 @@
+import { translate, type UIKey, type UILang } from '@shared/i18n';
+
 /**
  * La página que ve el teléfono.
  *
- * Es un HTML autocontenido y **sin ninguna interpolación**: el token no se
- * escribe aquí dentro, lo lee el propio script de `location.search`. Eso no es
- * casualidad, es lo que hace que esta función no tenga superficie de inyección
- * que auditar — no hay ningún dato del usuario que pueda acabar en el marcado.
+ * Es un HTML autocontenido y **ningún dato del usuario entra en el marcado**:
+ * el token no se escribe aquí dentro, lo lee el propio script de
+ * `location.search`. Eso no es casualidad, es lo que deja esta función casi sin
+ * superficie de inyección que auditar.
+ *
+ * Lo único que se interpola es la **tabla de traducciones**, que es texto
+ * nuestro y no de nadie de fuera. Aun así viaja como un JSON con los `<`
+ * escapados: la regla de que nada que se meta en un `<script>` pueda cerrarlo
+ * no admite excepciones por «esto lo escribimos nosotros», porque el día que
+ * alguien añada una clave con marcado dentro ya nadie se acuerda de la
+ * excepción. El script lo lee y lo pinta con `textContent`.
  *
  * Tampoco carga nada de fuera. Se sirve desde el propio proceso principal a un
  * teléfono que puede no tener salida a internet (una red de invitados, un
@@ -17,15 +26,39 @@
  * fiar como cualquier otra entrada: un `<img onerror>` en una respuesta no
  * puede convertirse en código ejecutándose en el teléfono.
  */
-export function renderPhonePage(): string {
+export function renderPhonePage(lang: UILang = 'en'): string {
+  /** Lo que el script de la página necesita decir, ya traducido. */
+  const words: Record<string, string> = {};
+  const say = (short: string, key: UIKey): void => {
+    words[short] = translate(lang, key);
+  };
+  say('title', 'ph.pgTitle');
+  say('connecting', 'ph.pgConnecting');
+  say('connected', 'ph.pgConnected');
+  say('reconnecting', 'ph.pgReconnecting');
+  say('expired', 'ph.pgExpired');
+  say('empty', 'ph.pgEmpty');
+  say('foot', 'ph.pgFoot');
+  say('thinking', 'ph.pgThinking');
+  say('failed', 'ph.pgFailed');
+  say('cancelled', 'ph.pgCancelled');
+  say('writing', 'ph.pgWriting');
+  say('capListening', 'ph.pgListening');
+  say('capError', 'ph.pgCaptureError');
+  say('capPaused', 'ph.pgPaused');
+
+  // El escape estándar de JSON dentro de un `<script>`: sin él, un `</script>`
+  // en cualquier valor cerraría la etiqueta antes de tiempo.
+  const dict = JSON.stringify(words).replace(/</g, '\\u003c');
+
   return `<!doctype html>
-<html lang="es">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'">
 <meta name="color-scheme" content="dark">
-<title>Espejo</title>
+<title></title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
@@ -81,20 +114,34 @@ export function renderPhonePage(): string {
 <body data-link="wait">
   <header>
     <span class="dot"></span>
-    <span id="link">Conectando…</span>
+    <span id="link"></span>
     <span id="capture"></span>
   </header>
   <main id="list"></main>
-  <div id="empty">Aquí aparecerán las respuestas.<br>Mantén la pantalla encendida.</div>
-  <footer>Sólo mientras el ordenador esté encendido y en la misma red.</footer>
+  <div id="empty"></div>
+  <footer id="foot"></footer>
 
 <script>
 (function () {
+  /* Los textos, escritos por el proceso principal en el idioma de la app. Van
+     todos a nodos de texto: aquí no se construye marcado con ellos. */
+  var T = ${dict};
+
   var list = document.getElementById('list');
   var empty = document.getElementById('empty');
   var link = document.getElementById('link');
   var capture = document.getElementById('capture');
   var token = new URLSearchParams(location.search).get('t') || '';
+
+  document.title = T.title;
+  link.textContent = T.connecting;
+  document.getElementById('foot').textContent = T.foot;
+  /* Dos frases y un salto de línea, sin marcado: un <br> obligaría a partir la
+     clave en dos y a que el traductor no viera la frase entera. */
+  T.empty.split('\\n').forEach(function (line, i) {
+    if (i) empty.appendChild(document.createElement('br'));
+    empty.appendChild(document.createTextNode(line));
+  });
   /* id → nodo, para actualizar EN SITIO. \`answer\` llega en cada tick del
      streaming: sin esto serían decenas de copias de la misma respuesta. */
   var nodes = new Map();
@@ -148,19 +195,19 @@ export function renderPhonePage(): string {
     var body = node.querySelector('.a');
     if (answer.status === 'thinking') {
       body.className = 'a pending';
-      body.textContent = 'Pensando…';
+      body.textContent = T.thinking;
     } else if (answer.status === 'error') {
       body.className = 'a failed';
-      body.textContent = answer.error || 'Falló la respuesta.';
+      body.textContent = answer.error || T.failed;
     } else if (answer.status === 'aborted' && !answer.text) {
       body.className = 'a pending';
-      body.textContent = 'Cancelada.';
+      body.textContent = T.cancelled;
     } else {
       body.className = 'a';
       paint(body, answer.text || '');
     }
     node.querySelector('.meta').textContent =
-      (answer.model || '') + (answer.status === 'streaming' ? ' · escribiendo…' : '');
+      (answer.model || '') + (answer.status === 'streaming' ? ' · ' + T.writing : '');
   }
 
   function trim() {
@@ -182,13 +229,13 @@ export function renderPhonePage(): string {
   function showCapture(status) {
     if (!status) { capture.textContent = ''; return; }
     capture.textContent =
-      status.state === 'listening' ? 'escuchando' :
-      status.state === 'error' ? 'error de captura' : 'en pausa';
+      status.state === 'listening' ? T.capListening :
+      status.state === 'error' ? T.capError : T.capPaused;
   }
 
   var source = new EventSource('/events?t=' + encodeURIComponent(token));
 
-  source.addEventListener('open', function () { setLink('open', 'Conectado'); });
+  source.addEventListener('open', function () { setLink('open', T.connected); });
 
   /* El primer mensaje trae lo que ya había: quien abre el teléfono a mitad de
      una respuesta tiene que verla, no esperar a la siguiente. */
@@ -197,7 +244,7 @@ export function renderPhonePage(): string {
     clear();
     for (var i = data.answers.length - 1; i >= 0; i--) render(data.answers[i]);
     showCapture(data.capture);
-    setLink('open', 'Conectado');
+    setLink('open', T.connected);
   });
 
   source.addEventListener('answer', function (event) { render(JSON.parse(event.data)); });
@@ -208,9 +255,9 @@ export function renderPhonePage(): string {
      causa normal en un móvil es la pantalla bloqueada, no un fallo. */
   source.addEventListener('error', function () {
     if (source.readyState === EventSource.CLOSED) {
-      setLink('lost', 'Enlace caducado — vuelve a escanear el código');
+      setLink('lost', T.expired);
     } else {
-      setLink('lost', 'Reconectando…');
+      setLink('lost', T.reconnecting);
     }
   });
 })();

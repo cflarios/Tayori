@@ -1,3 +1,4 @@
+import { DEFAULT_UI_LANG, translate, type UIKey, type UILang } from '@shared/i18n';
 import { TARGET_SAMPLE_RATE, type Speaker } from '@shared/types';
 import { PCM_WORKLET_NAME, PCM_WORKLET_SOURCE, type WorkletMessage } from './pcm-worklet';
 
@@ -9,6 +10,30 @@ import { PCM_WORKLET_NAME, PCM_WORKLET_SOURCE, type WorkletMessage } from './pcm
  * Mantenerlas separadas es lo que permite saber quién habla sin diarización:
  * el hablante se deduce del stream de origen.
  */
+
+/**
+ * Traducir desde la ventana oculta.
+ *
+ * Sus errores **acaban en el overlay y en el dashboard** —«no se pudo abrir el
+ * micrófono» sale por el mismo sitio que cualquier otro fallo de captura—, así
+ * que tienen que salir en el idioma de la interfaz. No hay React aquí para
+ * proveerlo por contexto: se lee una vez y se sigue el cambio, que es todo lo
+ * que hace falta para tres cadenas.
+ */
+let uiLang: UILang = DEFAULT_UI_LANG;
+
+export function watchUILang(): void {
+  void window.api.settings.get().then((settings) => {
+    uiLang = settings.uiLanguage;
+  });
+  window.api.settings.onChange((settings) => {
+    uiLang = settings.uiLanguage;
+  });
+}
+
+export function t(key: UIKey, vars?: Record<string, string | number>): string {
+  return translate(uiLang, key, vars);
+}
 
 export interface CaptureCallbacks {
   onChunk: (speaker: Speaker, pcm: ArrayBuffer) => void;
@@ -62,7 +87,7 @@ async function buildLane(
   };
 
   node.onprocessorerror = () => {
-    callbacks.onError(`El procesador de audio de "${speaker}" falló.`);
+    callbacks.onError(t('err.workletFailed', { speaker }));
   };
 
   source.connect(node);
@@ -83,9 +108,7 @@ async function captureLoopback(): Promise<MediaStream> {
   }
 
   if (stream.getAudioTracks().length === 0) {
-    throw new Error(
-      'La captura de pantalla no devolvió audio. Comprueba que Windows tenga un dispositivo de salida activo.'
-    );
+    throw new Error(t('err.noLoopbackAudio'));
   }
   return stream;
 }
@@ -137,11 +160,9 @@ export async function startCapture(
       // escuchando la reunión. Si el micrófono ERA la única fuente pedida, no
       // hay nada que degradar: es un fallo.
       if (loopbackActive) {
-        callbacks.onError(
-          `No se pudo abrir el micrófono (se sigue escuchando la reunión): ${detail}`
-        );
+        callbacks.onError(t('err.micDegraded', { detail }));
       } else {
-        throw new Error(`No se pudo abrir el micrófono: ${detail}`, { cause: err });
+        throw new Error(t('err.micFailed', { detail }), { cause: err });
       }
     }
   }

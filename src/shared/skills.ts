@@ -1,3 +1,4 @@
+import type { UIKey } from './i18n';
 import type { Skill } from './types';
 
 /**
@@ -31,6 +32,30 @@ import type { Skill } from './types';
  * de los chats, y `$` está donde `/` cuesta en algunas distribuciones.
  */
 export const SKILL_PREFIXES = ['/', '$'] as const;
+
+/**
+ * Cómo se llama una skill **para quien la lee**.
+ *
+ * Las del usuario traen el nombre en su frontmatter y ahí no hay nada que
+ * traducir; las de serie las escribimos nosotros, así que llevan clave. Vive
+ * aquí y no en cada pantalla porque el nombre se pinta en tres sitios —el
+ * desplegable del overlay, la lista del dashboard y el autocompletado— y tres
+ * copias de este `??` acabarían discrepando.
+ */
+export function skillName(
+  t: (key: UIKey) => string,
+  skill: Pick<Skill, 'name' | 'nameKey'>
+): string {
+  return skill.nameKey ? t(skill.nameKey) : skill.name;
+}
+
+/** Lo mismo con la descripción. Puede salir vacía: no todas traen una. */
+export function skillDescription(
+  t: (key: UIKey) => string,
+  skill: Pick<Skill, 'description' | 'descriptionKey'>
+): string {
+  return skill.descriptionKey ? t(skill.descriptionKey) : skill.description;
+}
 
 /**
  * El id de una skill sale del **nombre de su carpeta**, no del frontmatter.
@@ -69,12 +94,7 @@ export function parseSkillFile(raw: string, id: string, builtIn = false): Skill 
 
   const match = /^---[ \t]*\n([\s\S]*?)\n---[ \t]*(?:\n|$)/.exec(text.trimStart());
   if (!match) {
-    return {
-      ...skill,
-      error:
-        'SKILL.md no empieza por un bloque de frontmatter entre "---". Añade al menos ' +
-        'un name y una description.',
-    };
+    return { ...skill, error: 'sk.errNoFrontmatter' };
   }
 
   const fields = parseFrontmatter(match[1] ?? '');
@@ -92,7 +112,7 @@ export function parseSkillFile(raw: string, id: string, builtIn = false): Skill 
    * que este proyecto persigue.
    */
   if (!body) {
-    return { ...skill, error: 'El SKILL.md no tiene instrucciones debajo del frontmatter.' };
+    return { ...skill, error: 'sk.errNoBody' };
   }
 
   return skill;

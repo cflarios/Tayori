@@ -13,6 +13,7 @@ import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { m } from '../i18n';
 
 /**
  * Descarga y verificación de lo que necesita Whisper local: el ejecutable de
@@ -203,9 +204,7 @@ export async function ensureBinary(onProgress?: (p: DownloadProgress) => void): 
     await promisify(execFile)('tar', ['-xf', zip, '-C', dir]);
   } catch (err) {
     throw new Error(
-      `No se pudo descomprimir el binario de Whisper: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
+      m('err.whisperUnzip', { detail: err instanceof Error ? err.message : String(err) }),
       { cause: err }
     );
   } finally {
@@ -214,7 +213,7 @@ export async function ensureBinary(onProgress?: (p: DownloadProgress) => void): 
 
   const binary = findWhisperBinary();
   if (!binary) {
-    throw new Error('El zip de whisper.cpp se descomprimió pero no contenía el ejecutable.');
+    throw new Error(m('err.whisperNoExe'));
   }
   return binary;
 }

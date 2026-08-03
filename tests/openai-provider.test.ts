@@ -191,9 +191,10 @@ describe('OpenAIProvider · lo que vuelve', () => {
     });
 
     const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    // Sin ajustes legibles, `m()` cae al idioma por defecto, que es el inglés.
     await expect(
       collect(provider.streamAnswer(request(), new AbortController().signal))
-    ).rejects.toThrow(/presupuesto razonando/);
+    ).rejects.toThrow(/spent its whole budget reasoning/);
   });
 
   it('un modelo que no razona se aprende en caliente y no vuelve a fallar', async () => {

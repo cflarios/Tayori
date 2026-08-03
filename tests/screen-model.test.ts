@@ -9,6 +9,7 @@ import {
   screenModelFor,
   type Settings,
 } from '../src/shared/types';
+import { translate } from '../src/shared/i18n';
 
 const settings = (patch: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, ...patch });
 
@@ -123,7 +124,10 @@ describe('adviseLocalModels', () => {
       expect(advice.chat.model).toBeTruthy();
       expect(advice.vision.model).toBeTruthy();
       expect(advice.caveat).toBeTruthy();
-      expect(advice.tier).toContain(String(totalMemoryGB));
+      // El tramo sale como clave con un hueco: la cifra la pone quien pinta.
+      expect(translate('en', advice.tier, { ram: totalMemoryGB })).toContain(
+        String(totalMemoryGB)
+      );
     }
   });
 
@@ -137,7 +141,8 @@ describe('adviseLocalModels', () => {
     // Es la parte honesta de la recomendación: con 4 GB el modelo cabe y aun
     // así se equivoca leyendo capturas, que es lo que hay que advertir.
     const advice = adviseLocalModels({ totalMemoryGB: 4, cpuModel: 'x', cpuCores: 4 });
-    expect(advice.caveat).toContain('nube');
+    expect(translate('es', advice.caveat)).toContain('nube');
+    expect(translate('en', advice.caveat)).toContain('cloud');
   });
 });
 

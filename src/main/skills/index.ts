@@ -93,7 +93,7 @@ function loadSkills(): Skill[] {
           description: '',
           instructions: '',
           builtIn: false,
-          error: 'La carpeta no tiene ningún SKILL.md.',
+          error: 'sk.errNoFile',
         });
         continue;
       }
@@ -107,7 +107,8 @@ function loadSkills(): Skill[] {
           description: '',
           instructions: '',
           builtIn: false,
-          error: `No se pudo leer el SKILL.md: ${err instanceof Error ? err.message : String(err)}`,
+          error: 'sk.errUnreadable',
+          errorDetail: err instanceof Error ? err.message : String(err),
         });
       }
     }

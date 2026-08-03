@@ -22,6 +22,7 @@ import { mqttBridge } from '../bridge/mqtt';
 import { phoneBridge } from '../bridge/phone';
 import { saveConversation } from '../config/history';
 import { settingsStore } from '../config/store';
+import { m } from '../i18n';
 import { audioCapture } from '../capture/audio';
 import { captureScreen } from '../capture/screenshot';
 import {
@@ -278,13 +279,15 @@ class SessionOrchestrator {
     if (!this.conversation) {
       this.conversation = {
         id: randomUUID(),
-        title: seedTitle ? conversationTitle(seedTitle) : 'Conversación sin título',
+        // Sin nada aprovechable se queda vacío: el rótulo lo pone el
+        // dashboard, que es el único que sabe en qué idioma se está mirando.
+        title: seedTitle ? conversationTitle(seedTitle) : '',
         startedAt: Date.now(),
         profileId: settingsStore.get().promptProfileId,
         segments: [],
         turns: [],
       };
-    } else if (this.conversation.title === 'Conversación sin título' && seedTitle) {
+    } else if (!this.conversation.title && seedTitle) {
       // El título se fija con el primer contenido útil, venga de la voz o del
       // teclado; hasta entonces la conversación existe pero no tiene nombre.
       this.conversation.title = conversationTitle(seedTitle);
@@ -406,10 +409,7 @@ class SessionOrchestrator {
       console.error(
         `[${task}] no se pudo capturar la pantalla; no hay ningún ${TASK_LABEL[task]} que resolver.`
       );
-      this.broadcast(
-        IPC.onNotice,
-        'No se pudo capturar la pantalla, así que no hay nada que resolver.'
-      );
+      this.broadcast(IPC.onNotice, m('err.noScreenshot'));
       return;
     }
 

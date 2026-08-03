@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   adviseLocalModels,
-  CONTEXT_KIND_LABEL,
   type SecretKey,
   type SecretsPresence,
   type Settings,
@@ -215,19 +214,19 @@ function Welcome({ specs, onPick }: { specs: SystemSpecs | null; onPick: (path: 
 
       <div className="specs">
         <span className="specs__item">
-          <strong>{specs.totalMemoryGB} GB</strong> de RAM
+          <strong>{specs.totalMemoryGB} GB</strong> {t('local.ram')}
         </span>
         <span className="specs__item">
-          {specs.cpuCores} núcleos · {specs.cpuModel}
+          {t('local.cores', { cores: specs.cpuCores, cpu: specs.cpuModel })}
         </span>
         {specs.gpu && (
           <span className="specs__item">
-            GPU: <strong>{specs.gpu}</strong>
+            {t('local.gpu')} <strong>{specs.gpu}</strong>
           </span>
         )}
       </div>
 
-      <p className="wiz__note">{advice.tier}</p>
+      <p className="wiz__note">{t(advice.tier, { ram: specs.totalMemoryGB })}</p>
 
       <div className="wiz__paths">
         <PathCard
@@ -422,13 +421,13 @@ function CloudStep({
           }}
         />
       </div>
-      <p className="wiz__note">Dónde sacarla: {choice.where}</p>
+      <p className="wiz__note">{t('wiz.whereToGet', { where: choice.where })}</p>
 
       {error && <div className="warn">{error}</div>}
 
       <div className="field wiz__actions">
         <button className="btn" onClick={onBack} disabled={busy}>
-          Atrás
+          {t('wiz.backPlain')}
         </button>
         <button
           className="btn btn--primary"
@@ -631,10 +630,10 @@ function LocalStep({
               {error && <div className="warn">{error}</div>}
               <div className="field wiz__actions">
                 <button className="btn" onClick={onBack}>
-                  Atrás
+                  {t('wiz.backPlain')}
                 </button>
                 <button className="btn btn--primary" onClick={check}>
-                  Volver a comprobar
+                  {t('wiz.recheck')}
                 </button>
               </div>
             </>
@@ -651,7 +650,7 @@ function LocalStep({
 
               <div className="field wiz__actions">
                 <button className="btn" onClick={onBack} disabled={Boolean(busy)}>
-                  Atrás
+                  {t('wiz.backPlain')}
                 </button>
                 <button className="btn btn--primary" disabled={Boolean(busy)} onClick={() => void install()}>
                   {busy || t('wiz.installOllama')}
@@ -665,10 +664,10 @@ function LocalStep({
               </div>
               <div className="field wiz__actions">
                 <button className="btn" onClick={onBack}>
-                  Atrás
+                  {t('wiz.backPlain')}
                 </button>
                 <button className="btn btn--primary" onClick={check}>
-                  Volver a comprobar
+                  {t('wiz.recheck')}
                 </button>
               </div>
             </>
@@ -689,7 +688,7 @@ function LocalStep({
                 {has(advice.chat.model) && <em>{t('wiz.alreadyDownloaded')}</em>}
               </span>
               <code className="wizmodel__id">{advice.chat.model}</code>
-              <span className="wizmodel__note">{advice.chat.note}</span>
+              <span className="wizmodel__note">{t(advice.chat.note)}</span>
             </div>
             <div className="wizmodel">
               <span className="wizmodel__role">
@@ -697,11 +696,11 @@ function LocalStep({
                 {has(advice.vision.model) && <em>{t('wiz.alreadyDownloaded')}</em>}
               </span>
               <code className="wizmodel__id">{advice.vision.model}</code>
-              <span className="wizmodel__note">{advice.vision.note}</span>
+              <span className="wizmodel__note">{t(advice.vision.note)}</span>
             </div>
           </div>
 
-          <div className="warn">{advice.caveat}</div>
+          <div className="warn">{t(advice.caveat)}</div>
 
           {!nothingToDownload && (
             <p className="wiz__note">{t('wiz.sizeNote')}</p>
@@ -713,7 +712,7 @@ function LocalStep({
 
           <div className="field wiz__actions">
             <button className="btn" onClick={onBack} disabled={Boolean(busy)}>
-              Atrás
+              {t('wiz.backPlain')}
             </button>
             <button className="btn btn--primary" disabled={Boolean(busy)} onClick={() => void download()}>
               {busy || (nothingToDownload ? t('wiz.useThese') : t('wiz.downloadAndSet'))}
@@ -923,7 +922,10 @@ function ContextStep({
             ...settings.contextPacks,
             {
               id: crypto.randomUUID(),
-              name: CONTEXT_KIND_LABEL.cv,
+              // La clave de INTERFAZ, no `CONTEXT_KIND_LABEL`: ese rotula los
+              // bloques que se le mandan al modelo y se queda en español, pero
+              // esto es el nombre que el usuario va a ver en «Contexto».
+              name: t('ctx.kindCv'),
               content: text.trim(),
               enabled: true,
               kind: 'cv',

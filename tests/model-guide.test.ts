@@ -30,8 +30,8 @@ describe('renderModelGuide', () => {
   });
 
   it('dice que no hay GPU cuando no se pudo identificar', () => {
-    const html = renderModelGuide(specs({ gpu: undefined }));
-    expect(html).toContain('no identificada');
+    expect(renderModelGuide(specs({ gpu: undefined }))).toContain('not identified');
+    expect(renderModelGuide(specs({ gpu: undefined }), 'es')).toContain('no identificada');
   });
 
   it('escapa lo que viene del sistema', () => {
@@ -57,7 +57,7 @@ describe('renderModelGuide', () => {
 
     // Locales por cómputo, multimodales, y nube barata.
     expect(html).toContain('qwen2.5vl:7b');
-    expect(html).toContain('multimodales');
+    expect(html).toContain('multimodal');
     expect(html).toContain('claude-haiku-4-5');
     expect(html).toContain('gemini-2.5-flash');
   });
@@ -66,7 +66,7 @@ describe('renderModelGuide', () => {
     const html = renderModelGuide(specs());
     expect(html).toContain('Ctrl+Alt+C');
     expect(html).toContain('Ctrl+Alt+Q');
-    expect(html).toContain('Modelo para la pantalla');
+    expect(html).toContain('Screen model');
   });
 
   it('reconoce por escrito lo que no sabe', () => {
@@ -74,11 +74,25 @@ describe('renderModelGuide', () => {
     // recomendación se apoya en la RAM justamente porque la VRAM no se mide.
     const html = renderModelGuide(specs());
     expect(html).toContain('VRAM');
-    expect(html).toContain('no hay forma fiable de leerlo');
+    expect(html).toContain('no reliable way to read it');
   });
 
   it('fecha el documento, porque los precios caducan', () => {
-    const html = renderModelGuide(specs(), new Date('2026-07-31T12:00:00Z'));
+    const html = renderModelGuide(specs(), 'en', new Date('2026-07-31T12:00:00Z'));
     expect(html).toContain('2026');
+  });
+
+  it('sale entero en el idioma que se le pide', () => {
+    // El documento lo lee una persona: media guía en inglés dentro de una app
+    // en español es exactamente el fallo que este trabajo vino a arreglar.
+    const en = renderModelGuide(specs(), 'en');
+    const es = renderModelGuide(specs(), 'es');
+
+    expect(en).toContain('lang="en"');
+    expect(es).toContain('lang="es"');
+    expect(en).toContain('Which model to use');
+    expect(es).toContain('Qué modelo usar');
+    // Los ids de los modelos son nombres propios y no se traducen.
+    expect(es).toContain('qwen2.5vl:7b');
   });
 });

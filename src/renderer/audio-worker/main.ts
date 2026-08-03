@@ -1,5 +1,5 @@
 import { TARGET_SAMPLE_RATE, type AudioLevels, type Speaker } from '@shared/types';
-import { startCapture, stopCapture } from './capture';
+import { startCapture, stopCapture, t, watchUILang } from './capture';
 
 /**
  * Punto de entrada del audio worker: una ventana oculta cuyo único trabajo es
@@ -58,7 +58,7 @@ window.api.audioWorker.onCommand((command) => {
       })
       .catch((err: unknown) => {
         window.api.audioWorker.reportError(
-          err instanceof Error ? err.message : 'Fallo desconocido al iniciar la captura.'
+          err instanceof Error ? err.message : t('err.captureUnknown')
         );
       });
   } else {
@@ -69,4 +69,5 @@ window.api.audioWorker.onCommand((command) => {
   }
 });
 
+watchUILang();
 window.api.audioWorker.reportReady();

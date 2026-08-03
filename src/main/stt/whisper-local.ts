@@ -9,6 +9,7 @@ import { findWhisperBinary, getModelPath, isModelInstalled } from './whisper-ass
 import { whisperServer } from './whisper-server';
 import { toWav } from './wav';
 import type { STTProvider, STTStartOptions } from './types';
+import { m } from '../i18n';
 
 /**
  * Transcripción local con el binario de whisper.cpp.
@@ -180,14 +181,10 @@ export class WhisperLocalSTT implements STTProvider {
   static create(modelId: string): WhisperLocalSTT {
     const binary = findWhisperBinary();
     if (!binary) {
-      throw new Error(
-        'El ejecutable de Whisper no está instalado. Descárgalo desde el dashboard (7,6 MB).'
-      );
+      throw new Error(m('err.whisperNoBinary'));
     }
     if (!isModelInstalled(modelId)) {
-      throw new Error(
-        `El modelo de Whisper "${modelId}" no está descargado. Hazlo desde el dashboard.`
-      );
+      throw new Error(m('err.whisperNoModel', { model: modelId }));
     }
     return new WhisperLocalSTT(binary, getModelPath(modelId));
   }
@@ -320,10 +317,10 @@ export async function testWhisperBinary(
 ): Promise<{ ok: boolean; detail: string }> {
   const binary = findWhisperBinary();
   if (!binary) {
-    return { ok: false, detail: 'No se encuentra whisper-cli.exe. Descárgalo desde arriba.' };
+    return { ok: false, detail: m('diag.whisperNoBinary') };
   }
   if (!isModelInstalled(modelId)) {
-    return { ok: false, detail: `El modelo "${modelId}" no está descargado.` };
+    return { ok: false, detail: m('diag.whisperNoModel', { model: modelId }) };
   }
 
   const dir = mkdtempSync(join(tmpdir(), 'ih-whisper-test-'));
@@ -345,10 +342,10 @@ export async function testWhisperBinary(
         (err) => (err ? reject(err) : resolve())
       );
     });
-    return { ok: true, detail: `Whisper funciona. Ejecutable: ${binary}` };
+    return { ok: true, detail: m('diag.whisperOk', { binary }) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { ok: false, detail: `Falló al ejecutar ${binary}\n${message}` };
+    return { ok: false, detail: m('diag.whisperFailed', { binary, detail: message }) };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { Ollama } from 'ollama';
 import type { SetupProgress } from '@shared/types';
 import { probeOllama } from '../llm/ollama';
+import { m } from '../i18n';
 
 /**
  * Poner Ollama y un modelo en la máquina de alguien que no ha instalado nada.
@@ -90,38 +91,27 @@ export async function installOllama(
   onProgress: (progress: SetupProgress) => void
 ): Promise<{ ok: boolean; error?: string }> {
   if (!(await wingetAvailable())) {
-    return {
-      ok: false,
-      error:
-        'No hay winget en este equipo, así que no puedo instalarlo por ti sin descargar un ' +
-        'ejecutable por mi cuenta, y eso no lo voy a hacer. Instala Ollama desde ollama.com y ' +
-        'vuelve aquí: el asistente lo detectará solo.',
-    };
+    return { ok: false, error: m('setup.noWinget') };
   }
 
-  onProgress({ phase: 'install', message: 'Instalando Ollama con winget…' });
+  onProgress({ phase: 'install', message: m('setup.installing') });
 
   const result = await runWinget();
   if (!result.ok) return result;
 
-  onProgress({ phase: 'install', message: 'Instalado. Esperando a que arranque el servidor…' });
+  onProgress({ phase: 'install', message: m('setup.waitingServer') });
 
   const deadline = Date.now() + SERVER_WAIT_MS;
   while (Date.now() < deadline) {
     const status = await probeOllama(baseUrl);
     if (status.reachable) {
-      onProgress({ phase: 'install', message: 'Ollama está corriendo.' });
+      onProgress({ phase: 'install', message: m('setup.running') });
       return { ok: true };
     }
     await sleep(SERVER_POLL_MS);
   }
 
-  return {
-    ok: false,
-    error:
-      'Ollama se instaló pero su servidor no respondió. Suele arreglarse abriendo Ollama una ' +
-      'vez desde el menú de inicio; después vuelve aquí.',
-  };
+  return { ok: false, error: m('setup.serverSilent') };
 }
 
 /** Lanza winget y traduce el resultado. Sin `shell`: la ruta lleva espacios. */
@@ -156,12 +146,12 @@ function runWinget(): Promise<{ ok: boolean; error?: string }> {
 
     const timer = setTimeout(() => {
       child.kill();
-      resolve({ ok: false, error: 'La instalación tardó más de 10 minutos y se canceló.' });
+      resolve({ ok: false, error: m('setup.tooLong') });
     }, INSTALL_TIMEOUT_MS);
 
     child.on('error', (err) => {
       clearTimeout(timer);
-      resolve({ ok: false, error: `No se pudo ejecutar winget: ${err.message}` });
+      resolve({ ok: false, error: m('setup.wingetFailedToRun', { detail: err.message }) });
     });
 
     child.on('close', (code) => {
@@ -175,7 +165,10 @@ function runWinget(): Promise<{ ok: boolean; error?: string }> {
         ok: false,
         // El código de salida solo no le dice nada a nadie; la última línea de
         // winget suele ser la frase que explica qué pasó.
-        error: `winget falló (código ${code}). ${lastLine(output) || 'Prueba a instalarlo desde ollama.com.'}`,
+        error: m('setup.wingetFailed', {
+          code: code ?? '?',
+          detail: lastLine(output) || m('setup.tryManually'),
+        }),
       });
     });
   });
@@ -216,10 +209,9 @@ export async function pullModel(
     console.error(`[setup] no se pudo descargar "${model}": ${message}`);
     return {
       ok: false,
-      error:
-        /not found|manifest/i.test(message)
-          ? `Ollama no encuentra el modelo "${model}". Puede que haya cambiado de nombre; búscalo en ollama.com/library.`
-          : `No se pudo descargar "${model}": ${message}`,
+      error: /not found|manifest/i.test(message)
+        ? m('setup.modelNotFound', { model })
+        : m('setup.pullFailed', { model, detail: message }),
     };
   }
 }

@@ -71,7 +71,10 @@ describe('formatAccelerator', () => {
   });
 
   it('dice algo cuando no hay atajo', () => {
-    expect(formatAccelerator('')).toBe('Sin asignar');
+    // El texto lo pone quien llama, que es el único que sabe el idioma; sin
+    // nada, un guion, para que el campo nunca se vea simplemente vacío.
+    expect(formatAccelerator('')).toBe('—');
+    expect(formatAccelerator('', 'Unassigned')).toBe('Unassigned');
   });
 });
 

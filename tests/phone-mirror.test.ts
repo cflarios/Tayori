@@ -145,7 +145,11 @@ describe('el servidor del espejo', () => {
 
     const ok = await fetch(status.url);
     expect(ok.status).toBe(200);
-    expect(await ok.text()).toContain('<title>Espejo</title>');
+    // El título lo pone el script desde la tabla de traducciones, así que lo
+    // que va en el HTML es el idioma y el diccionario, no la frase.
+    const html = await ok.text();
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('Answers will show up here');
   });
 
   it('rechaza un token equivocado, ausente o de otra longitud', async () => {
@@ -157,7 +161,7 @@ describe('el servidor del espejo', () => {
       expect(res.status).toBe(403);
       // El caso normal no es un intruso, es un enlace viejo: el cuerpo dice
       // qué hacer en lugar de soltar un número.
-      expect(await res.text()).toContain('Vuelve a escanear');
+      expect(await res.text()).toContain('Scan the QR code');
     }
   });
 

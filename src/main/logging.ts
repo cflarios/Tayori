@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { m } from './i18n';
 
 /**
  * Log a archivo del proceso principal.
@@ -116,6 +117,9 @@ export function readLogTail(lines = 300): string {
     const all = readFileSync(logFile, 'utf-8').split('\n');
     return all.slice(-lines).join('\n').trim();
   } catch (err) {
-    return `No se pudo leer el log: ${err instanceof Error ? err.message : String(err)}`;
+    // Se lee en Diagnóstico, así que va en el idioma de la interfaz.
+    return m('diag.logUnreadable', {
+      detail: err instanceof Error ? err.message : String(err),
+    });
   }
 }

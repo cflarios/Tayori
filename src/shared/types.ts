@@ -116,13 +116,28 @@ export interface Skill {
   /** Las que vienen con la app. No se pueden borrar, sí sustituir. */
   builtIn: boolean;
   /**
-   * Por qué no se puede usar.
+   * Sólo las de serie: su nombre y su descripción, como claves.
+   *
+   * Las del usuario traen el texto en el frontmatter y no hay nada que
+   * traducir; las que escribimos nosotros sí, y son las únicas que ve alguien
+   * que no ha creado ninguna. `name` y `description` siguen ahí porque el
+   * prompt necesita una cadena —y los prompts no se traducen—, así que la UI
+   * pinta la clave si la hay y el texto si no.
+   */
+  nameKey?: UIKey;
+  descriptionKey?: UIKey;
+  /**
+   * Por qué no se puede usar, como clave.
    *
    * Una skill rota se lista igualmente, con su motivo. Desaparecer sin decir
    * nada dejaría a alguien mirando una carpeta que sí existe y preguntándose
-   * por qué la app no la ve.
+   * por qué la app no la ve. Es una clave y no una frase porque quien lee el
+   * motivo es una persona, y puede tener la app en cualquiera de los dos
+   * idiomas.
    */
-  error?: string;
+  error?: UIKey;
+  /** Lo que dijo el sistema, cuando el motivo lo trae `readFile` y no nosotros. */
+  errorDetail?: string;
 }
 
 // ──────────────────────────────── Respuestas ────────────────────────────────
@@ -202,10 +217,18 @@ export interface ConversationSummary {
   segmentCount: number;
 }
 
-/** Título a partir de la primera intervención útil. */
+/**
+ * Título a partir de la primera intervención útil.
+ *
+ * Sin nada aprovechable devuelve **cadena vacía**, y no un «sin título» ya
+ * escrito: el título se guarda en disco y se pinta en el dashboard, así que un
+ * literal aquí sería una frase en un idioma dentro de una interfaz que puede
+ * estar en el otro. El hueco lo rellena la UI con su clave (`hist.untitled`),
+ * que es la única que sabe en qué idioma está mirando alguien.
+ */
 export function conversationTitle(text: string): string {
   const clean = text.trim().replace(/\s+/g, ' ');
-  if (!clean) return 'Conversación sin título';
+  if (!clean) return '';
   return clean.length > 60 ? `${clean.slice(0, 57)}…` : clean;
 }
 
@@ -818,14 +841,14 @@ export interface SystemSpecs {
  * es medir vive en `system-specs.ts`.
  */
 export interface LocalModelAdvice {
-  /** Cómo se resume esta máquina en una línea. */
-  tier: string;
+  /** Cómo se resume esta máquina en una línea. Lleva el hueco `{ram}`. */
+  tier: UIKey;
   /** Para conversar: el que responde a lo que se oye. Prima la latencia. */
-  chat: { model: string; note: string };
+  chat: { model: string; note: UIKey };
   /** Para la pantalla: tiene que VER. Prima la capacidad de leer una captura. */
-  vision: { model: string; note: string };
+  vision: { model: string; note: UIKey };
   /** Advertencia honesta sobre lo que va a costar en esta máquina. */
-  caveat: string;
+  caveat: UIKey;
 }
 
 /**
@@ -839,50 +862,46 @@ export interface LocalModelAdvice {
  * Los nombres son de la biblioteca de Ollama y pueden cambiar con el tiempo;
  * por eso el dashboard enseña también el comando y enlaza a la biblioteca en
  * lugar de prometer que existen para siempre.
+ *
+ * Los textos salen como **claves**, no como frases: esto lo consumen el
+ * dashboard, el asistente y la guía de modelos, y los tres pintan en el idioma
+ * que tenga puesto quien mira. El `tier` lleva el hueco `{ram}`.
  */
 export function adviseLocalModels(specs: SystemSpecs): LocalModelAdvice {
   const ram = specs.totalMemoryGB;
 
   if (ram < 8) {
     return {
-      tier: `${ram} GB de RAM: justo para modelos locales`,
-      chat: { model: 'llama3.2:1b', note: 'Lo más pequeño que sigue siendo útil.' },
-      vision: { model: 'moondream', note: 'Visión mínima; lee capturas simples, no enunciados largos.' },
-      caveat:
-        'Con esta memoria, un modelo local va a ir lento y a equivocarse en las capturas. ' +
-        'Para las acciones de pantalla merece la pena usar un modelo en la nube y dejar lo local para conversar.',
+      tier: 'local.tierTight',
+      chat: { model: 'llama3.2:1b', note: 'local.noteLlama1b' },
+      vision: { model: 'moondream', note: 'local.noteMoondream' },
+      caveat: 'local.caveatTight',
     };
   }
 
   if (ram < 16) {
     return {
-      tier: `${ram} GB de RAM: alcanza para modelos de 3B–7B`,
-      chat: { model: 'llama3.2:3b', note: 'Rápido de verdad en CPU; suficiente para sugerir respuestas.' },
-      vision: { model: 'qwen2.5vl:3b', note: 'Multimodal pequeño. Lee un enunciado con buena captura.' },
-      caveat:
-        'Cabe, pero con la ventana de contexto grande la memoria se va enseguida. ' +
-        'Si el equipo no tiene GPU dedicada, cuenta con varios segundos por respuesta.',
+      tier: 'local.tierSmall',
+      chat: { model: 'llama3.2:3b', note: 'local.noteLlama3b' },
+      vision: { model: 'qwen2.5vl:3b', note: 'local.noteQwenVl3b' },
+      caveat: 'local.caveatSmall',
     };
   }
 
   if (ram < 32) {
     return {
-      tier: `${ram} GB de RAM: cómodo para 7B–8B, justo para 14B`,
-      chat: { model: 'llama3.1:8b', note: 'El equilibrio habitual entre calidad y velocidad.' },
-      vision: { model: 'qwen2.5vl:7b', note: 'Lee capturas de código y tests con soltura.' },
-      caveat:
-        'Sin GPU dedicada, un 8B en CPU ronda los 5–15 s por respuesta: sirve para la pantalla, ' +
-        'se queda corto para seguir una conversación en directo.',
+      tier: 'local.tierComfy',
+      chat: { model: 'llama3.1:8b', note: 'local.noteLlama8b' },
+      vision: { model: 'qwen2.5vl:7b', note: 'local.noteQwenVl7b' },
+      caveat: 'local.caveatComfy',
     };
   }
 
   return {
-    tier: `${ram} GB de RAM: da para modelos grandes`,
-    chat: { model: 'qwen2.5:14b', note: 'Calidad alta manteniendo una latencia razonable.' },
-    vision: { model: 'qwen2.5vl:32b', note: 'De lo mejor que se puede tener en local para leer pantallas.' },
-    caveat:
-      'La RAM sobra; el límite pasa a ser la GPU. Si el modelo no cabe en la VRAM, Ollama lo reparte ' +
-      'con la CPU y la velocidad se desploma — ahí conviene bajar de tamaño aunque quepa en memoria.',
+    tier: 'local.tierBig',
+    chat: { model: 'qwen2.5:14b', note: 'local.noteQwen14b' },
+    vision: { model: 'qwen2.5vl:32b', note: 'local.noteQwenVl32b' },
+    caveat: 'local.caveatBig',
   };
 }
 

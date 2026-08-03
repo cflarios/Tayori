@@ -238,7 +238,9 @@ export class OpenAIProvider implements LLMProvider {
       // El error del propio stream tampoco es una excepción del SDK.
       if (event.type === 'response.failed') {
         throw new LLMError(
-          `Error de OpenAI: ${event.response.error?.message ?? 'la respuesta falló sin motivo.'}`,
+          m('err.openaiStreamFailed', {
+            message: event.response.error?.message ?? m('err.noReason'),
+          }),
           this.id
         );
       }

@@ -3,6 +3,7 @@ import mqtt, { type MqttClient } from 'mqtt';
 import { IPC } from '@shared/ipc';
 import { mqttTopics, type Answer, type MqttStatus, type Settings } from '@shared/types';
 import { getSecret } from '../config/secrets';
+import { m } from '../i18n';
 
 /**
  * Publica las respuestas en un broker MQTT.
@@ -212,16 +213,18 @@ class MqttBridge extends EventEmitter {
    */
   test(): { ok: boolean; error?: string } {
     if (!this.client || this.state !== 'connected') {
-      return { ok: false, error: 'No hay conexión con el broker.' };
+      return { ok: false, error: m('mq.errNoConnection') };
     }
     this.send({
       id: `test-${Date.now()}`,
       status: 'done',
       trigger: 'manual-input',
-      question: 'Mensaje de prueba del asistente',
-      text: 'Si ves esto en tu dispositivo, el montaje funciona.',
+      // El mensaje de prueba lo lee una persona en su cacharro, así que va en
+      // el idioma de la interfaz igual que todo lo demás.
+      question: m('mq.testQuestion'),
+      text: m('mq.testText'),
       providerId: 'claude',
-      model: 'prueba',
+      model: 'test',
       createdAt: Date.now(),
     });
     return { ok: true };
@@ -237,16 +240,16 @@ function friendlyError(err: Error): string {
   const message = err.message;
 
   if (/ECONNREFUSED/i.test(message)) {
-    return 'El broker rechazó la conexión. Comprueba la dirección y que esté escuchando en ese puerto.';
+    return m('mq.errRefused');
   }
   if (/ENOTFOUND|EAI_AGAIN/i.test(message)) {
-    return 'No se encontró ese host. Revisa la dirección del broker.';
+    return m('mq.errNoHost');
   }
   if (/Not authorized|bad user name or password/i.test(message)) {
-    return 'El broker rechazó el usuario o la contraseña.';
+    return m('mq.errAuth');
   }
   if (/Missing protocol|Invalid URL|unsupported/i.test(message)) {
-    return 'La URL no vale. Tiene que empezar por mqtt:// o mqtts:// e incluir el puerto.';
+    return m('mq.errBadUrl');
   }
   return message;
 }

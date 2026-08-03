@@ -1,4 +1,4 @@
-import { translate, type UIKey } from '@shared/i18n';
+import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
 import { settingsStore } from './config/store';
 
 /**
@@ -13,7 +13,19 @@ import { settingsStore } from './config/store';
  * usuario puede cambiarlo con la app abierta, y un mensaje cacheado saldría en
  * el idioma anterior justo en el momento en el que menos ganas hay de dudar de
  * lo que se lee.
+ *
+ * **Si los ajustes no se pueden leer, se cae al idioma por defecto en lugar de
+ * propagar.** Casi todo lo que pasa por aquí es un mensaje de error, y una
+ * función que revienta construyendo la explicación de un fallo sustituye la
+ * causa real por la suya: eso ya escondió una vez el "se quedó sin presupuesto"
+ * de OpenAI detrás de un `Cannot read properties of undefined`.
  */
 export function m(key: UIKey, vars?: Record<string, string | number>): string {
-  return translate(settingsStore.get().uiLanguage, key, vars);
+  let lang = DEFAULT_UI_LANG;
+  try {
+    lang = settingsStore.get().uiLanguage;
+  } catch {
+    // Sin ajustes legibles el idioma por defecto es la mejor respuesta posible.
+  }
+  return translate(lang, key, vars);
 }

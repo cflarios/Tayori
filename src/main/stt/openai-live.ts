@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { WebSocket } from 'ws';
 import type { Speaker, STTProviderId } from '@shared/types';
 import { EnergyVAD } from '../core/vad';
+import { m } from '../i18n';
 import { pcmToInt16, Upsampler16to24 } from './resample';
 import type { STTProvider, STTStartOptions } from './types';
 
@@ -346,7 +347,7 @@ class Lane {
        * proyecto persigue en todas partes.
        */
       case 'error': {
-        const message = event.error?.message ?? 'error de la sesión';
+        const message = event.error?.message ?? m('err.sessionError');
 
         /*
          * Un rechazo del `prompt` no puede costar la sesión entera.
@@ -527,7 +528,7 @@ export class OpenAILiveSTT implements STTProvider {
     );
     try {
       await probe.connect();
-      return { ok: true, detail: `Sesión abierta con "${this.model}".` };
+      return { ok: true, detail: m('diag.openaiLiveOk', { model: this.model }) };
     } catch (err) {
       return { ok: false, detail: err instanceof Error ? err.message : String(err) };
     } finally {

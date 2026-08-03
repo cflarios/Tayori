@@ -117,7 +117,7 @@ export const en = {
   'overlay.forgotten': 'forgotten',
   'overlay.memory': 'memory {turns}/{max}',
   'overlay.memoryTitle':
-    'Press to make it forget them; the transcript and the history stay as they are.',
+    'The assistant remembers {turns} of {max} exchanges and resends them with every query. Press to make it forget them; the transcript and the history stay as they are.',
   'overlay.stop': 'Stop generating',
   'overlay.dismiss': 'Dismiss',
   'overlay.transcription': 'Transcription',
@@ -359,7 +359,7 @@ export const en = {
     'What is your greatest weakness?\n— I tend to dig into the detail; I make up for it with mid-sprint reviews.\n\nWhy did you leave your last job?\n— …',
   'ctx.qaHint':
     'Questions you already know are coming, with your answer. If the question matches, the model reuses it almost verbatim instead of improvising a watered-down version.',
-  'ctx.vocabularyPlaceholder': 'Kubernetes, Grafana, EmployeeBridge, Marta Ibáñez, CI/CD…',
+  'ctx.vocabularyPlaceholder': 'Kubernetes, Grafana, Docker, Linux, CI/CD…',
   'ctx.vocabularyHint':
     'Separated by commas or line breaks. They go straight to the speech recogniser: this is what fixes proper nouns and acronyms that come out wrong.',
   'ctx.notesPlaceholder': 'Anything the model had better know.',
@@ -814,6 +814,302 @@ export const en = {
   'dash.language': 'Language',
   'dash.languageDesc':
     "The interface language. It has nothing to do with the language you speak in the meeting — that one is set under Transcription.",
+
+  // ───────────────────── Dashboard · rótulos sueltos ─────────────────────
+  'nav.eyebrow': 'Settings',
+  'aud.startTitle': 'Start listening',
+  'aud.stopTitle': 'Stop listening',
+  'aud.meterMe': 'Me (microphone)',
+  'aud.meterThem': 'Them (system)',
+  'hist.untitled': 'Untitled conversation',
+  'hist.inferredQuestion': '(question inferred from the transcript)',
+  'stt.whisperTiny': 'Tiny (74 MB) — the fastest',
+  'stt.whisperBase': 'Base (141 MB) — tight outside English',
+  'stt.whisperSmall': 'Small (465 MB) — recommended outside English',
+
+  // ───────────────────── Ajustes · atajos ─────────────────────
+  'hk.needsModifier':
+    'A global shortcut needs at least Ctrl, Alt or Shift: without a modifier, that key would stop working everywhere in the system.',
+  'hk.taken': 'Windows rejected this shortcut: another application already has it. Pick a different one.',
+  'hk.duplicated': 'Repeated: two actions on the same shortcut means only one of them works.',
+  'hk.pressCombo': 'Press the combination…',
+  'hk.unassigned': 'Unassigned',
+
+  // ───────────────────── Ajustes · diagnóstico ─────────────────────
+  'diag.logAt': 'The main process log is written to `{where}`.',
+  'diag.dataFolder': 'your data folder',
+  'diag.refresh': 'Refresh the log',
+  // Lo que devuelve «Probar la transcripción». Se lee en la misma tarjeta.
+  'diag.whisperNoBinary': 'whisper-cli.exe was not found. Download it from above.',
+  'diag.whisperNoModel': 'The "{model}" model is not downloaded.',
+  'diag.whisperOk': 'Whisper works. Executable: {binary}',
+  'diag.whisperFailed': 'Failed to run {binary}\n{detail}',
+  'diag.geminiLiveOk': 'Connected with "{model}" ({modality} output).',
+  'diag.geminiLiveAudioOut':
+    'This model is forced to return audio, which gets discarded: it transcribes fine, but that output is billed.',
+  'diag.geminiAudioOk': 'Connected with "{model}" (direct audio).',
+  'diag.openaiLiveOk': 'Session opened with "{model}".',
+  'diag.openaiTranscribeOk': 'Connected with "{model}".',
+
+  // ───────────────────── Ajustes · espejo del móvil ─────────────────────
+  'ph.serverFailed': 'The server could not be opened:',
+  'ph.scanHint':
+    'Open the camera on your phone and point it here. If you prefer, type the link by hand — it is the same one.',
+  // La página que se sirve al teléfono. Van a nodos de texto, sin marcado.
+  'ph.pgTitle': 'Mirror',
+  'ph.pgConnecting': 'Connecting…',
+  'ph.pgConnected': 'Connected',
+  'ph.pgReconnecting': 'Reconnecting…',
+  'ph.pgExpired': 'Link expired — scan the QR code again',
+  'ph.pgEmpty': 'Answers will show up here.\nKeep the screen awake.',
+  'ph.pgFoot': 'Only while the computer is on and on the same network.',
+  'ph.pgThinking': 'Thinking…',
+  'ph.pgFailed': 'The answer failed.',
+  'ph.pgCancelled': 'Cancelled.',
+  'ph.pgWriting': 'writing…',
+  'ph.pgListening': 'listening',
+  'ph.pgCaptureError': 'capture error',
+  'ph.pgPaused': 'paused',
+  'ph.pgExpiredPlain': 'Link expired. Scan the QR code from the dashboard again.',
+  'ph.pgNotFound': 'There is nothing here.',
+
+  // ───────────────────── Ajustes · MQTT ─────────────────────
+  'mq.errNoConnection': 'There is no connection to the broker.',
+  'mq.testQuestion': 'Test message from the assistant',
+  'mq.testText': 'If you can see this on your device, the setup works.',
+  'mq.errRefused':
+    'The broker refused the connection. Check the address, and that it is listening on that port.',
+  'mq.errNoHost': 'That host was not found. Check the broker address.',
+  'mq.errAuth': 'The broker rejected the user or the password.',
+  'mq.errBadUrl': 'That URL is not valid. It has to start with mqtt:// or mqtts:// and include the port.',
+
+  // ───────────────────── Modelos locales · recomendación ─────────────────────
+  'local.tierTight': '{ram} GB of RAM: tight for local models',
+  'local.tierSmall': '{ram} GB of RAM: enough for 3B–7B models',
+  'local.tierComfy': '{ram} GB of RAM: comfortable for 7B–8B, tight for 14B',
+  'local.tierBig': '{ram} GB of RAM: enough for large models',
+  'local.noteLlama1b': 'The smallest thing that is still useful.',
+  'local.noteMoondream': 'Minimal vision; it reads simple screenshots, not long problem statements.',
+  'local.noteLlama3b': 'Genuinely fast on CPU; enough to suggest answers.',
+  'local.noteQwenVl3b': 'A small multimodal. It reads a problem statement from a good screenshot.',
+  'local.noteLlama8b': 'The usual balance between quality and speed.',
+  'local.noteQwenVl7b': 'It reads code and quiz screenshots comfortably.',
+  'local.noteQwen14b': 'High quality while keeping the latency reasonable.',
+  'local.noteQwenVl32b': 'About the best you can run locally for reading screens.',
+  'local.caveatTight':
+    'With this much memory a local model is going to be slow and to get screenshots wrong. For the screen actions it is worth using a cloud model and leaving the local one for conversation.',
+  'local.caveatSmall':
+    'It fits, but with a large context window the memory goes quickly. If the machine has no dedicated GPU, expect several seconds per answer.',
+  'local.caveatComfy':
+    'Without a dedicated GPU, an 8B on CPU takes around 5–15 s per answer: fine for the screen, too slow to follow a live conversation.',
+  'local.caveatBig':
+    'RAM is not the limit any more; the GPU is. If the model does not fit in VRAM, Ollama splits it with the CPU and the speed collapses — that is when it pays to go a size down even though it fits in memory.',
+  'local.vramNote':
+    'Your graphics card’s VRAM —the figure that really decides whether a model runs fast— cannot be read reliably from here, so **it is not estimated**: these recommendations are based on RAM. If the model does not fit on the GPU, Ollama splits it with the CPU and it goes much slower, even though it fits in memory. Names change over time; the live list is at `ollama.com/library`.',
+
+  // ───────────────────── Asistente · instalación ─────────────────────
+  'wiz.whereToGet': 'Where to get it: {where}',
+  'wiz.backPlain': 'Back',
+  'setup.noWinget':
+    'There is no winget on this machine, so I cannot install it for you without downloading an executable myself, and I am not going to do that. Install Ollama from ollama.com and come back: the wizard will detect it on its own.',
+  'setup.installing': 'Installing Ollama with winget…',
+  'setup.waitingServer': 'Installed. Waiting for the server to start…',
+  'setup.running': 'Ollama is running.',
+  'setup.serverSilent':
+    'Ollama was installed but its server did not answer. It usually gets fixed by opening Ollama once from the start menu; then come back here.',
+  'setup.tooLong': 'The installation took more than 10 minutes and was cancelled.',
+  'setup.wingetFailedToRun': 'winget could not be run: {detail}',
+  'setup.wingetFailed': 'winget failed (code {code}). {detail}',
+  'setup.tryManually': 'Try installing it from ollama.com.',
+  'setup.modelNotFound':
+    'Ollama cannot find the "{model}" model. It may have been renamed; look it up at ollama.com/library.',
+  'setup.pullFailed': '"{model}" could not be downloaded: {detail}',
+
+  // ───────────────────── Skills ─────────────────────
+  'sk.humanizeName': 'Don’t sound like AI',
+  'sk.humanizeDesc':
+    'Strips the marks of generated text: the filler formulas, the uniform rhythm and the vocabulary that gives a model away. For when the answer is going to be read out loud and has to sound like you.',
+  'sk.errNoFrontmatter':
+    'SKILL.md does not start with a frontmatter block between "---". Add at least a name and a description.',
+  'sk.errNoBody': 'The SKILL.md has no instructions below the frontmatter.',
+  'sk.errNoFile': 'The folder has no SKILL.md in it.',
+  'sk.errUnreadable': 'The SKILL.md could not be read:',
+
+  // ───────────────────── Más errores del proceso principal ─────────────────────
+  'err.noFirstToken':
+    '{provider} did not answer within {seconds} s. If it is Ollama, check that the server is still alive (ollama ps).',
+  'err.generationTimeout': 'Generation ran past the time limit.',
+  'err.noVision':
+    'The "{model}" model does not accept images, so it cannot read your screen. Pick one with vision in dashboard → Screen model (Claude, Gemini, or an Ollama multimodal such as qwen2.5vl or llava).',
+  'err.emptyAnswer': 'The model returned no text.',
+  'err.noScreenshot': 'The screen could not be captured, so there is nothing to solve.',
+  'err.whisperNoBinary':
+    'The Whisper executable is not installed. Download it from the dashboard (7.6 MB).',
+  'err.whisperNoModel': 'The "{model}" Whisper model is not downloaded. Do it from the dashboard.',
+  'err.geminiLiveNoModel': 'No Gemini Live model is available for this API key.\n{failures}',
+  'err.openaiStreamFailed': 'OpenAI error: {message}',
+  'err.noReason': 'the response failed with no reason given.',
+  'err.noEncryption':
+    'System encryption is not available; the API key will not be stored in plain text.',
+  'err.audioWorker': 'The audio worker could not be started.',
+  'err.workletFailed': 'The audio processor for "{speaker}" failed.',
+  'err.noLoopbackAudio':
+    'The screen capture returned no audio. Check that Windows has an active output device.',
+  'err.micDegraded': 'The microphone could not be opened (the meeting is still being heard): {detail}',
+  'err.micFailed': 'The microphone could not be opened: {detail}',
+  'err.captureUnknown': 'Unknown failure while starting the capture.',
+  'notice.nowThem': 'I now answer what the other person says.',
+  'notice.nowMe': 'I now answer what you say.',
+
+  /*
+   * ───────────────────── La guía de modelos ─────────────────────
+   *
+   * Es un DOCUMENTO, no una pantalla: lo genera `shared/model-guide.ts` y se
+   * abre en el navegador. Vive en esta misma tabla y no en un archivo aparte
+   * porque lo lee una persona igual que cualquier ajuste, y separarlo daría dos
+   * mecanismos de traducción con dos formas de olvidarse de una clave.
+   *
+   * Las que se pintan con `raw()` en el generador llevan HTML dentro a
+   * propósito —`<strong>`, `<code>`, `<em>`— porque el énfasis no cae en la
+   * misma palabra en los dos idiomas.
+   */
+  'guide.docTitle': 'Which model to use',
+  'guide.lead':
+    'Guide generated for your machine on {date}. Picking the wrong local model costs a several-gigabyte download to end up with one-minute answers; picking the wrong paid one costs money on every sentence of a meeting. This is what fits what you have.',
+  'guide.yourMachine': 'Your machine',
+  'guide.gpuUnknown': 'GPU: not identified',
+  'guide.gpuKnownNote':
+    'That advice is about RAM, which is the only thing measured with any certainty. Your graphics card is listed above, but <strong>we do not know how much memory it has</strong>, and that is exactly the figure that decides whether a model flies or crawls — see «What this guide does not know», at the end.',
+  'guide.gpuMissingNote':
+    'The graphics card could not be identified, so assume the slow case: with no GPU behind it, a local model takes seconds per answer.',
+  'guide.h2Decision': 'It is two decisions, not one',
+  'guide.decisionIntro':
+    'The app uses one model to <strong>talk</strong> —what it hears through the microphone and the system— and it can use <strong>a different one</strong> for the screen actions (<code>Ctrl+Alt+C</code> solve code, <code>Ctrl+Alt+Q</code> answer a quiz). They are split under <em>dashboard → Screen model</em>, and splitting them is worth it because they ask for opposite things:',
+  'guide.thTask': 'Task',
+  'guide.thNeeds': 'What it needs',
+  'guide.thWhy': 'Why',
+  'guide.taskChat': 'Conversation',
+  'guide.taskScreen': 'Screen',
+  'guide.needsLatency': 'Latency',
+  'guide.needsEyes': 'Eyes and brains',
+  'guide.whyChat':
+    'The answer is read out of the corner of your eye while somebody looks at your face. It arrives many times per session.',
+  'guide.whyScreen':
+    'A problem statement has to be read off a screenshot without getting it wrong. It arrives rarely, and each time matters.',
+  'guide.decisionOutro':
+    'Hence the most sensible combination for a lot of people: a small local model for talking and a good paid one for the screen. The frequent thing is free and the hard thing comes out right.',
+  'guide.visionWarn':
+    '<strong>The screen model has to accept images.</strong> If you pick one without vision, both buttons fail with a warning instead of inventing the problem statement. On Ollama that rules out <code>llama3.2</code>, <code>qwen2.5</code> and <code>mistral</code> —they are text-only— and leaves the ones in the multimodal table.',
+  'guide.h2Local': 'Local models (Ollama)',
+  'guide.localIntro':
+    'They cost no money and send nothing off your machine. The cost is speed, and it depends on whether the model fits on the GPU: if it does not, Ollama splits it with the CPU and the speed collapses even though it fits in memory. Rule of thumb: a model quantised to 4 bits takes about <strong>0.6 GB per billion parameters</strong>.',
+  'guide.h3Vision': 'For reading the screen (multimodal)',
+  'guide.thModel': 'Model',
+  'guide.thDownload': 'Download',
+  'guide.thRam': 'Recommended RAM',
+  'guide.thNotes': 'Notes',
+  'guide.pullNote':
+    'They are installed with <code>ollama pull &lt;model&gt;</code> from a terminal. For your machine, the app recommends <code>{chat}</code> for conversation and <code>{vision}</code> for the screen.',
+  'guide.h2Cloud': 'Paid models, cheapest first',
+  'guide.cloudIntro':
+    'The Anthropic, OpenAI and DeepSeek prices are verified against each provider’s official reference and are per million tokens. A token is about three quarters of a word; what you pay on each query is the context you send (your CV, the transcript, the screenshot) plus what it answers.',
+  'guide.cloudGoogleNote':
+    'Google’s <strong>are not reproduced here</strong>: they could not be verified against a reference with the same reliability, and in a price table an invented figure does more damage than a gap. That column points at the provider’s page on purpose.',
+  'guide.thPrice': 'Price',
+  'guide.thSeesImages': 'Sees images',
+  'guide.h3Cost': 'What a screen press really costs',
+  'guide.costIntro':
+    'A screenshot is not free: the app sends it 1600 px wide, and at that resolution a high-resolution vision model bills it as <strong>around 4,800 input tokens</strong>. With a normal-sized answer, and counting the system prompt, it works out at roughly:',
+  'guide.thScreenModel': 'Screen model',
+  'guide.thCostEach': 'Approximate cost per press',
+  'guide.costLuna': 'two thousandths of a dollar',
+  'guide.costHaiku': 'half a cent',
+  'guide.costTerra': 'a cent and a half',
+  'guide.costSonnet': 'about 2 cents',
+  'guide.costOpus': 'about 4 cents',
+  'guide.costSol': 'about 4 cents',
+  'guide.costOutro':
+    'These are orders of magnitude, not an invoice: the real cost depends on how much context you have loaded. The practical conclusion is that screen mode is cheap even with the expensive model — <strong>what adds up is the automatic listening</strong>, which fires a query for every question it hears.',
+  'guide.costHaikuNote':
+    'Haiku 4.5 comes out cheaper than its price suggests because it also reads images at a lower resolution, so it spends fewer tokens per screenshot. It is the same reason it fails earlier on small print: <em>it is seeing less</em>.',
+  'guide.h2Recipes': 'Recommended combinations',
+  'guide.dtCost': 'Cost',
+  'guide.recipe1Title': 'All local, offline and free',
+  'guide.recipe1Who': 'You are worried about anything leaving your machine, or you do not want to pay.',
+  'guide.recipe1Cost': '$0, in exchange for latency and for getting screenshots wrong more often.',
+  'guide.recipe2Title': 'Local to talk, cloud for the screen',
+  'guide.recipe2Who':
+    'The combination most people would want: cheap on the frequent thing, good on the hard thing.',
+  'guide.recipe2Cost': 'You only pay for the Ctrl+Alt+C and Ctrl+Alt+Q presses. Cents per session.',
+  'guide.recipe3Title': 'All cloud, the cheapest that works',
+  'guide.recipe3Who': 'You do not want to install anything and your machine cannot run local models.',
+  'guide.recipe3Cost':
+    'The cheapest thing that works. Conversation is almost free and you only really pay per screen press. Careful: the conversation one can be anything, but the screen one HAS to read images, and DeepSeek does not.',
+  'guide.recipe4Title': 'No compromises',
+  'guide.recipe4Who': 'A real technical assessment, and you would rather not gamble.',
+  'guide.recipe4Cost': 'The most expensive on the list, and even so it is cents per exercise.',
+  'guide.h2Unknown': 'What this guide does not know',
+  'guide.unknownVram':
+    '<strong>Your graphics card’s VRAM.</strong> It is the number that really decides whether a local model runs fast, and there is no reliable way to read it from the app without shelling out to system utilities. That is why the recommendations lean on RAM, which can be measured. If your GPU has less memory than the model takes, it will run much slower than this guide suggests.',
+  'guide.unknownPrices':
+    '<strong>Prices change, and so do models.</strong> The Anthropic and OpenAI ones are verified as of the date above; Ollama model names age. Before downloading several gigabytes, the live list is at <code>ollama.com/library</code>, and the prices at <code>platform.claude.com/docs/en/pricing</code>, <code>developers.openai.com/api/docs/pricing</code> and <code>ai.google.dev/pricing</code>.',
+  'guide.unknownYourExam':
+    '<strong>How well a model does on YOUR exam.</strong> Nothing beats trying it: take a screenshot of an exercise you already know how to solve and compare. It is the only figure that matters and it takes two minutes to get.',
+  'guide.footer':
+    'Generated by Tayori for this machine. This document is not sent anywhere: it was written to your data folder and opened in your browser.',
+  // Notas de los modelos locales.
+  'guide.llama1b': 'The bare minimum that works. Good for rephrasing and summarising, not for reasoning.',
+  'guide.llama3b': 'The balance for a modest machine. It answers quickly on CPU.',
+  'guide.qwen7b': 'Better on technical questions than llama3.2:3b, at the cost of latency.',
+  'guide.llama8b': 'The workhorse. A good balance if there is a GPU to hold it up.',
+  'guide.qwen14b': 'High quality. Without a dedicated GPU, too slow for conversation.',
+  'guide.moondream': 'Minimal vision. It describes a screen; it does not read a long statement reliably.',
+  'guide.qwenvl3b': 'The small multimodal that reads on-screen text best.',
+  'guide.gemma3': 'A general-purpose multimodal. The alternative if qwen2.5vl does not convince you.',
+  'guide.qwenvl7b': 'The sweet spot for the screen actions locally.',
+  'guide.llava13b': 'A veteran, very well tested. Worse with small print than qwen2.5vl.',
+  'guide.qwenvl32b': 'The best you can run locally for reading screens. It asks for a real machine.',
+  // Precios, visión y notas de los de pago.
+  'guide.priceHaiku45': '$1 / $5 per million tokens (input / output)',
+  'guide.priceSonnet5': '$3 / $15 (introductory $2 / $10 until 31-08-2026)',
+  'guide.priceOpus5': '$5 / $25',
+  'guide.priceGemini': 'See ai.google.dev/pricing — usually the cheapest in the cloud',
+  'guide.priceLuna': '$0.20 / $1.20 per million tokens (input / output)',
+  'guide.priceTerra': '$2 / $12',
+  'guide.priceDsFlash': '$0.28 / $0.28 ($0.14 for already-cached input)',
+  'guide.priceDsPro': '$0.87 / $0.87 ($0.435 for already-cached input)',
+  'guide.priceSol': '$5 / $30',
+  'guide.visionStd': 'Yes, at standard resolution',
+  'guide.visionHigh': 'Yes, high resolution (2576 px)',
+  'guide.visionYes': 'Yes',
+  'guide.visionNo': 'NO',
+  'guide.haiku45':
+    'The cheapest Anthropic model and the lowest latency one. It reads screenshots, but at a lower resolution than the Claude 5s: for a statement in small print it is the first one to fail.',
+  'guide.sonnet5':
+    'This app’s default, and with good reason: it reads a screenshot well and answers fast. If you are only going to set up one model, this one.',
+  'guide.opus5':
+    'For the exercises Sonnet cannot crack. It costs twice as much per token and answers more slowly: it makes sense as a screen-ONLY model, not for conversation.',
+  'guide.gemini25flash':
+    'The same key works for transcription with Gemini Live, so a single credential gives you ears and answers. The price is not reproduced here because it could not be verified against the same kind of source as the Anthropic ones.',
+  'guide.luna':
+    'The cheapest in this whole table, by an order of magnitude. It is OpenAI’s model for price-sensitive workloads: the obvious pick if what worries you is what the automatic listening spends.',
+  'guide.terra':
+    'The balance between capability and cost, and the one the app sets by default on OpenAI. It reasons before answering; the app asks it for the lowest effort so that does not show up as latency.',
+  'guide.dsFlash':
+    'The cheapest in the whole table, by a fair margin. A 1M-token window. It does not read images, so it is NO use for the screen actions: it is the conversation option when what worries you is what the automatic listening spends.',
+  'guide.dsPro':
+    'DeepSeek’s big one, still below what the cheapest Anthropic model costs. It does not read images either.',
+  'guide.sol':
+    'OpenAI’s frontier model, for complex work. Its output is the most expensive in the table: like Opus, it makes more sense for the screen ONLY than for answering every sentence of a meeting.',
+
+  // Fallos que se leen en Diagnóstico o en el overlay, no en el log.
+  'diag.logUnreadable': 'The log could not be read: {detail}',
+  'err.whisperUnzip': 'The Whisper binary could not be unzipped: {detail}',
+  'err.whisperNoExe': 'The whisper.cpp zip was unpacked but had no executable in it.',
+  'err.sessionError': 'session error',
+  'err.handshakeTimeout': '{label}: no answer within {seconds} s',
+  'err.closedWithReason': '{reason} (code {code})',
+  'err.closedWithCode': 'closed with code {code}',
 } as const;
 
 export type UIKey = keyof typeof en;

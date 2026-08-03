@@ -1,3 +1,4 @@
+import { DEFAULT_UI_LANG, translate, type UIKey, type UILang } from './i18n';
 import { adviseLocalModels, type SystemSpecs } from './types';
 
 /**
@@ -13,6 +14,11 @@ import { adviseLocalModels, type SystemSpecs } from './types';
  * de captura, y la regla de oro de este proyecto es que el modo invisible se
  * verifica, no se asume. Un documento no tiene ese riesgo, se puede guardar, e
  * imprimir, y leer con la app cerrada.
+ *
+ * **Toda la prosa son claves de la tabla de traducciones**, incluidas las notas
+ * de cada modelo. Es un documento que lee una persona, así que sigue al idioma
+ * de la interfaz como cualquier otra pantalla; lo que no se traduce son los ids
+ * de los modelos, que son nombres propios, ni las cifras.
  */
 
 /** Escapa lo que venga de fuera: el nombre de la CPU y de la GPU los da el sistema. */
@@ -27,87 +33,34 @@ function esc(text: string): string {
 /**
  * Un modelo local, con lo que de verdad decide si sirve.
  *
- * `weight` es el tamaño de la descarga cuantizada a 4 bits, que es lo que ocupa
- * en disco y, aproximadamente, en memoria. `needs` es la RAM que conviene tener
- * libre contando el sistema y la ventana de contexto.
+ * `weightGB` es el tamaño de la descarga cuantizada a 4 bits, que es lo que
+ * ocupa en disco y, aproximadamente, en memoria — va como número porque el
+ * separador decimal no es el mismo en los dos idiomas. `needs` es la RAM que
+ * conviene tener libre contando el sistema y la ventana de contexto, y se deja
+ * como texto porque son cifras y guiones: igual en cualquier idioma.
  */
 interface LocalModel {
   id: string;
-  weight: string;
+  weightGB: number;
   needs: string;
-  note: string;
+  note: UIKey;
 }
 
 const CHAT_MODELS: LocalModel[] = [
-  {
-    id: 'llama3.2:1b',
-    weight: '~1,3 GB',
-    needs: '4 GB',
-    note: 'El mínimo viable. Sirve para reformular y resumir, no para razonar.',
-  },
-  {
-    id: 'llama3.2:3b',
-    weight: '~2 GB',
-    needs: '8 GB',
-    note: 'El equilibrio para una máquina modesta. Responde rápido en CPU.',
-  },
-  {
-    id: 'qwen2.5:7b',
-    weight: '~4,7 GB',
-    needs: '8–16 GB',
-    note: 'Mejor en preguntas técnicas que llama3.2:3b, a cambio de latencia.',
-  },
-  {
-    id: 'llama3.1:8b',
-    weight: '~4,9 GB',
-    needs: '16 GB',
-    note: 'El caballo de batalla. Buen equilibrio si hay GPU que lo sostenga.',
-  },
-  {
-    id: 'qwen2.5:14b',
-    weight: '~9 GB',
-    needs: '32 GB',
-    note: 'Calidad alta. Sin GPU dedicada, demasiado lento para conversar.',
-  },
+  { id: 'llama3.2:1b', weightGB: 1.3, needs: '4 GB', note: 'guide.llama1b' },
+  { id: 'llama3.2:3b', weightGB: 2, needs: '8 GB', note: 'guide.llama3b' },
+  { id: 'qwen2.5:7b', weightGB: 4.7, needs: '8–16 GB', note: 'guide.qwen7b' },
+  { id: 'llama3.1:8b', weightGB: 4.9, needs: '16 GB', note: 'guide.llama8b' },
+  { id: 'qwen2.5:14b', weightGB: 9, needs: '32 GB', note: 'guide.qwen14b' },
 ];
 
 const VISION_MODELS: LocalModel[] = [
-  {
-    id: 'moondream',
-    weight: '~1,7 GB',
-    needs: '4 GB',
-    note: 'Visión mínima. Describe una pantalla; no lee un enunciado largo con fiabilidad.',
-  },
-  {
-    id: 'qwen2.5vl:3b',
-    weight: '~3,2 GB',
-    needs: '8 GB',
-    note: 'El multimodal pequeño que mejor lee texto de pantalla.',
-  },
-  {
-    id: 'gemma3:4b',
-    weight: '~3,3 GB',
-    needs: '8 GB',
-    note: 'Multimodal de propósito general. Alternativa si qwen2.5vl no convence.',
-  },
-  {
-    id: 'qwen2.5vl:7b',
-    weight: '~6 GB',
-    needs: '16 GB',
-    note: 'El punto dulce para las acciones de pantalla en local.',
-  },
-  {
-    id: 'llava:13b',
-    weight: '~8 GB',
-    needs: '16–32 GB',
-    note: 'Veterano y muy probado. Peor con texto pequeño que qwen2.5vl.',
-  },
-  {
-    id: 'qwen2.5vl:32b',
-    weight: '~21 GB',
-    needs: '48 GB o GPU de 24 GB',
-    note: 'Lo mejor en local para leer pantallas. Pide máquina de verdad.',
-  },
+  { id: 'moondream', weightGB: 1.7, needs: '4 GB', note: 'guide.moondream' },
+  { id: 'qwen2.5vl:3b', weightGB: 3.2, needs: '8 GB', note: 'guide.qwenvl3b' },
+  { id: 'gemma3:4b', weightGB: 3.3, needs: '8 GB', note: 'guide.gemma3' },
+  { id: 'qwen2.5vl:7b', weightGB: 6, needs: '16 GB', note: 'guide.qwenvl7b' },
+  { id: 'llava:13b', weightGB: 8, needs: '16–32 GB', note: 'guide.llava13b' },
+  { id: 'qwen2.5vl:32b', weightGB: 21, needs: '48 GB · 24 GB VRAM', note: 'guide.qwenvl32b' },
 ];
 
 /**
@@ -121,165 +74,167 @@ const VISION_MODELS: LocalModel[] = [
 interface CloudModel {
   id: string;
   label: string;
-  price: string;
-  vision: string;
-  note: string;
+  price: UIKey;
+  vision: UIKey;
+  note: UIKey;
 }
 
 const CLOUD_MODELS: CloudModel[] = [
   {
     id: 'claude-haiku-4-5',
     label: 'Claude Haiku 4.5',
-    price: '1 $ / 5 $ por millón de tokens (entrada / salida)',
-    vision: 'Sí, en resolución estándar',
-    note:
-      'El más barato de Anthropic y el de menor latencia. Lee capturas, pero a menor ' +
-      'resolución que los Claude 5: para un enunciado con letra pequeña es el primero que falla.',
+    price: 'guide.priceHaiku45',
+    vision: 'guide.visionStd',
+    note: 'guide.haiku45',
   },
   {
     id: 'claude-sonnet-5',
     label: 'Claude Sonnet 5',
-    price: '3 $ / 15 $ (introductorio 2 $ / 10 $ hasta el 31-08-2026)',
-    vision: 'Sí, alta resolución (2576 px)',
-    note:
-      'La opción por defecto de esta app, y con razón: lee bien una captura y responde ' +
-      'rápido. Si sólo vas a configurar un modelo, éste.',
+    price: 'guide.priceSonnet5',
+    vision: 'guide.visionHigh',
+    note: 'guide.sonnet5',
   },
   {
     id: 'claude-opus-5',
     label: 'Claude Opus 5',
-    price: '5 $ / 25 $',
-    vision: 'Sí, alta resolución (2576 px)',
-    note:
-      'Para los ejercicios que Sonnet no saca. Cuesta el doble por token y responde más ' +
-      'despacio: tiene sentido como modelo SÓLO de pantalla, no para conversar.',
+    price: 'guide.priceOpus5',
+    vision: 'guide.visionHigh',
+    note: 'guide.opus5',
   },
   {
     id: 'gemini-2.5-flash',
     label: 'Gemini 2.5 Flash',
-    price: 'Consulta ai.google.dev/pricing — suele ser el más barato de la nube',
-    vision: 'Sí',
-    note:
-      'La misma clave sirve para la transcripción con Gemini Live, así que con una sola ' +
-      'credencial tienes oído y respuesta. El precio no se reproduce aquí porque no se pudo ' +
-      'verificar con la misma fuente que los de Anthropic.',
+    price: 'guide.priceGemini',
+    vision: 'guide.visionYes',
+    note: 'guide.gemini25flash',
   },
   {
     id: 'gpt-5.6-luna',
     label: 'GPT-5.6 Luna',
-    price: '0,20 $ / 1,20 $ por millón de tokens (entrada / salida)',
-    vision: 'Sí',
-    note:
-      'El más barato de toda esta tabla, por un orden de magnitud. Es el modelo de OpenAI ' +
-      'para cargas sensibles al precio: la opción obvia si lo que te preocupa es lo que gasta ' +
-      'la escucha automática.',
+    price: 'guide.priceLuna',
+    vision: 'guide.visionYes',
+    note: 'guide.luna',
   },
   {
     id: 'gpt-5.6-terra',
     label: 'GPT-5.6 Terra',
-    price: '2 $ / 12 $',
-    vision: 'Sí',
-    note:
-      'El equilibrio entre capacidad y coste, y el que la app pone por defecto en OpenAI. ' +
-      'Razona antes de responder; la app le pide el esfuerzo más bajo para que eso no se ' +
-      'note en la latencia.',
+    price: 'guide.priceTerra',
+    vision: 'guide.visionYes',
+    note: 'guide.terra',
   },
   {
     id: 'deepseek-v4-flash',
     label: 'DeepSeek V4 Flash',
-    price: '0,28 $ / 0,28 $ (0,14 $ la entrada ya cacheada)',
-    vision: 'NO',
-    note:
-      'El más barato de toda la tabla, y por bastante. Ventana de 1M de tokens. No lee ' +
-      'imágenes, así que NO sirve para las acciones de pantalla: es la opción de conversar ' +
-      'cuando lo que preocupa es lo que gasta la escucha automática.',
+    price: 'guide.priceDsFlash',
+    vision: 'guide.visionNo',
+    note: 'guide.dsFlash',
   },
   {
     id: 'deepseek-v4-pro',
     label: 'DeepSeek V4 Pro',
-    price: '0,87 $ / 0,87 $ (0,435 $ la entrada ya cacheada)',
-    vision: 'NO',
-    note:
-      'El grande de DeepSeek, todavía por debajo de lo que cuesta el más barato de ' +
-      'Anthropic. Tampoco lee imágenes.',
+    price: 'guide.priceDsPro',
+    vision: 'guide.visionNo',
+    note: 'guide.dsPro',
   },
   {
     id: 'gpt-5.6-sol',
     label: 'GPT-5.6 Sol',
-    price: '5 $ / 30 $',
-    vision: 'Sí',
-    note:
-      'El modelo de frontera de OpenAI, para trabajo complejo. La salida es la más cara de ' +
-      'la tabla: como Opus, tiene más sentido SÓLO para la pantalla que para contestar cada ' +
-      'frase de una reunión.',
+    price: 'guide.priceSol',
+    vision: 'guide.visionYes',
+    note: 'guide.sol',
   },
 ];
 
 /** Combinaciones que responden a "y yo qué pongo". */
 interface Recipe {
-  title: string;
-  who: string;
+  title: UIKey;
+  who: UIKey;
+  /** Los dos modelos van tal cual: son nombres propios. */
   chat: string;
   screen: string;
-  cost: string;
+  cost: UIKey;
 }
 
 const RECIPES: Recipe[] = [
   {
-    title: 'Todo local, sin conexión y sin coste',
-    who: 'Te preocupa que salga algo de tu máquina, o no quieres pagar nada.',
+    title: 'guide.recipe1Title',
+    who: 'guide.recipe1Who',
     chat: 'Ollama · llama3.2:3b',
     screen: 'Ollama · qwen2.5vl:7b',
-    cost: '0 €, a cambio de latencia y de acertar menos leyendo capturas.',
+    cost: 'guide.recipe1Cost',
   },
   {
-    title: 'Local para hablar, nube para la pantalla',
-    who: 'La combinación que más gente querría: barata en lo frecuente, buena en lo difícil.',
+    title: 'guide.recipe2Title',
+    who: 'guide.recipe2Who',
     chat: 'Ollama · llama3.2:3b',
     screen: 'Claude Sonnet 5',
-    cost: 'Sólo pagas las pulsaciones de Ctrl+Alt+C y Ctrl+Alt+Q. Céntimos por sesión.',
+    cost: 'guide.recipe2Cost',
   },
   {
-    title: 'Todo nube, lo más barato que funciona',
-    who: 'No quieres instalar nada y tu máquina no da para modelos locales.',
-    chat: 'DeepSeek V4 Flash o GPT-5.6 Luna',
+    title: 'guide.recipe3Title',
+    who: 'guide.recipe3Who',
+    chat: 'DeepSeek V4 Flash · GPT-5.6 Luna',
     screen: 'Claude Sonnet 5',
-    cost:
-      'Lo más barato que funciona. Conversar sale casi gratis y sólo se paga de verdad ' +
-      'cada pulsación de pantalla. Ojo: el de conversar tiene que ser uno cualquiera, pero ' +
-      'el de la pantalla TIENE que leer imágenes, y DeepSeek no lee.',
+    cost: 'guide.recipe3Cost',
   },
   {
-    title: 'Sin concesiones',
-    who: 'Una prueba técnica de verdad y prefieres no arriesgar.',
+    title: 'guide.recipe4Title',
+    who: 'guide.recipe4Who',
     chat: 'Claude Sonnet 5',
     screen: 'Claude Opus 5',
-    cost: 'El más caro de la lista, y aun así son céntimos por ejercicio.',
+    cost: 'guide.recipe4Cost',
   },
 ];
 
+/** Lo que cuesta cada pulsación de pantalla, por modelo. */
+const SCREEN_COSTS: { label: string; cost: UIKey }[] = [
+  { label: 'GPT-5.6 Luna', cost: 'guide.costLuna' },
+  { label: 'Claude Haiku 4.5', cost: 'guide.costHaiku' },
+  { label: 'GPT-5.6 Terra', cost: 'guide.costTerra' },
+  { label: 'Claude Sonnet 5', cost: 'guide.costSonnet' },
+  { label: 'Claude Opus 5', cost: 'guide.costOpus' },
+  { label: 'GPT-5.6 Sol', cost: 'guide.costSol' },
+];
+
+/** El locale con el que `Intl` formatea fechas y decimales. */
+const LOCALE: Record<UILang, string> = { en: 'en-GB', es: 'es-ES' };
+
 /** Genera la guía completa como un HTML autocontenido. */
-export function renderModelGuide(specs: SystemSpecs, generatedAt = new Date()): string {
+export function renderModelGuide(
+  specs: SystemSpecs,
+  lang: UILang = DEFAULT_UI_LANG,
+  generatedAt = new Date()
+): string {
   const advice = adviseLocalModels(specs);
-  const fecha = generatedAt.toLocaleDateString('es-ES', {
+  const locale = LOCALE[lang];
+
+  /** Traduce y escapa de una vez: todo esto acaba dentro del marcado. */
+  const t = (key: UIKey, vars?: Record<string, string | number>): string =>
+    esc(translate(lang, key, vars));
+
+  /** Lo mismo, pero dejando pasar el marcado que la propia clave trae dentro. */
+  const raw = (key: UIKey, vars?: Record<string, string | number>): string =>
+    translate(lang, key, vars);
+
+  const date = generatedAt.toLocaleDateString(locale, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
 
-  const localRow = (m: LocalModel): string => `
+  const localRow = (model: LocalModel): string => `
     <tr>
-      <td><code>${esc(m.id)}</code></td>
-      <td class="num">${esc(m.weight)}</td>
-      <td class="num">${esc(m.needs)}</td>
-      <td>${esc(m.note)}</td>
+      <td><code>${esc(model.id)}</code></td>
+      <td class="num">~${model.weightGB.toLocaleString(locale)} GB</td>
+      <td class="num">${esc(model.needs)}</td>
+      <td>${t(model.note)}</td>
     </tr>`;
 
   return `<!doctype html>
-<html lang="es">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
-<title>Qué modelo usar · Tayori</title>
+<title>${t('guide.docTitle')}</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
@@ -325,187 +280,111 @@ export function renderModelGuide(specs: SystemSpecs, generatedAt = new Date()): 
 </head>
 <body>
 
-<h1>Qué modelo usar</h1>
-<p class="lead">
-  Guía generada para tu equipo el ${esc(fecha)}. Elegir mal un modelo local cuesta una
-  descarga de varios gigas para acabar con respuestas de un minuto; elegir mal uno de
-  pago cuesta dinero por cada frase de una reunión. Esto es lo que encaja con lo que
-  tienes.
-</p>
+<h1>${t('guide.docTitle')}</h1>
+<p class="lead">${t('guide.lead', { date })}</p>
 
 <div class="box box--you">
-  <h3>Tu equipo</h3>
+  <h3>${t('guide.yourMachine')}</h3>
   <ul class="specs">
-    <li><strong>${specs.totalMemoryGB} GB</strong> de RAM</li>
-    <li>${specs.cpuCores} núcleos · ${esc(specs.cpuModel)}</li>
-    ${specs.gpu ? `<li>GPU: <strong>${esc(specs.gpu)}</strong></li>` : '<li>GPU: no identificada</li>'}
-  </ul>
-  <p>${esc(advice.tier)}. ${esc(advice.caveat)}</p>
-  <p style="margin-bottom:0; color:#9aa0a6; font-size:14.5px">
+    <li><strong>${specs.totalMemoryGB} GB</strong> ${t('local.ram')}</li>
+    <li>${t('local.cores', { cores: specs.cpuCores, cpu: specs.cpuModel })}</li>
     ${
       specs.gpu
-        ? 'Ese consejo habla de la RAM, que es lo único que se mide con certeza. Tu tarjeta ' +
-          'gráfica aparece ahí arriba, pero <strong>no sabemos cuánta memoria tiene</strong>, y ' +
-          'es justo el dato que decide si un modelo vuela o se arrastra — ver «Lo que esta guía ' +
-          'no sabe», al final.'
-        : 'No se pudo identificar la tarjeta gráfica, así que da por hecho el caso lento: sin ' +
-          'GPU que lo sostenga, un modelo local tarda segundos por respuesta.'
+        ? `<li>${t('local.gpu')} <strong>${esc(specs.gpu)}</strong></li>`
+        : `<li>${t('guide.gpuUnknown')}</li>`
     }
+  </ul>
+  <p>${t(advice.tier, { ram: specs.totalMemoryGB })}. ${t(advice.caveat)}</p>
+  <p style="margin-bottom:0; color:#9aa0a6; font-size:14.5px">
+    ${specs.gpu ? raw('guide.gpuKnownNote') : raw('guide.gpuMissingNote')}
   </p>
 </div>
 
-<h2>La decisión son dos, no una</h2>
-<p>
-  La app usa un modelo para <strong>conversar</strong> —lo que oye por el micrófono y por
-  el sistema— y puede usar <strong>otro distinto</strong> para las acciones de pantalla
-  (<code>Ctrl+Alt+C</code> resolver código, <code>Ctrl+Alt+Q</code> responder un test).
-  Se separan en <em>dashboard → Modelo para la pantalla</em>, y conviene separarlos porque
-  piden cosas opuestas:
-</p>
+<h2>${t('guide.h2Decision')}</h2>
+<p>${raw('guide.decisionIntro')}</p>
 <table>
-  <tr><th>Tarea</th><th>Qué necesita</th><th>Por qué</th></tr>
+  <tr><th>${t('guide.thTask')}</th><th>${t('guide.thNeeds')}</th><th>${t('guide.thWhy')}</th></tr>
   <tr>
-    <td><strong>Conversar</strong></td>
-    <td>Latencia</td>
-    <td>La respuesta se lee de reojo mientras alguien te mira a la cara. Llega muchas veces por sesión.</td>
+    <td><strong>${t('guide.taskChat')}</strong></td>
+    <td>${t('guide.needsLatency')}</td>
+    <td>${t('guide.whyChat')}</td>
   </tr>
   <tr>
-    <td><strong>Pantalla</strong></td>
-    <td>Vista y cabeza</td>
-    <td>Hay que leer un enunciado en una captura y no equivocarse. Llega pocas veces, y cada una importa.</td>
+    <td><strong>${t('guide.taskScreen')}</strong></td>
+    <td>${t('guide.needsEyes')}</td>
+    <td>${t('guide.whyScreen')}</td>
   </tr>
 </table>
-<p>
-  De ahí que la combinación más razonable para mucha gente sea un modelo local pequeño
-  para hablar y uno bueno de pago para la pantalla: lo frecuente sale gratis y lo difícil
-  sale bien.
-</p>
+<p>${t('guide.decisionOutro')}</p>
 
-<div class="box box--warn">
-  <strong>El modelo de pantalla tiene que admitir imágenes.</strong> Si eliges uno sin
-  visión, los dos botones fallan con un aviso en lugar de inventarse el enunciado. En
-  Ollama eso descarta a <code>llama3.2</code>, <code>qwen2.5</code> y <code>mistral</code>
-  —son de texto— y deja a los de la tabla de multimodales.
-</div>
+<div class="box box--warn">${raw('guide.visionWarn')}</div>
 
-<h2>Modelos locales (Ollama)</h2>
-<p>
-  No cuestan dinero y no envían nada fuera de tu máquina. El coste es la velocidad, y
-  depende de si el modelo cabe en la GPU: si no cabe, Ollama lo reparte con la CPU y la
-  velocidad se desploma aunque quepa en memoria. Regla de bolsillo: un modelo cuantizado
-  a 4 bits ocupa unos <strong>0,6 GB por cada mil millones de parámetros</strong>.
-</p>
+<h2>${t('guide.h2Local')}</h2>
+<p>${raw('guide.localIntro')}</p>
 
-<h3>Para conversar</h3>
+<h3>${t('local.forChat')}</h3>
 <table>
-  <tr><th>Modelo</th><th>Descarga</th><th>RAM recomendada</th><th>Notas</th></tr>
+  <tr><th>${t('guide.thModel')}</th><th>${t('guide.thDownload')}</th><th>${t('guide.thRam')}</th><th>${t('guide.thNotes')}</th></tr>
   ${CHAT_MODELS.map(localRow).join('')}
 </table>
 
-<h3>Para leer la pantalla (multimodales)</h3>
+<h3>${t('guide.h3Vision')}</h3>
 <table>
-  <tr><th>Modelo</th><th>Descarga</th><th>RAM recomendada</th><th>Notas</th></tr>
+  <tr><th>${t('guide.thModel')}</th><th>${t('guide.thDownload')}</th><th>${t('guide.thRam')}</th><th>${t('guide.thNotes')}</th></tr>
   ${VISION_MODELS.map(localRow).join('')}
 </table>
-<p>
-  Se instalan con <code>ollama pull &lt;modelo&gt;</code> desde una terminal. Para tu
-  equipo, la app recomienda <code>${esc(advice.chat.model)}</code> para conversar y
-  <code>${esc(advice.vision.model)}</code> para la pantalla.
-</p>
+<p>${raw('guide.pullNote', {
+  chat: esc(advice.chat.model),
+  vision: esc(advice.vision.model),
+})}</p>
 
-<h2>Modelos de pago, de más barato a más caro</h2>
-<p>
-  Los precios de Anthropic, OpenAI y DeepSeek están verificados contra la referencia
-  oficial de cada uno y son por millón de tokens. Un token viene a ser tres cuartos de palabra; lo que
-  se paga en cada consulta es el contexto que envías (tu CV, la transcripción, la captura)
-  más lo que responde.
-</p>
-<p>
-  Los de Google <strong>no se reproducen aquí</strong>: no se pudieron verificar contra una
-  referencia con la misma fiabilidad, y en una tabla de precios una cifra inventada hace
-  más daño que un hueco. Esa columna remite a la página del proveedor a propósito.
-</p>
+<h2>${t('guide.h2Cloud')}</h2>
+<p>${t('guide.cloudIntro')}</p>
+<p>${raw('guide.cloudGoogleNote')}</p>
 <table>
-  <tr><th>Modelo</th><th>Precio</th><th>Ve imágenes</th><th>Notas</th></tr>
+  <tr><th>${t('guide.thModel')}</th><th>${t('guide.thPrice')}</th><th>${t('guide.thSeesImages')}</th><th>${t('guide.thNotes')}</th></tr>
   ${CLOUD_MODELS.map(
-    (m) => `
+    (model) => `
   <tr>
-    <td><code>${esc(m.id)}</code><br><span style="color:#9aa0a6;font-size:13px">${esc(m.label)}</span></td>
-    <td class="num">${esc(m.price)}</td>
-    <td class="num">${esc(m.vision)}</td>
-    <td>${esc(m.note)}</td>
+    <td><code>${esc(model.id)}</code><br><span style="color:#9aa0a6;font-size:13px">${esc(model.label)}</span></td>
+    <td class="num">${t(model.price)}</td>
+    <td class="num">${t(model.vision)}</td>
+    <td>${t(model.note)}</td>
   </tr>`
   ).join('')}
 </table>
 
-<h3>Cuánto cuesta de verdad una pulsación de pantalla</h3>
-<p>
-  Una captura no es gratis: la app la manda a 1600 px de ancho, y a esa resolución un
-  modelo con visión de alta resolución la cobra como <strong>unos 4.800 tokens de
-  entrada</strong>. Con una respuesta de tamaño normal, y contando el prompt del sistema,
-  sale aproximadamente:
-</p>
+<h3>${t('guide.h3Cost')}</h3>
+<p>${raw('guide.costIntro')}</p>
 <table>
-  <tr><th>Modelo de pantalla</th><th>Coste aproximado por pulsación</th></tr>
-  <tr><td>GPT-5.6 Luna</td><td class="num">dos décimas de céntimo</td></tr>
-  <tr><td>Claude Haiku 4.5</td><td class="num">medio céntimo</td></tr>
-  <tr><td>GPT-5.6 Terra</td><td class="num">céntimo y medio</td></tr>
-  <tr><td>Claude Sonnet 5</td><td class="num">unos 2 céntimos</td></tr>
-  <tr><td>Claude Opus 5</td><td class="num">unos 4 céntimos</td></tr>
-  <tr><td>GPT-5.6 Sol</td><td class="num">unos 4 céntimos</td></tr>
+  <tr><th>${t('guide.thScreenModel')}</th><th>${t('guide.thCostEach')}</th></tr>
+  ${SCREEN_COSTS.map(
+    (row) => `<tr><td>${esc(row.label)}</td><td class="num">${t(row.cost)}</td></tr>`
+  ).join('')}
 </table>
-<p>
-  Son órdenes de magnitud, no una factura: el coste real depende de cuánto contexto tengas
-  cargado. La conclusión práctica es que el modo pantalla es barato aunque uses el modelo
-  caro — <strong>lo que suma es la escucha automática</strong>, que dispara una consulta
-  por cada pregunta que oye.
-</p>
-<p>
-  Haiku 4.5 aparece más barato de lo que su precio sugiere porque además lee las imágenes
-  a menor resolución, así que gasta menos tokens por captura. Es la misma razón por la que
-  falla antes con letra pequeña: <em>está viendo menos</em>.
-</p>
+<p>${raw('guide.costOutro')}</p>
+<p>${raw('guide.costHaikuNote')}</p>
 
-<h2>Combinaciones recomendadas</h2>
+<h2>${t('guide.h2Recipes')}</h2>
 ${RECIPES.map(
-  (r) => `
+  (recipe) => `
 <div class="recipe">
-  <h3>${esc(r.title)}</h3>
-  <p style="margin:4px 0 0">${esc(r.who)}</p>
+  <h3>${t(recipe.title)}</h3>
+  <p style="margin:4px 0 0">${t(recipe.who)}</p>
   <dl>
-    <dt>Conversar</dt><dd>${esc(r.chat)}</dd>
-    <dt>Pantalla</dt><dd>${esc(r.screen)}</dd>
-    <dt>Coste</dt><dd>${esc(r.cost)}</dd>
+    <dt>${t('guide.taskChat')}</dt><dd>${esc(recipe.chat)}</dd>
+    <dt>${t('guide.taskScreen')}</dt><dd>${esc(recipe.screen)}</dd>
+    <dt>${t('guide.dtCost')}</dt><dd>${t(recipe.cost)}</dd>
   </dl>
 </div>`
 ).join('')}
 
-<h2>Lo que esta guía no sabe</h2>
-<p>
-  <strong>La VRAM de tu tarjeta gráfica.</strong> Es el número que de verdad decide si un
-  modelo local va rápido, y no hay forma fiable de leerlo desde la app sin invocar
-  utilidades del sistema. Por eso las recomendaciones se apoyan en la RAM, que sí se mide.
-  Si tu GPU tiene menos memoria de la que ocupa el modelo, irá mucho más lento de lo que
-  esta guía sugiere.
-</p>
-<p>
-  <strong>Los precios cambian y los modelos también.</strong> Los de Anthropic y OpenAI
-  están verificados a la fecha de arriba; los nombres de los modelos de Ollama envejecen.
-  Antes de descargar varios gigas, la lista viva está en
-  <code>ollama.com/library</code>, y los precios en
-  <code>platform.claude.com/docs/en/pricing</code>,
-  <code>developers.openai.com/api/docs/pricing</code> y <code>ai.google.dev/pricing</code>.
-</p>
-<p>
-  <strong>Qué tal se le da a un modelo TU examen.</strong> Nada sustituye a probarlo: haz
-  una captura de un ejercicio que ya sepas resolver y compara. Es el único dato que
-  importa y se consigue en dos minutos.
-</p>
+<h2>${t('guide.h2Unknown')}</h2>
+<p>${raw('guide.unknownVram')}</p>
+<p>${raw('guide.unknownPrices')}</p>
+<p>${raw('guide.unknownYourExam')}</p>
 
-<footer>
-  Generado por Tayori para este equipo. Este documento no se envía a ningún
-  sitio: se ha escrito en tu carpeta de datos y se ha abierto en tu navegador.
-</footer>
+<footer>${t('guide.footer')}</footer>
 
 </body>
 </html>`;

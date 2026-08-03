@@ -4,7 +4,7 @@ import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-forma
 import { clampFontScale, providerIsReady } from '@shared/types';
 import { LangProvider, useT } from '@renderer/i18n';
 import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
-import { matchSkills } from '@shared/skills';
+import { matchSkills, skillName } from '@shared/skills';
 import type {
   Answer,
   AudioLevels,
@@ -908,7 +908,7 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
                 onClick={() => complete(skill.id)}
               >
                 <code className="skillmenu__id">/{skill.id}</code>
-                <span className="skillmenu__name">{skill.name}</span>
+                <span className="skillmenu__name">{skillName(t, skill)}</span>
               </button>
             ))
           )}
@@ -1205,10 +1205,7 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
       type="button"
       className={`memory${turns >= max ? ' memory--full' : ''}`}
       data-interactive
-      title={
-        `El asistente recuerda ${turns} de ${max} intercambios y los reenvía en cada consulta. ` +
-        t('overlay.memoryTitle')
-      }
+      title={t('overlay.memoryTitle', { turns, max })}
       onClick={() => {
         // Se marca ANTES de llamar, y no en el `.then`. Vaciar la memoria deja
         // el contador a cero, y con cero el chip no se pinta: para cuando

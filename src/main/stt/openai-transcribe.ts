@@ -219,7 +219,7 @@ export class OpenAITranscribeSTT implements STTProvider {
         model: this.model,
         response_format: 'text',
       });
-      return { ok: true, detail: `Conectado con "${this.model}".` };
+      return { ok: true, detail: m('diag.openaiTranscribeOk', { model: this.model }) };
     } catch (err) {
       return { ok: false, detail: toDetail(err) };
     }

@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import { IPC, type AudioChunkMessage, type CaptureCommand } from '@shared/ipc';
 import type { AudioLevels, CaptureStatus, Speaker } from '@shared/types';
 import { settingsStore } from '../config/store';
+import { m } from '../i18n';
 import { createAudioWorker, getAudioWorker } from '../windows/audio-worker';
 
 /**
@@ -144,7 +145,7 @@ class AudioCaptureController extends EventEmitter {
     } catch (err) {
       this.setStatus({
         state: 'error',
-        error: err instanceof Error ? err.message : 'No se pudo iniciar el worker de audio.',
+        error: err instanceof Error ? err.message : m('err.audioWorker'),
       });
     }
     return this.getStatus();

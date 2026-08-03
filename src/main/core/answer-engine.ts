@@ -11,6 +11,7 @@ import {
   type Settings,
 } from '@shared/types';
 import { settingsStore } from '../config/store';
+import { m } from '../i18n';
 import { createLLMProvider, LLMError } from '../llm';
 import type { ConversationExchange } from '../llm/types';
 import { getSkill } from '../skills';
@@ -270,7 +271,10 @@ export class AnswerEngine extends EventEmitter {
         controller.abort();
         this.update({
           status: 'error',
-          error: `${target.providerId} no respondió en ${FIRST_TOKEN_TIMEOUT_MS / 1000}s. Si es Ollama, comprueba que el servidor sigue vivo (ollama ps).`,
+          error: m('err.noFirstToken', {
+            provider: target.providerId,
+            seconds: FIRST_TOKEN_TIMEOUT_MS / 1000,
+          }),
         });
       }
     }, FIRST_TOKEN_TIMEOUT_MS);
@@ -282,7 +286,7 @@ export class AnswerEngine extends EventEmitter {
         this.update(
           this.current?.text
             ? { status: 'done' }
-            : { status: 'error', error: 'La generación excedió el tiempo límite.' }
+            : { status: 'error', error: m('err.generationTimeout') }
         );
       }
     }, GENERATION_TIMEOUT_MS);
@@ -300,7 +304,7 @@ export class AnswerEngine extends EventEmitter {
       if (onScreen && images.length && !provider.supportsVision) {
         this.update({
           status: 'error',
-          error: `El modelo "${provider.model}" no admite imágenes, así que no puede leer tu pantalla. Elige uno con visión en el dashboard → Modelo para la pantalla (Claude, Gemini, o un multimodal de Ollama como qwen2.5vl o llava).`,
+          error: m('err.noVision', { model: provider.model }),
         });
         return;
       }
@@ -391,7 +395,7 @@ export class AnswerEngine extends EventEmitter {
       status: 'done',
       // Un stream que termina sin texto casi siempre significa que el modelo
       // rechazó o se quedó sin tokens; decirlo es mejor que un panel vacío.
-      ...(this.current?.text ? {} : { status: 'error', error: 'El modelo no devolvió texto.' }),
+      ...(this.current?.text ? {} : { status: 'error', error: m('err.emptyAnswer') }),
     });
   }
 
@@ -408,7 +412,7 @@ export class AnswerEngine extends EventEmitter {
     if (!answer || answer.status !== 'done' || !answer.text.trim()) return;
 
     this.history.push({
-      question: answer.question.trim() || '(pregunta deducida de la transcripción)',
+      question: answer.question.trim() || m('hist.inferredQuestion'),
       answer: answer.text.trim(),
     });
     if (this.history.length > AnswerEngine.MAX_HISTORY) this.history.shift();
