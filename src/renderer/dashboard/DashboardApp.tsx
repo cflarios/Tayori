@@ -4,7 +4,6 @@ import {
   adviseLocalModels,
   autoTriggerIsInert,
   clampFontScale,
-  CONTEXT_KIND_LABEL,
   DEFAULT_HOTKEYS,
   FONT_SCALE,
   HOTKEY_LABEL,
@@ -1279,6 +1278,7 @@ function MqttStatusLine({ status }: { status: MqttStatus | null }) {
  * de en el formato que ya es.
  */
 function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [folder, setFolder] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1304,16 +1304,14 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
       <section className="card">
         <div className="skillhead">
           <div>
-            <h2 className="card__title">Carpeta de skills</h2>
+            <h2 className="card__title">{t('sk.folderTitle')}</h2>
             <p className="card__hint">
-              Cada skill es una carpeta con un archivo <code>SKILL.md</code> dentro: frontmatter con{' '}
-              <code>name</code> y <code>description</code>, y debajo las instrucciones. Los scripts
-              y los assets que admite el formato <strong>se ignoran</strong> — ver la nota de abajo.
+              <Tx k="sk.folderHint" />
             </p>
           </div>
           <button className="btn" disabled={busy} onClick={() => void refresh()}>
             <Icon name="refresh" size={15} />
-            {busy ? 'Releyendo…' : 'Recargar'}
+            {busy ? t('sk.reloading') : t('sk.reload')}
           </button>
         </div>
 
@@ -1322,44 +1320,35 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
             <Icon name="folder" size={18} />
           </span>
           <div className="skillfolder__text">
-            <div className="skillfolder__title">Añade aquí tus skills</div>
+            <div className="skillfolder__title">{t('sk.addHere')}</div>
             <code className="skillfolder__path">{folder || '…'}</code>
           </div>
           <button className="btn" onClick={() => void window.api.skills.openFolder()}>
-            Abrir carpeta
+            {t('sk.openFolder')}
           </button>
         </div>
 
         <div className="warn">
-          Lo que pongas ahí acaba <strong>dentro del prompt</strong> que se manda a tu proveedor. No
-          es código que se ejecute —los scripts se ignoran a propósito— pero sí es texto que sale de
-          tu máquina en cada consulta, así que trata una skill de terceros como tratarías cualquier
-          otra cosa que vayas a pegar en un chat.
+          <Tx k="sk.promptWarn" />
         </div>
       </section>
 
       <section className="card">
-        <h2 className="card__title">Skill activa</h2>
+        <h2 className="card__title">{t('sk.activeTitle')}</h2>
         <p className="card__hint">
-          Se aplica a <strong>todas</strong> las respuestas hasta que la quites, incluidas las que
-          dispara la escucha automática. Para usar una sólo en un mensaje, escribe{' '}
-          <code>/nombre</code> al principio en la pestaña de escritura del overlay.
+          <Tx k="sk.activeHint" />
         </p>
 
         <Row
           icon="sparkles"
-          label="Instrucción"
-          desc={
-            active
-              ? 'Manda sobre el tono y las palabras. El formato lo sigue decidiendo el perfil.'
-              : 'Sin ninguna puesta, el modelo responde como siempre.'
-          }
+          label={t('sk.instruction')}
+          desc={active ? t('sk.activeDesc') : t('sk.noneDesc')}
         >
           <select
             value={active ? active.id : ''}
             onChange={(e) => void patch({ activeSkillId: e.target.value })}
           >
-            <option value="">Ninguna</option>
+            <option value="">{t('sk.none')}</option>
             {skills
               .filter((skill) => !skill.error)
               .map((skill) => (
@@ -1372,8 +1361,7 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
 
         {skills.length === 0 && (
           <p className="card__hint">
-            No hay ninguna skill todavía. Crea una carpeta con un <code>SKILL.md</code> dentro y
-            pulsa «Recargar».
+            <Tx k="sk.empty" />
           </p>
         )}
 
@@ -1392,13 +1380,13 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
                   {/* El id va al lado del nombre porque es lo que se teclea tras
                       la barra, y no tiene por qué parecerse al título. */}
                   <code className="skill__id">{skill.id}</code>
-                  {skill.builtIn && <span className="skill__tag">De serie</span>}
+                  {skill.builtIn && <span className="skill__tag">{t('sk.builtIn')}</span>}
                 </div>
                 {skill.error ? (
                   <p className="skill__error">{skill.error}</p>
                 ) : (
                   <p className="skill__desc">
-                    {skill.description || 'Sin description en el frontmatter.'}
+                    {skill.description || t('sk.noDescription')}
                   </p>
                 )}
               </div>
@@ -2814,23 +2802,17 @@ const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], string> = {
  * El equilibrio correcto depende de para qué uses la app, así que los textos
  * describen el caso de uso y no el algoritmo: nadie elige "recall" a ciegas.
  */
-const SENSITIVITY_HINT: Record<Settings['autoTriggerSensitivity'], string> = {
-  strict:
-    'Solo dispara con interrogativo al principio, signo de interrogación o "cuéntame…". ' +
-    'Casi nunca molesta, pero se le escapan preguntas que el reconocedor entrega sin signos.',
-  balanced:
-    'Añade interrogativos acentuados en cualquier posición y fórmulas como "me recomiendas". ' +
-    'Recupera la mayoría de preguntas reales a cambio de algún disparo de más.',
-  all:
-    'Responde a todo lo que no sea un saludo o una prueba de audio. Es lo que quieres si eres ' +
-    'tú quien dicta las preguntas; en una entrevista real interrumpirá constantemente.',
+const SENSITIVITY_HINT: Record<Settings['autoTriggerSensitivity'], UIKey> = {
+  strict: 'beh.sensStrictHint',
+  balanced: 'beh.sensBalancedHint',
+  all: 'beh.sensAllHint',
 };
 
 /** Nombres de los hablantes en los avisos, para no repetirlos en cada texto. */
-const SPEAKER_LABEL: Record<'me' | 'them' | 'any', string> = {
-  me: 'tu micrófono',
-  them: 'el interlocutor',
-  any: 'cualquiera de los dos',
+const SPEAKER_LABEL: Record<'me' | 'them' | 'any', UIKey> = {
+  them: 'beh.speakerThemShort',
+  me: 'beh.speakerMeShort',
+  any: 'beh.speakerAnyShort',
 };
 
 const LANGUAGE_LABEL: Record<string, string> = {
@@ -2859,12 +2841,13 @@ function BehaviourCard({
   patch: PatchFn;
   go: (id: SectionId) => void;
 }) {
+  const t = useT();
   return (
     <section className="card">
       <Row
         icon="bolt"
-        label="Respuestas automáticas"
-        desc="Con la heurística activa, detecta preguntas dirigidas a ti y responde sin que pulses nada. El hotkey manual funciona en todos los modos."
+        label={t('beh.auto')}
+        desc={t('beh.autoDesc')}
       >
         <select
           value={settings.autoTriggerMode}
@@ -2872,21 +2855,17 @@ function BehaviourCard({
             void patch({ autoTriggerMode: e.target.value as Settings['autoTriggerMode'] })
           }
         >
-          <option value="off">Solo con hotkey</option>
-          <option value="heuristic">Automático (heurística local)</option>
-          <option value="heuristic+classifier">Automático + clasificador (usa el modelo)</option>
+          <option value="off">{t('beh.autoOff')}</option>
+          <option value="heuristic">{t('beh.autoHeuristic')}</option>
+          <option value="heuristic+classifier">{t('beh.autoClassifier')}</option>
         </select>
       </Row>
 
       {settings.autoTriggerMode === 'heuristic+classifier' && (
         <div className="warn">
-          Cuando la heurística no vea ningún marcador, le preguntará al modelo si esa intervención
-          pedía respuesta. Es lo que caza las preguntas que llegan como afirmaciones —
-          <em>«una persona que sepa DevOps tendría que saber de seguridad»</em>— y que ninguna lista
-          de palabras puede detectar.
+          <Tx k="beh.classifierWarn" />
           <br />
-          <strong>Cuesta una consulta más</strong> por cada intervención ambigua, aunque al final no
-          se responda. Con Ollama es gratis; con un modelo de pago, no.
+          <Tx k="beh.classifierCost" />
         </div>
       )}
 
@@ -2894,8 +2873,8 @@ function BehaviourCard({
         <>
           <Row
             icon="mic"
-            label="Quién dispara la respuesta"
-            desc="Por defecto solo el interlocutor: responder a lo que dices tú no tiene sentido en una entrevista. Cámbialo si usas la app para dictar las preguntas tú mismo."
+            label={t('beh.speaker')}
+            desc={t('beh.speakerDesc')}
           >
             <select
               value={settings.autoTriggerSpeaker}
@@ -2905,16 +2884,16 @@ function BehaviourCard({
                 })
               }
             >
-              <option value="them">El interlocutor</option>
-              <option value="me">Mi micrófono</option>
-              <option value="any">Cualquiera de los dos</option>
+              <option value="them">{t('beh.speakerThem')}</option>
+              <option value="me">{t('beh.speakerMe')}</option>
+              <option value="any">{t('beh.speakerAny')}</option>
             </select>
           </Row>
 
           <Row
             icon="waveform"
-            label="Cuándo considera que es una pregunta"
-            desc={SENSITIVITY_HINT[settings.autoTriggerSensitivity]}
+            label={t('beh.sensitivity')}
+            desc={t(SENSITIVITY_HINT[settings.autoTriggerSensitivity])}
           >
             <select
               value={settings.autoTriggerSensitivity}
@@ -2924,9 +2903,9 @@ function BehaviourCard({
                 })
               }
             >
-              <option value="strict">Estricto · solo señales claras</option>
-              <option value="balanced">Equilibrado · recomendado</option>
-              <option value="all">Todo · cualquier intervención</option>
+              <option value="strict">{t('beh.sensStrict')}</option>
+              <option value="balanced">{t('beh.sensBalanced')}</option>
+              <option value="all">{t('beh.sensAll')}</option>
             </select>
           </Row>
 
@@ -2935,16 +2914,18 @@ function BehaviourCard({
               avisa aquí y no solo en el log del proceso principal. */}
           {autoTriggerIsInert(settings) && (
             <div className="warn">
-              El auto-disparo espera a <strong>{SPEAKER_LABEL[settings.autoTriggerSpeaker]}</strong>
-              , pero «Qué se escucha» solo abre{' '}
-              {speakersFor(settings.audioSources)
-                .map((s) => SPEAKER_LABEL[s])
-                .join(' y ')}
-              : <strong>nunca se disparará ninguna respuesta automática</strong>. Cambia una de las
-              dos cosas, o usa <kbd>Ctrl</kbd>+<kbd>Enter</kbd> para preguntar a mano.
+              <Tx
+                k="beh.inertWarn"
+                vars={{
+                  wanted: t(SPEAKER_LABEL[settings.autoTriggerSpeaker]),
+                  heard: speakersFor(settings.audioSources)
+                    .map((speaker) => t(SPEAKER_LABEL[speaker]))
+                    .join(t('stt.and')),
+                }}
+              />
               <div className="field">
                 <Jump to="audio" go={go}>
-                  Cambiar qué se escucha
+                  {t('beh.changeSources')}
                 </Jump>
               </div>
             </div>
@@ -2954,8 +2935,8 @@ function BehaviourCard({
 
       <Row
         icon="clock"
-        label="Ventana de voz"
-        desc="Segundos de TRANSCRIPCIÓN que acompañan a cada pregunta. No afecta a la memoria del asistente: sus propias respuestas anteriores se envían siempre. Por debajo de 30 s se pierde el hilo de lo que dijo el interlocutor."
+        label={t('beh.window')}
+        desc={t('beh.windowDesc')}
       >
         <input
           type="number"
@@ -2972,8 +2953,8 @@ function BehaviourCard({
 
       <Row
         icon="file"
-        label="Perfil de respuesta"
-        desc="Adapta el tono y la estructura al tipo de reunión."
+        label={t('beh.profile')}
+        desc={t('beh.profileDesc')}
       >
         <select
           value={settings.promptProfileId}
@@ -2981,13 +2962,13 @@ function BehaviourCard({
             void patch({ promptProfileId: e.target.value as Settings['promptProfileId'] })
           }
         >
-          <option value="interview">Entrevista de trabajo</option>
-          <option value="meeting">Reunión genérica</option>
-          <option value="lecture">Clase o charla</option>
-          <option value="support">Soporte técnico</option>
-          <option value="coding">Código (resolver ejercicios)</option>
-          <option value="quiz">Test (opción múltiple)</option>
-          <option value="custom">Personalizado</option>
+          <option value="interview">{t('beh.profInterview')}</option>
+          <option value="meeting">{t('beh.profMeeting')}</option>
+          <option value="lecture">{t('beh.profLecture')}</option>
+          <option value="support">{t('beh.profSupport')}</option>
+          <option value="coding">{t('beh.profCoding')}</option>
+          <option value="quiz">{t('beh.profQuiz')}</option>
+          <option value="custom">{t('beh.profCustom')}</option>
         </select>
       </Row>
 
@@ -2999,8 +2980,8 @@ function BehaviourCard({
       */}
       <Row
         icon="monitor"
-        label="Lenguaje del modo código"
-        desc="En qué lenguaje se escriben las soluciones de Ctrl+Alt+C. Con «auto» lo deduce de lo que se vea en la pantalla, que es lo correcto si el editor ya tiene uno elegido."
+        label={t('beh.codeLang')}
+        desc={t('beh.codeLangDesc')}
       >
         <input
           type="text"
@@ -3013,7 +2994,7 @@ function BehaviourCard({
 
       {settings.promptProfileId === 'custom' && (
         <textarea
-          placeholder="Describe cómo debe comportarse el asistente…"
+          placeholder={t('beh.customPlaceholder')}
           value={settings.customPrompt}
           onChange={(e) => void patch({ customPrompt: e.target.value })}
           style={{ marginTop: 10 }}
@@ -3025,40 +3006,40 @@ function BehaviourCard({
 
 // ──────────────────────────── Context packs ────────────────────────────
 
-const PROFILE_LABEL: Record<Settings['promptProfileId'], string> = {
-  interview: 'Entrevista de trabajo',
-  meeting: 'Reunión genérica',
-  lecture: 'Clase o charla',
-  support: 'Soporte técnico',
-  coding: 'Código',
-  quiz: 'Test',
-  custom: 'Personalizado',
+const PROFILE_LABEL: Record<Settings['promptProfileId'], UIKey> = {
+  interview: 'beh.profInterview',
+  meeting: 'beh.profMeeting',
+  lecture: 'beh.profLecture',
+  support: 'beh.profSupport',
+  coding: 'overlay.profileCoding',
+  quiz: 'overlay.profileQuiz',
+  custom: 'beh.profCustom',
 };
 
 /** Qué pedirle al usuario en cada hueco, y por qué le conviene rellenarlo. */
-const SLOT_HELP: Record<ContextKind, { placeholder: string; hint: string }> = {
-  cv: {
-    placeholder:
-      'Pega tu CV, o un resumen de tu experiencia: empresas, años, tecnologías, logros con cifras…',
-    hint: 'La única fuente de datos concretos sobre ti. Sin esto las respuestas son correctas pero genéricas, y el modelo tiene prohibido inventarse experiencia.',
-  },
-  job: {
-    placeholder: 'Pega la oferta: responsabilidades, stack, requisitos…',
-    hint: 'Decide QUÉ destacar de tu experiencia y con qué vocabulario. No se usa para atribuirte nada que no esté en tu CV.',
-  },
-  qa: {
-    placeholder:
-      '¿Cuál es tu mayor debilidad?\n— Tiendo a meterme en el detalle; lo compenso con revisiones a mitad de sprint.\n\n¿Por qué dejaste tu último trabajo?\n— …',
-    hint: 'Preguntas que ya sabes que van a caer, con tu respuesta. Si la pregunta encaja, el modelo la reutiliza casi literal en vez de improvisar una versión aguada.',
-  },
-  vocabulary: {
-    placeholder: 'Kubernetes, Grafana, EmployeeBridge, Marta Ibáñez, CI/CD…',
-    hint: 'Separados por comas o saltos de línea. Van directos al reconocedor de voz: es lo que arregla los nombres propios y las siglas que salen mal transcritas.',
-  },
-  notes: {
-    placeholder: 'Cualquier cosa que convenga que el modelo sepa.',
-    hint: 'Notas de apoyo sin tratamiento especial.',
-  },
+const SLOT_HELP: Record<ContextKind, { placeholder: UIKey; hint: UIKey }> = {
+  cv: { placeholder: 'ctx.cvPlaceholder', hint: 'ctx.cvHint' },
+  job: { placeholder: 'ctx.jobPlaceholder', hint: 'ctx.jobHint' },
+  qa: { placeholder: 'ctx.qaPlaceholder', hint: 'ctx.qaHint' },
+  vocabulary: { placeholder: 'ctx.vocabularyPlaceholder', hint: 'ctx.vocabularyHint' },
+  notes: { placeholder: 'ctx.notesPlaceholder', hint: 'ctx.notesHint' },
+};
+
+/**
+ * El nombre de cada tipo, **para la interfaz**.
+ *
+ * `CONTEXT_KIND_LABEL` de `shared/types.ts` se queda como está y en español: lo
+ * usa `prompt.ts` para rotular los bloques que se le mandan al modelo, y los
+ * prompts no se traducen. Son dos usos del mismo concepto con destinatarios
+ * distintos —una persona y un modelo— y mezclarlos metería una clave sin
+ * traducir dentro del system prompt.
+ */
+const CONTEXT_KIND_KEY: Record<ContextKind, UIKey> = {
+  cv: 'ctx.kindCv',
+  job: 'ctx.kindJob',
+  qa: 'ctx.kindQa',
+  vocabulary: 'ctx.kindVocabulary',
+  notes: 'ctx.kindNotes',
 };
 
 /**
@@ -3074,6 +3055,7 @@ const SLOT_HELP: Record<ContextKind, { placeholder: string; hint: string }> = {
  * quiera algo distinto lo añade abajo.
  */
 function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
   const packs = settings.contextPacks;
   const profile = settings.promptProfileId;
   const slots = PROFILE_SLOTS[profile];
@@ -3103,7 +3085,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
       ...packs,
       {
         id: crypto.randomUUID(),
-        name: CONTEXT_KIND_LABEL[kind],
+        name: t(CONTEXT_KIND_KEY[kind]),
         content,
         enabled: true,
         kind,
@@ -3117,7 +3099,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
       ...packs,
       {
         id: crypto.randomUUID(),
-        name: 'Nuevo contexto',
+        name: t('ctx.newName'),
         content: '',
         enabled: true,
         kind: 'notes',
@@ -3135,13 +3117,16 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   return (
     <section className="card">
       <div className="ctxbar ctxbar--first">
-        <span className="ctxbar__label">Preparando para</span>
-        <strong className="ctxbar__profile">{PROFILE_LABEL[profile]}</strong>
+        <span className="ctxbar__label">{t('ctx.preparingFor')}</span>
+        <strong className="ctxbar__profile">{t(PROFILE_LABEL[profile])}</strong>
         <span className="ctxbar__spacer" />
         <span className="ctxbar__active">
           {activeNow.length
-            ? `${activeNow.length} en uso: ${activeNow.map((p) => p.name).join(', ')}`
-            : 'nada activo todavía'}
+            ? t('ctx.inUse', {
+                count: activeNow.length,
+                names: activeNow.map((pack) => pack.name).join(', '),
+              })
+            : t('ctx.nothingActive')}
         </span>
       </div>
 
@@ -3159,14 +3144,14 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
       ))}
 
       <div className="ctxbar" style={{ marginTop: 18 }}>
-        <span className="ctxbar__label">Otros contextos</span>
+        <span className="ctxbar__label">{t('ctx.others')}</span>
         <span className="ctxbar__spacer" />
-        <span className="ctxbar__active">Sin perfil marcado, se aplican siempre</span>
+        <span className="ctxbar__active">{t('ctx.othersNote')}</span>
       </div>
 
       {others.length === 0 && (
         <p className="card__hint" style={{ marginBottom: 0 }}>
-          Ninguno. Los huecos de arriba cubren lo habitual.
+          {t('ctx.noOthers')}
         </p>
       )}
 
@@ -3182,15 +3167,15 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
               value={pack.kind}
               onChange={(e) => update(pack.id, { kind: e.target.value as ContextKind })}
             >
-              {(Object.keys(CONTEXT_KIND_LABEL) as ContextKind[]).map((k) => (
+              {(Object.keys(CONTEXT_KIND_KEY) as ContextKind[]).map((k) => (
                 <option key={k} value={k}>
-                  {CONTEXT_KIND_LABEL[k]}
+                  {t(CONTEXT_KIND_KEY[k])}
                 </option>
               ))}
             </select>
             <Switch on={pack.enabled} onChange={(v) => update(pack.id, { enabled: v })} />
             <button className="btn btn--danger" onClick={() => remove(pack.id)}>
-              Quitar
+              {t('ctx.remove')}
             </button>
           </div>
           <div className="pack__profiles">
@@ -3207,12 +3192,12 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
                     })
                   }
                 />
-                {PROFILE_LABEL[p]}
+                {t(PROFILE_LABEL[p])}
               </label>
             ))}
           </div>
           <textarea
-            placeholder="Pega aquí el texto…"
+            placeholder={t('ctx.pasteHere')}
             value={pack.content}
             onChange={(e) => update(pack.id, { content: e.target.value })}
           />
@@ -3221,7 +3206,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
 
       <div className="field">
         <button className="btn" onClick={addOwn}>
-          Añadir contexto propio
+          {t('ctx.addOwn')}
         </button>
       </div>
     </section>
@@ -3240,6 +3225,7 @@ function ContextSlot({
   onChange: (content: string) => void;
   onToggle: (on: boolean) => void;
 }) {
+  const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const help = SLOT_HELP[kind];
 
@@ -3255,10 +3241,10 @@ function ContextSlot({
   return (
     <div className="pack">
       <div className="pack__head">
-        <strong className="slot__title">{CONTEXT_KIND_LABEL[kind]}</strong>
+        <strong className="slot__title">{t(CONTEXT_KIND_KEY[kind])}</strong>
         {pack && <Switch on={pack.enabled} onChange={onToggle} />}
         <button className="btn" onClick={() => fileRef.current?.click()}>
-          Importar .txt / .md
+          {t('ctx.import')}
         </button>
         <input
           ref={fileRef}
@@ -3276,7 +3262,7 @@ function ContextSlot({
       </div>
       <p className="slot__hint">{help.hint}</p>
       <textarea
-        placeholder={help.placeholder}
+        placeholder={t(help.placeholder)}
         value={pack?.content ?? ''}
         onChange={(e) => onChange(e.target.value)}
       />

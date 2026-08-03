@@ -262,6 +262,112 @@ export const es: Record<UIKey, string> = {
   'stt.progressBinary': 'Ejecutable',
   'stt.progressModel': 'Modelo',
 
+  // ───────────────────── Ajustes · comportamiento ─────────────────────
+  'beh.auto': 'Respuestas automáticas',
+  'beh.autoDesc':
+    'Con la heurística activa, detecta preguntas dirigidas a ti y responde sin que pulses nada. El hotkey manual funciona en todos los modos.',
+  'beh.autoOff': 'Solo con hotkey',
+  'beh.autoHeuristic': 'Automático (heurística local)',
+  'beh.autoClassifier': 'Automático + clasificador (usa el modelo)',
+  'beh.classifierWarn':
+    'Cuando la heurística no vea ningún marcador, le preguntará al modelo si esa intervención pedía respuesta. Es lo que caza las preguntas que llegan como afirmaciones —*«una persona que sepa DevOps tendría que saber de seguridad»*— y que ninguna lista de palabras puede detectar.',
+  'beh.classifierCost':
+    '**Cuesta una consulta más** por cada intervención ambigua, aunque al final no se responda. Con Ollama es gratis; con un modelo de pago, no.',
+  'beh.speaker': 'Quién dispara la respuesta',
+  'beh.speakerDesc':
+    'Por defecto solo el interlocutor: responder a lo que dices tú no tiene sentido en una entrevista. Cámbialo si usas la app para dictar las preguntas tú mismo.',
+  'beh.speakerThem': 'El interlocutor',
+  'beh.speakerMe': 'Mi micrófono',
+  'beh.speakerAny': 'Cualquiera de los dos',
+  'beh.sensitivity': 'Cuándo considera que es una pregunta',
+  'beh.sensStrict': 'Estricto · solo señales claras',
+  'beh.sensBalanced': 'Equilibrado · recomendado',
+  'beh.sensAll': 'Todo · cualquier intervención',
+  'beh.sensStrictHint':
+    'Solo dispara con interrogativo al principio, signo de interrogación o "cuéntame…". Casi nunca molesta, pero se le escapan preguntas que el reconocedor entrega sin signos.',
+  'beh.sensBalancedHint':
+    'Añade interrogativos acentuados en cualquier posición y fórmulas como "me recomiendas". Recupera la mayoría de preguntas reales a cambio de algún disparo de más.',
+  'beh.sensAllHint':
+    'Responde a todo lo que no sea un saludo o una prueba de audio. Es lo que quieres si eres tú quien dicta las preguntas; en una entrevista real interrumpirá constantemente.',
+  'beh.inertWarn':
+    'El auto-disparo espera a **{wanted}**, pero «Qué se escucha» solo abre {heard}: **nunca se disparará ninguna respuesta automática**. Cambia una de las dos cosas, o usa Ctrl+Enter para preguntar a mano.',
+  'beh.changeSources': 'Cambiar qué se escucha',
+  'beh.window': 'Ventana de voz',
+  'beh.windowDesc':
+    'Segundos de TRANSCRIPCIÓN que acompañan a cada pregunta. No afecta a la memoria del asistente: sus propias respuestas anteriores se envían siempre. Por debajo de 30 s se pierde el hilo de lo que dijo el interlocutor.',
+  'beh.profile': 'Perfil de respuesta',
+  'beh.profileDesc': 'Adapta el tono y la estructura al tipo de reunión.',
+  'beh.profInterview': 'Entrevista de trabajo',
+  'beh.profMeeting': 'Reunión genérica',
+  'beh.profLecture': 'Clase o charla',
+  'beh.profSupport': 'Soporte técnico',
+  'beh.profCoding': 'Código (resolver ejercicios)',
+  'beh.profQuiz': 'Test (opción múltiple)',
+  'beh.profCustom': 'Personalizado',
+  'beh.codeLang': 'Lenguaje del modo código',
+  'beh.codeLangDesc':
+    'En qué lenguaje se escriben las soluciones de Ctrl+Alt+C. Con «auto» lo deduce de lo que se vea en la pantalla, que es lo correcto si el editor ya tiene uno elegido.',
+  'beh.customPlaceholder': 'Describe cómo debe comportarse el asistente…',
+  'beh.speakerThemShort': 'el interlocutor',
+  'beh.speakerMeShort': 'tú',
+  'beh.speakerAnyShort': 'cualquiera de los dos',
+
+  // ───────────────────── Ajustes · contexto ─────────────────────
+  'ctx.preparingFor': 'Preparando para',
+  'ctx.inUse': '{count} en uso: {names}',
+  'ctx.nothingActive': 'nada activo todavía',
+  'ctx.others': 'Otros contextos',
+  'ctx.othersNote': 'Sin perfil marcado, se aplican siempre',
+  'ctx.noOthers': 'Ninguno. Los huecos de arriba cubren lo habitual.',
+  'ctx.remove': 'Quitar',
+  'ctx.addOwn': 'Añadir contexto propio',
+  'ctx.pasteHere': 'Pega aquí el texto…',
+  'ctx.newName': 'Nuevo contexto',
+  'ctx.loadFile': 'Cargar un archivo',
+  'ctx.kindCv': 'Tu CV o experiencia',
+  'ctx.kindJob': 'Descripción del puesto',
+  'ctx.kindQa': 'Respuestas preparadas',
+  'ctx.kindVocabulary': 'Vocabulario',
+  'ctx.kindNotes': 'Notas',
+  'ctx.cvPlaceholder':
+    'Pega tu CV, o un resumen de tu experiencia: empresas, años, tecnologías, logros con cifras…',
+  'ctx.cvHint':
+    'La única fuente de datos concretos sobre ti. Sin esto las respuestas son correctas pero genéricas, y el modelo tiene prohibido inventarse experiencia.',
+  'ctx.jobPlaceholder': 'Pega la oferta: responsabilidades, stack, requisitos…',
+  'ctx.jobHint':
+    'Decide QUÉ destacar de tu experiencia y con qué vocabulario. No se usa para atribuirte nada que no esté en tu CV.',
+  'ctx.qaPlaceholder':
+    '¿Cuál es tu mayor debilidad?\n— Tiendo a meterme en el detalle; lo compenso con revisiones a mitad de sprint.\n\n¿Por qué dejaste tu último trabajo?\n— …',
+  'ctx.qaHint':
+    'Preguntas que ya sabes que van a caer, con tu respuesta. Si la pregunta encaja, el modelo la reutiliza casi literal en vez de improvisar una versión aguada.',
+  'ctx.vocabularyPlaceholder': 'Kubernetes, Grafana, EmployeeBridge, Marta Ibáñez, CI/CD…',
+  'ctx.vocabularyHint':
+    'Separados por comas o saltos de línea. Van directos al reconocedor de voz: es lo que arregla los nombres propios y las siglas que salen mal transcritas.',
+  'ctx.notesPlaceholder': 'Cualquier cosa que convenga que el modelo sepa.',
+  'ctx.notesHint': 'Notas de apoyo sin tratamiento especial.',
+
+  // ───────────────────── Ajustes · skills ─────────────────────
+  'sk.folderTitle': 'Carpeta de skills',
+  'sk.folderHint':
+    'Cada skill es una carpeta con un archivo `SKILL.md` dentro: frontmatter con `name` y `description`, y debajo las instrucciones. Los scripts y los assets que admite el formato **se ignoran** — ver la nota de abajo.',
+  'sk.reload': 'Recargar',
+  'sk.reloading': 'Releyendo…',
+  'sk.addHere': 'Añade aquí tus skills',
+  'sk.openFolder': 'Abrir carpeta',
+  'sk.promptWarn':
+    'Lo que pongas ahí acaba **dentro del prompt** que se manda a tu proveedor. No es código que se ejecute —los scripts se ignoran a propósito— pero sí es texto que sale de tu máquina en cada consulta, así que trata una skill de terceros como tratarías cualquier otra cosa que vayas a pegar en un chat.',
+  'sk.activeTitle': 'Skill activa',
+  'sk.activeHint':
+    'Se aplica a **todas** las respuestas hasta que la quites, incluidas las que dispara la escucha automática. Para usar una sólo en un mensaje, escribe `/nombre` al principio en la pestaña de escritura del overlay.',
+  'sk.instruction': 'Instrucción',
+  'sk.activeDesc': 'Manda sobre el tono y las palabras. El formato lo sigue decidiendo el perfil.',
+  'sk.noneDesc': 'Sin ninguna puesta, el modelo responde como siempre.',
+  'sk.none': 'Ninguna',
+  'sk.empty': 'No hay ninguna skill todavía. Crea una carpeta con un `SKILL.md` dentro y pulsa «Recargar».',
+  'sk.builtIn': 'De serie',
+  'sk.noDescription': 'Sin description en el frontmatter.',
+  'ctx.import': 'Importar .txt / .md',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':
