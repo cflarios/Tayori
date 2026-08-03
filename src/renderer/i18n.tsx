@@ -59,7 +59,17 @@ export function Tx({
   k: UIKey;
   vars?: Record<string, string | number>;
 }): ReactNode {
-  const text = translate(useUILang(), k, vars);
+  return renderMarkup(translate(useUILang(), k, vars));
+}
+
+/**
+ * El marcado, sin depender del contexto.
+ *
+ * Suelto porque el componente raíz de cada ventana **provee** el idioma y por
+ * tanto no puede consumirlo: para sus propias cadenas traduce a mano y pinta
+ * con esto.
+ */
+export function renderMarkup(text: string): ReactNode {
   // Se parte por los delimitadores conservándolos, y se decide por el primer
   // carácter de cada trozo. Sin lookahead ni estados: no hay nada más que dos
   // marcas que se abren y se cierran igual.

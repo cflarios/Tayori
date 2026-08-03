@@ -147,6 +147,35 @@ export const es: Record<UIKey, string> = {
   'overlay.qaReviewPrompt':
     'Revisa tus respuestas anteriores. Di sólo las que cambiarías y por cuál.',
 
+  // ───────────────────── Ajustes · secciones ─────────────────────
+  'sec.general': 'General',
+  'sec.generalHint': 'Si el overlay aparece al compartir pantalla, y cómo se ve mientras tanto.',
+  'sec.audio': 'Audio',
+  'sec.audioHint': 'Qué se escucha, y la comprobación de que las dos fuentes llegan por separado.',
+  'sec.phone': 'Espejo en el móvil',
+  'sec.phoneHint': 'Manda las respuestas al navegador de tu teléfono. Sirve para lo que el modo invisible no puede cubrir: cuando compartes la pantalla entera, lo que está en tu monitor está al otro lado.',
+  'sec.mqtt': 'MQTT',
+  'sec.mqttHint': 'Publica cada respuesta terminada en un broker, para que la recoja otra cosa: un ESP32, un script, lo que montes.',
+  'sec.models': 'Modelos de IA',
+  'sec.modelsHint': 'Las claves, quién genera las respuestas y quién lee tu pantalla.',
+  'sec.transcription': 'Transcripción',
+  'sec.transcriptionHint': 'Los motores de nube transcriben en ~300 ms pero envían el audio a su proveedor. Whisper local no sale de tu máquina, a cambio de ~1–2 s de latencia.',
+  'sec.behaviour': 'Comportamiento',
+  'sec.behaviourHint': 'Cuándo responde el asistente y con cuánto contexto.',
+  'sec.context': 'Contexto',
+  'sec.contextHint': 'Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de parafrasearse.',
+  'sec.skills': 'Skills',
+  'sec.skillsHint': 'Instrucciones locales en formato SKILL.md que refinan CÓMO responde el modelo: el tono y las palabras, no el formato. Se activan aquí o escribiendo /nombre en la pestaña de escritura.',
+  'sec.history': 'Historial',
+  'sec.historyHint': 'Se guarda en tu máquina, en texto plano, y no se envía a ningún sitio. Incluye la transcripción completa: lo que dijo la otra persona, no sólo lo que preguntaste tú.',
+  'sec.hotkeys': 'Atajos',
+  'sec.hotkeysHint':
+    'Son **globales**: funcionan con el foco en la videollamada, y por eso se los quitan a la aplicación que lo tenga. Pulsa un campo y teclea la combinación que quieras.',
+  'sec.diagnostics': 'Diagnóstico',
+  'sec.diagnosticsHint': 'Si algo no funciona, esto es lo que hay que mirar antes que nada.',
+  'sec.about': 'Acerca de',
+  'sec.aboutHint': 'Qué es Tayori, qué versión tienes y qué hace con tus datos.',
+
   // ────────────────────────────── Ajustes ──────────────────────────────
   'dash.language': 'Idioma',
   'dash.languageDesc':

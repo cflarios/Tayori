@@ -166,6 +166,35 @@ export const en = {
   'overlay.qaReviewPrompt':
     'Review your previous answers. Say only the ones you would change, and to which.',
 
+  // ───────────────────── Ajustes · secciones ─────────────────────
+  'sec.general': 'General',
+  'sec.generalHint': 'Whether the overlay shows up when you share your screen, and how it looks meanwhile.',
+  'sec.audio': 'Audio',
+  'sec.audioHint': 'What it listens to, and the check that both sources arrive separately.',
+  'sec.phone': 'Phone mirror',
+  'sec.phoneHint': "Sends the answers to your phone's browser. It covers what stealth mode cannot: when you share your whole screen, whatever is on your monitor is on the other side too.",
+  'sec.mqtt': 'MQTT',
+  'sec.mqttHint': 'Publishes every finished answer to a broker so something else can pick it up: an ESP32, a script, whatever you build.',
+  'sec.models': 'AI models',
+  'sec.modelsHint': 'The keys, who writes the answers and who reads your screen.',
+  'sec.transcription': 'Transcription',
+  'sec.transcriptionHint': 'Cloud engines transcribe in ~300 ms but send the audio to their provider. Whisper local never leaves your machine, in exchange for ~1–2 s of latency.',
+  'sec.behaviour': 'Behaviour',
+  'sec.behaviourHint': 'When the assistant answers, and with how much context.',
+  'sec.context': 'Context',
+  'sec.contextHint': 'What you prepare here is what separates a generic answer from one of yours. Each kind is explained to the model differently, so a prepared answer gets reused instead of paraphrased.',
+  'sec.skills': 'Skills',
+  'sec.skillsHint': 'Local SKILL.md instructions that refine HOW the model answers: the tone and the words, not the format. You turn them on here or by typing /name in the write tab.',
+  'sec.history': 'History',
+  'sec.historyHint': 'Stored on your machine, in plain text, and never sent anywhere. It includes the full transcript: what the other person said, not just what you asked.',
+  'sec.hotkeys': 'Shortcuts',
+  'sec.hotkeysHint':
+    'They are **global**: they work with the video call focused, which is exactly why they take the shortcut away from whatever app has focus. Click a field and type the combination you want.',
+  'sec.diagnostics': 'Diagnostics',
+  'sec.diagnosticsHint': 'If something is not working, this is what to look at before anything else.',
+  'sec.about': 'About',
+  'sec.aboutHint': 'What Tayori is, which version you have and what it does with your data.',
+
   // ────────────────────────────── Ajustes ──────────────────────────────
   'dash.language': 'Language',
   'dash.languageDesc':

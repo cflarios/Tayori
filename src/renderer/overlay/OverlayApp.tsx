@@ -284,7 +284,7 @@ function SourcePicker({
             <span
               className={`source__label${source.mode === 'both' ? ' source__label--keep' : ''}`}
             >
-              {source.label}
+              {t(source.label)}
             </span>
             {/* El medidor sólo en las fuentes concretas: en "Ambos" habría que
                 enseñar dos y la barra dejaría de decir cuál se mueve. */}

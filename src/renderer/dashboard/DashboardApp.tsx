@@ -21,8 +21,8 @@ import {
   duplicateAccelerators,
   formatAccelerator,
 } from '@shared/accelerator';
-import { UI_LANG_LABEL, UI_LANGS, type UILang } from '@shared/i18n';
-import { LangProvider, useT } from '@renderer/i18n';
+import { translate, UI_LANG_LABEL, UI_LANGS, type UIKey, type UILang } from '@shared/i18n';
+import { LangProvider, renderMarkup, useT } from '@renderer/i18n';
 import { Icon, type IconName } from './icons';
 import { SetupWizard } from './SetupWizard';
 import type {
@@ -339,77 +339,32 @@ type SectionId =
   | 'diagnostics'
   | 'about';
 
-const SECTIONS: Record<SectionId, { icon: IconName; label: string; hint: React.ReactNode }> = {
-  general: {
-    icon: 'sliders',
-    label: 'General',
-    hint: 'Si el overlay aparece al compartir pantalla, y cómo se ve mientras tanto.',
-  },
-  audio: {
-    icon: 'mic',
-    label: 'Audio',
-    hint: 'Qué se escucha, y la comprobación de que las dos fuentes llegan por separado.',
-  },
-  phone: {
-    icon: 'phone',
-    label: 'Espejo en el móvil',
-    hint: 'Manda las respuestas al navegador de tu teléfono. Sirve para lo que el modo invisible no puede cubrir: cuando compartes la pantalla entera, lo que está en tu monitor está al otro lado.',
-  },
-  mqtt: {
-    icon: 'broadcast',
-    label: 'MQTT',
-    hint: 'Publica cada respuesta terminada en un broker, para que la recoja otra cosa: un ESP32, un script, lo que montes.',
-  },
-  models: {
-    icon: 'cpu',
-    label: 'Modelos de IA',
-    hint: 'Las claves, quién genera las respuestas y quién lee tu pantalla.',
-  },
+/**
+ * Las secciones, con sus textos como CLAVES y no como texto.
+ *
+ * El `hint` era `React.ReactNode` porque uno de ellos llevaba `<strong>`
+ * dentro. Ahora todos son claves y el marcado se resuelve con `<Tx>`, que
+ * interpreta `**negrita**`: así la tabla de traducciones puede guardarlos como
+ * cadenas, que es lo único que sabe guardar.
+ */
+const SECTIONS: Record<SectionId, { icon: IconName; label: UIKey; hint: UIKey }> = {
+  general: { icon: 'sliders', label: 'sec.general', hint: 'sec.generalHint' },
+  audio: { icon: 'mic', label: 'sec.audio', hint: 'sec.audioHint' },
+  phone: { icon: 'phone', label: 'sec.phone', hint: 'sec.phoneHint' },
+  mqtt: { icon: 'broadcast', label: 'sec.mqtt', hint: 'sec.mqttHint' },
+  models: { icon: 'cpu', label: 'sec.models', hint: 'sec.modelsHint' },
   transcription: {
     icon: 'waveform',
-    label: 'Transcripción',
-    hint: 'Gemini Live transcribe en ~300 ms pero envía el audio a Google. Whisper local no sale de tu máquina, a cambio de ~1–2 s de latencia.',
+    label: 'sec.transcription',
+    hint: 'sec.transcriptionHint',
   },
-  behaviour: {
-    icon: 'bolt',
-    label: 'Comportamiento',
-    hint: 'Cuándo responde el asistente y con cuánto contexto.',
-  },
-  context: {
-    icon: 'file',
-    label: 'Contexto',
-    hint: 'Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de parafrasearse.',
-  },
-  skills: {
-    icon: 'sparkles',
-    label: 'Skills',
-    hint: 'Instrucciones locales en formato SKILL.md que refinan CÓMO responde el modelo: el tono y las palabras, no el formato. Se activan aquí o escribiendo /nombre en la pestaña de escritura.',
-  },
-  history: {
-    icon: 'history',
-    label: 'Historial',
-    hint: 'Se guarda en tu máquina, en texto plano, y no se envía a ningún sitio. Incluye la transcripción completa: lo que dijo la otra persona, no sólo lo que preguntaste tú.',
-  },
-  hotkeys: {
-    icon: 'keyboard',
-    label: 'Atajos',
-    hint: (
-      <>
-        Son <strong>globales</strong>: funcionan con el foco en la videollamada, y por eso se los
-        quitan a la aplicación que lo tenga. Pulsa un campo y teclea la combinación que quieras.
-      </>
-    ),
-  },
-  diagnostics: {
-    icon: 'activity',
-    label: 'Diagnóstico',
-    hint: 'Si algo no funciona, esto es lo que hay que mirar antes que nada.',
-  },
-  about: {
-    icon: 'book',
-    label: 'Acerca de',
-    hint: 'Qué es Tayori, qué versión tienes y qué hace con tus datos.',
-  },
+  behaviour: { icon: 'bolt', label: 'sec.behaviour', hint: 'sec.behaviourHint' },
+  context: { icon: 'file', label: 'sec.context', hint: 'sec.contextHint' },
+  skills: { icon: 'sparkles', label: 'sec.skills', hint: 'sec.skillsHint' },
+  history: { icon: 'history', label: 'sec.history', hint: 'sec.historyHint' },
+  hotkeys: { icon: 'keyboard', label: 'sec.hotkeys', hint: 'sec.hotkeysHint' },
+  diagnostics: { icon: 'activity', label: 'sec.diagnostics', hint: 'sec.diagnosticsHint' },
+  about: { icon: 'book', label: 'sec.about', hint: 'sec.aboutHint' },
 };
 
 const SECTION_ORDER: SectionId[] = [
@@ -542,6 +497,13 @@ export function DashboardApp() {
   const meta = SECTIONS[section];
 
   /*
+   * Este componente provee el idioma, así que no puede leerlo con `useT()`.
+   * Traduce a mano contra los settings, que es de donde salía igualmente.
+   */
+  const t = (key: UIKey, vars?: Record<string, string | number>): string =>
+    translate(settings.uiLanguage, key, vars);
+
+  /*
    * Qué secciones piden atención. Son exactamente los avisos que ya existían
    * dentro de cada tarjeta: lo único nuevo es que ahora se ven sin entrar. Un
    * aviso que hay que ir a buscar no avisa de nada — el caso que lo motivó es
@@ -573,7 +535,7 @@ export function DashboardApp() {
                 onClick={() => go(id)}
               >
                 <Icon name={SECTIONS[id].icon} />
-                <span className="navitem__label">{SECTIONS[id].label}</span>
+                <span className="navitem__label">{t(SECTIONS[id].label)}</span>
                 {alerts[id] && <span className="navitem__dot" title="Algo requiere tu atención" />}
               </button>
             ))}
@@ -596,8 +558,8 @@ export function DashboardApp() {
         <main className="pane">
           <header className="pane__head">
             <div className="pane__heading">
-              <h1 className="pane__title">{meta.label}</h1>
-              <p className="pane__sub">{meta.hint}</p>
+              <h1 className="pane__title">{t(meta.label)}</h1>
+              <p className="pane__sub">{renderMarkup(t(meta.hint))}</p>
             </div>
             {/* El control más usado de la app, alcanzable desde cualquier sección:
               antes había que llegar hasta la tarjeta de captura para pulsarlo. */}
