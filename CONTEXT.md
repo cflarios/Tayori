@@ -703,6 +703,54 @@ más barato que cualquier otra cosa de la tabla, y eso cambia la receta de «tod
 nube, lo más barato que funciona» — con la advertencia de que el modelo de
 pantalla tiene que ser otro.
 
+### Dos idiomas: inglés por defecto, español a un clic
+
+Agosto de 2026. La app estaba entera en español y pasa a tener las dos, con
+**inglés por defecto**.
+
+**Los diccionarios son módulos de TypeScript y no `.json`**, y ésa es la única
+decisión de fondo. Se empezó con las dos versiones incrustadas en el código
+—`t('Listen', 'Escuchar')`— y se cambió a tablas aparte a media migración,
+porque con la cantidad de prosa que tiene este proyecto los componentes se
+volvían ilegibles. Al mudarlas, JSON era lo obvio y aun así se descartó:
+
+> `es.ts` se declara como `Record<UIKey, string>`, así que **una traducción que
+> falte no compila**. Con JSON caería al idioma de reserva y el fallo sólo se
+> vería cuando alguien se encontrase una frase en inglés en mitad de una
+> pantalla en español.
+
+Todo lo demás es idéntico a tener dos JSON —componentes limpios, traducciones
+juntas, cobertura de un vistazo— y encima no hay que tocar `resolveJsonModule`
+ni la configuración de dos bundlers.
+
+Lo que el tipo **no** puede comprobar tiene test: que los huecos `{…}` coincidan
+entre idiomas (un `{turnos}` donde el inglés dice `{turns}` sale literal en
+pantalla) y que no se hayan copiado líneas sin traducir.
+
+**Los prompts se quedan en español, y es deliberado.** Se valoró traducirlos:
+
+- No son texto de interfaz. **Nadie los lee**: los lee el modelo.
+- Ya llevan una regla explícita y con test de que la respuesta va en el idioma
+  de la conversación, **no** en el de las instrucciones — precisamente porque
+  eso falló una vez y se arregló midiéndolo.
+- Cada decisión de esos prompts está documentada en este archivo y validada
+  contra el texto español que hay. Traducirlos es tocar la parte más afinada de
+  la app, con doce tests atados a frases concretas, a cambio de nada que el
+  usuario vea.
+
+Las dos marcas que **sí** lee el usuario —`DUDA:` y `NO SE VE:`— ya se traducen
+solas: el propio prompt manda escribirlas en el idioma del test.
+
+**`uiLanguage` y `language` son dos ajustes distintos**, y confundirlos sería el
+fallo evidente: uno es el idioma de la interfaz y el otro el del reconocedor de
+voz. Alguien con la app en inglés entrevistándose en español es un caso normal,
+no una rareza.
+
+El primer arranque **sigue al idioma del sistema** si resulta ser español, y a
+partir de ahí manda lo que el usuario elija. La comprobación mira
+`stored.uiLanguage` y no el valor ya resuelto, para que poner inglés a propósito
+en un Windows en español no se deshaga en el arranque siguiente.
+
 ### El asistente, repasado con alguien delante
 
 Segunda pasada sobre el wizard, con la app abierta y anotando. Cinco cosas, y el

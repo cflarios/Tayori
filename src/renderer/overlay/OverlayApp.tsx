@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-format';
 import { clampFontScale, providerIsReady } from '@shared/types';
+import { LangProvider, useT } from '@renderer/i18n';
+import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
 import { matchSkills } from '@shared/skills';
 import type {
   Answer,
@@ -39,12 +41,7 @@ function GearIcon() {
 function CloseIcon() {
   return (
     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-      <path
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        d="M4 4l8 8M12 4l-8 8"
-      />
+      <path stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" d="M4 4l8 8M12 4l-8 8" />
     </svg>
   );
 }
@@ -137,6 +134,7 @@ function NewChatIcon() {
  * barra que ya va llena.
  */
 function ListenButton({ status }: { status: CaptureStatus }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const listening = status.state === 'listening';
   const starting = status.state === 'starting' || busy;
@@ -150,12 +148,12 @@ function ListenButton({ status }: { status: CaptureStatus }) {
   // El estado de error es accionable: se pulsa y se reintenta. Dejarlo como una
   // etiqueta muerta obligaría a ir al dashboard para volver a arrancar.
   const label = starting
-    ? 'Iniciando…'
+    ? t('overlay.starting')
     : status.state === 'error'
-      ? 'Reintentar'
+      ? t('overlay.retry')
       : listening
-        ? 'Escuchando'
-        : 'Escuchar';
+        ? t('overlay.listening')
+        : t('overlay.listen');
 
   const state = starting ? 'starting' : status.state;
 
@@ -166,8 +164,8 @@ function ListenButton({ status }: { status: CaptureStatus }) {
       disabled={starting}
       title={
         status.state === 'error'
-          ? (status.error ?? 'Error de captura')
-          : 'Empezar o parar de escuchar (Ctrl+Shift+M)'
+          ? (status.error ?? t('overlay.captureError'))
+          : t('overlay.listenTitle')
       }
       onClick={toggle}
     >
@@ -229,10 +227,10 @@ function SpeakerIcon() {
  * (la barra, y el ámbar cuando la fuente estaba pedida pero no llegó a abrirse
  * — que da exactamente la misma pantalla que una sala en silencio).
  */
-const SOURCE_MODES: { mode: AudioSourceMode; label: string; hint: string }[] = [
-  { mode: 'mic', label: 'Yo', hint: 'Sólo tu micrófono' },
-  { mode: 'system', label: 'Ellos', hint: 'Sólo la salida del sistema: la voz del interlocutor' },
-  { mode: 'both', label: 'Ambos', hint: 'Tu micrófono y la salida del sistema' },
+const SOURCE_MODES: { mode: AudioSourceMode; label: UIKey; hint: UIKey }[] = [
+  { mode: 'mic', label: 'overlay.sourceMe', hint: 'overlay.sourceMeHint' },
+  { mode: 'system', label: 'overlay.sourceThem', hint: 'overlay.sourceThemHint' },
+  { mode: 'both', label: 'overlay.sourceBoth', hint: 'overlay.sourceBothHint' },
 ];
 
 function SourcePicker({
@@ -246,6 +244,7 @@ function SourcePicker({
   status: CaptureStatus;
   onChange: (next: AudioSourceMode) => void;
 }) {
+  const t = useT();
   const listening = status.state === 'listening';
 
   /** Pedida pero sin abrirse: el estado que de otro modo no se ve en ninguna parte. */
@@ -254,7 +253,7 @@ function SourcePicker({
     ((mode !== 'system' && !status.micActive) || (mode !== 'mic' && !status.loopbackActive));
 
   return (
-    <div className="sources" role="group" aria-label="Qué se escucha">
+    <div className="sources" role="group" aria-label={t('overlay.sources')}>
       {SOURCE_MODES.map((source) => {
         const active = source.mode === mode;
         const level =
@@ -267,9 +266,7 @@ function SourcePicker({
             className={`source${active ? ' source--on' : ''}${active && mute ? ' source--mute' : ''}`}
             aria-pressed={active}
             title={
-              active && mute
-                ? `${source.hint}: pedido pero NO se abrió. Revisa el dispositivo o los permisos.`
-                : source.hint
+              active && mute ? `${t(source.hint)}${t('overlay.sourceMuteSuffix')}` : t(source.hint)
             }
             onClick={() => onChange(source.mode)}
           >
@@ -328,6 +325,7 @@ function StatusBar({
   onSolveScreen: (task: ScreenTask) => void;
   onToggleCompact: () => void;
 }) {
+  const t = useT();
   const language = settings?.language ?? 'auto';
   const compact = settings?.overlayCompact ?? false;
 
@@ -350,7 +348,7 @@ function StatusBar({
       {/* Aviso explícito cuando el overlay SÍ es visible en una captura:
           es el estado peligroso, así que no puede pasar desapercibido. */}
       {settings && !settings.stealthEnabled && (
-        <span className="statusbar__flag" title="El overlay SÍ aparece al compartir pantalla">
+        <span className="statusbar__flag" title={t('overlay.visible')}>
           VISIBLE
         </span>
       )}
@@ -381,8 +379,8 @@ function StatusBar({
         <button
           type="button"
           className="iconbtn"
-          title="Resolver el problema de código que hay en pantalla (Ctrl+Alt+C)"
-          aria-label="Resolver el código de la pantalla"
+          title={t('overlay.solveCode')}
+          aria-label={t('overlay.solveCodeShort')}
           onClick={() => onSolveScreen('code')}
         >
           <CodeIcon />
@@ -393,8 +391,8 @@ function StatusBar({
         <button
           type="button"
           className="iconbtn"
-          title="Responder la pregunta de test que hay en pantalla (Ctrl+Alt+Q)"
-          aria-label="Responder el test de la pantalla"
+          title={t('overlay.solveQuiz')}
+          aria-label={t('overlay.solveQuizShort')}
           onClick={() => onSolveScreen('quiz')}
         >
           <QuizIcon />
@@ -402,12 +400,8 @@ function StatusBar({
         <button
           type="button"
           className="iconbtn"
-          title={
-            compact
-              ? 'Desplegar: vuelve la transcripción y los perfiles'
-              : 'Modo compacto: deja sólo la respuesta'
-          }
-          aria-label={compact ? 'Desplegar el panel' : 'Modo compacto'}
+          title={compact ? t('overlay.expand') : t('overlay.compact')}
+          aria-label={compact ? t('overlay.expandShort') : t('overlay.compactShort')}
           aria-pressed={compact}
           onClick={onToggleCompact}
         >
@@ -416,8 +410,8 @@ function StatusBar({
         <button
           type="button"
           className="iconbtn"
-          title="Nueva conversación (limpia la transcripción y el contexto)"
-          aria-label="Nueva conversación"
+          title={t('overlay.newChat')}
+          aria-label={t('overlay.newChatShort')}
           onClick={onNewConversation}
         >
           <NewChatIcon />
@@ -425,8 +419,8 @@ function StatusBar({
         <button
           type="button"
           className="iconbtn"
-          title="Configuración"
-          aria-label="Abrir configuración"
+          title={t('overlay.settings')}
+          aria-label={t('overlay.settingsShort')}
           onClick={() => void window.api.window.openDashboard()}
         >
           <GearIcon />
@@ -434,8 +428,8 @@ function StatusBar({
         <button
           type="button"
           className="iconbtn iconbtn--close"
-          title="Cerrar Tayori (Ctrl+Shift+H solo lo oculta)"
-          aria-label="Cerrar"
+          title={t('overlay.quit')}
+          aria-label={t('overlay.quitShort')}
           onClick={() => void window.api.window.quit()}
         >
           <CloseIcon />
@@ -458,6 +452,7 @@ function elapsed(startedAt: number, at: number): string {
 }
 
 function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
+  const t = useT();
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -469,7 +464,7 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
   // sería una llamada impura en render (y la regla `purity` de eslint la caza).
   const first = segments[0];
   if (!first) {
-    return <p className="empty">Esperando audio…</p>;
+    return <p className="empty">{t('overlay.waitingAudio')}</p>;
   }
 
   return (
@@ -478,7 +473,7 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
         <div className="transcript__line" key={seg.id}>
           <span className="transcript__time">{elapsed(first.startedAt, seg.startedAt)}</span>
           <span className={`transcript__who transcript__who--${seg.speaker}`}>
-            {seg.speaker === 'me' ? 'Yo' : 'Ellos'}
+            {seg.speaker === 'me' ? t('overlay.me') : t('overlay.them')}
           </span>
           <span className={`transcript__text${seg.isFinal ? '' : ' transcript__text--partial'}`}>
             {seg.text}
@@ -499,16 +494,16 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
  * `custom` no está aquí: se edita con un textarea y ése sí necesita el dashboard.
  */
 const PROFILE_CHIPS = [
-  ['interview', 'Entrevista'],
-  ['meeting', 'Reunión'],
-  ['lecture', 'Clase'],
-  ['support', 'Soporte'],
-  ['coding', 'Código'],
+  ['interview', 'overlay.profileInterview'],
+  ['meeting', 'overlay.profileMeeting'],
+  ['lecture', 'overlay.profileLecture'],
+  ['support', 'overlay.profileSupport'],
+  ['coding', 'overlay.profileCoding'],
   // También como chip, no sólo como botón de pantalla: sirve para un examen
   // oral o una certificación que alguien lee en voz alta, y sus reglas ya
   // contemplan la pregunta abierta.
-  ['quiz', 'Test'],
-] as const;
+  ['quiz', 'overlay.profileQuiz'],
+] as const satisfies readonly (readonly [Settings['promptProfileId'], UIKey])[];
 
 function ProfileChips({
   active,
@@ -517,6 +512,7 @@ function ProfileChips({
   active: Settings['promptProfileId'];
   onChange: (id: Settings['promptProfileId']) => void;
 }) {
+  const t = useT();
   return (
     <div className="chips" data-interactive>
       {PROFILE_CHIPS.map(([id, label]) => (
@@ -527,10 +523,12 @@ function ProfileChips({
           aria-pressed={active === id}
           onClick={() => onChange(id)}
         >
-          {label}
+          {t(label)}
         </button>
       ))}
-      {active === 'custom' && <span className="chip chip--active">Personalizado</span>}
+      {active === 'custom' && (
+        <span className="chip chip--active">{t('overlay.profileCustom')}</span>
+      )}
     </div>
   );
 }
@@ -554,13 +552,13 @@ function ProfileChips({
  * algo que si no tendrías que teclear entero mientras alguien te mira.
  */
 /** Etiqueta del botón y prompt enlatado que envía. */
-type QuickAction = readonly [label: string, prompt: string];
+type QuickAction = readonly [label: UIKey, prompt: UIKey];
 
 const QUICK_ACTIONS: readonly QuickAction[] = [
-  ['Sigue', 'Amplía tu última respuesta con un ejemplo concreto y breve.'],
-  ['Más corto', 'Reformula tu última respuesta en dos viñetas, más directa.'],
-  ['Seguimiento', 'Dame 3 preguntas de seguimiento que YO pueda hacer ahora.'],
-  ['Resumen', 'Resume la conversación hasta ahora en 4 viñetas.'],
+  ['overlay.qaMore', 'overlay.qaMorePrompt'],
+  ['overlay.qaShorter', 'overlay.qaShorterPrompt'],
+  ['overlay.qaFollowUp', 'overlay.qaFollowUpPrompt'],
+  ['overlay.qaSummary', 'overlay.qaSummaryPrompt'],
 ] as const;
 
 /**
@@ -571,13 +569,10 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
  * justo lo que te van a pedir después de escribirla—, optimizarla, o probarla.
  */
 const CODE_ACTIONS: readonly QuickAction[] = [
-  [
-    'Explícalo',
-    'Explica tu última solución en 4 viñetas, como si se lo contara en voz alta a un entrevistador.',
-  ],
-  ['Optimiza', '¿Se puede mejorar la complejidad de tu última solución? Si sí, dame el código.'],
-  ['Casos límite', 'Dame los casos límite que romperían tu última solución y cómo los cubre.'],
-  ['Tests', 'Escribe tests para tu última solución, en el mismo lenguaje.'],
+  ['overlay.qaExplain', 'overlay.qaExplainPrompt'],
+  ['overlay.qaOptimise', 'overlay.qaOptimisePrompt'],
+  ['overlay.qaEdge', 'overlay.qaEdgePrompt'],
+  ['overlay.qaTests', 'overlay.qaTestsPrompt'],
 ] as const;
 
 /**
@@ -588,16 +583,10 @@ const CODE_ACTIONS: readonly QuickAction[] = [
  * has contestado y quieres entender —o comprobar— lo que marcaste.
  */
 const QUIZ_ACTIONS: readonly QuickAction[] = [
-  ['¿Por qué?', 'Explica en una línea por qué cada respuesta que diste es la correcta.'],
-  [
-    'Las descartadas',
-    'Para cada pregunta, di en una línea por qué la opción más tentadora de las que descartaste es incorrecta.',
-  ],
-  [
-    'Revisa las dudas',
-    'Vuelve sobre las preguntas que marcaste con DUDA. Para cada una, di si mantienes la opción o la cambias, y por cuál.',
-  ],
-  ['Repasa todo', 'Revisa tus respuestas anteriores. Di sólo las que cambiarías y por cuál.'],
+  ['overlay.qaWhy', 'overlay.qaWhyPrompt'],
+  ['overlay.qaDistractors', 'overlay.qaDistractorsPrompt'],
+  ['overlay.qaDoubts', 'overlay.qaDoubtsPrompt'],
+  ['overlay.qaReview', 'overlay.qaReviewPrompt'],
 ];
 
 function QuickActions({
@@ -607,14 +596,14 @@ function QuickActions({
   onAsk: (prompt: string) => void;
   kind: 'chat' | 'code' | 'quiz';
 }) {
-  const actions =
-    kind === 'code' ? CODE_ACTIONS : kind === 'quiz' ? QUIZ_ACTIONS : QUICK_ACTIONS;
+  const t = useT();
+  const actions = kind === 'code' ? CODE_ACTIONS : kind === 'quiz' ? QUIZ_ACTIONS : QUICK_ACTIONS;
 
   return (
     <div className="quick" data-interactive>
       {actions.map(([label, prompt]) => (
         <button key={label} type="button" className="quick__btn" onClick={() => onAsk(prompt)}>
-          {label}
+          {t(label)}
         </button>
       ))}
     </div>
@@ -630,6 +619,7 @@ function SizePicker({
   active: OverlaySize;
   onChange: (size: OverlaySize) => void;
 }) {
+  const t = useT();
   return (
     <div className="sizes" data-interactive>
       {SIZES.map((size) => (
@@ -638,7 +628,7 @@ function SizePicker({
           type="button"
           className={`sizes__btn${active === size ? ' sizes__btn--active' : ''}`}
           aria-pressed={active === size}
-          title={`Tamaño ${size}`}
+          title={t('overlay.size', { size })}
           onClick={() => onChange(size)}
         >
           {size}
@@ -712,6 +702,7 @@ function IdleHero({
   configured: boolean;
   onWrite: () => void;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
 
   const listening = status.state === 'listening';
@@ -730,29 +721,29 @@ function IdleHero({
     // Sin proveedor no hay nada que escuchar: el sitio del estado lo ocupa lo
     // único que se puede hacer, en lugar de un aviso aparte encima del panel.
     setup: {
-      title: 'Falta configurar la IA',
-      sub: 'Pega una API key de Anthropic, Google u OpenAI para empezar',
-      action: 'Abrir configuración',
+      title: t('overlay.setupTitle'),
+      sub: t('overlay.setupSub'),
+      action: t('overlay.setupAction'),
     },
     idle: {
-      title: 'Listo para escuchar',
-      sub: 'Pulsa el micrófono para comenzar',
-      action: 'Escuchar',
+      title: t('overlay.idleTitle'),
+      sub: t('overlay.idleSub'),
+      action: t('overlay.listen'),
     },
     starting: {
-      title: 'Conectando…',
-      sub: 'Abriendo el micrófono y la salida del sistema',
-      action: 'Iniciando',
+      title: t('overlay.connectingTitle'),
+      sub: t('overlay.connectingSub'),
+      action: t('overlay.connectingAction'),
     },
     listening: {
-      title: 'Esperando que hables',
-      sub: 'Habla cuando quieras',
-      action: 'Parar de escuchar',
+      title: t('overlay.listeningTitle'),
+      sub: t('overlay.listeningSub'),
+      action: t('overlay.listeningAction'),
     },
     error: {
-      title: 'No se pudo escuchar',
-      sub: status.error ?? 'Revisa el dispositivo de entrada y vuelve a intentarlo',
-      action: 'Reintentar',
+      title: t('overlay.errorTitle'),
+      sub: status.error ?? t('overlay.errorSub'),
+      action: t('overlay.retry'),
     },
   }[state];
 
@@ -797,11 +788,11 @@ function IdleHero({
       {state !== 'setup' && (
         <div className="hero__alt">
           <button type="button" className="hero__link" onClick={onWrite}>
-            Escribir la pregunta
+            {t('overlay.writeQuestion')}
           </button>
           <span className="hero__sep">·</span>
           <span>
-            <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver la pantalla
+            <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> {t('overlay.footScreen')}
           </span>
         </div>
       )}
@@ -838,14 +829,15 @@ function SetupPrompt() {
 type InputTab = 'listen' | 'write';
 
 function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => void }) {
+  const t = useT();
   return (
     // `data-interactive`: sin esto las pestañas serían inclicables con los
     // clics atravesables activos, que es el modo recomendado durante una llamada.
     <div className="tabs" data-interactive>
       {(
         [
-          ['listen', 'Escucha'],
-          ['write', 'Escritura'],
+          ['listen', t('overlay.tabListen')],
+          ['write', t('overlay.tabWrite')],
         ] as const
       ).map(([id, label]) => (
         <button
@@ -871,6 +863,7 @@ function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => voi
  * porque es justo el comportamiento que el resto del programa evita.
  */
 function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: string) => void }) {
+  const t = useT();
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -905,7 +898,7 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
       {matches && (
         <div className="skillmenu">
           {matches.length === 0 ? (
-            <span className="skillmenu__empty">Ninguna skill con ese nombre</span>
+            <span className="skillmenu__empty">{t('overlay.noSkill')}</span>
           ) : (
             matches.map((skill) => (
               <button
@@ -925,7 +918,7 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
       <textarea
         ref={inputRef}
         className="compose__input"
-        placeholder="Escribe tu pregunta y pulsa Enter… · /skill para invocar una"
+        placeholder={t('overlay.composePlaceholder')}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
@@ -950,20 +943,12 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
         }}
       />
       <div className="compose__foot">
-        <span className="compose__hint">Enter envía · Shift+Enter salta línea</span>
-        <button
-          type="button"
-          className="compose__btn"
-          disabled={!draft.trim()}
-          onClick={send}
-        >
-          Enviar
+        <span className="compose__hint">{t('overlay.composeHint')}</span>
+        <button type="button" className="compose__btn" disabled={!draft.trim()} onClick={send}>
+          {t('overlay.send')}
         </button>
       </div>
-      <p className="compose__warn">
-        Mientras esta pestaña esté abierta el overlay toma el foco del teclado. Vuelve a «Escucha»
-        antes de compartir pantalla.
-      </p>
+      <p className="compose__warn">{t('overlay.composeWarn')}</p>
     </div>
   );
 }
@@ -977,17 +962,17 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
  * la cadena funciona, y la respuesta honesta es que sí — sólo que eso no
  * dispara una sugerencia.
  */
-function explainSkip(reason: string): string {
+function explainSkip(reason: string): UIKey {
   if (reason.includes('muletilla')) {
-    return 'Te escucho, pero un saludo o una prueba de sonido no dispara respuesta. Prueba con una pregunta real.';
+    return 'overlay.skipFiller';
   }
   if (reason.includes('corto')) {
-    return 'Demasiado corto para tomarlo por una pregunta.';
+    return 'overlay.skipShort';
   }
   if (reason.includes('estricto')) {
-    return 'No parecía una pregunta. En modo estricto sólo cuentan las señales claras; súbelo a «Equilibrado» o «Todo» en el dashboard.';
+    return 'overlay.skipStrict';
   }
-  return 'No parecía una pregunta. Si quieres que responda a todo, pon la sensibilidad en «Todo».';
+  return 'overlay.skipNone';
 }
 
 /**
@@ -999,6 +984,7 @@ function explainSkip(reason: string): string {
  * modo recomendado durante una llamada.
  */
 function CodeBlock({ block }: { block: AnswerBlock }) {
+  const t = useT();
   const [copied, setCopied] = useState<'no' | 'sí' | 'falló'>('no');
 
   // El aviso se apaga solo; sin la limpieza, un bloque que desaparece a mitad
@@ -1028,14 +1014,18 @@ function CodeBlock({ block }: { block: AnswerBlock }) {
   return (
     <div className="code" data-interactive>
       <div className="code__head">
-        <span className="code__lang">{block.lang || 'código'}</span>
+        <span className="code__lang">{block.lang || t('overlay.code')}</span>
         {/* Mientras la valla siga abierta el código está a medias: ofrecer
             copiarlo daría una función sin cerrar sin avisar de nada. */}
         {block.open ? (
-          <span className="code__writing">escribiendo…</span>
+          <span className="code__writing">{t('overlay.writing')}</span>
         ) : (
           <button type="button" className="code__copy" onClick={copy}>
-            {copied === 'sí' ? 'Copiado' : copied === 'falló' ? 'No se pudo' : 'Copiar'}
+            {copied === 'sí'
+              ? t('overlay.copied')
+              : copied === 'falló'
+                ? t('overlay.copyFailed')
+                : t('overlay.copy')}
           </button>
         )}
       </div>
@@ -1098,6 +1088,7 @@ function AnswerPane({
   skip: { text: string; reason: string } | null;
   listening: boolean;
 }) {
+  const t = useT();
   if (!answer) {
     // El descarte sólo se enseña mientras no haya respuesta: si ya hay una en
     // pantalla, taparla con un aviso sobre una frase suelta sería peor.
@@ -1105,7 +1096,7 @@ function AnswerPane({
       return (
         <div className="skip">
           <span className="skip__what">«{skip.text}»</span>
-          <span className="skip__why">{explainSkip(skip.reason)}</span>
+          <span className="skip__why">{t(explainSkip(skip.reason))}</span>
         </div>
       );
     }
@@ -1113,11 +1104,7 @@ function AnswerPane({
     // "Ctrl+Enter para pedir una respuesta", que con la escucha parada no sirve
     // de nada: no hay transcripción de la que sacar una pregunta.
     return (
-      <p className="empty">
-        {listening
-          ? 'Ctrl+Enter para pedir una respuesta · Ctrl+Alt+C para resolver la pantalla.'
-          : 'Pulsa «Escuchar» para que siga la conversación, o Ctrl+Alt+C para resolver lo que tengas en pantalla.'}
-      </p>
+      <p className="empty">{listening ? t('overlay.emptyIdle') : t('overlay.emptyStopped')}</p>
     );
   }
   if (answer.status === 'thinking') {
@@ -1126,12 +1113,12 @@ function AnswerPane({
     // se ha colgado justo cuando más prisa hay.
     return (
       <p className="empty">
-        {answer.trigger === 'code' ? 'Leyendo la pantalla…' : 'Pensando…'}
+        {answer.trigger === 'code' ? t('overlay.readingScreen') : t('overlay.thinking')}
       </p>
     );
   }
   if (answer.status === 'error') {
-    return <div className="answer answer--error">{answer.error ?? 'Error desconocido'}</div>;
+    return <div className="answer answer--error">{answer.error ?? t('overlay.unknownError')}</div>;
   }
   return <AnswerBody text={answer.text} />;
 }
@@ -1153,6 +1140,7 @@ function AnswerNav({
   index: number;
   onGo: (next: number) => void;
 }) {
+  const t = useT();
   if (total < 2) return null;
 
   return (
@@ -1161,8 +1149,8 @@ function AnswerNav({
         type="button"
         className="nav__btn"
         disabled={index === 0}
-        title="Respuesta anterior"
-        aria-label="Respuesta anterior"
+        title={t('overlay.prevAnswer')}
+        aria-label={t('overlay.prevAnswer')}
         onClick={() => onGo(index - 1)}
       >
         ‹
@@ -1174,8 +1162,8 @@ function AnswerNav({
         type="button"
         className="nav__btn"
         disabled={index === total - 1}
-        title="Respuesta siguiente"
-        aria-label="Respuesta siguiente"
+        title={t('overlay.nextAnswer')}
+        aria-label={t('overlay.nextAnswer')}
         onClick={() => onGo(index + 1)}
       >
         ›
@@ -1197,6 +1185,7 @@ function AnswerNav({
  * cierra la conversación en disco. Aquí se conserva todo eso.
  */
 function MemoryChip({ turns, max }: { turns: number; max: number }) {
+  const t = useT();
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -1218,7 +1207,7 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
       data-interactive
       title={
         `El asistente recuerda ${turns} de ${max} intercambios y los reenvía en cada consulta. ` +
-        'Pulsa para que los olvide; la transcripción y el historial se quedan como están.'
+        t('overlay.memoryTitle')
       }
       onClick={() => {
         // Se marca ANTES de llamar, y no en el `.then`. Vaciar la memoria deja
@@ -1230,7 +1219,7 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
         void window.api.ask.forgetContext().catch(() => setDone(false));
       }}
     >
-      {done ? 'olvidado' : `memoria ${turns}/${max}`}
+      {done ? t('overlay.forgotten') : t('overlay.memory', { turns, max })}
     </button>
   );
 }
@@ -1279,6 +1268,15 @@ export function OverlayApp() {
 
   useChromeMouse();
   const onDragStart = useOverlayDrag();
+
+  /*
+   * Este componente **provee** el idioma, así que no puede consumirlo con
+   * `useT()`: un contexto no se lee en el mismo componente que lo pone. Para
+   * sus propias cadenas traduce directamente contra los settings, que es de
+   * donde salía el valor de todas formas.
+   */
+  const t = (key: UIKey, vars?: Record<string, string | number>): string =>
+    translate(settings?.uiLanguage ?? DEFAULT_UI_LANG, key, vars);
 
   /**
    * El overlay sólo es enfocable mientras se escribe.
@@ -1334,9 +1332,10 @@ export function OverlayApp() {
      * más frustrante de los dos.
      */
     const recheck = (current?: Settings): void => {
-      void Promise.all([current ? Promise.resolve(current) : api.settings.get(), api.secrets.getPresence()]).then(
-        ([settingsNow, presence]) => setConfigured(providerIsReady(settingsNow, presence))
-      );
+      void Promise.all([
+        current ? Promise.resolve(current) : api.settings.get(),
+        api.secrets.getPresence(),
+      ]).then(([settingsNow, presence]) => setConfigured(providerIsReady(settingsNow, presence)));
     };
     recheck();
 
@@ -1420,165 +1419,165 @@ export function OverlayApp() {
   const hero = tab === 'listen' && segments.length === 0 && answers.length === 0;
 
   return (
-    <div
-      className="panel"
-      style={{
-        opacity: settings?.overlayOpacity ?? 1,
-        // Sólo escala el CONTENIDO: la barra y los chips se quedan como están,
-        // o con la letra grande los controles se comerían el panel entero.
-        ['--font-scale' as string]: clampFontScale(settings?.overlayFontScale ?? 1),
-      }}
-    >
-      <StatusBar
-        status={status}
-        levels={levels}
-        settings={settings}
-        onDragStart={onDragStart}
-        onNewConversation={() => void window.api.history.newConversation()}
-        onSolveScreen={(task) => void window.api.ask.solveOnScreen(task)}
-        onToggleCompact={() =>
-          void window.api.settings.update({ overlayCompact: !compact })
-        }
-      />
+    <LangProvider lang={settings?.uiLanguage}>
+      <div
+        className="panel"
+        style={{
+          opacity: settings?.overlayOpacity ?? 1,
+          // Sólo escala el CONTENIDO: la barra y los chips se quedan como están,
+          // o con la letra grande los controles se comerían el panel entero.
+          ['--font-scale' as string]: clampFontScale(settings?.overlayFontScale ?? 1),
+        }}
+      >
+        <StatusBar
+          status={status}
+          levels={levels}
+          settings={settings}
+          onDragStart={onDragStart}
+          onNewConversation={() => void window.api.history.newConversation()}
+          onSolveScreen={(task) => void window.api.ask.solveOnScreen(task)}
+          onToggleCompact={() => void window.api.settings.update({ overlayCompact: !compact })}
+        />
 
-      {/* Con el estado central visible, el aviso de configuración vive dentro
+        {/* Con el estado central visible, el aviso de configuración vive dentro
           de él: dos sitios diciendo lo mismo es exactamente el ruido que este
           rediseño quita. */}
-      {!configured && !hero && <SetupPrompt />}
+        {!configured && !hero && <SetupPrompt />}
 
-      {sttError && (
-        <div className="sttError" data-interactive>
-          <span className="sttError__text">Transcripción: {sttError}</span>
-          <button
-            type="button"
-            className="sttError__close"
-            aria-label="Descartar"
-            onClick={() => setSttError(null)}
-          >
-            <CloseIcon />
-          </button>
-        </div>
-      )}
+        {sttError && (
+          <div className="sttError" data-interactive>
+            <span className="sttError__text">
+              {t('overlay.transcription')}: {sttError}
+            </span>
+            <button
+              type="button"
+              className="sttError__close"
+              aria-label={t('overlay.dismiss')}
+              onClick={() => setSttError(null)}
+            >
+              <CloseIcon />
+            </button>
+          </div>
+        )}
 
-      {notice && (
-        <div className="sttError" data-interactive>
-          <span className="sttError__text">{notice}</span>
-          <button
-            type="button"
-            className="sttError__close"
-            aria-label="Descartar"
-            onClick={() => setNotice(null)}
-          >
-            <CloseIcon />
-          </button>
-        </div>
-      )}
+        {notice && (
+          <div className="sttError" data-interactive>
+            <span className="sttError__text">{notice}</span>
+            <button
+              type="button"
+              className="sttError__close"
+              aria-label={t('overlay.dismiss')}
+              onClick={() => setNotice(null)}
+            >
+              <CloseIcon />
+            </button>
+          </div>
+        )}
 
-      {/*
+        {/*
         Lo que el modo compacto pliega: perfiles, transcripción y pie de atajos.
         Es todo lo que sirve para PREPARAR o COMPROBAR; lo que se deja es lo que
         sirve para leer. La barra se queda entera porque desde ella se despliega
         otra vez —esconder el botón que devuelve lo escondido sería una trampa—,
         y porque parar la escucha tiene que estar siempre a mano.
       */}
-      {!compact && settings && (
-        <ProfileChips
-          active={settings.promptProfileId}
-          onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
-        />
-      )}
+        {!compact && settings && (
+          <ProfileChips
+            active={settings.promptProfileId}
+            onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
+          />
+        )}
 
-      {/*
+        {/*
         Con el estado central no se pintan las pestañas: en ese momento hay una
         sola cosa que hacer, y una fila de pestañas encima de un panel vacío es
         justo lo que hace que un vacío parezca sin terminar en lugar de
         deliberado. La otra vía —escribir— la ofrece el propio estado central.
       */}
-      {hero ? (
-        <IdleHero
-          status={status}
-          configured={configured}
-          onWrite={() => setTab('write')}
-        />
-      ) : (
-        !compact && (
-          <div className="section">
-            <Tabs tab={tab} onChange={setTab} />
-            {tab === 'listen' ? (
-              <TranscriptPane segments={segments} />
-            ) : (
-              <ComposePane
-                skills={skills}
-                onSend={(text) => void window.api.ask.withText(text)}
-              />
-            )}
+        {hero ? (
+          <IdleHero status={status} configured={configured} onWrite={() => setTab('write')} />
+        ) : (
+          !compact && (
+            <div className="section">
+              <Tabs tab={tab} onChange={setTab} />
+              {tab === 'listen' ? (
+                <TranscriptPane segments={segments} />
+              ) : (
+                <ComposePane
+                  skills={skills}
+                  onSend={(text) => void window.api.ask.withText(text)}
+                />
+              )}
+            </div>
+          )
+        )}
+
+        {shot && (
+          <div className="shot">
+            <img className="shot__img" src={`data:${shot.mime};base64,${shot.base64}`} alt="" />
+            <span className="shot__label">{t('overlay.attached')}</span>
           </div>
-        )
-      )}
+        )}
 
-      {shot && (
-        <div className="shot">
-          <img className="shot__img" src={`data:${shot.mime};base64,${shot.base64}`} alt="" />
-          <span className="shot__label">Captura adjunta</span>
-        </div>
-      )}
-
-      {/* La sección de respuesta desaparece con el estado central: su cabecera
+        {/* La sección de respuesta desaparece con el estado central: su cabecera
           y su texto de "todavía nada" eran el segundo vacío que competía. */}
-      {!hero && (
-      <div className="section" style={{ flex: 1 }}>
-        <div className="section__head">
-          <span className="section__title">Sugerencia</span>
-          <AnswerNav
-            total={answers.length}
-            index={index}
-            // Volver a la última desengancha la navegación: a partir de ahí las
-            // respuestas nuevas vuelven a seguirse solas.
-            onGo={(next) => setViewing(next === answers.length - 1 ? null : next)}
-          />
-          {/*
+        {!hero && (
+          <div className="section" style={{ flex: 1 }}>
+            <div className="section__head">
+              <span className="section__title">{t('overlay.suggestion')}</span>
+              <AnswerNav
+                total={answers.length}
+                index={index}
+                // Volver a la última desengancha la navegación: a partir de ahí las
+                // respuestas nuevas vuelven a seguirse solas.
+                onGo={(next) => setViewing(next === answers.length - 1 ? null : next)}
+              />
+              {/*
             Con qué se está respondiendo. Vale un renglón y ahorra el viaje al
             dashboard: al leer una respuesta floja, lo primero que se quiere
             saber es con qué modelo salió, y con tres proveedores configurables
             es fácil creer que estás en uno y estar en otro.
           */}
-          {settings && (
-            <span
-              className="section__meta"
-              title={
-                // Con modelo propio para la pantalla, saber cuál respondió deja
-                // de ser evidente: la etiqueta sigue a la respuesta que hay
-                // delante, no a los ajustes.
-                answer
-                  ? `Esta respuesta la generó ${answer.providerId} · ${answer.model}`
-                  : `Respondiendo con ${settings.llmProviderId}`
-              }
-            >
-              {answer?.model ||
-                settings.llmModels[settings.llmProviderId] ||
-                settings.llmProviderId}
-            </span>
-          )}
-          <MemoryChip turns={memory.turns} max={memory.max} />
-          {/* Parar una generación ya existía en el IPC pero no tenía botón: sólo
+              {settings && (
+                <span
+                  className="section__meta"
+                  title={
+                    // Con modelo propio para la pantalla, saber cuál respondió deja
+                    // de ser evidente: la etiqueta sigue a la respuesta que hay
+                    // delante, no a los ajustes.
+                    answer
+                      ? t('overlay.generatedBy', {
+                          provider: answer.providerId,
+                          model: answer.model,
+                        })
+                      : t('overlay.answeringWith', { model: settings.llmProviderId })
+                  }
+                >
+                  {answer?.model ||
+                    settings.llmModels[settings.llmProviderId] ||
+                    settings.llmProviderId}
+                </span>
+              )}
+              <MemoryChip turns={memory.turns} max={memory.max} />
+              {/* Parar una generación ya existía en el IPC pero no tenía botón: sólo
               se cancelaba preguntando otra cosa, que es una forma cara de decir
               "para". */}
-          {answer && (answer.status === 'thinking' || answer.status === 'streaming') && (
-            <button
-              type="button"
-              className="section__stop"
-              data-interactive
-              onClick={() => void window.api.ask.abort()}
-            >
-              Parar
-            </button>
-          )}
-        </div>
-        <AnswerPane answer={answer} skip={skip} listening={status.state === 'listening'} />
-      </div>
-      )}
+              {answer && (answer.status === 'thinking' || answer.status === 'streaming') && (
+                <button
+                  type="button"
+                  className="section__stop"
+                  data-interactive
+                  onClick={() => void window.api.ask.abort()}
+                >
+                  Parar
+                </button>
+              )}
+            </div>
+            <AnswerPane answer={answer} skip={skip} listening={status.state === 'listening'} />
+          </div>
+        )}
 
-      {/*
+        {/*
         Sólo tienen sentido cuando hay una respuesta sobre la que actuar:
         "Sigue" o "Más corto" sin nada previo pedirían al modelo que ampliara el
         vacío.
@@ -1588,38 +1587,41 @@ export function OverlayApp() {
         modelo es la suya, no la que se esté mirando. Ofrecerlos ahí prometería
         actuar sobre lo que se lee y actuaría sobre otra cosa.
       */}
-      {viewing === null && answer && (answer.status === 'done' || answer.status === 'streaming') && (
-        <QuickActions
-          onAsk={(prompt) => void window.api.ask.withText(prompt)}
-          // Manda lo que se acaba de responder, no el perfil configurado: tras
-          // un Ctrl+Alt+C con el perfil en "Entrevista", lo que hay en pantalla
-          // es una solución y lo que se quiere pedir es sobre ella.
-          kind={quickActionKind(answer, settings)}
-        />
-      )}
+        {viewing === null &&
+          answer &&
+          (answer.status === 'done' || answer.status === 'streaming') && (
+            <QuickActions
+              onAsk={(prompt) => void window.api.ask.withText(prompt)}
+              // Manda lo que se acaba de responder, no el perfil configurado: tras
+              // un Ctrl+Alt+C con el perfil en "Entrevista", lo que hay en pantalla
+              // es una solución y lo que se quiere pedir es sobre ella.
+              kind={quickActionKind(answer, settings)}
+            />
+          )}
 
-      {!compact && (
-        <div className="hints">
-          {/* Con el estado central los atajos ya están dichos ahí arriba, y
+        {!compact && (
+          <div className="hints">
+            {/* Con el estado central los atajos ya están dichos ahí arriba, y
               repetirlos abajo es la clase de relleno que hace que un panel
               parezca un formulario. Queda sólo el tamaño. */}
-          {!hero && (
-            <>
-              <span>
-                <kbd>Ctrl</kbd>+<kbd>Enter</kbd> preguntar
-              </span>
-              <span>
-                <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> resolver pantalla
-              </span>
-            </>
-          )}
-          <span className="hints__spacer" />
-          <SizePicker
-            active={settings?.overlaySize ?? 'M'}
-            onChange={(overlaySize) => void window.api.settings.update({ overlaySize })}
-          />
-        </div>
-      )}
-    </div>
+            {!hero && (
+              <>
+                <span>
+                  <kbd>Ctrl</kbd>+<kbd>Enter</kbd> {t('overlay.footAsk')}
+                </span>
+                <span>
+                  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> {t('overlay.footScreen')}
+                </span>
+              </>
+            )}
+            <span className="hints__spacer" />
+            <SizePicker
+              active={settings?.overlaySize ?? 'M'}
+              onChange={(overlaySize) => void window.api.settings.update({ overlaySize })}
+            />
+          </div>
+        )}
+      </div>
+    </LangProvider>
   );
 }

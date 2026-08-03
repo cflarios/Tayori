@@ -16,7 +16,13 @@ import {
   screenModelFor,
   speakersFor,
 } from '@shared/types';
-import { acceleratorFromEvent, duplicateAccelerators, formatAccelerator } from '@shared/accelerator';
+import {
+  acceleratorFromEvent,
+  duplicateAccelerators,
+  formatAccelerator,
+} from '@shared/accelerator';
+import { UI_LANG_LABEL, UI_LANGS, type UILang } from '@shared/i18n';
+import { LangProvider, useT } from '@renderer/i18n';
 import { Icon, type IconName } from './icons';
 import { SetupWizard } from './SetupWizard';
 import type {
@@ -94,7 +100,15 @@ function Row({
  * Donde eso pasa —«qué se escucha» y el disparo automático— se pone el salto en
  * lugar de repetir el texto.
  */
-function Jump({ to, go, children }: { to: SectionId; go: (id: SectionId) => void; children: string }) {
+function Jump({
+  to,
+  go,
+  children,
+}: {
+  to: SectionId;
+  go: (id: SectionId) => void;
+  children: string;
+}) {
   return (
     <button className="jump" onClick={() => go(to)}>
       {children}
@@ -231,8 +245,8 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
     <section className="card">
       <h2 className="card__title">Captura de audio</h2>
       <p className="card__hint">
-        Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es lo
-        que permite distinguir quién habla sin diarización.
+        Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es
+        lo que permite distinguir quién habla sin diarización.
       </p>
 
       <Row
@@ -251,7 +265,11 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
           disabled={busy || status.state === 'starting'}
           onClick={() => void toggle()}
         >
-          {status.state === 'starting' ? 'Iniciando…' : listening ? 'Detener' : 'Empezar a escuchar'}
+          {status.state === 'starting'
+            ? 'Iniciando…'
+            : listening
+              ? 'Detener'
+              : 'Empezar a escuchar'}
         </button>
       </Row>
 
@@ -538,109 +556,111 @@ export function DashboardApp() {
   };
 
   return (
-    <div className="app">
-      <aside className="nav">
-        <div className="nav__brand">
-          <div className="nav__eyebrow">Ajustes</div>
-          <div className="nav__app">Tayori</div>
-        </div>
+    <LangProvider lang={settings.uiLanguage}>
+      <div className="app">
+        <aside className="nav">
+          <div className="nav__brand">
+            <div className="nav__eyebrow">Ajustes</div>
+            <div className="nav__app">Tayori</div>
+          </div>
 
-        <nav className="nav__list">
-          {SECTION_ORDER.map((id) => (
-            <button
-              key={id}
-              className="navitem"
-              aria-current={id === section}
-              onClick={() => go(id)}
-            >
-              <Icon name={SECTIONS[id].icon} />
-              <span className="navitem__label">{SECTIONS[id].label}</span>
-              {alerts[id] && <span className="navitem__dot" title="Algo requiere tu atención" />}
-            </button>
-          ))}
-        </nav>
+          <nav className="nav__list">
+            {SECTION_ORDER.map((id) => (
+              <button
+                key={id}
+                className="navitem"
+                aria-current={id === section}
+                onClick={() => go(id)}
+              >
+                <Icon name={SECTIONS[id].icon} />
+                <span className="navitem__label">{SECTIONS[id].label}</span>
+                {alerts[id] && <span className="navitem__dot" title="Algo requiere tu atención" />}
+              </button>
+            ))}
+          </nav>
 
-        <div className="nav__foot">
-          {/* El asistente se puede volver a llamar: haberlo terminado una vez no
+          <div className="nav__foot">
+            {/* El asistente se puede volver a llamar: haberlo terminado una vez no
               debería dejarte sin él. Vive en el pie y no al final de una sección
               porque no pertenece a ninguna — las cruza todas. */}
-          <button className="navitem navitem--ghost" onClick={() => setWizard(true)}>
-            <Icon name="compass" />
-            <span className="navitem__label">Configuración guiada</span>
-          </button>
-          <p className="nav__note">
-            Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.
-          </p>
-        </div>
-      </aside>
-
-      <main className="pane">
-        <header className="pane__head">
-          <div className="pane__heading">
-            <h1 className="pane__title">{meta.label}</h1>
-            <p className="pane__sub">{meta.hint}</p>
+            <button className="navitem navitem--ghost" onClick={() => setWizard(true)}>
+              <Icon name="compass" />
+              <span className="navitem__label">Configuración guiada</span>
+            </button>
+            <p className="nav__note">
+              Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.
+            </p>
           </div>
-          {/* El control más usado de la app, alcanzable desde cualquier sección:
+        </aside>
+
+        <main className="pane">
+          <header className="pane__head">
+            <div className="pane__heading">
+              <h1 className="pane__title">{meta.label}</h1>
+              <p className="pane__sub">{meta.hint}</p>
+            </div>
+            {/* El control más usado de la app, alcanzable desde cualquier sección:
               antes había que llegar hasta la tarjeta de captura para pulsarlo. */}
-          <ListenButton status={status} />
-        </header>
+            <ListenButton status={status} />
+          </header>
 
-        <div className="pane__body" ref={bodyRef}>
-          <div className="pane__inner">
-            {section === 'general' && <VisibilityCards settings={settings} patch={patch} />}
+          <div className="pane__body" ref={bodyRef}>
+            <div className="pane__inner">
+              {section === 'general' && <VisibilityCards settings={settings} patch={patch} />}
 
-            {section === 'audio' && (
-              <>
-                <CaptureCard status={status} levels={levels} />
-                <AudioSourcesCard settings={settings} patch={patch} go={go} />
-              </>
-            )}
+              {section === 'audio' && (
+                <>
+                  <CaptureCard status={status} levels={levels} />
+                  <AudioSourcesCard settings={settings} patch={patch} go={go} />
+                </>
+              )}
 
-            {section === 'phone' && <PhoneMirrorCard settings={settings} patch={patch} />}
+              {section === 'phone' && <PhoneMirrorCard settings={settings} patch={patch} />}
 
-            {section === 'mqtt' && (
-              <MqttCard
-                settings={settings}
-                presence={presence}
-                patch={patch}
-                saveSecret={saveSecret}
-                clearSecret={clearSecret}
-              />
-            )}
-
-            {section === 'models' && (
-              <>
-                <ApiKeysCard
+              {section === 'mqtt' && (
+                <MqttCard
+                  settings={settings}
                   presence={presence}
+                  patch={patch}
                   saveSecret={saveSecret}
                   clearSecret={clearSecret}
                 />
-                <ModelCard settings={settings} patch={patch} />
-                {/* Justo detrás del modelo de respuestas: se lee como "y para la
-                    pantalla, esto otro", que es la decisión que hay que tomar. */}
-                <ScreenModelCard settings={settings} patch={patch} />
-                <LocalModelGuide />
-              </>
-            )}
+              )}
 
-            {section === 'transcription' && (
-              <TranscriptionCard settings={settings} patch={patch} go={go} />
-            )}
-            {section === 'behaviour' && (
-              <BehaviourCard settings={settings} patch={patch} go={go} />
-            )}
-            {section === 'context' && <ContextCard settings={settings} patch={patch} />}
-            {section === 'skills' && <SkillsCard settings={settings} patch={patch} />}
-            {section === 'history' && <HistoryCard settings={settings} patch={patch} />}
-            {section === 'hotkeys' && (
-              <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
-            )}
-            {section === 'diagnostics' && <DiagnosticsCard />}
-            {section === 'about' && <AboutCard />}
+              {section === 'models' && (
+                <>
+                  <ApiKeysCard
+                    presence={presence}
+                    saveSecret={saveSecret}
+                    clearSecret={clearSecret}
+                  />
+                  <ModelCard settings={settings} patch={patch} />
+                  {/* Justo detrás del modelo de respuestas: se lee como "y para la
+                    pantalla, esto otro", que es la decisión que hay que tomar. */}
+                  <ScreenModelCard settings={settings} patch={patch} />
+                  <LocalModelGuide />
+                </>
+              )}
+
+              {section === 'transcription' && (
+                <TranscriptionCard settings={settings} patch={patch} go={go} />
+              )}
+              {section === 'behaviour' && (
+                <BehaviourCard settings={settings} patch={patch} go={go} />
+              )}
+              {section === 'context' && <ContextCard settings={settings} patch={patch} />}
+              {section === 'skills' && <SkillsCard settings={settings} patch={patch} />}
+              {section === 'history' && <HistoryCard settings={settings} patch={patch} />}
+              {section === 'hotkeys' && (
+                <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
+              )}
+              {section === 'diagnostics' && <DiagnosticsCard />}
+              {section === 'about' && <AboutCard />}
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </LangProvider>
   );
 }
 
@@ -705,8 +725,29 @@ function ListenButton({ status }: { status: CaptureStatus }) {
  * el resto de la sección son preferencias que se tocan una vez.
  */
 function VisibilityCards({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
   return (
     <>
+      {/*
+        El idioma va lo primero de todo, y no en «Acerca de» ni al final: quien
+        abre los ajustes porque la app está en un idioma que no es el suyo tiene
+        que encontrarlo sin leer nada más.
+      */}
+      <section className="card">
+        <Row icon="globe" label={t('dash.language')} desc={t('dash.languageDesc')}>
+          <select
+            value={settings.uiLanguage}
+            onChange={(e) => void patch({ uiLanguage: e.target.value as UILang })}
+          >
+            {UI_LANGS.map((lang) => (
+              <option key={lang} value={lang}>
+                {UI_LANG_LABEL[lang]}
+              </option>
+            ))}
+          </select>
+        </Row>
+      </section>
+
       <div className="hero">
         <span className="hero__icon">
           <Icon name="eyeOff" size={19} />
@@ -807,7 +848,10 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           label="Modo compacto"
           desc="Deja sólo la respuesta: pliega los perfiles, la transcripción y el pie de atajos. También se activa con el botón de plegar del overlay."
         >
-          <Switch on={settings.overlayCompact} onChange={(v) => void patch({ overlayCompact: v })} />
+          <Switch
+            on={settings.overlayCompact}
+            onChange={(v) => void patch({ overlayCompact: v })}
+          />
         </Row>
       </section>
 
@@ -1068,9 +1112,9 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
       <section className="card">
         <h2 className="card__title">Qué se manda y qué no</h2>
         <p className="card__hint" style={{ marginBottom: 0 }}>
-          Van las <strong>respuestas</strong> y si la escucha está activa. <strong>No va la
-          transcripción</strong>: lo que dijo la otra persona no se duplica en un segundo
-          dispositivo por comodidad. Todo se queda en tu red — el puente lo sirve tu propio
+          Van las <strong>respuestas</strong> y si la escucha está activa.{' '}
+          <strong>No va la transcripción</strong>: lo que dijo la otra persona no se duplica en un
+          segundo dispositivo por comodidad. Todo se queda en tu red — el puente lo sirve tu propio
           ordenador, sin ninguna nube por medio, y se apaga con la app.
         </p>
       </section>
@@ -1161,7 +1205,11 @@ function MqttCard({
           />
         </Row>
 
-        <Row icon="key" label="Usuario" desc="Déjalo vacío si tu broker acepta conexiones anónimas.">
+        <Row
+          icon="key"
+          label="Usuario"
+          desc="Déjalo vacío si tu broker acepta conexiones anónimas."
+        >
           <input
             type="text"
             style={{ width: 180, flex: 'none' }}
@@ -1308,10 +1356,9 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
           <div>
             <h2 className="card__title">Carpeta de skills</h2>
             <p className="card__hint">
-              Cada skill es una carpeta con un archivo <code>SKILL.md</code> dentro: frontmatter
-              con <code>name</code> y <code>description</code>, y debajo las instrucciones. Los
-              scripts y los assets que admite el formato <strong>se ignoran</strong> — ver la nota
-              de abajo.
+              Cada skill es una carpeta con un archivo <code>SKILL.md</code> dentro: frontmatter con{' '}
+              <code>name</code> y <code>description</code>, y debajo las instrucciones. Los scripts
+              y los assets que admite el formato <strong>se ignoran</strong> — ver la nota de abajo.
             </p>
           </div>
           <button className="btn" disabled={busy} onClick={() => void refresh()}>
@@ -1334,10 +1381,10 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
         </div>
 
         <div className="warn">
-          Lo que pongas ahí acaba <strong>dentro del prompt</strong> que se manda a tu proveedor.
-          No es código que se ejecute —los scripts se ignoran a propósito— pero sí es texto que
-          sale de tu máquina en cada consulta, así que trata una skill de terceros como tratarías
-          cualquier otra cosa que vayas a pegar en un chat.
+          Lo que pongas ahí acaba <strong>dentro del prompt</strong> que se manda a tu proveedor. No
+          es código que se ejecute —los scripts se ignoran a propósito— pero sí es texto que sale de
+          tu máquina en cada consulta, así que trata una skill de terceros como tratarías cualquier
+          otra cosa que vayas a pegar en un chat.
         </div>
       </section>
 
@@ -1441,9 +1488,9 @@ function AboutCard() {
         <h2 className="card__title">Tayori</h2>
         <p className="card__hint">
           Un asistente que escucha una reunión o una entrevista, transcribe quién dice qué y te
-          sugiere respuestas en un panel flotante que <strong>no aparece cuando compartes
-          pantalla</strong>. También resuelve el código o el test que tengas delante, leyéndolo de
-          una captura.
+          sugiere respuestas en un panel flotante que{' '}
+          <strong>no aparece cuando compartes pantalla</strong>. También resuelve el código o el
+          test que tengas delante, leyéndolo de una captura.
         </p>
 
         <Row icon="check" label="Versión">
@@ -1532,8 +1579,8 @@ function OllamaCheck() {
         <span className="badge badge--ok">no necesita clave</span>
       </div>
       <div className="row__desc">
-        Corre en tu máquina, así que aquí no hay nada que pegar. Lo que sí conviene comprobar es
-        que el servidor está vivo y tiene algún modelo descargado.
+        Corre en tu máquina, así que aquí no hay nada que pegar. Lo que sí conviene comprobar es que
+        el servidor está vivo y tiene algún modelo descargado.
       </div>
       <div className="field">
         <button className="btn" disabled={busy} onClick={() => void test()}>
@@ -1656,9 +1703,9 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
     <section className="card" id="screen-model">
       <h2 className="card__title">Modelo para la pantalla</h2>
       <p className="card__hint">
-        El que resuelve <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> (código) y{' '}
-        <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Q</kbd> (tests). Puede ser distinto del que responde a
-        lo que se habla: aquello pide rapidez, y esto pide leer bien una captura.{' '}
+        El que resuelve <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> (código) y <kbd>Ctrl</kbd>+
+        <kbd>Alt</kbd>+<kbd>Q</kbd> (tests). Puede ser distinto del que responde a lo que se habla:
+        aquello pide rapidez, y esto pide leer bien una captura.{' '}
         <strong>Tiene que admitir imágenes.</strong>
       </p>
 
@@ -1718,18 +1765,17 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
 
       {blind && (
         <div className="warn">
-          <strong>{target.model}</strong> no admite imágenes, así que no puede leer la pantalla:
-          los botones de código y de test fallarán con un aviso en lugar de responder. Elige un
-          multimodal — con Ollama, <code>qwen2.5vl</code>, <code>llava</code> o{' '}
-          <code>gemma3</code>.
+          <strong>{target.model}</strong> no admite imágenes, así que no puede leer la pantalla: los
+          botones de código y de test fallarán con un aviso en lugar de responder. Elige un
+          multimodal — con Ollama, <code>qwen2.5vl</code>, <code>llava</code> o <code>gemma3</code>.
         </div>
       )}
 
       {provider === 'same' && settings.llmProviderId === 'ollama' && (
         <div className="warn">
           Estás usando Ollama para todo. Si el modelo elegido no ve imágenes, las acciones de
-          pantalla no funcionarán: aquí es donde conviene separarlas y dejar un multimodal sólo
-          para esto.
+          pantalla no funcionarán: aquí es donde conviene separarlas y dejar un multimodal sólo para
+          esto.
         </div>
       )}
     </section>
@@ -1864,14 +1910,13 @@ function LocalModelGuide() {
       <p className="card__hint" style={{ marginTop: 12, marginBottom: 0 }}>
         La VRAM de la tarjeta gráfica —el dato que de verdad decide si un modelo va rápido— no se
         puede leer de forma fiable desde aquí, así que <strong>no se estima</strong>: estas
-        recomendaciones se basan en la RAM. Si el modelo no cabe en la GPU, Ollama lo reparte con
-        la CPU y va mucho más lento, aunque quepa en memoria. Los nombres pueden cambiar con el
-        tiempo; la lista viva está en <code>ollama.com/library</code>.
+        recomendaciones se basan en la RAM. Si el modelo no cabe en la GPU, Ollama lo reparte con la
+        CPU y va mucho más lento, aunque quepa en memoria. Los nombres pueden cambiar con el tiempo;
+        la lista viva está en <code>ollama.com/library</code>.
       </p>
     </section>
   );
 }
-
 
 // ─────────────────────────────── Atajos ───────────────────────────────
 
@@ -1986,15 +2031,15 @@ function HotkeysCard({
         <div className="warn">
           {failed.length === 1 ? (
             <>
-              Windows rechazó este atajo:{' '}
-              <strong>{formatAccelerator(failed[0] ?? '')}</strong>. Otra aplicación lo tiene
-              tomado, así que <strong>no hará nada</strong> hasta que elijas otro.
+              Windows rechazó este atajo: <strong>{formatAccelerator(failed[0] ?? '')}</strong>.
+              Otra aplicación lo tiene tomado, así que <strong>no hará nada</strong> hasta que
+              elijas otro.
             </>
           ) : (
             <>
               Windows rechazó estos atajos:{' '}
-              <strong>{failed.map(formatAccelerator).join(', ')}</strong>. Otra aplicación los
-              tiene tomados, así que <strong>no harán nada</strong> hasta que elijas otros.
+              <strong>{failed.map(formatAccelerator).join(', ')}</strong>. Otra aplicación los tiene
+              tomados, así que <strong>no harán nada</strong> hasta que elijas otros.
             </>
           )}
         </div>
@@ -2191,10 +2236,7 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
             : 'Apagado. Nada toca el disco: la app vuelve a escuchar sin guardar.'
         }
       >
-        <Switch
-          on={settings.historyEnabled}
-          onChange={(v) => void patch({ historyEnabled: v })}
-        />
+        <Switch on={settings.historyEnabled} onChange={(v) => void patch({ historyEnabled: v })} />
       </Row>
 
       {items.length === 0 && (
@@ -2591,8 +2633,8 @@ function OllamaStatusPanel() {
 
       {!checking && status && !status.reachable && (
         <div className="warn">
-          {status.error} Instálalo desde <strong>ollama.com</strong> y déjalo corriendo; el
-          servidor arranca solo tras la instalación.
+          {status.error} Instálalo desde <strong>ollama.com</strong> y déjalo corriendo; el servidor
+          arranca solo tras la instalación.
         </div>
       )}
 
@@ -2706,8 +2748,8 @@ function TranscriptionCard({
           ) : (
             <>
               <code>gpt-transcribe</code>, el que OpenAI recomienda para voz ya grabada. Espera a
-              que termines la frase y la transcribe entera, así que acierta más en nombres propios
-              a cambio de aproximadamente un segundo de latencia.
+              que termines la frase y la transcribe entera, así que acierta más en nombres propios a
+              cambio de aproximadamente un segundo de latencia.
             </>
           )}{' '}
           Usa la API key de OpenAI, la misma que las respuestas.
@@ -2718,9 +2760,8 @@ function TranscriptionCard({
         <div className="diag diag--ok">
           El audio va <strong>directo al modelo</strong>, sin pasar por un reconocedor. Una mala
           transcripción deja de poder estropear la respuesta, porque el modelo oye tu voz en lugar
-          de leer lo que otro entendió. Usa el modelo de Gemini que elijas más arriba, y el
-          detector de preguntas no interviene: decide el propio modelo si lo que dijiste pedía
-          respuesta.
+          de leer lo que otro entendió. Usa el modelo de Gemini que elijas más arriba, y el detector
+          de preguntas no interviene: decide el propio modelo si lo que dijiste pedía respuesta.
         </div>
       )}
 
@@ -2729,7 +2770,10 @@ function TranscriptionCard({
         label="Idioma"
         desc="Automático detecta el idioma; fijarlo mejora la precisión cuando aciertas."
       >
-        <select value={settings.language} onChange={(e) => void patch({ language: e.target.value })}>
+        <select
+          value={settings.language}
+          onChange={(e) => void patch({ language: e.target.value })}
+        >
           <option value="auto">Automático</option>
           <option value="es">Español</option>
           <option value="en">Inglés</option>
@@ -2905,13 +2949,13 @@ function BehaviourCard({
 
       {settings.autoTriggerMode === 'heuristic+classifier' && (
         <div className="warn">
-          Cuando la heurística no vea ningún marcador, le preguntará al modelo si esa
-          intervención pedía respuesta. Es lo que caza las preguntas que llegan como
-          afirmaciones —<em>«una persona que sepa DevOps tendría que saber de seguridad»</em>—
-          y que ninguna lista de palabras puede detectar.
+          Cuando la heurística no vea ningún marcador, le preguntará al modelo si esa intervención
+          pedía respuesta. Es lo que caza las preguntas que llegan como afirmaciones —
+          <em>«una persona que sepa DevOps tendría que saber de seguridad»</em>— y que ninguna lista
+          de palabras puede detectar.
           <br />
-          <strong>Cuesta una consulta más</strong> por cada intervención ambigua, aunque al
-          final no se responda. Con Ollama es gratis; con un modelo de pago, no.
+          <strong>Cuesta una consulta más</strong> por cada intervención ambigua, aunque al final no
+          se responda. Con Ollama es gratis; con un modelo de pago, no.
         </div>
       )}
 
@@ -2960,8 +3004,8 @@ function BehaviourCard({
               avisa aquí y no solo en el log del proceso principal. */}
           {autoTriggerIsInert(settings) && (
             <div className="warn">
-              El auto-disparo espera a <strong>{SPEAKER_LABEL[settings.autoTriggerSpeaker]}</strong>,
-              pero «Qué se escucha» solo abre{' '}
+              El auto-disparo espera a <strong>{SPEAKER_LABEL[settings.autoTriggerSpeaker]}</strong>
+              , pero «Qué se escucha» solo abre{' '}
               {speakersFor(settings.audioSources)
                 .map((s) => SPEAKER_LABEL[s])
                 .join(' y ')}
@@ -3063,7 +3107,8 @@ const PROFILE_LABEL: Record<Settings['promptProfileId'], string> = {
 /** Qué pedirle al usuario en cada hueco, y por qué le conviene rellenarlo. */
 const SLOT_HELP: Record<ContextKind, { placeholder: string; hint: string }> = {
   cv: {
-    placeholder: 'Pega tu CV, o un resumen de tu experiencia: empresas, años, tecnologías, logros con cifras…',
+    placeholder:
+      'Pega tu CV, o un resumen de tu experiencia: empresas, años, tecnologías, logros con cifras…',
     hint: 'La única fuente de datos concretos sobre ti. Sin esto las respuestas son correctas pero genéricas, y el modelo tiene prohibido inventarse experiencia.',
   },
   job: {

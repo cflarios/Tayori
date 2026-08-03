@@ -1,3 +1,5 @@
+import type { UILang } from './i18n';
+
 /**
  * Tipos compartidos entre main, preload y renderer.
  * Fuente única de verdad: si un tipo cruza el puente IPC, vive aquí.
@@ -436,6 +438,16 @@ export interface Settings {
   /** Máximo de segmentos que retiene el buffer rodante. */
   transcriptWindowSize: number;
 
+  /**
+   * Idioma de la INTERFAZ.
+   *
+   * No confundir con `language`, que es el del reconocedor de voz y va en
+   * BCP-47. Son dos cosas que suenan igual y no lo son: alguien puede tener la
+   * app en inglés y estar entrevistándose en español, y de hecho es un caso
+   * normal. Por eso son dos ajustes y no uno.
+   */
+  uiLanguage: UILang;
+
   promptProfileId: PromptProfileId;
   customPrompt: string;
   contextPacks: ContextPack[];
@@ -687,6 +699,10 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTriggerSensitivity: 'balanced',
   manualContextSeconds: 30,
   transcriptWindowSize: 40,
+
+  // Inglés por defecto. El primer arranque lo ajusta al idioma del sistema si
+  // resulta ser español; a partir de ahí manda lo que el usuario elija.
+  uiLanguage: 'en',
 
   promptProfileId: 'interview',
   customPrompt: '',

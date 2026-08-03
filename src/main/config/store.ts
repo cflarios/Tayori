@@ -2,6 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { EventEmitter } from 'node:events';
+import { guessUILang } from '@shared/i18n';
 import { DEFAULT_SETTINGS, type ContextPack, type Settings } from '@shared/types';
 
 /**
@@ -20,11 +21,21 @@ import { DEFAULT_SETTINGS, type ContextPack, type Settings } from '@shared/types
  * tiene una clave (porque se añadió en una versión posterior), gana el default.
  * `hotkeys` se mezcla un nivel más para no perder atajos nuevos.
  */
-function withDefaults(raw: unknown): Settings {
+function withDefaults(raw: unknown, systemLocale?: string): Settings {
   if (raw === null || typeof raw !== 'object') return { ...DEFAULT_SETTINGS };
   const stored = raw as Partial<Settings>;
   return {
     ...DEFAULT_SETTINGS,
+    /*
+     * El idioma de la interfaz, sólo la PRIMERA vez.
+     *
+     * Por defecto es inglés, pero recibir en inglés a alguien con Windows en
+     * español cuando su idioma existe es una mala primera impresión gratuita.
+     * En cuanto lo elige a mano queda guardado y esto no vuelve a mirarse — la
+     * comprobación es `stored.uiLanguage` y no el valor final justamente para
+     * que cambiarlo a inglés a propósito no se deshaga en el siguiente arranque.
+     */
+    uiLanguage: stored.uiLanguage ?? guessUILang(systemLocale),
     ...stored,
     llmModels: { ...DEFAULT_SETTINGS.llmModels, ...(stored.llmModels ?? {}) },
     hotkeys: { ...DEFAULT_SETTINGS.hotkeys, ...(stored.hotkeys ?? {}) },
@@ -74,7 +85,9 @@ class SettingsStore extends EventEmitter {
       console.error('[settings] no se pudo leer, usando defaults:', err);
     }
 
-    this.cache = withDefaults(raw);
+    // `app.getLocale()` sólo tiene valor después de `ready`, y para cuando
+    // alguien pide los settings ya lo está.
+    this.cache = withDefaults(raw, app.getLocale());
     return this.cache;
   }
 
