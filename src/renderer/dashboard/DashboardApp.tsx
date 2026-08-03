@@ -2307,9 +2307,9 @@ function ModelPicker({
         {!typing && !known && (
           <option value="">{models.length === 0 ? t('model.none') : t('model.pick')}</option>
         )}
-        {models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.label}
+        {models.map((model) => (
+          <option key={model.id} value={model.id}>
+            {model.note ? `${model.label} · ${t(model.note)}` : model.label}
           </option>
         ))}
         {allowCustom && <option value={CUSTOM_MODEL}>{t('model.other')}</option>}
@@ -2415,7 +2415,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
           <option value="gemini">Gemini (Google)</option>
           <option value="openai">ChatGPT (OpenAI)</option>
           <option value="deepseek">DeepSeek</option>
-          <option value="ollama">Ollama (local)</option>
+          <option value="ollama">{t('mdl.providerOllama')}</option>
         </select>
       </Row>
 
@@ -2488,6 +2488,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
  * instalado, está instalado pero parado, o corre sin modelos descargados.
  */
 function OllamaStatusPanel() {
+  const t = useT();
   const [status, setStatus] = useState<OllamaStatus | null>(null);
   const [checking, setChecking] = useState(true);
   /** Se incrementa para relanzar el sondeo desde el botón. */
@@ -2520,47 +2521,45 @@ function OllamaStatusPanel() {
   return (
     <div className="ollama">
       <div className="ollama__head">
-        <span className="row__label">Estado de Ollama</span>
-        {checking && <span className="badge badge--missing">comprobando…</span>}
+        <span className="row__label">{t('ol.status')}</span>
+        {checking && <span className="badge badge--missing">{t('ol.checking')}</span>}
         {!checking && status?.reachable && (
           <span className="badge badge--ok">
-            detectado{status.version ? ` · v${status.version}` : ''}
+            {t('ol.detected')}
+            {status.version ? ` · v${status.version}` : ''}
           </span>
         )}
         {!checking && status && !status.reachable && (
-          <span className="badge badge--missing">no detectado</span>
+          <span className="badge badge--missing">{t('ol.notDetected')}</span>
         )}
         <span className="statusbar__spacer" style={{ flex: 1 }} />
         <button className="btn" onClick={probe} disabled={checking}>
-          Volver a comprobar
+          {t('ol.recheck')}
         </button>
       </div>
 
       {!checking && status && !status.reachable && (
         <div className="warn">
-          {status.error} Instálalo desde <strong>ollama.com</strong> y déjalo corriendo; el servidor
-          arranca solo tras la instalación.
+          <Tx k="ol.installHint" vars={{ error: status.error ?? '' }} />
         </div>
       )}
 
       {!checking && status?.reachable && status.models.length === 0 && (
         <div className="warn">
-          Ollama está corriendo pero no tiene ningún modelo descargado. Descarga uno desde una
-          terminal, por ejemplo: <code>ollama pull llama3.2</code>
+          <Tx k="ol.noModels" />
         </div>
       )}
 
       {!checking && status?.reachable && status.models.length > 0 && (
         <>
           <div className="row__desc" style={{ marginTop: 10 }}>
-            {status.models.length} modelo{status.models.length === 1 ? '' : 's'} detectado
-            {status.models.length === 1 ? '' : 's'} automáticamente:
+            {t('ol.detectedCount', { count: status.models.length })}
           </div>
           <ul className="ollama__list">
             {status.models.map((m) => (
               <li key={m.id}>
                 {m.id}
-                {m.supportsVision && <span className="badge badge--ok">visión</span>}
+                {m.supportsVision && <span className="badge badge--ok">{t('ol.vision')}</span>}
               </li>
             ))}
           </ul>

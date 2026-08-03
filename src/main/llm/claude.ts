@@ -25,9 +25,14 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  */
 
 export const CLAUDE_MODELS: ModelInfo[] = [
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5 (rápido)', supportsVision: true },
-  { id: 'claude-opus-5', label: 'Claude Opus 5 (más capaz)', supportsVision: true },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (mínima latencia)', supportsVision: true },
+  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', supportsVision: true, note: 'mdl.fast' },
+  { id: 'claude-opus-5', label: 'Claude Opus 5', supportsVision: true, note: 'mdl.capable' },
+  {
+    id: 'claude-haiku-4-5',
+    label: 'Claude Haiku 4.5',
+    supportsVision: true,
+    note: 'mdl.lowLatency',
+  },
 ];
 
 /** Nivel de esfuerzo. `low` prioriza latencia, que es lo que pide este caso. */

@@ -44,8 +44,13 @@ const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
  * ningún ajuste de ventana como el de Ollama.
  */
 export const DEEPSEEK_MODELS: ModelInfo[] = [
-  { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash (rápido y barato)', supportsVision: false },
-  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro (más capaz)', supportsVision: false },
+  {
+    id: 'deepseek-v4-flash',
+    label: 'DeepSeek V4 Flash',
+    supportsVision: false,
+    note: 'mdl.fastCheap',
+  },
+  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', supportsVision: false, note: 'mdl.capable' },
 ];
 
 export class DeepSeekProvider implements LLMProvider {

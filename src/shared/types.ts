@@ -74,6 +74,15 @@ export interface ModelInfo {
   label: string;
   /** Si acepta imágenes; controla si adjuntamos screenshots. */
   supportsVision: boolean;
+  /**
+   * El «(rápido)», «(más capaz)» que acompaña al nombre, como clave.
+   *
+   * Va aparte del `label` porque el nombre del modelo es un **nombre propio**
+   * —«Claude Sonnet 5» no se traduce— y el cualificador sí. Tenerlos pegados
+   * dejaba media etiqueta en español dentro de un desplegable en inglés, que es
+   * de las cosas que más cantan porque se ven sin abrir nada.
+   */
+  note?: UIKey;
 }
 
 export interface ImageAttachment {

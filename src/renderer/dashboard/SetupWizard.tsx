@@ -10,6 +10,8 @@ import {
 } from '@shared/types';
 import type { WhisperProgress } from '@shared/ipc';
 import { Icon } from './icons';
+import { Tx, useT } from '@renderer/i18n';
+import type { UIKey } from '@shared/i18n';
 
 /**
  * Asistente de primera configuración.
@@ -55,6 +57,7 @@ export function SetupWizard({
   saveSecret: (key: SecretKey, value: string) => Promise<void>;
   onClose: () => void;
 }) {
+  const t = useT();
   const [step, setStep] = useState<Step>('welcome');
   const [path, setPath] = useState<Path | null>(null);
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
@@ -89,19 +92,19 @@ export function SetupWizard({
     <div className="wiz">
       <header className="wiz__head">
         <div>
-          <div className="wiz__eyebrow">Configuración guiada</div>
-          <h1 className="wiz__title">{TITLES[step]}</h1>
+          <div className="wiz__eyebrow">{t('wiz.eyebrow')}</div>
+          <h1 className="wiz__title">{t(TITLES[step])}</h1>
         </div>
         {/* Salir siempre visible: quien sabe lo que hace no debería tener que
             terminar un asistente para llegar a los ajustes. */}
         <button className="btn btn--ghost" onClick={onClose}>
-          Salir del asistente
+          {t('wiz.exit')}
         </button>
       </header>
 
       <div className="wiz__nav">
         <button className="btn btn--ghost" disabled={at === 0} onClick={() => goTo(at - 1)}>
-          ← Atrás
+          {t('wiz.back')}
         </button>
 
         <div className="wiz__rail">
@@ -122,12 +125,10 @@ export function SetupWizard({
           disabled={at === steps.length - 1 || (step === 'welcome' && !path)}
           onClick={() => goTo(at + 1)}
           title={
-            step === 'welcome' && !path
-              ? 'Elige primero si quieres la nube o tu equipo'
-              : 'Pasar al siguiente paso sin hacer éste'
+            step === 'welcome' && !path ? t('wiz.pickFirst') : t('wiz.skipTitle')
           }
         >
-          Saltar →
+          {t('wiz.skip')}
         </button>
       </div>
 
@@ -183,12 +184,12 @@ export function SetupWizard({
   );
 }
 
-const TITLES: Record<Step, string> = {
-  welcome: '¿Quién va a responder?',
-  brain: 'Configurando el modelo',
-  voice: '¿Cómo se convierte la voz en texto?',
-  context: 'Lo que el modelo debe saber de ti',
-  done: 'Listo',
+const TITLES: Record<Step, UIKey> = {
+  welcome: 'wiz.titleWelcome',
+  brain: 'wiz.titleBrain',
+  voice: 'wiz.titleVoice',
+  context: 'wiz.titleContext',
+  done: 'wiz.titleDone',
 };
 
 // ────────────────────────────── 1 · Bienvenida ──────────────────────────────
@@ -202,17 +203,15 @@ const TITLES: Record<Step, string> = {
  * recomendación para que se pueda llevar la contraria con criterio.
  */
 function Welcome({ specs, onPick }: { specs: SystemSpecs | null; onPick: (path: Path) => void }) {
-  if (!specs) return <p className="wiz__lead">Midiendo tu equipo…</p>;
+  const t = useT();
+  if (!specs) return <p className="wiz__lead">{t('wiz.measuring')}</p>;
 
   const advice = adviseLocalModels(specs);
   const localIsViable = specs.totalMemoryGB >= 16 && Boolean(specs.gpu);
 
   return (
     <>
-      <p className="wiz__lead">
-        La app necesita un modelo que redacte las respuestas. Hay dos formas, y la diferencia real
-        es dónde corre y quién paga.
-      </p>
+      <p className="wiz__lead">{t('wiz.lead')}</p>
 
       <div className="specs">
         <span className="specs__item">
@@ -233,34 +232,24 @@ function Welcome({ specs, onPick }: { specs: SystemSpecs | null; onPick: (path: 
       <div className="wiz__paths">
         <PathCard
           icon="cloud"
-          title="En la nube"
+          title={t('wiz.cloud')}
           recommended={!localIsViable}
-          bullets={[
-            'Nada que instalar: pegas una API key y ya responde.',
-            'La mejor calidad, y responde en uno o dos segundos.',
-            'Pagas por uso al proveedor. Tu voz transcrita sale de tu equipo.',
-          ]}
-          cta="Usar un proveedor de pago"
+          bullets={[t('wiz.cloudB1'), t('wiz.cloudB2'), t('wiz.cloudB3')]}
+          cta={t('wiz.cloudCta')}
           onPick={() => onPick('cloud')}
         />
         <PathCard
           icon="laptop"
-          title="En tu equipo"
+          title={t('wiz.local')}
           recommended={localIsViable}
-          bullets={[
-            'Gratis y sin cuenta. Nada de lo que digas sale de la máquina.',
-            'Hay que instalar Ollama y descargar varios GB de modelos.',
-            'La calidad y la velocidad dependen de tu hardware.',
-          ]}
-          cta="Instalarlo todo aquí"
+          bullets={[t('wiz.localB1'), t('wiz.localB2'), t('wiz.localB3')]}
+          cta={t('wiz.localCta')}
           onPick={() => onPick('local')}
         />
       </div>
 
       <p className="wiz__note">
-        {localIsViable
-          ? 'Tu equipo da la talla para lo local, así que es lo que te recomiendo: sale gratis y no envías nada. Puedes cambiar de idea después sin perder nada.'
-          : 'Con este equipo lo local iría lento y se equivocaría leyendo capturas, así que te recomiendo la nube. Puedes probar lo local igualmente: el asistente te dirá qué modelos te pegan.'}
+        {localIsViable ? t('wiz.localViable') : t('wiz.localWeak')}
       </p>
     </>
   );
@@ -281,6 +270,7 @@ function PathCard({
   recommended: boolean;
   onPick: () => void;
 }) {
+  const t = useT();
   return (
     <section className={`pathcard${recommended ? ' pathcard--pick' : ''}`}>
       <div className="pathcard__head">
@@ -288,7 +278,7 @@ function PathCard({
           <Icon name={icon} size={19} />
         </span>
         <h2 className="pathcard__title">{title}</h2>
-        {recommended && <span className="badge badge--ok">recomendado</span>}
+        {recommended && <span className="badge badge--ok">{t('wiz.recommended')}</span>}
       </div>
       <ul className="pathcard__list">
         {bullets.map((line) => (
@@ -311,7 +301,7 @@ const CLOUD_PROVIDERS = [
     label: 'Claude (Anthropic)',
     model: 'claude-sonnet-5',
     where: 'console.anthropic.com → API Keys',
-    note: 'La mejor calidad de respuesta y de lectura de pantalla.',
+    note: 'wiz.claudeNote' as UIKey,
   },
   {
     id: 'gemini' as const,
@@ -319,7 +309,7 @@ const CLOUD_PROVIDERS = [
     label: 'Gemini (Google)',
     model: 'gemini-2.5-flash',
     where: 'aistudio.google.com → Get API key',
-    note: 'Más barato, y la misma clave sirve para transcribir en directo.',
+    note: 'wiz.geminiNote' as UIKey,
   },
   {
     id: 'openai' as const,
@@ -327,7 +317,7 @@ const CLOUD_PROVIDERS = [
     label: 'ChatGPT (OpenAI)',
     model: 'gpt-5.6-terra',
     where: 'platform.openai.com → API keys',
-    note: 'Si ya pagas OpenAI. Responde y también transcribe.',
+    note: 'wiz.openaiNote' as UIKey,
   },
   {
     id: 'deepseek' as const,
@@ -335,7 +325,7 @@ const CLOUD_PROVIDERS = [
     label: 'DeepSeek',
     model: 'deepseek-v4-flash',
     where: 'platform.deepseek.com → API keys',
-    note: 'El más barato con diferencia. No lee imágenes, así que la pantalla pide otro.',
+    note: 'wiz.deepseekNote' as UIKey,
   },
 ];
 
@@ -354,6 +344,7 @@ function CloudStep({
   onDone: () => void;
   onBack: () => void;
 }) {
+  const t = useT();
   const [choice, setChoice] = useState(CLOUD_PROVIDERS[0]!);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
@@ -389,7 +380,7 @@ function CloudStep({
 
       const result = await window.api.llm.testConnection();
       if (!result.ok) {
-        setError(result.error ?? 'La conexión falló.');
+        setError(result.error ?? t('wiz.connectionFailed'));
         return;
       }
       onDone();
@@ -400,10 +391,7 @@ function CloudStep({
 
   return (
     <>
-      <p className="wiz__lead">
-        Elige el proveedor y pega su clave. Se guarda cifrada en tu perfil de Windows y no se
-        muestra de vuelta.
-      </p>
+      <p className="wiz__lead">{t('wiz.cloudLead')}</p>
 
       <div className="wiz__choices">
         {CLOUD_PROVIDERS.map((provider) => (
@@ -413,20 +401,21 @@ function CloudStep({
             onClick={() => setChoice(provider)}
           >
             <span className="choice__title">{provider.label}</span>
-            <span className="choice__note">{provider.note}</span>
+            <span className="choice__note">{t(provider.note)}</span>
           </button>
         ))}
       </div>
 
       <label className="wiz__label" htmlFor="wiz-key">
-        API key {alreadyThere && <span className="badge badge--ok">ya tienes una</span>}
+        {t('wiz.apiKey')}{' '}
+        {alreadyThere && <span className="badge badge--ok">{t('wiz.alreadyHave')}</span>}
       </label>
       <div className="field">
         <input
           id="wiz-key"
           type="password"
           value={key}
-          placeholder={alreadyThere ? 'Déjalo vacío para usar la que ya guardaste' : 'Pega aquí la clave'}
+          placeholder={alreadyThere ? t('wiz.keepExisting') : t('wiz.pasteKey')}
           onChange={(e) => setKey(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (key.trim() || alreadyThere)) void apply();
@@ -446,7 +435,7 @@ function CloudStep({
           disabled={busy || (!key.trim() && !alreadyThere)}
           onClick={() => void apply()}
         >
-          {busy ? 'Probando la clave…' : 'Guardar y probar'}
+          {busy ? t('wiz.testingKey') : t('wiz.saveAndTest')}
         </button>
       </div>
     </>
@@ -477,6 +466,7 @@ function LocalStep({
   onDone: () => void;
   onBack: () => void;
 }) {
+  const t = useT();
   const [reachable, setReachable] = useState<boolean | null>(null);
   /**
    * Instalado no es lo mismo que corriendo, y confundirlos era un fallo real:
@@ -508,12 +498,12 @@ function LocalStep({
   }, [check]);
 
   const install = async (): Promise<void> => {
-    setBusy('Instalando Ollama…');
+    setBusy(t('wiz.installing'));
     setError('');
     try {
       const result = await window.api.setup.installOllama();
       if (!result.ok) {
-        setError(result.error ?? 'No se pudo instalar.');
+        setError(result.error ?? t('wiz.installFailed'));
         // Se relee el estado en lugar de dejarlo como estaba: el caso más
         // común de fallo es "se instaló pero el servidor no arrancó", y ahí lo
         // correcto es pasar a la pantalla de «ábrelo una vez», no repetir la
@@ -550,7 +540,7 @@ function LocalStep({
 
   const download = async (): Promise<void> => {
     if (!advice) return;
-    setBusy(nothingToDownload ? 'Configurando…' : 'Descargando modelos…');
+    setBusy(nothingToDownload ? t('wiz.configuring') : t('wiz.downloadingModels'));
     setError('');
     try {
       for (const model of [advice.chat.model, advice.vision.model]) {
@@ -561,7 +551,7 @@ function LocalStep({
 
         const result = await window.api.setup.pullModel(model);
         if (!result.ok) {
-          setError(result.error ?? `No se pudo descargar ${model}.`);
+          setError(result.error ?? t('wiz.downloadFailed', { model }));
           return;
         }
       }
@@ -627,10 +617,8 @@ function LocalStep({
       {reachable === false && (
         <>
           <p className="wiz__lead">
-            Ollama es el programa que ejecuta los modelos en tu equipo.{' '}
-            {installed
-              ? 'Ya lo tienes instalado, pero su servidor no está respondiendo.'
-              : 'No lo tienes instalado.'}
+            {t('wiz.ollamaIs')}{' '}
+            {installed ? t('wiz.installedNotRunning') : t('wiz.notInstalled')}
           </p>
 
           {/*
@@ -639,10 +627,7 @@ function LocalStep({
           */}
           {installed ? (
             <>
-              <p className="wiz__note">
-                Ábrelo desde el menú de inicio y vuelve aquí. Se queda corriendo en segundo plano,
-                así que esto sólo hay que hacerlo una vez.
-              </p>
+              <p className="wiz__note">{t('wiz.openItOnce')}</p>
               {error && <div className="warn">{error}</div>}
               <div className="field wiz__actions">
                 <button className="btn" onClick={onBack}>
@@ -656,9 +641,7 @@ function LocalStep({
           ) : canInstall ? (
             <>
               <p className="wiz__note">
-                Lo instalo con <code>winget</code>, el gestor de paquetes de Windows — así no
-                descargo ningún ejecutable por mi cuenta. Windows te pedirá permiso con su propio
-                aviso.
+                <Tx k="wiz.wingetNote" />
               </p>
 
               {/* La instalación tarda minutos: sin esto, el único indicio de
@@ -671,16 +654,14 @@ function LocalStep({
                   Atrás
                 </button>
                 <button className="btn btn--primary" disabled={Boolean(busy)} onClick={() => void install()}>
-                  {busy || 'Instalar Ollama'}
+                  {busy || t('wiz.installOllama')}
                 </button>
               </div>
             </>
           ) : (
             <>
               <div className="warn">
-                Este equipo no tiene <code>winget</code>, así que no puedo instalarlo sin
-                descargarme un ejecutable por mi cuenta — y eso no lo voy a hacer. Instálalo desde{' '}
-                <strong>ollama.com/download</strong> y pulsa «Volver a comprobar».
+                <Tx k="wiz.noWinget" />
               </div>
               <div className="field wiz__actions">
                 <button className="btn" onClick={onBack}>
@@ -698,22 +679,22 @@ function LocalStep({
       {reachable === true && advice && (
         <>
           <p className="wiz__lead">
-            {nothingToDownload
-              ? 'Ollama está listo y ya tienes descargados los dos modelos que le pegan a tu equipo. No hay nada que bajar: sólo queda dejarlos elegidos.'
-              : 'Ollama está listo. Estos son los dos modelos que le pegan a tu equipo: uno para conversar y otro para leer la pantalla.'}
+            {nothingToDownload ? t('wiz.ollamaReadyAll') : t('wiz.ollamaReady')}
           </p>
 
           <div className="wiz__models">
             <div className="wizmodel">
               <span className="wizmodel__role">
-                Para conversar {has(advice.chat.model) && <em>· ya descargado</em>}
+                {t('wiz.forChat')}{' '}
+                {has(advice.chat.model) && <em>{t('wiz.alreadyDownloaded')}</em>}
               </span>
               <code className="wizmodel__id">{advice.chat.model}</code>
               <span className="wizmodel__note">{advice.chat.note}</span>
             </div>
             <div className="wizmodel">
               <span className="wizmodel__role">
-                Para leer la pantalla {has(advice.vision.model) && <em>· ya descargado</em>}
+                {t('wiz.forScreen')}{' '}
+                {has(advice.vision.model) && <em>{t('wiz.alreadyDownloaded')}</em>}
               </span>
               <code className="wizmodel__id">{advice.vision.model}</code>
               <span className="wizmodel__note">{advice.vision.note}</span>
@@ -723,10 +704,7 @@ function LocalStep({
           <div className="warn">{advice.caveat}</div>
 
           {!nothingToDownload && (
-            <p className="wiz__note">
-              Son varios GB entre los dos y se descargan una sola vez. Verás el tamaño exacto en
-              cuanto empiece. Si alguno ya lo tienes, se salta.
-            </p>
+            <p className="wiz__note">{t('wiz.sizeNote')}</p>
           )}
 
           {avance}
@@ -738,13 +716,13 @@ function LocalStep({
               Atrás
             </button>
             <button className="btn btn--primary" disabled={Boolean(busy)} onClick={() => void download()}>
-              {busy || (nothingToDownload ? 'Usar estos modelos' : 'Descargar y configurar')}
+              {busy || (nothingToDownload ? t('wiz.useThese') : t('wiz.downloadAndSet'))}
             </button>
           </div>
         </>
       )}
 
-      {reachable === null && <p className="wiz__lead">Buscando Ollama en tu equipo…</p>}
+      {reachable === null && <p className="wiz__lead">{t('wiz.lookingForOllama')}</p>}
     </>
   );
 }
@@ -783,6 +761,7 @@ function VoiceStep({
   patch: (p: Partial<Settings>) => Promise<void>;
   onDone: () => void;
 }) {
+  const t = useT();
   const [status, setStatus] = useState({ binaryInstalled: false, modelInstalled: false });
   const [progress, setProgress] = useState<WhisperProgress | null>(null);
   const [busy, setBusy] = useState(false);
@@ -816,7 +795,7 @@ function VoiceStep({
       if (!ready) {
         const result = await window.api.whisper.install();
         if (!result.ok) {
-          setError(result.error ?? 'Falló la descarga.');
+          setError(result.error ?? t('stt.downloadFailed'));
           return;
         }
       }
@@ -837,10 +816,10 @@ function VoiceStep({
     <>
       <p className="wiz__lead">
         {showCloud && showLocal
-          ? 'Para saber qué te preguntan hay que convertir el audio en texto. La diferencia entre las opciones es dónde va tu voz.'
+          ? t('wiz.voiceBoth')
           : showLocal
-            ? 'Para saber qué te preguntan hay que convertir el audio en texto. Elegiste que todo corra en tu equipo, así que aquí sólo está la opción que no manda tu voz a ningún sitio.'
-            : 'Para saber qué te preguntan hay que convertir el audio en texto. Elegiste la nube, así que éstas son las que no te obligan a descargar nada.'}
+            ? t('wiz.voiceLocal')
+            : t('wiz.voiceCloud')}
       </p>
 
       <div className="wiz__choices">
@@ -855,34 +834,28 @@ function VoiceStep({
             onClick={() => void pick('openai-live')}
           >
             <span className="choice__title">
-              OpenAI en directo · ~300 ms {canUseOpenAI && '· recomendado'}
+              {t('wiz.openaiLiveTitle')} {canUseOpenAI && t('wiz.recommendedSuffix')}
             </span>
             <span className="choice__note">
-              {canUseOpenAI
-                ? 'El modelo que OpenAI recomienda para audio en vivo. Usa la clave que ya has puesto; el audio se envía a OpenAI.'
-                : 'Necesita una clave de OpenAI, y no has configurado ninguna.'}
+              {canUseOpenAI ? t('wiz.openaiLiveOk') : t('wiz.openaiLiveNoKey')}
             </span>
           </button>
         )}
 
         {showCloud && (
           <button className="choice" disabled={!canUseGemini} onClick={() => void pick('gemini-live')}>
-            <span className="choice__title">Gemini Live · ~300 ms</span>
+            <span className="choice__title">{t('wiz.geminiLiveTitle')}</span>
             <span className="choice__note">
-              {canUseGemini
-                ? 'Igual de rápido. Usa la clave de Google que ya has puesto; el audio se envía a Google.'
-                : 'Necesita una clave de Google, y no has configurado ninguna.'}
+              {canUseGemini ? t('wiz.geminiLiveOk') : t('wiz.geminiLiveNoKey')}
             </span>
           </button>
         )}
 
         {showLocal && (
           <button className="choice" disabled={busy} onClick={() => void pickWhisper()}>
-            <span className="choice__title">Whisper local · ~1–2 s</span>
+            <span className="choice__title">{t('wiz.whisperTitle')}</span>
             <span className="choice__note">
-              {ready
-                ? 'Ya instalado. Funciona sin conexión y tu voz no sale del equipo.'
-                : 'Tu voz no sale del equipo. Hay que descargar unos 150 MB una sola vez.'}
+              {ready ? t('wiz.whisperReady') : t('wiz.whisperNew')}
             </span>
           </button>
         )}
@@ -893,16 +866,14 @@ function VoiceStep({
           botones grises. */}
       {showCloud && !showLocal && !canUseOpenAI && !canUseGemini && (
         <div className="warn">
-          No hay ninguna clave que sirva para transcribir. Vuelve atrás y pon la de OpenAI o la de
-          Google, o usa <strong>Whisper local</strong> desde el dashboard: funciona sin ninguna
-          clave.
+          <Tx k="wiz.noSttKey" />
         </div>
       )}
 
       {busy && (
         <div className="progress">
           <div className="progress__label">
-            {progress?.target === 'binary' ? 'Ejecutable' : 'Modelo'}
+            {progress?.target === 'binary' ? t('stt.progressBinary') : t('stt.progressModel')}
             {pct !== null ? ` — ${pct}%` : ''}
           </div>
           <div className="progress__bar">
@@ -914,10 +885,7 @@ function VoiceStep({
       {error && <div className="warn">{error}</div>}
 
       {settings.sttProviderId === 'gemini-live' && !canUseGemini && (
-        <div className="warn">
-          Ahora mismo está puesto Gemini Live y no hay clave de Google: si sales sin elegir, la app
-          no transcribirá nada.
-        </div>
+        <div className="warn">{t('wiz.geminiLiveStuck')}</div>
       )}
     </>
   );
@@ -942,6 +910,7 @@ function ContextStep({
   patch: (p: Partial<Settings>) => Promise<void>;
   onDone: () => void;
 }) {
+  const t = useT();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -971,17 +940,11 @@ function ContextStep({
 
   return (
     <>
-      <p className="wiz__lead">
-        Pega tu CV, o un resumen: empresas, años, tecnologías, logros con cifras. Es la única
-        fuente de datos concretos sobre ti que el modelo puede citar.
-      </p>
-      <p className="wiz__note">
-        Sin esto las respuestas son correctas pero genéricas — el modelo tiene prohibido inventarse
-        experiencia. Puedes dejarlo para luego y pegarlo en «Contexto».
-      </p>
+      <p className="wiz__lead">{t('wiz.cvLead')}</p>
+      <p className="wiz__note">{t('wiz.cvNote')}</p>
 
       <textarea
-        placeholder="Pega tu CV o un resumen de tu experiencia…"
+        placeholder={t('wiz.cvPlaceholder')}
         value={text}
         onChange={(e) => setText(e.target.value)}
         style={{ minHeight: 200 }}
@@ -989,10 +952,10 @@ function ContextStep({
 
       <div className="field wiz__actions">
         <button className="btn" onClick={onDone} disabled={busy}>
-          Ahora no
+          {t('wiz.notNow')}
         </button>
         <button className="btn btn--primary" disabled={busy || !text.trim()} onClick={() => void save()}>
-          Guardar y terminar
+          {t('wiz.saveAndFinish')}
         </button>
       </div>
     </>
@@ -1010,6 +973,7 @@ function DoneStep({
   patch: (p: Partial<Settings>) => Promise<void>;
   onClose: () => void;
 }) {
+  const t = useT();
   const finish = (): void => {
     void patch({ onboardingDone: true }).then(onClose);
   };
@@ -1018,44 +982,40 @@ function DoneStep({
 
   return (
     <>
-      <p className="wiz__lead">Ya está todo puesto. Esto es lo que ha quedado configurado:</p>
+      <p className="wiz__lead">{t('wiz.doneLead')}</p>
 
       <ul className="wiz__summary">
         <li>
-          <Icon name="check" size={15} /> Responde <strong>{model || settings.llmProviderId}</strong>{' '}
-          ({settings.llmProviderId})
+          <Icon name="check" size={15} /> {t('wiz.answers')}{' '}
+          <strong>{model || settings.llmProviderId}</strong> ({settings.llmProviderId})
         </li>
         <li>
-          <Icon name="check" size={15} /> Transcribe{' '}
-          <strong>{STT_LABEL[settings.sttProviderId]}</strong>
+          <Icon name="check" size={15} /> {t('wiz.transcribes')}{' '}
+          <strong>{t(STT_LABEL[settings.sttProviderId])}</strong>
         </li>
         <li>
           <Icon name="check" size={15} />{' '}
           {settings.contextPacks.some((pack) => pack.kind === 'cv' && pack.content.trim())
-            ? 'Tu CV está cargado'
-            : 'Sin CV: las respuestas serán genéricas hasta que lo pegues en «Contexto»'}
+            ? t('wiz.cvLoaded')
+            : t('wiz.noCv')}
         </li>
       </ul>
 
-      <p className="wiz__note">
-        El overlay ya está en pantalla, arriba a la derecha. Pulsa el punto de la izquierda para
-        empezar a escuchar, o <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> para resolver lo que
-        tengas en pantalla. Todo esto se cambia luego desde este mismo dashboard.
-      </p>
+      <p className="wiz__note">{t('wiz.doneNote')}</p>
 
       <div className="field wiz__actions">
         <button className="btn btn--primary" onClick={finish}>
-          Empezar a usar la app
+          {t('wiz.startUsing')}
         </button>
       </div>
     </>
   );
 }
 
-const STT_LABEL: Record<Settings['sttProviderId'], string> = {
-  'gemini-live': 'Gemini Live (en la nube)',
-  'gemini-audio': 'Gemini audio directo',
-  'openai-live': 'OpenAI en directo (en la nube)',
-  'openai-transcribe': 'OpenAI por turnos (en la nube)',
-  'whisper-local': 'Whisper local (sin conexión)',
+const STT_LABEL: Record<Settings['sttProviderId'], UIKey> = {
+  'gemini-live': 'wiz.sttGeminiLive',
+  'gemini-audio': 'wiz.sttGeminiAudio',
+  'openai-live': 'wiz.sttOpenaiLive',
+  'openai-transcribe': 'wiz.sttOpenaiTranscribe',
+  'whisper-local': 'wiz.sttWhisper',
 };

@@ -57,9 +57,9 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  * arrancar con el modelo caro.
  */
 export const OPENAI_MODELS: ModelInfo[] = [
-  { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra (equilibrado)', supportsVision: true },
-  { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol (más capaz)', supportsVision: true },
-  { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (el más barato)', supportsVision: true },
+  { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', supportsVision: true, note: 'mdl.balanced' },
+  { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', supportsVision: true, note: 'mdl.capable' },
+  { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', supportsVision: true, note: 'mdl.cheapest' },
 ];
 
 /** Nivel de esfuerzo de razonamiento. `low` prioriza latencia. */

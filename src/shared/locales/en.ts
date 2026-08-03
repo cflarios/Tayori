@@ -617,6 +617,140 @@ export const en = {
   'err.openaiNoAccessStt': 'Your OpenAI account has no access to this transcription model.',
   'err.openaiNoModelStt': 'The transcription model does not exist or your account has no access.',
 
+  'mdl.fast': 'fast',
+  'mdl.capable': 'most capable',
+  'mdl.lowLatency': 'lowest latency',
+  'mdl.balanced': 'balanced',
+  'mdl.cheapest': 'cheapest',
+  'mdl.fastCheap': 'fast and cheap',
+
+  // ───────────────────── Asistente de configuración ─────────────────────
+  'wiz.eyebrow': 'Guided setup',
+  'wiz.back': '← Back',
+  'wiz.skip': 'Skip →',
+  'wiz.pickFirst': 'Choose the cloud or your machine first',
+  'wiz.skipTitle': 'Move on to the next step without doing this one',
+  'wiz.exit': 'Exit the wizard',
+  'wiz.titleWelcome': 'Who is going to answer?',
+  'wiz.titleBrain': 'Setting up the model',
+  'wiz.titleVoice': 'How is speech turned into text?',
+  'wiz.titleContext': 'What the model should know about you',
+  'wiz.titleDone': 'Ready',
+  'wiz.measuring': 'Measuring your machine…',
+  'wiz.lead':
+    'The app needs a model to write the answers. There are two ways, and the real difference is where it runs and who pays.',
+  'wiz.cloud': 'In the cloud',
+  'wiz.cloudB1': 'Nothing to install: you paste an API key and it answers.',
+  'wiz.cloudB2': 'The best quality, and it answers in a second or two.',
+  'wiz.cloudB3': 'You pay per use to the provider. Your transcribed voice leaves your machine.',
+  'wiz.cloudCta': 'Use a paid provider',
+  'wiz.local': 'On your machine',
+  'wiz.localB1': 'Free and account-free. Nothing you say leaves the machine.',
+  'wiz.localB2': 'You have to install Ollama and download several GB of models.',
+  'wiz.localB3': 'Quality and speed depend on your hardware.',
+  'wiz.localCta': 'Install everything here',
+  'wiz.recommended': 'recommended',
+  'wiz.localViable':
+    'Your machine is up to running things locally, so that is what I recommend: it is free and you send nothing out. You can change your mind later without losing anything.',
+  'wiz.localWeak':
+    'On this machine local models would be slow and would misread screenshots, so I recommend the cloud. You can still try local: the wizard will tell you which models suit you.',
+  'wiz.cloudLead':
+    'Pick the provider and paste its key. It is stored encrypted in your Windows profile and never shown back.',
+  'wiz.claudeNote': 'The best answer quality and screen reading.',
+  'wiz.geminiNote': 'Cheaper, and the same key works for live transcription.',
+  'wiz.openaiNote': 'If you already pay for OpenAI. It answers and also transcribes.',
+  'wiz.deepseekNote': 'The cheapest by far. It does not read images, so the screen needs another one.',
+  'wiz.apiKey': 'API key',
+  'wiz.alreadyHave': 'you already have one',
+  'wiz.keepExisting': 'Leave it empty to use the one you already saved',
+  'wiz.pasteKey': 'Paste the key here',
+  'wiz.testingKey': 'Testing the key…',
+  'wiz.saveAndTest': 'Save and test',
+  'wiz.connectionFailed': 'The connection failed.',
+  'wiz.installing': 'Installing Ollama…',
+  'wiz.installFailed': 'Could not install it.',
+  'wiz.configuring': 'Configuring…',
+  'wiz.downloadingModels': 'Downloading models…',
+  'wiz.downloadFailed': 'Could not download {model}.',
+  'wiz.ollamaIs': 'Ollama is the program that runs the models on your machine.',
+  'wiz.installedNotRunning': 'You already have it installed, but its server is not responding.',
+  'wiz.notInstalled': 'You do not have it installed.',
+  'wiz.openItOnce':
+    'Open it from the start menu and come back here. It stays running in the background, so this only has to be done once.',
+  'wiz.recheck': 'Check again',
+  'wiz.wingetNote':
+    'I install it with `winget`, the Windows package manager — that way I do not download any executable myself. Windows will ask you for permission with its own prompt.',
+  'wiz.installOllama': 'Install Ollama',
+  'wiz.noWinget':
+    'This machine has no `winget`, so I cannot install it without downloading an executable myself — and I am not going to do that. Install it from **ollama.com/download** and press «Check again».',
+  'wiz.ollamaReadyAll':
+    'Ollama is ready and you already have the two models that suit your machine downloaded. There is nothing to download: all that is left is to select them.',
+  'wiz.ollamaReady':
+    'Ollama is ready. These are the two models that suit your machine: one for conversation and one for reading the screen.',
+  'wiz.forChat': 'For conversation',
+  'wiz.forScreen': 'For reading the screen',
+  'wiz.alreadyDownloaded': '· already downloaded',
+  'wiz.sizeNote':
+    'It is several GB between the two and they are downloaded only once. You will see the exact size as soon as it starts. Any you already have gets skipped.',
+  'wiz.useThese': 'Use these models',
+  'wiz.downloadAndSet': 'Download and configure',
+  'wiz.lookingForOllama': 'Looking for Ollama on your machine…',
+  'wiz.voiceBoth':
+    'To know what you are being asked, the audio has to be turned into text. The difference between the options is where your voice goes.',
+  'wiz.voiceLocal':
+    'To know what you are being asked, the audio has to be turned into text. You chose to run everything on your machine, so here there is only the option that sends your voice nowhere.',
+  'wiz.voiceCloud':
+    'To know what you are being asked, the audio has to be turned into text. You chose the cloud, so these are the ones that do not make you download anything.',
+  'wiz.openaiLiveTitle': 'OpenAI live · ~300 ms',
+  'wiz.recommendedSuffix': '· recommended',
+  'wiz.openaiLiveOk':
+    'The model OpenAI recommends for live audio. It uses the key you already set; the audio is sent to OpenAI.',
+  'wiz.openaiLiveNoKey': 'It needs an OpenAI key, and you have not set one.',
+  'wiz.geminiLiveTitle': 'Gemini Live · ~300 ms',
+  'wiz.geminiLiveOk':
+    'Just as fast. It uses the Google key you already set; the audio is sent to Google.',
+  'wiz.geminiLiveNoKey': 'It needs a Google key, and you have not set one.',
+  'wiz.whisperTitle': 'Whisper local · ~1–2 s',
+  'wiz.whisperReady': 'Already installed. It works offline and your voice does not leave the machine.',
+  'wiz.whisperNew': 'Your voice does not leave the machine. About 150 MB have to be downloaded once.',
+  'wiz.noSttKey':
+    'There is no key that can transcribe. Go back and set the OpenAI or the Google one, or use **Whisper local** from the dashboard: it works without any key.',
+  'wiz.geminiLiveStuck':
+    'Gemini Live is set right now and there is no Google key: if you leave without choosing, the app will not transcribe anything.',
+  'wiz.cvLead':
+    'Paste your CV, or a summary: companies, years, technologies, achievements with numbers. It is the only source of concrete facts about you that the model can cite.',
+  'wiz.cvNote':
+    'Without it the answers are correct but generic — the model is forbidden from inventing experience. You can leave it for later and paste it under «Context».',
+  'wiz.cvPlaceholder': 'Paste your CV or a summary of your experience…',
+  'wiz.notNow': 'Not now',
+  'wiz.saveAndFinish': 'Save and finish',
+  'wiz.doneLead': 'Everything is set. This is how it ended up:',
+  'wiz.answers': 'Answers',
+  'wiz.transcribes': 'Transcribes',
+  'wiz.cvLoaded': 'Your CV is loaded',
+  'wiz.noCv': 'No CV: the answers will be generic until you paste it under «Context»',
+  'wiz.doneNote':
+    'The overlay is already on screen, top right. Press the dot on the left to start listening, or Ctrl+Alt+C to solve whatever is on your screen. All of this can be changed later from this same dashboard.',
+  'wiz.startUsing': 'Start using the app',
+  'wiz.sttGeminiLive': 'Gemini Live (in the cloud)',
+  'wiz.sttGeminiAudio': 'Gemini direct audio',
+  'wiz.sttOpenaiLive': 'OpenAI live (in the cloud)',
+  'wiz.sttOpenaiTranscribe': 'OpenAI per turn (in the cloud)',
+  'wiz.sttWhisper': 'Whisper local (offline)',
+
+  'ol.status': 'Ollama status',
+  'ol.checking': 'checking…',
+  'ol.detected': 'detected',
+  'ol.notDetected': 'not detected',
+  'ol.recheck': 'Check again',
+  'ol.installHint':
+    '{error} Install it from **ollama.com** and leave it running; the server starts by itself after installing.',
+  'ol.noModels':
+    'Ollama is running but has no model downloaded. Download one from a terminal, for example: `ollama pull llama3.2`',
+  'ol.detectedCount': '{count} model(s) detected automatically:',
+  'ol.vision': 'vision',
+  'mdl.providerOllama': 'Ollama (local)',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':

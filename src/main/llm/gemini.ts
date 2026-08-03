@@ -11,8 +11,8 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  */
 
 export const GEMINI_MODELS: ModelInfo[] = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (rápido)', supportsVision: true },
-  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (más capaz)', supportsVision: true },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', supportsVision: true, note: 'mdl.fast' },
+  { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', supportsVision: true, note: 'mdl.capable' },
 ];
 
 export class GeminiProvider implements LLMProvider {

@@ -603,6 +603,17 @@ condiciones, y varias detectan pegado masivo aunque no vean la ventana.
 
 Comprueba qué aplica en tu caso; la responsabilidad de usar esto es tuya.
 
+## Idioma
+
+La interfaz está en **inglés y español**. Arranca en inglés salvo que sea el
+primer arranque y tu Windows esté en español; se cambia en *dashboard → General
+→ Idioma*, y no tiene nada que ver con el idioma en el que hablas en la reunión,
+que se elige en *Transcripción*.
+
+Los prompts internos siguen en español a propósito: no son interfaz —los lee el
+modelo, no tú— y ya llevan una regla que obliga a responder en el idioma de la
+conversación, sea cual sea.
+
 ## Acerca de
 
 Dashboard → **Acerca de** resume qué es la app, qué versión tienes, la licencia

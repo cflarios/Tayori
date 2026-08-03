@@ -751,6 +751,41 @@ partir de ahí manda lo que el usuario elija. La comprobación mira
 `stored.uiLanguage` y no el valor ya resuelto, para que poner inglés a propósito
 en un Windows en español no se deshaga en el arranque siguiente.
 
+### La traducción, terminada: qué se tradujo y qué no
+
+La app está entera en los dos idiomas. Lo que **no** se tradujo, y por qué:
+
+| Qué | Por qué se queda en español |
+|---|---|
+| Los prompts (`core/prompt.ts`) | No son interfaz: los lee el modelo. Ya llevan una regla con test de que la respuesta va en el idioma de la **conversación**, y cada decisión suya está validada contra el texto que hay |
+| `CONTEXT_KIND_LABEL` | Rotula los bloques que se le mandan al modelo. Su gemelo de interfaz es `CONTEXT_KIND_KEY` |
+| Los nombres de modelo | «Claude Sonnet 5» es un nombre propio. Lo que **sí** se traduce es el cualificador, que va aparte en `ModelInfo.note` |
+| Los comentarios y estos documentos | Son para quien toca el código |
+
+**Los cualificadores merecen una nota** porque el arreglo no fue traducir, fue
+**separar**: el `label` decía «Claude Sonnet 5 (rápido)», con el nombre propio y
+el adjetivo pegados. Media etiqueta en español dentro de un desplegable en
+inglés es de lo que más canta, porque se ve sin abrir nada. Ahora el nombre vive
+en `label` y el adjetivo en `note`, que es una clave.
+
+**Tres patrones se repitieron en toda la migración**, y son los que hay que
+buscar al traducir cualquier cosa nueva:
+
+- **Plurales cosidos a mano.** `respuesta${n === 1 ? '' : 's'}` sólo funciona en
+  español. Aparecieron seis, entre el historial, el espejo, MQTT y Ollama.
+- **Frases construidas por concatenación.** «Falta el ejecutable **y** el
+  modelo» unía trozos con un `' y '` en medio; el orden y la conjunción cambian
+  entre idiomas. Se resuelven con un hueco y una clave para el separador.
+- **Un `<strong>` partiendo la frase** para resaltar un dato interpolado. Eso
+  fija dónde va el énfasis; con `**negrita**` dentro de la clave, cada idioma lo
+  pone donde le toca.
+
+Y una cosa que estuvo a punto de colarse: al pasar `AUDIO_SOURCE_HINT` a claves,
+apuntarlo a los textos del overlay parecía correcto —mismos tres modos— y decía
+**otra cosa**. Los del overlay dicen *qué es* cada fuente; los del dashboard
+explican *por qué* elegirla. Una tabla de traducciones invita a reutilizar por
+la forma de la clave en lugar de por lo que dice el texto.
+
 ### El asistente, repasado con alguien delante
 
 Segunda pasada sobre el wizard, con la app abierta y anotando. Cinco cosas, y el
