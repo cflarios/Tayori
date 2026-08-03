@@ -1,4 +1,5 @@
 import { Ollama } from 'ollama';
+import { m } from '../i18n';
 import type { LLMProviderId, ModelInfo, OllamaStatus } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -121,7 +122,7 @@ export class OllamaProvider implements LLMProvider {
   async *streamAnswer(request: AnswerRequest, signal: AbortSignal): AsyncIterable<string> {
     if (!this.model) {
       throw new LLMError(
-        'No hay ningún modelo de Ollama seleccionado. Elige uno en el dashboard.',
+        m('err.noOllamaModel'),
         this.id
       );
     }
@@ -203,10 +204,7 @@ export class OllamaProvider implements LLMProvider {
        */
       if (!emitted && reasoned && doneReason === 'length') {
         throw new LLMError(
-          `"${this.model}" gastó todo su presupuesto razonando y no llegó a escribir la respuesta. ` +
-            'Es un modelo de razonamiento sobre un problema demasiado grande: elige uno sin ' +
-            '"thinking" en el dashboard → Modelo para la pantalla, o recorta la captura a lo que ' +
-            'hay que resolver.',
+          m('err.budgetOllama', { model: this.model }),
           this.id
         );
       }
@@ -224,7 +222,7 @@ export class OllamaProvider implements LLMProvider {
       if (models.length === 0) {
         return {
           ok: false,
-          error: 'Ollama responde pero no tiene modelos. Descarga uno con: ollama pull llama3.2',
+          error: m('err.ollamaNoModels'),
         };
       }
       return { ok: true };
@@ -255,7 +253,11 @@ export async function probeOllama(baseUrl: string): Promise<OllamaStatus> {
       signal: controller.signal,
     });
     if (!response.ok) {
-      return { reachable: false, models: [], error: `Ollama respondió HTTP ${response.status}.` };
+      return {
+        reachable: false,
+        models: [],
+        error: m('err.ollamaHttp', { status: response.status }),
+      };
     }
     const body = (await response.json()) as { version?: string };
     version = body.version;
@@ -267,8 +269,8 @@ export async function probeOllama(baseUrl: string): Promise<OllamaStatus> {
       // duplicar la instrucción en pantalla.
       error:
         err instanceof Error && err.name === 'AbortError'
-          ? 'Ollama no respondió a tiempo.'
-          : 'No se encontró ningún servidor de Ollama escuchando.',
+          ? m('err.ollamaTimeout')
+          : m('err.ollamaNotFound'),
     };
   } finally {
     clearTimeout(timer);
@@ -294,11 +296,11 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
 
   if (/ECONNREFUSED|fetch failed|ENOTFOUND/i.test(message)) {
     return new LLMError(
-      'No se pudo conectar con Ollama. Comprueba que esté corriendo (ollama serve).',
+      m('err.ollamaOffline'),
       providerId
     );
   }
-  return new LLMError(`Error de Ollama: ${message}`, providerId);
+  return new LLMError(m('err.ollamaError', { message }), providerId);
 }
 
 function buildUserTurn(request: AnswerRequest): string {

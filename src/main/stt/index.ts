@@ -1,4 +1,5 @@
 import type { Settings } from '@shared/types';
+import { m } from '../i18n';
 import { getSecret } from '../config/secrets';
 import { GeminiLiveSTT } from './gemini-live';
 import { GeminiAudioSTT, type AudioAnswerContext } from './gemini-audio';
@@ -32,7 +33,7 @@ export async function testSTTConnection(
     if (settings.sttProviderId === 'gemini-live' || settings.sttProviderId === 'gemini-audio') {
       const apiKey = getSecret('google');
       if (!apiKey) {
-        return { ok: false, detail: 'Falta la API key de Google. Configúrala más arriba.' };
+        return { ok: false, detail: m('err.sttNoKeyGoogle') };
       }
       if (settings.sttProviderId === 'gemini-audio') {
         return await new GeminiAudioSTT(
@@ -50,7 +51,7 @@ export async function testSTTConnection(
     ) {
       const apiKey = getSecret('openai');
       if (!apiKey) {
-        return { ok: false, detail: 'Falta la API key de OpenAI. Configúrala más arriba.' };
+        return { ok: false, detail: m('err.sttNoKeyOpenai') };
       }
       return settings.sttProviderId === 'openai-live'
         ? await new OpenAILiveSTT(apiKey).testConnection(settings.language)
@@ -73,8 +74,7 @@ export function createSTTProvider(
       const apiKey = getSecret('google');
       if (!apiKey) {
         throw new Error(
-          'Falta la API key de Google. Configúrala en el dashboard para usar Gemini Live, ' +
-            'o cambia la transcripción a Whisper local.'
+          m('err.sttNoKeyGoogleLive')
         );
       }
       return new GeminiLiveSTT(apiKey);
@@ -84,14 +84,13 @@ export function createSTTProvider(
       const apiKey = getSecret('google');
       if (!apiKey) {
         throw new Error(
-          'Falta la API key de Google. El modo de audio directo manda el sonido al propio ' +
-            'modelo de Gemini, así que la necesita.'
+          m('err.sttNoKeyGoogleAudio')
         );
       }
       if (!answerContext) {
         // Sin contexto no hay ni prompt ni memoria: mejor fallar aquí que
         // responder con el system prompt vacío y no entender por qué.
-        throw new Error('El motor de audio directo requiere el contexto de respuesta.');
+        throw new Error(m('err.sttNoContext'));
       }
       return new GeminiAudioSTT(apiKey, settings.llmModels.gemini || 'gemini-2.5-flash', answerContext);
     }
@@ -101,8 +100,7 @@ export function createSTTProvider(
       const apiKey = getSecret('openai');
       if (!apiKey) {
         throw new Error(
-          'Falta la API key de OpenAI. Configúrala en el dashboard para transcribir con ella, ' +
-            'o cambia la transcripción a Whisper local.'
+          m('err.sttNoKeyOpenaiEngine')
         );
       }
       return settings.sttProviderId === 'openai-live'
@@ -117,7 +115,7 @@ export function createSTTProvider(
     default: {
       // Si se añade un id al tipo y no se maneja aquí, TypeScript falla el build.
       const exhaustive: never = settings.sttProviderId;
-      throw new Error(`Motor de transcripción desconocido: ${String(exhaustive)}`);
+      throw new Error(m('err.sttUnknown', { id: String(exhaustive) }));
     }
   }
 }

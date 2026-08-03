@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { m } from '../i18n';
 import OpenAI, { toFile } from 'openai';
 import type { Speaker, STTProviderId } from '@shared/types';
 import { EnergyVAD, type Utterance } from '../core/vad';
@@ -227,16 +228,16 @@ export class OpenAITranscribeSTT implements STTProvider {
 
 /** Mensajes accionables, con las clases tipadas del SDK. */
 export function toDetail(err: unknown): string {
-  if (err instanceof OpenAI.AuthenticationError) return 'La API key de OpenAI no es válida.';
+  if (err instanceof OpenAI.AuthenticationError) return m('err.openaiBadKeyStt');
   if (err instanceof OpenAI.PermissionDeniedError) {
-    return 'Tu cuenta de OpenAI no tiene acceso a este modelo de transcripción.';
+    return m('err.openaiNoAccessStt');
   }
   if (err instanceof OpenAI.RateLimitError) {
-    return 'Límite de peticiones de OpenAI alcanzado, o la cuenta se ha quedado sin saldo.';
+    return m('err.rateOpenai');
   }
   if (err instanceof OpenAI.NotFoundError) {
-    return 'El modelo de transcripción no existe o tu cuenta no tiene acceso.';
+    return m('err.openaiNoModelStt');
   }
-  if (err instanceof OpenAI.APIConnectionError) return 'Sin conexión con la API de OpenAI.';
+  if (err instanceof OpenAI.APIConnectionError) return m('err.offlineOpenai');
   return err instanceof Error ? err.message : String(err);
 }

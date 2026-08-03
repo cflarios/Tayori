@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { m } from '../i18n';
 import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -92,15 +93,15 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   // que inspeccionar el mensaje. Se acota a los casos que el usuario puede
   // resolver por su cuenta.
   if (/API[_ ]?key|API_KEY_INVALID|unauthenticated/i.test(message)) {
-    return new LLMError('La API key de Google no es válida.', providerId);
+    return new LLMError(m('err.badKeyGoogle'), providerId);
   }
   if (/quota|rate limit|RESOURCE_EXHAUSTED/i.test(message)) {
-    return new LLMError('Cuota de Gemini agotada o límite de peticiones alcanzado.', providerId);
+    return new LLMError(m('err.rateGoogle'), providerId);
   }
   if (/not found|NOT_FOUND/i.test(message)) {
-    return new LLMError('El modelo de Gemini indicado no existe o no tienes acceso.', providerId);
+    return new LLMError(m('err.noModelGemini'), providerId);
   }
-  return new LLMError(`Error de Gemini: ${message}`, providerId);
+  return new LLMError(m('err.geminiError', { message }), providerId);
 }
 
 function buildUserTurn(request: AnswerRequest): string {

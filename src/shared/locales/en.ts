@@ -565,6 +565,58 @@ export const en = {
   'aud.captureHint':
     'Two independent sources: your microphone and the system output. Keeping them apart is what makes it possible to tell who is speaking without diarisation.',
 
+  // ───────────────────── Errores del proceso principal ─────────────────────
+  // Se leen en el OVERLAY, así que van traducidos: sin esto, la app entera en
+  // inglés soltaba un «Falta la API key de Anthropic» en cuanto algo fallaba.
+  'err.noKeyAnthropic': 'The Anthropic API key is missing. Set it in the dashboard or switch provider.',
+  'err.noKeyGoogle': 'The Google API key is missing. Set it in the dashboard or switch provider.',
+  'err.noKeyOpenai': 'The OpenAI API key is missing. Set it in the dashboard or switch provider.',
+  'err.noKeyDeepseek': 'The DeepSeek API key is missing. Set it in the dashboard or switch provider.',
+  'err.badKeyAnthropic': 'The Anthropic API key is not valid.',
+  'err.badKeyGoogle': 'The Google API key is not valid.',
+  'err.badKeyOpenai': 'The OpenAI API key is not valid.',
+  'err.badKeyDeepseek': 'The DeepSeek API key is not valid.',
+  'err.rateAnthropic': 'Anthropic rate limit reached.',
+  'err.rateGoogle': 'Gemini quota exhausted or rate limit reached.',
+  'err.rateOpenai': 'OpenAI rate limit reached, or your account has run out of credit.',
+  'err.rateDeepseek': 'DeepSeek rate limit reached, or the account has run out of credit.',
+  'err.noModel': 'The model does not exist or your account has no access. Pick another one in the dashboard.',
+  'err.noModelGemini': 'That Gemini model does not exist or you have no access.',
+  'err.noModelDeepseek': 'That model does not exist in DeepSeek. Pick another one in the dashboard.',
+  'err.noAccessOpenai': 'Your OpenAI account has no access to this model. Pick another one in the dashboard.',
+  'err.offlineAnthropic': 'No connection to the Anthropic API.',
+  'err.offlineOpenai': 'No connection to the OpenAI API.',
+  'err.offlineDeepseek': 'No connection to the DeepSeek API.',
+  'err.refusedClaude': 'Claude declined to answer this content. Try another provider or rephrase the question.',
+  'err.refusedOpenai': 'OpenAI declined to answer this content: {detail}',
+  'err.apiError': '{provider} error ({status}): {message}',
+  'err.geminiError': 'Gemini error: {message}',
+  'err.unknownProvider': 'Unknown provider: {id}',
+  'err.noOllamaModel': 'No Ollama model is selected. Pick one in the dashboard.',
+  'err.ollamaOffline': 'Could not connect to Ollama. Check that it is running (ollama serve).',
+  'err.ollamaError': 'Ollama error: {message}',
+  'err.ollamaTimeout': 'Ollama did not answer in time.',
+  'err.ollamaNotFound': 'No Ollama server was found listening.',
+  'err.ollamaHttp': 'Ollama answered HTTP {status}.',
+  'err.ollamaNoModels': 'Ollama answers but has no models. Download one with: ollama pull llama3.2',
+  'err.budgetOllama':
+    '"{model}" spent its whole budget reasoning and never got to writing the answer. It is a reasoning model on too big a problem: pick one without "thinking" in dashboard → Screen model, or crop the screenshot to what needs solving.',
+  'err.budgetOpenai':
+    '"{model}" spent its whole budget reasoning and never got to writing the answer. Pick a smaller model in the dashboard, or crop the screenshot to what needs solving.',
+  'err.sttNoKeyGoogle': 'The Google API key is missing. Set it further up.',
+  'err.sttNoKeyOpenai': 'The OpenAI API key is missing. Set it further up.',
+  'err.sttNoKeyGoogleLive':
+    'The Google API key is missing. Set it in the dashboard to use Gemini Live, or switch transcription to Whisper local.',
+  'err.sttNoKeyGoogleAudio':
+    'The Google API key is missing. Direct audio mode sends the sound to the Gemini model itself, so it needs one.',
+  'err.sttNoKeyOpenaiEngine':
+    'The OpenAI API key is missing. Set it in the dashboard to transcribe with it, or switch transcription to Whisper local.',
+  'err.sttNoContext': 'The direct audio engine requires the answer context.',
+  'err.sttUnknown': 'Unknown transcription engine: {id}',
+  'err.openaiBadKeyStt': 'The OpenAI API key is not valid.',
+  'err.openaiNoAccessStt': 'Your OpenAI account has no access to this transcription model.',
+  'err.openaiNoModelStt': 'The transcription model does not exist or your account has no access.',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':

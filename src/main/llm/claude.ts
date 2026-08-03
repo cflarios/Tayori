@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { m } from '../i18n';
 import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -151,7 +152,7 @@ export class ClaudeProvider implements LLMProvider {
     const final = await stream.finalMessage();
     if (final.stop_reason === 'refusal') {
       throw new LLMError(
-        'Claude declinó responder a este contenido. Prueba con Gemini o reformula la pregunta.',
+        m('err.refusedClaude'),
         this.id
       );
     }
@@ -181,22 +182,22 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   if (err instanceof LLMError) return err;
 
   if (err instanceof Anthropic.AuthenticationError) {
-    return new LLMError('La API key de Anthropic no es válida.', providerId);
+    return new LLMError(m('err.badKeyAnthropic'), providerId);
   }
   if (err instanceof Anthropic.RateLimitError) {
-    return new LLMError('Límite de peticiones de Anthropic alcanzado.', providerId);
+    return new LLMError(m('err.rateAnthropic'), providerId);
   }
   if (err instanceof Anthropic.NotFoundError) {
     return new LLMError(
-      'El modelo indicado no existe o tu cuenta no tiene acceso. Elige otro en el dashboard.',
+      m('err.noModel'),
       providerId
     );
   }
   if (err instanceof Anthropic.APIConnectionError) {
-    return new LLMError('Sin conexión con la API de Anthropic.', providerId);
+    return new LLMError(m('err.offlineAnthropic'), providerId);
   }
   if (err instanceof Anthropic.APIError) {
-    return new LLMError(`Error de Anthropic (${err.status ?? '?'}): ${err.message}`, providerId);
+    return new LLMError(m('err.apiError', { provider: 'Anthropic', status: err.status ?? '?', message: err.message }), providerId);
   }
   return new LLMError(err instanceof Error ? err.message : String(err), providerId);
 }

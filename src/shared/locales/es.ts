@@ -546,6 +546,56 @@ export const es: Record<UIKey, string> = {
   'aud.captureHint':
     'Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es lo que permite distinguir quién habla sin diarización.',
 
+  // ───────────────────── Errores del proceso principal ─────────────────────
+  'err.noKeyAnthropic': 'Falta la API key de Anthropic. Configúrala en el dashboard o cambia de proveedor.',
+  'err.noKeyGoogle': 'Falta la API key de Google. Configúrala en el dashboard o cambia de proveedor.',
+  'err.noKeyOpenai': 'Falta la API key de OpenAI. Configúrala en el dashboard o cambia de proveedor.',
+  'err.noKeyDeepseek': 'Falta la API key de DeepSeek. Configúrala en el dashboard o cambia de proveedor.',
+  'err.badKeyAnthropic': 'La API key de Anthropic no es válida.',
+  'err.badKeyGoogle': 'La API key de Google no es válida.',
+  'err.badKeyOpenai': 'La API key de OpenAI no es válida.',
+  'err.badKeyDeepseek': 'La API key de DeepSeek no es válida.',
+  'err.rateAnthropic': 'Límite de peticiones de Anthropic alcanzado.',
+  'err.rateGoogle': 'Cuota de Gemini agotada o límite de peticiones alcanzado.',
+  'err.rateOpenai': 'Límite de peticiones de OpenAI alcanzado, o tu cuenta se ha quedado sin saldo.',
+  'err.rateDeepseek': 'Límite de peticiones de DeepSeek alcanzado, o la cuenta se ha quedado sin saldo.',
+  'err.noModel': 'El modelo indicado no existe o tu cuenta no tiene acceso. Elige otro en el dashboard.',
+  'err.noModelGemini': 'El modelo de Gemini indicado no existe o no tienes acceso.',
+  'err.noModelDeepseek': 'El modelo indicado no existe en DeepSeek. Elige otro en el dashboard.',
+  'err.noAccessOpenai': 'Tu cuenta de OpenAI no tiene acceso a este modelo. Elige otro en el dashboard.',
+  'err.offlineAnthropic': 'Sin conexión con la API de Anthropic.',
+  'err.offlineOpenai': 'Sin conexión con la API de OpenAI.',
+  'err.offlineDeepseek': 'Sin conexión con la API de DeepSeek.',
+  'err.refusedClaude': 'Claude declinó responder a este contenido. Prueba con otro proveedor o reformula la pregunta.',
+  'err.refusedOpenai': 'OpenAI declinó responder a este contenido: {detail}',
+  'err.apiError': 'Error de {provider} ({status}): {message}',
+  'err.geminiError': 'Error de Gemini: {message}',
+  'err.unknownProvider': 'Proveedor desconocido: {id}',
+  'err.noOllamaModel': 'No hay ningún modelo de Ollama seleccionado. Elige uno en el dashboard.',
+  'err.ollamaOffline': 'No se pudo conectar con Ollama. Comprueba que esté corriendo (ollama serve).',
+  'err.ollamaError': 'Error de Ollama: {message}',
+  'err.ollamaTimeout': 'Ollama no respondió a tiempo.',
+  'err.ollamaNotFound': 'No se encontró ningún servidor de Ollama escuchando.',
+  'err.ollamaHttp': 'Ollama respondió HTTP {status}.',
+  'err.ollamaNoModels': 'Ollama responde pero no tiene modelos. Descarga uno con: ollama pull llama3.2',
+  'err.budgetOllama':
+    '"{model}" gastó todo su presupuesto razonando y no llegó a escribir la respuesta. Es un modelo de razonamiento sobre un problema demasiado grande: elige uno sin "thinking" en el dashboard → Modelo para la pantalla, o recorta la captura a lo que hay que resolver.',
+  'err.budgetOpenai':
+    '"{model}" gastó todo su presupuesto razonando y no llegó a escribir la respuesta. Elige un modelo más pequeño en el dashboard, o recorta la captura a lo que hay que resolver.',
+  'err.sttNoKeyGoogle': 'Falta la API key de Google. Configúrala más arriba.',
+  'err.sttNoKeyOpenai': 'Falta la API key de OpenAI. Configúrala más arriba.',
+  'err.sttNoKeyGoogleLive':
+    'Falta la API key de Google. Configúrala en el dashboard para usar Gemini Live, o cambia la transcripción a Whisper local.',
+  'err.sttNoKeyGoogleAudio':
+    'Falta la API key de Google. El modo de audio directo manda el sonido al propio modelo de Gemini, así que la necesita.',
+  'err.sttNoKeyOpenaiEngine':
+    'Falta la API key de OpenAI. Configúrala en el dashboard para transcribir con ella, o cambia la transcripción a Whisper local.',
+  'err.sttNoContext': 'El motor de audio directo requiere el contexto de respuesta.',
+  'err.sttUnknown': 'Motor de transcripción desconocido: {id}',
+  'err.openaiBadKeyStt': 'La API key de OpenAI no es válida.',
+  'err.openaiNoAccessStt': 'Tu cuenta de OpenAI no tiene acceso a este modelo de transcripción.',
+  'err.openaiNoModelStt': 'El modelo de transcripción no existe o tu cuenta no tiene acceso.',
+
   // ───────────────────── Ajustes · claves ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':

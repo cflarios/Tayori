@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { m } from '../i18n';
 import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -245,7 +246,7 @@ export class OpenAIProvider implements LLMProvider {
 
     if (refusal.trim()) {
       throw new LLMError(
-        `OpenAI declinó responder a este contenido: ${refusal.trim()}`,
+        m('err.refusedOpenai', { detail: refusal.trim() }),
         this.id
       );
     }
@@ -258,8 +259,7 @@ export class OpenAIProvider implements LLMProvider {
      */
     if (!emitted && incompleteReason === 'max_output_tokens') {
       throw new LLMError(
-        `"${this.model}" gastó todo su presupuesto razonando y no llegó a escribir la respuesta. ` +
-          'Elige un modelo más pequeño en el dashboard, o recorta la captura a lo que hay que resolver.',
+        m('err.budgetOpenai', { model: this.model }),
         this.id
       );
     }
@@ -297,11 +297,11 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   if (err instanceof LLMError) return err;
 
   if (err instanceof OpenAI.AuthenticationError) {
-    return new LLMError('La API key de OpenAI no es válida.', providerId);
+    return new LLMError(m('err.badKeyOpenai'), providerId);
   }
   if (err instanceof OpenAI.PermissionDeniedError) {
     return new LLMError(
-      'Tu cuenta de OpenAI no tiene acceso a este modelo. Elige otro en el dashboard.',
+      m('err.noAccessOpenai'),
       providerId
     );
   }
@@ -310,21 +310,21 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
     // ir demasiado rápido, y no haber pagado. Decir sólo "límite alcanzado"
     // manda a esperar a quien tiene que recargar saldo.
     return new LLMError(
-      'Límite de peticiones de OpenAI alcanzado, o tu cuenta se ha quedado sin saldo.',
+      m('err.rateOpenai'),
       providerId
     );
   }
   if (err instanceof OpenAI.NotFoundError) {
     return new LLMError(
-      'El modelo indicado no existe o tu cuenta no tiene acceso. Elige otro en el dashboard.',
+      m('err.noModel'),
       providerId
     );
   }
   if (err instanceof OpenAI.APIConnectionError) {
-    return new LLMError('Sin conexión con la API de OpenAI.', providerId);
+    return new LLMError(m('err.offlineOpenai'), providerId);
   }
   if (err instanceof OpenAI.APIError) {
-    return new LLMError(`Error de OpenAI (${err.status ?? '?'}): ${err.message}`, providerId);
+    return new LLMError(m('err.apiError', { provider: 'OpenAI', status: err.status ?? '?', message: err.message }), providerId);
   }
   return new LLMError(err instanceof Error ? err.message : String(err), providerId);
 }

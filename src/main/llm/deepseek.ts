@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { m } from '../i18n';
 import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
@@ -143,25 +144,25 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   if (err instanceof LLMError) return err;
 
   if (err instanceof OpenAI.AuthenticationError) {
-    return new LLMError('La API key de DeepSeek no es válida.', providerId);
+    return new LLMError(m('err.badKeyDeepseek'), providerId);
   }
   if (err instanceof OpenAI.RateLimitError) {
     return new LLMError(
-      'Límite de peticiones de DeepSeek alcanzado, o la cuenta se ha quedado sin saldo.',
+      m('err.rateDeepseek'),
       providerId
     );
   }
   if (err instanceof OpenAI.NotFoundError) {
     return new LLMError(
-      'El modelo indicado no existe en DeepSeek. Elige otro en el dashboard.',
+      m('err.noModelDeepseek'),
       providerId
     );
   }
   if (err instanceof OpenAI.APIConnectionError) {
-    return new LLMError('Sin conexión con la API de DeepSeek.', providerId);
+    return new LLMError(m('err.offlineDeepseek'), providerId);
   }
   if (err instanceof OpenAI.APIError) {
-    return new LLMError(`Error de DeepSeek (${err.status ?? '?'}): ${err.message}`, providerId);
+    return new LLMError(m('err.apiError', { provider: 'DeepSeek', status: err.status ?? '?', message: err.message }), providerId);
   }
   return new LLMError(err instanceof Error ? err.message : String(err), providerId);
 }

@@ -1,4 +1,5 @@
 import { screenModelFor, type LLMProviderId, type ModelInfo, type Settings } from '@shared/types';
+import { m } from '../i18n';
 import { getSecret } from '../config/secrets';
 import { ClaudeProvider, CLAUDE_MODELS } from './claude';
 import { GeminiProvider, GEMINI_MODELS } from './gemini';
@@ -35,7 +36,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       const apiKey = getSecret('anthropic');
       if (!apiKey) {
         throw new LLMError(
-          'Falta la API key de Anthropic. Configúrala en el dashboard o cambia de proveedor.',
+          m('err.noKeyAnthropic'),
           'claude'
         );
       }
@@ -46,7 +47,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       const apiKey = getSecret('google');
       if (!apiKey) {
         throw new LLMError(
-          'Falta la API key de Google. Configúrala en el dashboard o cambia de proveedor.',
+          m('err.noKeyGoogle'),
           'gemini'
         );
       }
@@ -57,7 +58,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       const apiKey = getSecret('openai');
       if (!apiKey) {
         throw new LLMError(
-          'Falta la API key de OpenAI. Configúrala en el dashboard o cambia de proveedor.',
+          m('err.noKeyOpenai'),
           'openai'
         );
       }
@@ -68,7 +69,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       const apiKey = getSecret('deepseek');
       if (!apiKey) {
         throw new LLMError(
-          'Falta la API key de DeepSeek. Configúrala en el dashboard o cambia de proveedor.',
+          m('err.noKeyDeepseek'),
           'deepseek'
         );
       }
@@ -81,7 +82,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
     default: {
       // Añadir un id al tipo sin manejarlo aquí rompe el build.
       const exhaustive: never = target.providerId;
-      throw new LLMError(`Proveedor desconocido: ${String(exhaustive)}`, 'claude');
+      throw new LLMError(m('err.unknownProvider', { id: String(exhaustive) }), 'claude');
     }
   }
 }
