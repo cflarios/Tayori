@@ -11,6 +11,8 @@ export interface HotkeyActions {
   solveOnScreen: () => void;
   solveQuiz: () => void;
   toggleListening: () => void;
+  teleprompterNext: () => void;
+  teleprompterPrev: () => void;
 }
 
 let bound: string[] = [];
@@ -45,6 +47,10 @@ export function registerHotkeys(actions: HotkeyActions): string[] {
   bind(keys.solveOnScreen, actions.solveOnScreen);
   bind(keys.solveQuiz, actions.solveQuiz);
   bind(keys.toggleListening, actions.toggleListening);
+  // Sólo llegan aquí con el teleprompter encendido: `activeHotkeys` los deja en
+  // blanco si no, y `bind` ignora lo vacío.
+  bind(keys.teleprompterNext, actions.teleprompterNext);
+  bind(keys.teleprompterPrev, actions.teleprompterPrev);
   bind(keys.toggleOverlay, toggleOverlayVisibility);
   // Sin atajo para el dashboard: se abre solo con el engranaje del overlay.
 

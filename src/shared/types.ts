@@ -380,6 +380,16 @@ export interface HotkeyMap {
   moveDown: string;
   moveLeft: string;
   moveRight: string;
+  /**
+   * Avanzar y retroceder la línea del teleprompter.
+   *
+   * Sólo se registran con el teleprompter encendido — ver `activeHotkeys`. Un
+   * acelerador global le quita la combinación a la aplicación que tenga el
+   * foco, y tomar dos por una función apagada es exactamente lo que el
+   * interruptor por atajo existe para evitar.
+   */
+  teleprompterNext: string;
+  teleprompterPrev: string;
 }
 
 export interface Settings {
@@ -527,6 +537,16 @@ export interface Settings {
    * Con una lista, lo que falta es el array vacío y todo sigue encendido.
    */
   disabledHotkeys: (keyof HotkeyMap)[];
+
+  /**
+   * Modo teleprompter: la respuesta, una frase por línea.
+   *
+   * Lo que delata que alguien lee no es el tamaño de la letra, es el movimiento
+   * horizontal de los ojos. Este modo pone una columna estrecha con la línea
+   * activa siempre a la misma altura, de modo que los ojos apenas se muevan.
+   * Ver `renderer/overlay/teleprompter.ts`.
+   */
+  teleprompterEnabled: boolean;
   ollamaBaseUrl: string;
 
   /**
@@ -714,6 +734,21 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
   moveDown: 'Control+Alt+Down',
   moveLeft: 'Control+Alt+Left',
   moveRight: 'Control+Alt+Right',
+  /*
+   * X avanza, Z retrocede: contiguas, mano izquierda y sin Fn.
+   *
+   * Este atajo se pulsa muchas veces seguidas MIENTRAS HABLAS, que es una
+   * exigencia que no tiene ningún otro de la lista: tiene que salir sin mirar y
+   * sin mover la mano. Z está a la izquierda de X, así que la posición coincide
+   * con la dirección.
+   *
+   * Lo evidente —Ctrl+Shift+Abajo/Arriba— se probó y Windows lo RECHAZA en una
+   * máquina normal: ya lo tenía tomado otra aplicación. Ctrl+Alt+flechas son
+   * mover el overlay, y Ctrl+Alt+Espacio, Ctrl+Shift+Enter y Ctrl+Alt+coma/punto
+   * también salieron ocupadas al comprobarlas.
+   */
+  teleprompterNext: 'Control+Alt+X',
+  teleprompterPrev: 'Control+Alt+Z',
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -765,6 +800,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // Los once encendidos, que es como se comportaba la app antes de que esto
   // existiera. Apagar uno es una decisión, no un valor de fábrica.
   disabledHotkeys: [],
+  // Apagado: cambia por completo cómo se lee la respuesta, así que es una
+  // decisión, no un valor de fábrica.
+  teleprompterEnabled: false,
   ollamaBaseUrl: 'http://127.0.0.1:11434',
   // 8192 y no 2048: es el mínimo con el que caben prompt, transcripción y
   // memoria sin que Ollama empiece a tirar contexto en silencio.
@@ -836,6 +874,12 @@ export function clampFontScale(value: number): number {
  */
 export function activeHotkeys(settings: Settings): HotkeyMap {
   const off = new Set<string>(settings.disabledHotkeys);
+  // Con el teleprompter apagado sus dos atajos no existen: no hay línea que
+  // avanzar, y la combinación se queda libre para quien la quiera.
+  if (!settings.teleprompterEnabled) {
+    off.add('teleprompterNext');
+    off.add('teleprompterPrev');
+  }
   // Se parte de una copia y se vacían los apagados, en vez de reconstruir el
   // objeto con `fromEntries`: eso devuelve un `Record<string, string>` que hay
   // que castear a `HotkeyMap`, y el casteo es justo lo que dejaría de avisar el
@@ -863,6 +907,8 @@ export const HOTKEY_LABEL: Record<keyof HotkeyMap, UIKey> = {
   moveDown: 'hk.moveDown',
   moveLeft: 'hk.moveLeft',
   moveRight: 'hk.moveRight',
+  teleprompterNext: 'hk.teleprompterNext',
+  teleprompterPrev: 'hk.teleprompterPrev',
 };
 
 /**

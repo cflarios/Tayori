@@ -87,6 +87,10 @@ export const es: Record<UIKey, string> = {
   'overlay.skipNone':
     'No parecía una pregunta. Si quieres que responda a todo, pon la sensibilidad en «Todo».',
 
+  'overlay.codeAction': 'Código',
+  'overlay.quizAction': 'Test',
+  'overlay.more': 'Más opciones',
+  'overlay.prompterHint': 'Clic para avanzar · clic derecho para retroceder',
   'overlay.code': 'código',
   'overlay.writing': 'escribiendo…',
   'overlay.copied': 'Copiado',
@@ -215,6 +219,11 @@ export const es: Record<UIKey, string> = {
   'gen.compactDesc':
     'Deja sólo la respuesta: pliega los perfiles, la transcripción y el pie de atajos. También se activa con el botón de plegar del overlay.',
 
+  'gen.teleprompter': 'Modo teleprompter',
+  'gen.teleprompterDesc':
+    'Enseña la respuesta terminada a una frase por línea, en columna estrecha y con la línea activa siempre en el mismo sitio. Lo que delata que estás leyendo es el movimiento horizontal de los ojos, no el tamaño del texto.',
+  'gen.teleprompterHint':
+    'Avanza con **{next}** y retrocede con **{prev}** — son atajos globales, así que funcionan con la videollamada en primer plano. También puedes hacer clic en el panel para avanzar y clic derecho para retroceder. Los dos atajos sólo se registran con este modo encendido, y se cambian en *Atajos de teclado*.',
   'gen.protects':
     '**Qué protege y qué no.** El modo invisible excluye la ventana del pipeline de captura (screen share, OBS, grabadores). No te protege de una cámara apuntando a la pantalla, no oculta el proceso frente a software de proctoring que enumere ventanas, y no oculta lo que digas por el micrófono.',
 
@@ -391,6 +400,8 @@ export const es: Record<UIKey, string> = {
     'Windows rechazó este atajo: **{keys}**. Otra aplicación lo tiene tomado, así que **no hará nada** hasta que elijas otro.',
   'hk.rejectedMany':
     'Windows rechazó estos atajos: **{keys}**. Otra aplicación los tiene tomados, así que **no harán nada** hasta que elijas otros.',
+  'hk.teleprompterNext': 'Teleprompter: línea siguiente',
+  'hk.teleprompterPrev': 'Teleprompter: línea anterior',
   'hk.reset': 'Restablecer',
   'hk.resetDesc': 'Devuelve cada atajo a su combinación de fábrica, y los vuelve a encender todos.',
   'hk.resetButton': 'Valores por defecto',

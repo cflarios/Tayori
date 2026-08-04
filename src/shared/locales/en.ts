@@ -103,6 +103,10 @@ export const en = {
   'overlay.skipNone':
     "That didn't look like a question. If you want it to answer everything, set the sensitivity to «All».",
 
+  'overlay.codeAction': 'Code',
+  'overlay.quizAction': 'Quiz',
+  'overlay.more': 'More options',
+  'overlay.prompterHint': 'Click to advance · right-click to go back',
   'overlay.code': 'code',
   'overlay.writing': 'writing…',
   'overlay.copied': 'Copied',
@@ -234,6 +238,11 @@ export const en = {
   'gen.compactDesc':
     'Leaves only the answer: it folds the profiles, the transcript and the shortcut footer. It is also toggled with the fold button in the overlay.',
 
+  'gen.teleprompter': 'Teleprompter mode',
+  'gen.teleprompterDesc':
+    'Shows the finished answer one phrase per line, in a narrow column with the active line always in the same place. What gives away that you are reading is the horizontal eye movement, not the size of the text.',
+  'gen.teleprompterHint':
+    'Advance with **{next}** and go back with **{prev}** — they are global shortcuts, so they work with the video call focused. You can also click the panel to advance and right-click to go back. Both shortcuts are only registered while this mode is on, and can be changed under *Shortcuts*.',
   'gen.protects':
     '**What it protects and what it does not.** Stealth mode excludes the window from the capture pipeline (screen share, OBS, recorders). It does not protect you from a camera pointed at the screen, it does not hide the process from proctoring software that enumerates windows, and it does not hide what you say into the microphone.',
 
@@ -410,6 +419,8 @@ export const en = {
     'Windows rejected this shortcut: **{keys}**. Another application has it taken, so **it will do nothing** until you pick a different one.',
   'hk.rejectedMany':
     'Windows rejected these shortcuts: **{keys}**. Another application has them taken, so **they will do nothing** until you pick different ones.',
+  'hk.teleprompterNext': 'Teleprompter: next line',
+  'hk.teleprompterPrev': 'Teleprompter: previous line',
   'hk.reset': 'Reset',
   'hk.resetDesc': 'Puts every shortcut back to its factory combination, and turns them all back on.',
   'hk.resetButton': 'Default values',

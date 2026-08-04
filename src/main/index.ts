@@ -164,7 +164,8 @@ function registerIpcHandlers(): void {
       if (overlay) setClickThrough(overlay, next.clickThrough);
     }
     // Encender o apagar uno cambia qué hay registrado igual que reasignarlo.
-    if (patch.hotkeys || patch.disabledHotkeys) {
+    // El teleprompter también: sus dos atajos sólo existen con el modo activo.
+    if (patch.hotkeys || patch.disabledHotkeys || patch.teleprompterEnabled !== undefined) {
       applyHotkeys();
     }
     if (patch.overlaySize && patch.overlaySize !== previous.overlaySize) {
@@ -487,6 +488,10 @@ const hotkeyActions = {
   toggleListening: () => {
     void audioCapture.toggle();
   },
+  // El overlay no tiene el foco, así que no puede oír la tecla por su cuenta:
+  // el atajo global llega aquí y se le reenvía el paso.
+  teleprompterNext: () => broadcast(IPC.onTeleprompterMove, 1),
+  teleprompterPrev: () => broadcast(IPC.onTeleprompterMove, -1),
 };
 
 // Fija app.name ANTES de cualquier getPath('userData'). El build empaquetado se

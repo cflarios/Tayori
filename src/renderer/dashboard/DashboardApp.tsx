@@ -806,6 +806,36 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
             onChange={(v) => void patch({ overlayCompact: v })}
           />
         </Row>
+
+        {/* Va aquí y no en «Comportamiento» porque no cambia qué responde la
+            app, cambia cómo se lee: es apariencia del overlay, como los dos
+            de arriba. */}
+        <Row
+          icon="type"
+          label={t('gen.teleprompter')}
+          desc={t('gen.teleprompterDesc')}
+        >
+          <Switch
+            on={settings.teleprompterEnabled}
+            onChange={(v) => void patch({ teleprompterEnabled: v })}
+          />
+        </Row>
+
+        {settings.teleprompterEnabled && (
+          <div className="warn">
+            {/* Las combinaciones se leen de los ajustes, no se escriben en la
+                clave: son configurables, y una frase que diga Ctrl+Shift+Abajo
+                cuando el usuario lo cambió a otra cosa manda a pulsar la tecla
+                que no es. */}
+            <Tx
+              k="gen.teleprompterHint"
+              vars={{
+                next: formatAccelerator(settings.hotkeys.teleprompterNext, t('hk.unassigned')),
+                prev: formatAccelerator(settings.hotkeys.teleprompterPrev, t('hk.unassigned')),
+              }}
+            />
+          </div>
+        )}
       </section>
 
       <div className="warn">

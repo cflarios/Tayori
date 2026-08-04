@@ -26,7 +26,25 @@ const settings = (patch: Partial<Settings> = {}): Settings => ({
 
 describe('activeHotkeys', () => {
   it('sin nada apagado devuelve los atajos tal cual', () => {
-    expect(activeHotkeys(settings())).toEqual(DEFAULT_HOTKEYS);
+    // Con el teleprompter encendido: sus dos atajos sólo existen con el modo
+    // activo, así que ése es el único estado en el que están TODOS vivos.
+    expect(activeHotkeys(settings({ teleprompterEnabled: true }))).toEqual(DEFAULT_HOTKEYS);
+  });
+
+  it('los del teleprompter no se registran con el modo apagado', () => {
+    /*
+     * Es la misma regla que el interruptor por atajo, aplicada sola: un
+     * acelerador global le quita la combinación a la aplicación que tenga el
+     * foco, y tomar dos por una función que está apagada es exactamente lo que
+     * hay que evitar. Con el modo apagado, Ctrl+Shift+Abajo es de quien la
+     * quiera.
+     */
+    const active = activeHotkeys(settings({ teleprompterEnabled: false }));
+
+    expect(active.teleprompterNext).toBe('');
+    expect(active.teleprompterPrev).toBe('');
+    // Y no se lleva por delante a los demás.
+    expect(active.askNow).toBe(DEFAULT_HOTKEYS.askNow);
   });
 
   it('vacía el acelerador del apagado y no toca los demás', () => {
@@ -73,7 +91,10 @@ describe('activeHotkeys', () => {
   it('tolera una acción apagada que ya no existe', () => {
     // Un `settings.json` de una versión que tenía un atajo que se quitó después.
     const active = activeHotkeys(
-      settings({ disabledHotkeys: ['unaQueYaNoExiste' as keyof HotkeyMap] })
+      settings({
+        teleprompterEnabled: true,
+        disabledHotkeys: ['unaQueYaNoExiste' as keyof HotkeyMap],
+      })
     );
     expect(active).toEqual(DEFAULT_HOTKEYS);
   });

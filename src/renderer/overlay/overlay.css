@@ -749,6 +749,11 @@ body {
 }
 
 .chip {
+  /* Flex por el icono: reconocer una forma es más rápido que leer una palabra,
+     y estos chips se miran de reojo con alguien delante. */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: inherit;
   font-size: 10.5px;
   color: #9aa0a6;
@@ -1371,4 +1376,220 @@ body {
   border-radius: 3px;
   padding: 1px 4px;
   color: #9aa0a6;
+}
+
+/*
+ * ── Teleprompter ──
+ *
+ * Lo que delata que alguien lee no es el tamaño de la letra: es el movimiento
+ * horizontal de los ojos. De ahí las medidas de aquí abajo, que no son estéticas:
+ *
+ * - `max-width` en CH, no en píxeles. La unidad es el ancho de un carácter, que
+ *   es exactamente lo que hay que acotar para que la vista abarque la línea sin
+ *   moverse. En píxeles, subir el tamaño de letra ensancharía la columna y
+ *   devolvería el barrido.
+ * - La línea activa está SIEMPRE a la misma altura, con una vecina arriba y otra
+ *   abajo de altura fija. Sin eso hay que buscar por dónde ibas cada vez que
+ *   avanzas, y buscar en una pantalla se ve más que leer.
+ * - Las vecinas se atenúan en vez de esconderse: ver lo que viene es lo que
+ *   permite encadenar sin la pausa de leer, y quitarlas dejaría la línea activa
+ *   saltando sola sobre el fondo.
+ */
+.prompter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.prompter__line {
+  max-width: 34ch;
+  text-align: center;
+  text-wrap: balance;
+  line-height: 1.35;
+  transition: opacity 90ms ease-out;
+}
+
+/* Altura fija aunque estén vacías: son los topes que mantienen quieta la
+   línea activa en la primera y en la última: sin ellas, el texto salta. */
+.prompter__line--past,
+.prompter__line--next {
+  min-height: 1.35em;
+  font-size: calc(13px * var(--font-scale));
+  opacity: 0.32;
+}
+
+.prompter__line--now {
+  font-size: calc(21px * var(--font-scale));
+  font-weight: 600;
+  opacity: 1;
+  letter-spacing: 0.01em;
+}
+
+/* Dónde vas, sin números que leer: se capta de reojo y no se lee. */
+.prompter__rail {
+  display: flex;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.prompter__tick {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.prompter__tick--done {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.prompter__tick--now {
+  background: var(--accent, #60a5fa);
+}
+
+/*
+ * ── Acciones de llamada: las dos que sí llevan nombre ──
+ *
+ * Resolver código y resolver un test son lo único de esta barra que se pulsa
+ * con alguien delante, y eran dos iconos de 22 px sin etiqueta. Sacar del grupo
+ * las cuatro acciones que no son de llamada dejó sitio para escribir qué hacen,
+ * que es lo que faltaba para no tener que adivinarlo.
+ */
+.actionbtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  height: 22px;
+  padding: 0 8px 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.actionbtn:hover {
+  background: rgba(96, 165, 250, 0.14);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: var(--text);
+}
+
+/*
+ * A tamaño S la barra va justa —el motivo por el que estas acciones van
+ * agrupadas— así que ahí la etiqueta se retira y quedan los iconos. El nombre
+ * sigue en el `title`, y el atajo también.
+ */
+@media (max-width: 400px) {
+  .actionbtn__label {
+    display: none;
+  }
+}
+
+/* ── Menú de lo que no es de llamada ── */
+.more {
+  position: relative;
+  display: flex;
+}
+
+.iconbtn--on {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+/*
+ * El menú se ancla a la derecha y por debajo del botón.
+ *
+ * `z-index` alto porque cae sobre la respuesta, que es justo lo que hay debajo:
+ * un menú medio tapado por el texto sería peor que no tenerlo.
+ */
+.more__menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 40;
+  min-width: 156px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #1b1e25;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * Puente sobre la separación con el botón.
+ *
+ * Los 5 px de aire entre el botón y el menú se ven mejor, pero eran píxeles
+ * MUERTOS: el cursor que bajaba hacia las opciones pasaba por ahí, salía de
+ * `.more` y cerraba el menú antes de llegar. Este pseudo-elemento los cubre sin
+ * pintarlos, así que el recorrido del ratón es continuo.
+ */
+.more__menu::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  height: 6px;
+}
+
+.more__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 110ms ease,
+    color 110ms ease;
+}
+
+.more__item:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+}
+
+/* Separa lo que no se deshace: nueva conversación borra la transcripción y la
+   memoria, y la X cierra la app. Estaban a un píxel de «plegar». */
+.more__sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.more__item--danger:hover {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+
+/* Atenuado en reposo y pleno en el activo: el color hace de segunda señal de
+   cuál está puesto, además del fondo. */
+.chip svg {
+  opacity: 0.65;
+}
+
+.chip--active svg {
+  opacity: 1;
 }

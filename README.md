@@ -43,6 +43,9 @@ borrar una conversación o borrarlas todas.
 - **Skills**: instrucciones tuyas en formato `SKILL.md` que cambian cómo suena
   la respuesta —el tono y las palabras, no el formato—. Se activan desde el
   overlay o escribiendo `/nombre`.
+- **Modo teleprompter**: la respuesta a una frase por línea, en columna
+  estrecha y con la línea activa siempre en el mismo sitio, para leerla sin el
+  barrido de ojos que delata que estás leyendo.
 - **Se oculta de la captura de pantalla**, con un switch para volverlo visible.
 
 ## Requisitos
@@ -108,8 +111,8 @@ vuelvas.
 ## Primeros pasos
 
 1. Arranca la app. Aparece solo el overlay, arriba a la derecha.
-2. Pulsa el **engranaje** de su barra superior para abrir la configuración. Es
-   la única forma de abrirla: no hay atajo ni se abre sola. Arriba del todo hay
+2. Abre la configuración desde el menú **`⋯`** de su barra superior. Es la única
+   forma de abrirla: no hay atajo ni se abre sola. Arriba del todo hay
    una guía de **primeros pasos** con las cuatro cosas que hay que hacer; se
    marca sola según las completas y desaparece al terminar.
 3. Pega tu API key de Anthropic, Google, OpenAI o DeepSeek.
@@ -133,22 +136,51 @@ configuración:
   de entrada, y si un chip se pone **ámbar** significa que esa fuente está
   configurada pero **no llegó a abrirse** — revisa el dispositivo o los permisos.
   Es el aviso que distingue "no se oye nada" de "no se está escuchando".
-- **`</>`**: resolver el código de la pantalla.
-- **Plegar**: modo compacto, deja sólo la respuesta. Esconde los perfiles, la
-  transcripción y el pie de atajos.
+- **Código** y **Test**: resuelven lo que haya en la pantalla. Son los dos únicos
+  botones de acción de la barra, y llevan su nombre escrito porque son lo que se
+  pulsa con alguien delante. A tamaño S se quedan sólo con el icono.
+- **`⋯`**: todo lo que **no** se usa a mitad de una llamada — plegar,
+  configuración, empezar de cero y salir. Se fue a un menú porque compartía sitio
+  y peso visual con los dos de arriba, y a tamaño S ya no cabía. Las dos que no
+  se deshacen —nueva conversación, que borra la transcripción y la memoria, y
+  cerrar la app— van separadas al final.
+- **Perfiles**: la fila de abajo. Cambian el registro de la respuesta sin abrir
+  la configuración; el modo compacto los esconde junto con la transcripción.
 - **`‹ 2/5 ›`**: junto a «Sugerencia», para volver a respuestas anteriores sin
   abrir el historial. Mientras estés mirando una antigua no aparecen las
   acciones rápidas: dicen «tu última respuesta» y la última para el modelo es la
   suya, no la que tengas delante.
 - **Moverlo**: arrastra la barra superior con el botón izquierdo, o usa
   `Ctrl+Alt+flechas`.
-- **Configuración**: el botón del engranaje.
-- **Cerrar la app**: la **X**. Para ocultarla temporalmente sin cerrarla,
-  `Ctrl+Shift+H`.
+- **Ocultar el overlay** sin cerrar la app: `Ctrl+Shift+H`.
 
 Los botones de la barra funcionan aunque tengas activados los *clics
 atravesables*: el overlay deja de ignorar el ratón mientras el cursor está sobre
 la barra, y vuelve a dejarlo pasar en cuanto sales.
+
+### Modo teleprompter
+
+Se enciende en *dashboard → General → Modo teleprompter* y cambia cómo se lee la
+respuesta terminada: **una frase por línea**, en columna estrecha, con la línea
+activa siempre en el mismo sitio y las vecinas atenuadas.
+
+La razón de que sea así y no «la respuesta en grande»: lo que delata que estás
+leyendo **no es el tamaño de la letra, es el movimiento horizontal de los ojos**.
+Barrer una línea larga y volver al principio de la siguiente se ve desde el otro
+lado de una videollamada. Una columna estrecha con la línea fija hace que los
+ojos casi no se muevan — y si el overlay está arriba, cerca de la webcam, parece
+que miras a cámara.
+
+Se avanza con `Ctrl+Alt+X` y se retrocede con `Ctrl+Alt+Z`; también valen el clic
+y el clic derecho sobre el panel. Es manual a propósito: en una conversación no
+sabes a qué ritmo vas a hablar, y un desplazamiento automático se va justo cuando
+te interrumpen — perseguirlo es mirar la pantalla. Los dos atajos **sólo se
+registran con este modo encendido**, así que apagado deja esas combinaciones
+libres.
+
+Sólo entra con la respuesta **terminada**. Durante el streaming las líneas se
+recalcularían con cada token y la que estás leyendo se movería debajo de los
+ojos, que es lo contrario de lo que este modo resuelve.
 
 ## Atajos de teclado
 
@@ -164,12 +196,18 @@ Todos son globales: funcionan aunque la ventana de la videollamada tenga el foco
 | `Ctrl+Shift+M` | Empezar o parar de escuchar |
 | `Ctrl+Shift+C` | Alternar clics atravesables |
 | `Ctrl+Alt+←↑→↓` | Mover el overlay |
+| `Ctrl+Alt+X` / `Ctrl+Alt+Z` | Teleprompter: línea siguiente / anterior |
 
-La configuración **no tiene atajo** a propósito: se abre solo con el engranaje
-del overlay.
+La configuración **no tiene atajo** a propósito: se abre solo desde el menú
+`⋯` del overlay.
 
-**Todos se pueden cambiar** desde el dashboard → *Atajos de teclado*: pulsa el
-campo y teclea la combinación. Si Windows rechaza alguno porque otra aplicación
+**Todos se pueden cambiar y apagar** desde el dashboard → *Atajos de teclado*:
+pulsa el campo y teclea la combinación, o usa el interruptor de su fila. Apagar
+uno no es sólo que deje de reaccionar: **la combinación se suelta**, y vuelve a
+estar disponible para tu editor o para quien la quiera. Un acelerador global se
+la quita a la aplicación que tenga el foco, y no tiene sentido retenerla por una
+función que no usas. Se conserva guardada, así que volver a encenderlo no obliga
+a teclearla otra vez. Si Windows rechaza alguno porque otra aplicación
 lo tiene tomado, aparece marcado en rojo — importa, porque un atajo tomado no da
 ningún error: simplemente no hace nada.
 
@@ -334,7 +372,7 @@ que no ocultarla. Verifica tu versión con `winver` antes de confiar en esto.
 ### Presencia en Windows: barra de tareas y Administrador de tareas
 
 Ni el overlay ni la ventana de configuración aparecen en la **barra de tareas**.
-La configuración se recupera con el engranaje del overlay; el overlay, con
+La configuración se recupera desde el menú `⋯` del overlay; el overlay, con
 `Ctrl+Shift+H`.
 
 En el build empaquetado, el proceso se llama **Audio Helper**, no "Interview

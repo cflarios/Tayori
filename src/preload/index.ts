@@ -129,6 +129,11 @@ const api = {
     on: (cb: (message: string) => void) => subscribe<string>(IPC.onNotice, cb),
   },
 
+  /** Teleprompter: avanzar o retroceder una línea, desde el atajo global. */
+  teleprompter: {
+    onMove: (cb: (step: number) => void) => subscribe<number>(IPC.onTeleprompterMove, cb),
+  },
+
   /** Cuántos intercambios reenvía el asistente en cada consulta. */
   memory: {
     get: (): Promise<{ turns: number; max: number }> => ipcRenderer.invoke(IPC.memoryGet),

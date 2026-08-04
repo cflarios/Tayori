@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-format';
+import { toLines } from './teleprompter';
 import { clampFontScale, providerIsReady } from '@shared/types';
 import { LangProvider, useT } from '@renderer/i18n';
 import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
@@ -343,8 +344,14 @@ function StatusBar({
         onChange={(audioSources) => void window.api.settings.update({ audioSources })}
       />
 
-      <span className="statusbar__spacer" />
+      {/*
+        El estado va PEGADO a la escucha, no junto a los botones.
 
+        Antes vivía a la derecha, entre el espaciador y los iconos, y eso lo
+        colocaba visualmente en el grupo de las acciones: dos etiquetas que no se
+        pueden pulsar en mitad de una fila de cosas que sí. Aquí forman un solo
+        bloque de "qué está pasando" con el punto de escucha y las fuentes.
+      */}
       {/* Aviso explícito cuando el overlay SÍ es visible en una captura:
           es el estado peligroso, así que no puede pasar desapercibido. */}
       {settings && !settings.stealthEnabled && (
@@ -364,12 +371,20 @@ function StatusBar({
         </span>
       )}
 
+      <span className="statusbar__spacer" />
+
       {/*
-        Los cuatro botones van agrupados y no sueltos en la barra: con el
-        interruptor de escucha y las dos fuentes delante, a tamaño S el
-        contenido no cabe (medido: 407 px en 354 disponibles) y lo primero que
-        se salía del recorte era la X. Agrupados, la barra los baja enteros a
-        una segunda línea en vez de cortarlos.
+        Sólo lo que se usa CON ALGUIEN DELANTE, y con su nombre escrito.
+
+        Aquí había seis iconos sin etiqueta y del mismo tamaño; cuatro de ellos
+        —plegar, empezar de cero, ajustes y cerrar— son de antes o después de la
+        llamada y se han ido al menú `⋯`. El hueco que dejan es exactamente lo
+        que hacía falta para poder escribir qué hace cada uno de los dos que
+        quedan: eran los que más se usan y los que menos se entendían.
+
+        Siguen agrupados: a tamaño S el contenido no cabe (medido: 407 px en 354
+        disponibles) y lo primero que se recortaba era el último botón. En bloque
+        la barra los baja enteros a una segunda línea en vez de cortarlos.
       */}
       <div className="statusbar__actions">
         {/* Va en la barra y no entre las acciones rápidas porque tiene que estar
@@ -378,63 +393,176 @@ function StatusBar({
             colgarlo ni audio que esperar. */}
         <button
           type="button"
-          className="iconbtn"
+          className="actionbtn"
           title={t('overlay.solveCode')}
-          aria-label={t('overlay.solveCodeShort')}
           onClick={() => onSolveScreen('code')}
         >
           <CodeIcon />
+          <span className="actionbtn__label">{t('overlay.codeAction')}</span>
         </button>
         {/* Hermano del anterior: mismo camino, prompt distinto. Un test no se
             responde como un algoritmo, y mezclarlos en un solo botón obligaría
             al modelo a adivinar cuál de las dos cosas está mirando. */}
         <button
           type="button"
-          className="iconbtn"
+          className="actionbtn"
           title={t('overlay.solveQuiz')}
-          aria-label={t('overlay.solveQuizShort')}
           onClick={() => onSolveScreen('quiz')}
         >
           <QuizIcon />
+          <span className="actionbtn__label">{t('overlay.quizAction')}</span>
         </button>
-        <button
-          type="button"
-          className="iconbtn"
-          title={compact ? t('overlay.expand') : t('overlay.compact')}
-          aria-label={compact ? t('overlay.expandShort') : t('overlay.compactShort')}
-          aria-pressed={compact}
-          onClick={onToggleCompact}
-        >
-          <CompactIcon compact={compact} />
-        </button>
-        <button
-          type="button"
-          className="iconbtn"
-          title={t('overlay.newChat')}
-          aria-label={t('overlay.newChatShort')}
-          onClick={onNewConversation}
-        >
-          <NewChatIcon />
-        </button>
-        <button
-          type="button"
-          className="iconbtn"
-          title={t('overlay.settings')}
-          aria-label={t('overlay.settingsShort')}
-          onClick={() => void window.api.window.openDashboard()}
-        >
-          <GearIcon />
-        </button>
-        <button
-          type="button"
-          className="iconbtn iconbtn--close"
-          title={t('overlay.quit')}
-          aria-label={t('overlay.quitShort')}
-          onClick={() => void window.api.window.quit()}
-        >
-          <CloseIcon />
-        </button>
+
+        <MoreMenu
+          compact={compact}
+          onToggleCompact={onToggleCompact}
+          onNewConversation={onNewConversation}
+        />
       </div>
+    </div>
+  );
+}
+
+/** Tres puntos: lo que no se usa en mitad de una llamada. */
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <circle cx="3.6" cy="8" r="1.25" fill="currentColor" />
+      <circle cx="8" cy="8" r="1.25" fill="currentColor" />
+      <circle cx="12.4" cy="8" r="1.25" fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * Lo que no se usa durante una llamada, fuera de la barra.
+ *
+ * ## Por qué existe
+ *
+ * La barra tenía seis iconos con el mismo peso visual, y sólo dos —resolver
+ * código y resolver un test— se usan con alguien delante. Los otros cuatro son
+ * de antes o de después: plegar, empezar de cero, abrir los ajustes (que roban
+ * el foco, así que a mitad de llamada no se tocan) y cerrar la app. Competían
+ * por el mismo sitio que los dos que importan, y a tamaño S no cabían: el
+ * contenido medía 407 px en 354 disponibles y lo primero que se recortaba era
+ * la X.
+ *
+ * Sacándolos de aquí, los dos que quedan pueden llevar **etiqueta de texto**,
+ * que es lo que hacía falta para que se entendieran sin adivinar.
+ *
+ * ## Los cierres, que es la parte con trampa
+ *
+ * El overlay es `focusable: false`, así que **no hay evento de blur** que sirva
+ * para cerrar: un menú abierto se quedaría abierto para siempre tapando la
+ * respuesta. Se cierra por tres caminos:
+ *
+ * - Al **pulsar fuera** del menú, dentro de la ventana.
+ * - Al **sacar el ratón de la ventana entera**, que es volver a la llamada.
+ * - Con **Escape**, o al **elegir** cualquier cosa.
+ *
+ * Lo que NO se usa es cerrar al salir el ratón del menú, y ése fue un bug de
+ * verdad: entre el botón y el menú hay unos píxeles de separación visual, así
+ * que bajar el cursor hacia las opciones **salía** de `.more` un instante y el
+ * menú se cerraba justo cuando ibas a elegir. Un menú que depende de que el
+ * ratón no cruce nunca un hueco es un menú roto; la separación se mantiene
+ * porque se ve mejor, y el hueco se cubre con un puente en el CSS.
+ *
+ * Y con `data-interactive`, sin el cual los clics atravesables lo harían
+ * inclicable justo en el modo recomendado durante una llamada.
+ */
+function MoreMenu({
+  compact,
+  onToggleCompact,
+  onNewConversation,
+}: {
+  compact: boolean;
+  onToggleCompact: () => void;
+  onNewConversation: () => void;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    // Pulsar fuera. En captura, para enterarse aunque el destino pare el evento.
+    const onDown = (event: PointerEvent): void => {
+      if (!(event.target as Element | null)?.closest('.more')) setOpen(false);
+    };
+    // Salir de la ventana es volver a la llamada: el menú no se queda tapando
+    // la respuesta. Sirve además de red por si el clic de fuera no llega, que
+    // con los clics atravesables es exactamente lo que pasa.
+    const onLeaveWindow = (): void => setOpen(false);
+
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mouseleave', onLeaveWindow);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mouseleave', onLeaveWindow);
+    };
+  }, [open]);
+
+  /** Cada entrada cierra el menú, haga lo que haga después. */
+  const pick = (action: () => void) => () => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <div className="more" data-interactive>
+      <button
+        type="button"
+        className={`iconbtn${open ? ' iconbtn--on' : ''}`}
+        title={t('overlay.more')}
+        aria-label={t('overlay.more')}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <MoreIcon />
+      </button>
+
+      {open && (
+        <div className="more__menu" role="menu">
+          <button type="button" className="more__item" role="menuitem" onClick={pick(onToggleCompact)}>
+            <CompactIcon compact={compact} />
+            {compact ? t('overlay.expandShort') : t('overlay.compactShort')}
+          </button>
+          <button
+            type="button"
+            className="more__item"
+            role="menuitem"
+            onClick={pick(() => void window.api.window.openDashboard())}
+          >
+            <GearIcon />
+            {t('overlay.settingsShort')}
+          </button>
+
+          {/*
+            Las dos que no se deshacen, separadas y al final. Nueva conversación
+            borra la transcripción y la memoria; la X cierra la app. Estaban a un
+            píxel de «plegar», que no cuesta nada.
+          */}
+          <div className="more__sep" />
+          <button type="button" className="more__item" role="menuitem" onClick={pick(onNewConversation)}>
+            <NewChatIcon />
+            {t('overlay.newChatShort')}
+          </button>
+          <button
+            type="button"
+            className="more__item more__item--danger"
+            role="menuitem"
+            onClick={pick(() => void window.api.window.quit())}
+          >
+            <CloseIcon />
+            {t('overlay.quitShort')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -493,6 +621,42 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
  * de una llamada es justo el momento en el que no puedes hacer ninguna de las dos.
  * `custom` no está aquí: se edita con un textarea y ése sí necesita el dashboard.
  */
+/**
+ * Iconos de los perfiles.
+ *
+ * Reconocer una forma es más rápido que leer una palabra, y aquí se mira de
+ * reojo con alguien delante: el icono es el que hace el trabajo y la etiqueta el
+ * que desempata. Se dibujan en línea, como los demás del overlay, para no
+ * depender de ninguna fuente de iconos.
+ */
+function ProfileIcon({ id }: { id: Settings['promptProfileId'] }) {
+  const paths: Partial<Record<Settings['promptProfileId'], string>> = {
+    // Una persona: la entrevista es uno frente a uno.
+    interview: 'M8 8.2a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Zm-4.3 5.4c0-2.2 1.9-3.5 4.3-3.5s4.3 1.3 4.3 3.5',
+    // Dos personas: la reunión es de varios.
+    meeting: 'M6 7.6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm5 .4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4ZM2.4 13c0-1.9 1.6-3 3.6-3s3.6 1.1 3.6 3m.7-2.8c1.6.1 2.9 1 2.9 2.8',
+    // Birrete: una clase o una charla.
+    lecture: 'M8 3 1.8 6.1 8 9.2l6.2-3.1L8 3Zm-3.6 4.6v3c0 1 1.6 1.8 3.6 1.8s3.6-.8 3.6-1.8v-3',
+    // Auriculares con micro: soporte.
+    support: 'M3.2 10.4V8a4.8 4.8 0 0 1 9.6 0v2.4M2 9.6h1.6v3.2H2Zm10.4 0H14v3.2h-1.6Zm0 3.2c0 .9-1 1.4-2.2 1.4',
+  };
+  const d = paths[id];
+  if (!d) return null;
+
+  return (
+    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        d={d}
+      />
+    </svg>
+  );
+}
+
 const PROFILE_CHIPS = [
   ['interview', 'overlay.profileInterview'],
   ['meeting', 'overlay.profileMeeting'],
@@ -523,6 +687,10 @@ function ProfileChips({
           aria-pressed={active === id}
           onClick={() => onChange(id)}
         >
+          {/* Código y test reutilizan los de la barra: es la MISMA acción vista
+              desde otro sitio, y darles dos dibujos distintos haría dudar de si
+              son lo mismo. */}
+          {id === 'coding' ? <CodeIcon /> : id === 'quiz' ? <QuizIcon /> : <ProfileIcon id={id} />}
           {t(label)}
         </button>
       ))}
@@ -1062,6 +1230,77 @@ function InlineText({ text }: { text: string }) {
   );
 }
 
+/**
+ * Modo teleprompter: la respuesta, una frase por línea.
+ *
+ * ## Por qué se ve así
+ *
+ * Lo que delata que alguien lee **no es el tamaño de la letra**, es el
+ * movimiento horizontal de los ojos: barrer una línea larga y volver al
+ * principio de la siguiente se ve desde el otro lado de una videollamada. De ahí
+ * las tres decisiones que definen esta vista, y ninguna es estética:
+ *
+ * - **Columna estrecha**, para que los ojos apenas se muevan. Poner la respuesta
+ *   "en grande" empeora esto, porque una línea grande es más ancha.
+ * - **La línea activa siempre en el mismo sitio**, con las vecinas atenuadas.
+ *   No hay que buscar por dónde ibas: está donde estaba.
+ * - **Se avanza a mano**, con un atajo global. En una conversación no sabes a
+ *   qué ritmo vas a hablar; un desplazamiento automático se va justo cuando te
+ *   interrumpen, y perseguirlo es mirar la pantalla.
+ *
+ * Se enseña la anterior y la siguiente, no sólo la actual: ver lo que viene es
+ * lo que permite encadenar sin la pausa de leer.
+ */
+function Teleprompter({ text }: { text: string }) {
+  const t = useT();
+  const lines = toLines(text);
+  const [at, setAt] = useState(0);
+
+  const move = useCallback(
+    (step: number) => {
+      setAt((current) => Math.min(Math.max(current + step, 0), Math.max(lines.length - 1, 0)));
+    },
+    [lines.length]
+  );
+
+  // El atajo es global porque el overlay no tiene el foco: la tecla la recoge el
+  // proceso principal y la reenvía por IPC.
+  useEffect(() => window.api.teleprompter.onMove(move), [move]);
+
+  if (lines.length === 0) return null;
+
+  return (
+    <div
+      className="prompter"
+      data-interactive
+      role="button"
+      tabIndex={-1}
+      title={t('overlay.prompterHint')}
+      onClick={() => move(1)}
+      onContextMenu={(event) => {
+        // Clic derecho para retroceder: es el gesto más corto que existe para
+        // corregir un avance de más, y no hay menú contextual que estorbar.
+        event.preventDefault();
+        move(-1);
+      }}
+    >
+      <div className="prompter__line prompter__line--past">{lines[at - 1] ?? ''}</div>
+      <div className="prompter__line prompter__line--now">{lines[at]}</div>
+      <div className="prompter__line prompter__line--next">{lines[at + 1] ?? ''}</div>
+      <div className="prompter__rail">
+        {lines.map((_, index) => (
+          <span
+            key={index}
+            className={`prompter__tick${index === at ? ' prompter__tick--now' : ''}${
+              index < at ? ' prompter__tick--done' : ''
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** El cuerpo de una respuesta: texto, salvo lo que venga entre vallas. */
 function AnswerBody({ text }: { text: string }) {
   const blocks = parseAnswerBlocks(text);
@@ -1083,10 +1322,12 @@ function AnswerPane({
   answer,
   skip,
   listening,
+  teleprompter,
 }: {
   answer: Answer | null;
   skip: { text: string; reason: string } | null;
   listening: boolean;
+  teleprompter: boolean;
 }) {
   const t = useT();
   if (!answer) {
@@ -1119,6 +1360,24 @@ function AnswerPane({
   }
   if (answer.status === 'error') {
     return <div className="answer answer--error">{answer.error ?? t('overlay.unknownError')}</div>;
+  }
+  /*
+   * El teleprompter sólo entra con la respuesta TERMINADA.
+   *
+   * Durante el streaming las líneas se recalculan con cada token y la que estás
+   * leyendo se mueve debajo de los ojos, que es lo contrario de lo que este modo
+   * viene a resolver. Mientras llega se ve la respuesta normal.
+   */
+  /*
+   * `key` con el id de la respuesta, y no un efecto que ponga el índice a cero.
+   *
+   * Una respuesta nueva tiene que empezar por su primera línea; si no, arrancas
+   * por donde te quedaste en la anterior y lo primero que haces al leer es
+   * darte cuenta de que estás en el sitio equivocado. Remontar lo consigue sin
+   * `setState` dentro de un efecto, que es lo que este proyecto ya evita.
+   */
+  if (teleprompter && answer.status === 'done') {
+    return <Teleprompter key={answer.id} text={answer.text} />;
   }
   return <AnswerBody text={answer.text} />;
 }
@@ -1570,7 +1829,12 @@ export function OverlayApp() {
                 </button>
               )}
             </div>
-            <AnswerPane answer={answer} skip={skip} listening={status.state === 'listening'} />
+            <AnswerPane
+              answer={answer}
+              skip={skip}
+              listening={status.state === 'listening'}
+              teleprompter={settings?.teleprompterEnabled ?? false}
+            />
           </div>
         )}
 

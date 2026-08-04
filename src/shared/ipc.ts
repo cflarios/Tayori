@@ -180,6 +180,14 @@ export const IPC = {
    */
   onNotice: 'event:notice',
   /**
+   * Mover la línea del teleprompter.
+   *
+   * Va por evento y no por un `invoke` del overlay porque quien lo dispara es un
+   * atajo GLOBAL: el overlay no tiene el foco —es `focusable: false`— así que no
+   * puede oír una tecla por su cuenta. El main la recibe y la reenvía.
+   */
+  onTeleprompterMove: 'event:teleprompter-move',
+  /**
    * Cambió el resultado de registrar los atajos.
    *
    * `registerHotkeys` ya devolvía los rechazados y nadie recogía la lista: sólo

@@ -12,7 +12,10 @@
     "src/renderer/audio-worker/pcm-worklet.ts",
     // Mismo caso: parsear las vallas de código es lógica pura sin DOM, y su
     // test vive con los demás.
-    "src/renderer/overlay/answer-format.ts"
+    "src/renderer/overlay/answer-format.ts",
+    // Y el troceado del teleprompter, que es donde de verdad se decide si una
+    // línea se puede decir de un tirón. Sin DOM y con test propio.
+    "src/renderer/overlay/teleprompter.ts"
   ],
   "compilerOptions": {
     "composite": true,
