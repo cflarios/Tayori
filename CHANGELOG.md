@@ -4,6 +4,15 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.1.0](https://github.com/cflarios/Tayori/compare/v1.0.0...v1.1.0) (2026-08-04)
+
+
+### Features
+
+* defensa contra inyección de prompts, en los cinco proveedores ([88f9b6f](https://github.com/cflarios/Tayori/commit/88f9b6fe550c229c9c2ab7727d5a49c462500424))
+* interruptor por atajo, para soltar la combinación ([975b454](https://github.com/cflarios/Tayori/commit/975b454eeaf2233c24d35488b84e84de2d4630bb))
+* modo teleprompter, y la barra del overlay reordenada ([7b6c8e4](https://github.com/cflarios/Tayori/commit/7b6c8e41252a3e9d704acdd54d0b5d4a18a22a50))
+
 ## [1.0.0](https://github.com/cflarios/Tayori/compare/v0.4.0...v1.0.0) (2026-08-03)
 
 
