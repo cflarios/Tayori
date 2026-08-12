@@ -4,6 +4,16 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.3.0](https://github.com/cflarios/Tayori/compare/v1.2.0...v1.3.0) (2026-08-12)
+
+
+### Features
+
+* captura por trozos para pruebas en pantalla compartida ([ca3d452](https://github.com/cflarios/Tayori/commit/ca3d452baaa70320e2021108100d47970379e137))
+* catálogo de Gemini actualizado a 3.6 Flash ([0f96e4a](https://github.com/cflarios/Tayori/commit/0f96e4af36e85a71ac5991630e82bd3e8ed4e9b0))
+* contexto rediseñado en tarjetas y subida de PDF/Word ([ed4f3fd](https://github.com/cflarios/Tayori/commit/ed4f3fdf974f1f5472d0b30a7d8ff480863a9f51))
+* soluciones largas — el móvil como lector y "Continuar" ([592c1cc](https://github.com/cflarios/Tayori/commit/592c1cc726ee95e3257e35a4116788dd304f42b0))
+
 ## [1.2.0](https://github.com/cflarios/Tayori/compare/v1.1.0...v1.2.0) (2026-08-12)
 
 
