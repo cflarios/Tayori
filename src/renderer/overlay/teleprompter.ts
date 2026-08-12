@@ -1,4 +1,4 @@
-import { parseAnswerBlocks } from './answer-format';
+import { parseAnswerBlocks } from '@shared/answer-format';
 
 /**
  * Parte una respuesta en líneas que se puedan decir de un tirón.

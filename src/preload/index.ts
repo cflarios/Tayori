@@ -230,6 +230,8 @@ const api = {
     /** Vacía la memoria del asistente sin tocar la conversación. */
     forgetContext: (): Promise<{ turns: number; max: number }> =>
       ipcRenderer.invoke(IPC.askForgetContext),
+    /** Extiende la última respuesta de código, añadiendo a la misma respuesta. */
+    continue: (): Promise<void> => ipcRenderer.invoke(IPC.askContinue),
     onAnswer: (cb: (a: Answer) => void) => subscribe<Answer>(IPC.onAnswer, cb),
   },
 

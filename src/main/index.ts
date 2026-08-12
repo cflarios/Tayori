@@ -298,6 +298,7 @@ function registerIpcHandlers(): void {
     sessionOrchestrator.solveOnScreen(task)
   );
   ipcMain.handle(IPC.askForgetContext, () => sessionOrchestrator.forgetContext());
+  ipcMain.handle(IPC.askContinue, () => sessionOrchestrator.answers.continueAnswer());
   ipcMain.handle(IPC.memoryGet, () => sessionOrchestrator.answers.memory);
 
   // Captura por trozos: los botones del chip del overlay resuelven o vacían la

@@ -383,6 +383,20 @@ fijarlo (o el enunciado está en blanco), hay un campo en el dashboard →
 
 El botón `</>` de la barra del overlay hace exactamente lo mismo que el atajo.
 
+### Soluciones largas
+
+Una prueba técnica de verdad no cabe en cuatro líneas. Dos cosas lo cubren:
+
+- **El tope del modo código es amplio** (más que el de una respuesta hablada),
+  así que la mayoría de soluciones salen enteras de una vez.
+- Si aun así se corta, junto a «Sugerencia» aparece **Continuar**: el modelo
+  sigue **desde donde se quedó** y la continuación se **pega a la misma
+  respuesta**, no abre otra. Se puede pulsar varias veces.
+
+Para leer una solución larga con comodidad, el sitio es el **espejo en el
+móvil**: pantalla más grande, fuera de la compartida, con el código formateado y
+un botón para copiarlo. Ver [Espejo en el móvil](#espejo-en-el-móvil).
+
 ## El modo invisible: qué protege y qué no
 
 Esta es la parte que conviene entender bien antes de confiar en ella.
@@ -439,6 +453,13 @@ alguien pueda mirar.
 El espejo saca las respuestas de la pantalla compartida del todo: tu ordenador
 sirve una página a un navegador de tu teléfono, en tu propia red. Se enciende en
 **Ajustes → Espejo en el móvil**, se escanea el QR y ya está.
+
+Es además la **superficie de lectura** cuando una solución no cabe en el overlay
+pequeño: la respuesta se ve con el mismo formato que en el overlay —negrita,
+código en bloque con resaltado, fórmulas en Unicode— y cada bloque de código
+lleva un botón **Copiar** para llevártelo al editor. Guarda las últimas 20
+respuestas y se scrollea como cualquier página. Sigue siendo de **solo lectura**:
+el teléfono no puede disparar nada, solo ver.
 
 | | |
 |---|---|

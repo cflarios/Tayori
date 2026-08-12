@@ -112,6 +112,8 @@ export const es: Record<UIKey, string> = {
   'overlay.attached': 'Captura adjunta',
   'overlay.size': 'Tamaño {size}',
   'overlay.suggestion': 'Sugerencia',
+  'overlay.continue': 'Continuar',
+  'overlay.continueHint': 'Sigue la solución donde se cortó, sin repetir',
   'overlay.answeringWith': 'Respondiendo con {model}',
   'overlay.generatedBy': 'Esta respuesta la generó {provider} · {model}',
   'overlay.emptyIdle':
@@ -904,6 +906,8 @@ export const es: Record<UIKey, string> = {
   'ph.pgListening': 'escuchando',
   'ph.pgCaptureError': 'error de captura',
   'ph.pgPaused': 'en pausa',
+  'ph.pgCopy': 'Copiar',
+  'ph.pgCopied': 'Copiado',
   'ph.pgExpiredPlain': 'Enlace caducado. Vuelve a escanear el código QR del dashboard.',
   'ph.pgNotFound': 'No hay nada aquí.',
 

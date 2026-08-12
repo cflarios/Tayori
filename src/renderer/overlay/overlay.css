@@ -750,6 +750,25 @@ body {
   background: rgba(248, 113, 113, 0.12);
 }
 
+/* Continuar una solución de código cortada: mismo peso que Parar, acento azul. */
+.section__continue {
+  font-family: inherit;
+  font-size: 10px;
+  color: #b7bcc1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 5px;
+  padding: 1px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.section__continue:hover {
+  color: #cfe0ff;
+  border-color: rgba(76, 141, 255, 0.5);
+  background: rgba(76, 141, 255, 0.14);
+}
+
 /* ── Chip de captura por trozos ── */
 
 .scrollchip {

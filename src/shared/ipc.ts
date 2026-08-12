@@ -69,6 +69,8 @@ export const IPC = {
   askSolveScreen: 'ask:solve-screen',
   /** Vacía la memoria de la conversación sin tocar nada más. */
   askForgetContext: 'ask:forget-context',
+  /** Extiende la última respuesta de código añadiendo a la misma respuesta. */
+  askContinue: 'ask:continue',
   /** Cuántos intercambios lleva el modelo en la cabeza. */
   memoryGet: 'memory:get',
 

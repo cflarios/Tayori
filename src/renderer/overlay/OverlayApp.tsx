@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
-import { parseAnswerBlocks, parseInline, type AnswerBlock } from './answer-format';
+import { parseAnswerBlocks, parseInline, type AnswerBlock } from '@shared/answer-format';
 import { toLines } from './teleprompter';
 import { clampFontScale, providerIsReady } from '@shared/types';
 import { LangProvider, useT } from '@renderer/i18n';
@@ -1897,6 +1897,23 @@ export function OverlayApp() {
                   Parar
                 </button>
               )}
+              {/* Extiende una solución de código que se cortó. Sólo en la última
+                  respuesta (el motor continúa la que tiene en vuelo) y sólo en
+                  código, que es donde el tope aprieta. */}
+              {answer &&
+                answer.status === 'done' &&
+                answer.trigger === 'code' &&
+                viewing === null && (
+                  <button
+                    type="button"
+                    className="section__continue"
+                    data-interactive
+                    title={t('overlay.continueHint')}
+                    onClick={() => void window.api.ask.continue()}
+                  >
+                    {t('overlay.continue')}
+                  </button>
+                )}
             </div>
             <AnswerPane
               answer={answer}

@@ -7,6 +7,7 @@ import qrcode from 'qrcode-generator';
 import { IPC } from '@shared/ipc';
 import type { Answer, CaptureStatus, PhoneMirrorStatus, Settings } from '@shared/types';
 import { renderPhonePage } from './phone-page';
+import { parseAnswerBlocks, parseInline, type InlineSpan } from '@shared/answer-format';
 import { DEFAULT_UI_LANG, translate, type UIKey, type UILang } from '@shared/i18n';
 
 /**
@@ -55,6 +56,32 @@ const PREFERRED_PORT = 8317;
 const MAX_ANSWERS = 20;
 
 /**
+ * Una respuesta ya troceada para el móvil: código, o texto con sus marcas en
+ * línea. Se parsea aquí, en el main, con el MISMO `answer-format` que el overlay,
+ * y viaja ya en bloques. Así el móvil pinta negrita, código en línea, math en
+ * Unicode y vallas robustas sin reimplementar el parser en su script — y todo
+ * sigue yendo a `textContent`, nunca a `innerHTML`.
+ */
+type PhoneBlock =
+  | { type: 'code'; content: string; lang?: string; open?: true }
+  | { type: 'text'; spans: InlineSpan[] };
+
+type PhoneAnswer = Answer & { blocks: PhoneBlock[] };
+
+function toPhoneBlocks(text: string): PhoneBlock[] {
+  return parseAnswerBlocks(text).map((b) =>
+    b.type === 'code'
+      ? {
+          type: 'code' as const,
+          content: b.content,
+          ...(b.lang ? { lang: b.lang } : {}),
+          ...(b.open ? { open: true as const } : {}),
+        }
+      : { type: 'text' as const, spans: parseInline(b.content) }
+  );
+}
+
+/**
  * Comentario periódico para que la conexión no se dé por muerta.
  *
  * La radio de un móvil y cualquier caja intermedia cortan lo que lleve un rato
@@ -93,7 +120,7 @@ class PhoneBridge extends EventEmitter {
   }
 
   /** Lo que ya ha pasado, para quien abre el teléfono a mitad de una respuesta. */
-  private answers: Answer[] = [];
+  private answers: PhoneAnswer[] = [];
   private capture: CaptureStatus | null = null;
 
   /** El QR se calcula al arrancar: la URL no cambia mientras el servidor viva. */
@@ -223,8 +250,11 @@ class PhoneBridge extends EventEmitter {
     if (channel === IPC.onAnswer) {
       const answer = payload as Answer;
       if (!answer?.id) return;
-      this.remember(answer);
-      this.send('answer', answer);
+      // Se trocea aquí y se guarda ya troceado, así el `hello` de reconexión
+      // también manda los bloques y el móvil no reparsea nada.
+      const enriched: PhoneAnswer = { ...answer, blocks: toPhoneBlocks(answer.text) };
+      this.remember(enriched);
+      this.send('answer', enriched);
     } else if (channel === IPC.onConversationReset) {
       this.answers = [];
       this.send('reset', null);
@@ -235,7 +265,7 @@ class PhoneBridge extends EventEmitter {
   }
 
   /** Actualiza por id: `answer` se emite en cada tick del streaming. */
-  private remember(answer: Answer): void {
+  private remember(answer: PhoneAnswer): void {
     const at = this.answers.findIndex((a) => a.id === answer.id);
     if (at >= 0) this.answers[at] = answer;
     else this.answers.unshift(answer);

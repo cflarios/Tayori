@@ -202,6 +202,14 @@ producen la misma pantalla en blanco pero se arreglan de forma distinta.
 Sólo los turnos que llegan a `done` **con texto** entran en la memoria de la
 conversación: una respuesta abortada no es algo que el modelo dijera.
 
+**«Continuar» no abre una respuesta nueva, extiende la misma.** Una solución de
+código puede no caber en el tope de una llamada; `continueAnswer` reabre la
+respuesta en `done` con su **mismo id**, siembra su texto y deja que `consume`
+—que añade a `this.current.text`— pegue la continuación al final. Como el overlay
+y el móvil actualizan por id, ven crecer una sola solución. El parcial ya viaja
+como el último turno del asistente (lo metió `remember`), así que sólo se pide
+«sigue donde te cortaste, sin repetir».
+
 ---
 
 ## 5. Qué llega al modelo en cada consulta
@@ -453,7 +461,7 @@ npm run typecheck && npm run lint && npm test
 | `main/logging.ts` | Log a archivo del proceso principal |
 | `main/system-specs.ts` | RAM, CPU y GPU, para recomendar un modelo local |
 | `renderer/audio-worker/pcm-worklet.ts` | Filtro antialias y remuestreo, en el hilo de audio |
-| `renderer/overlay/answer-format.ts` | Parte la respuesta en texto y bloques de código |
+| `shared/answer-format.ts` | Parte la respuesta en texto y bloques de código; lo usan el overlay y el espejo del móvil |
 | `renderer/overlay/*` | El panel flotante |
 | `renderer/dashboard/*` | Configuración, historial, diagnóstico |
 | `shared/*` | Tipos y canales IPC |

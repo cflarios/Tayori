@@ -741,6 +741,45 @@ Tres decisiones que no son obvias:
   reconstruya antes de resolver. Añadir un `ScreenTask` habría rozado los
   `switch` exhaustivos de media app para no ganar nada.
 
+### Soluciones largas: leer en el móvil y «Continuar»
+
+Continuación del caso anterior: una prueba técnica genera una solución larga
+—código más explicación— que **no cabe en el overlay pequeño**. Dos frentes, y
+la decisión fue atacar los dos.
+
+**El sitio para leer una solución larga es el móvil, no el overlay.** El overlay
+es pequeño a propósito —se lee de reojo, no tapa el editor— y agrandarlo choca
+con eso. El espejo del móvil ya existía y ya sacaba las respuestas fuera de la
+pantalla compartida a un dispositivo más grande; sólo le faltaba ser un buen
+**lector**. Se le dio formato (negrita, código en línea, math) reutilizando el
+mismo `answer-format` que el overlay —movido a `shared/` para no duplicarlo—, y
+un botón de **copiar** por bloque de código, que es lo que convierte «lo leo» en
+«me lo llevo al editor». El parseo se hace en el main y viaja ya troceado, así el
+script del móvil no reimplementa el parser y todo se sigue pintando con
+`textContent`.
+
+**El copiar del móvil no puede usar `navigator.clipboard`.** El teléfono se
+conecta por **http** a la LAN, que es un contexto no seguro, y ahí
+`navigator.clipboard` no existe. El respaldo es el viejo `execCommand('copy')`
+sobre un `textarea` oculto, que sí funciona sin https. Sin ese respaldo el botón
+no haría nada justo en el caso normal.
+
+**El móvil sigue sin poder mandar nada**, así que «Continuar» **no** se dispara
+desde él —sería romper la propiedad de que el SSE es de una sola dirección—: se
+pulsa en el overlay y el móvil ve crecer la respuesta.
+
+**«Continuar» añade a la misma respuesta, y por eso el tope no se sube sin
+límite.** Se subió el del modo código (de 2200 a 4096) para que la mayoría quepa
+de una vez, pero subirlo hasta «lo que sea» invita a divagar y encarece cada
+consulta. Para lo que aún no quepa, `continueAnswer` reabre la misma respuesta
+(mismo id) y deja que `consume` pegue la continuación al final. El truco de por
+qué es tan pequeño: `remember` ya guardó el parcial como el último turno del
+asistente, así que el modelo ya lo tiene en su memoria y sólo hay que pedirle que
+siga. **No se detecta el truncado automáticamente** —el contrato de streaming
+(`llm/types.ts`) sólo emite strings, no el `stop_reason`, y sacarlo obligaría a
+tocar los cinco proveedores—; el botón está disponible en cualquier respuesta de
+código terminada y es el usuario quien ve si se cortó.
+
 ### Dos idiomas: inglés por defecto, español a un clic
 
 Agosto de 2026. La app estaba entera en español y pasa a tener las dos, con

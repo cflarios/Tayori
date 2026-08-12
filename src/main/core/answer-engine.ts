@@ -37,11 +37,12 @@ const MAX_ANSWER_TOKENS = 700;
  * Tope del modo código.
  *
  * Con 700 la solución sale cortada a media función, y una implementación
- * truncada no vale para nada: no se puede pegar ni razonar sobre ella. 2200
- * cubre un algoritmo completo con su explicación en cualquier lenguaje verboso
- * (Java, C++) sin llegar a permitir un ensayo.
+ * truncada no vale para nada. 4096 cubre soluciones grandes —una prueba técnica
+ * con varias partes, no sólo un algoritmo suelto— en cualquier lenguaje verboso.
+ * Lo que aún no quepa se extiende con `continueAnswer()`, que añade a la misma
+ * respuesta en lugar de subir el tope hasta permitir un ensayo.
  */
-const MAX_CODE_TOKENS = 2_200;
+const MAX_CODE_TOKENS = 4_096;
 
 /**
  * Qué perfil impone cada disparo, si impone alguno.
@@ -64,6 +65,20 @@ const PROFILE_BY_TRIGGER: Partial<Record<AnswerTrigger, PromptProfileId>> = {
 const TOKENS_BY_PROFILE: Partial<Record<PromptProfileId, number>> = {
   coding: MAX_CODE_TOKENS,
 };
+
+/**
+ * La "pregunta" de "Continuar".
+ *
+ * El modelo ya tiene su parcial como último turno del asistente —lo metió
+ * `remember` al cerrar la respuesta—, así que aquí sólo hay que pedirle que siga
+ * desde donde se cortó, sin repetir. Es lo que permite una solución más larga
+ * que el tope de una sola llamada.
+ */
+const CONTINUE_INSTRUCTION =
+  'Tu respuesta anterior se cortó por longitud. Continúa EXACTAMENTE desde donde ' +
+  'te quedaste, por el siguiente carácter, sin repetir ni reintroducir nada de lo ' +
+  'ya escrito. Si el bloque de código seguía abierto, sigue dentro de él sin ' +
+  'volver a abrir la valla. Nada de saludos ni resúmenes: sólo la continuación.';
 
 /** Cada cuántos ms se difunde el texto acumulado durante el streaming. */
 const FLUSH_INTERVAL_MS = 60;
@@ -194,7 +209,10 @@ export class AnswerEngine extends EventEmitter {
   abort(): void {
     this.controller?.abort();
     this.controller = null;
-    if (this.current && (this.current.status === 'thinking' || this.current.status === 'streaming')) {
+    if (
+      this.current &&
+      (this.current.status === 'thinking' || this.current.status === 'streaming')
+    ) {
       this.update({ status: 'aborted' });
     }
   }
@@ -322,9 +340,7 @@ export class AnswerEngine extends EventEmitter {
       const stream = provider.streamAnswer(
         {
           systemPrompt: buildSystemPrompt(settings, forced, skill),
-          transcript: this.transcript.format(
-            this.transcript.recent(settings.manualContextSeconds)
-          ),
+          transcript: this.transcript.format(this.transcript.recent(settings.manualContextSeconds)),
           ...(question ? { question } : {}),
           // Se pasa una copia: la generación es asíncrona y `history` puede
           // recibir un turno nuevo mientras ésta sigue en vuelo.
@@ -353,6 +369,96 @@ export class AnswerEngine extends EventEmitter {
       clearTimeout(totalTimer);
       if (this.controller === controller) this.controller = null;
     }
+  }
+
+  /**
+   * Extiende la última respuesta terminada, añadiendo a la MISMA respuesta.
+   *
+   * Es lo que resuelve una solución más larga que el tope de una sola llamada:
+   * el candidato pulsa "Continuar" y el modelo sigue donde se cortó. Se reusa el
+   * mismo id y se siembra el texto base, así que `consume` —que añade a
+   * `this.current.text`— pega la continuación al final; el overlay y el móvil,
+   * que actualizan por id, ven crecer una sola respuesta en lugar de dos.
+   *
+   * El parcial ya viaja como el último turno del asistente (lo metió
+   * `remember`), así que no hay que reenviar la captura: el modelo continúa su
+   * propio código. Se puede pulsar varias veces.
+   */
+  async continueAnswer(): Promise<void> {
+    const prev = this.current;
+    if (!prev || prev.status !== 'done' || !prev.text.trim()) return;
+
+    this.abort();
+    const settings = settingsStore.get();
+    const onScreen = isScreenTrigger(prev.trigger);
+    const forced = PROFILE_BY_TRIGGER[prev.trigger];
+    const profile = forced ?? settings.promptProfileId;
+
+    // Misma respuesta, mismo id, con su texto ya puesto: `consume` añade encima.
+    this.current = { ...prev, status: 'streaming' };
+    this.emitCurrent();
+
+    const controller = new AbortController();
+    this.controller = controller;
+
+    let gotFirstToken = false;
+    const firstTokenTimer = setTimeout(() => {
+      if (!gotFirstToken && !controller.signal.aborted) {
+        controller.abort();
+        // Ya hay texto: se conserva lo que había en vez de dejarlo en error.
+        this.update({ status: 'done' });
+      }
+    }, FIRST_TOKEN_TIMEOUT_MS);
+    const totalTimer = setTimeout(() => {
+      if (!controller.signal.aborted) {
+        controller.abort();
+        this.update({ status: 'done' });
+      }
+    }, GENERATION_TIMEOUT_MS);
+
+    try {
+      const provider = createLLMProvider(settings, onScreen);
+      const skill = getSkill(settings.activeSkillId);
+      const stream = provider.streamAnswer(
+        {
+          systemPrompt: buildSystemPrompt(settings, forced, skill),
+          transcript: this.transcript.format(this.transcript.recent(settings.manualContextSeconds)),
+          question: CONTINUE_INSTRUCTION,
+          ...(this.history.length ? { history: [...this.history] } : {}),
+          maxTokens: TOKENS_BY_PROFILE[profile] ?? MAX_ANSWER_TOKENS,
+        },
+        controller.signal
+      );
+
+      await this.consume(stream, controller, settings, () => {
+        gotFirstToken = true;
+        clearTimeout(firstTokenTimer);
+      });
+      this.rememberContinuation();
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      this.update({
+        status: 'error',
+        error: err instanceof LLMError ? err.message : String(err),
+      });
+    } finally {
+      clearTimeout(firstTokenTimer);
+      clearTimeout(totalTimer);
+      if (this.controller === controller) this.controller = null;
+    }
+  }
+
+  /**
+   * Como `remember`, pero para una continuación: es la MISMA vuelta, así que se
+   * actualiza el último intercambio en lugar de apilar uno nuevo (si no, el
+   * modelo vería su solución dos veces en la memoria).
+   */
+  private rememberContinuation(): void {
+    const answer = this.current;
+    if (!answer || answer.status !== 'done' || !answer.text.trim()) return;
+    const last = this.history[this.history.length - 1];
+    if (last) last.answer = answer.text.trim();
+    else this.remember();
   }
 
   /**

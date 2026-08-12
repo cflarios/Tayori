@@ -46,6 +46,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
   say('capListening', 'ph.pgListening');
   say('capError', 'ph.pgCaptureError');
   say('capPaused', 'ph.pgPaused');
+  say('copy', 'ph.pgCopy');
+  say('copied', 'ph.pgCopied');
 
   // El escape estándar de JSON dentro de un `<script>`: sin él, un `</script>`
   // en cualquier valor cerraría la etiqueta antes de tiempo.
@@ -106,6 +108,18 @@ export function renderPhonePage(lang: UILang = 'en'): string {
     line-height: 1.5;
     white-space: pre;
   }
+  .a strong { font-weight: 600; color: #f4f5f7; }
+  .a code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; background: rgba(255,255,255,.08); border-radius: 4px; padding: 1px 5px; }
+  .code { margin: 9px 0; }
+  .code__bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #0c0e12; border: 1px solid rgba(255,255,255,.07); border-bottom: 0; border-radius: 9px 9px 0 0; padding: 5px 8px 5px 11px; }
+  .code__lang { font-size: 11px; color: #6b7075; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .copy { font: inherit; font-size: 11.5px; color: #cfe0ff; background: rgba(76,141,255,.22); border: 0; border-radius: 6px; padding: 4px 11px; cursor: pointer; }
+  .copy:active { background: rgba(76,141,255,.42); color: #fff; }
+  .code pre { margin: 0; border-top: 0; border-radius: 0 0 9px 9px; }
+  .tok-com { color: #6b7280; font-style: italic; }
+  .tok-str { color: #9ece6a; }
+  .tok-num { color: #e0af68; }
+  .tok-kw { color: #7aa2f7; }
   .meta { font-size: 11px; color: #6b7075; margin-top: 8px; font-family: ui-monospace, Menlo, Consolas, monospace; }
   #empty { color: #7c8288; font-size: 14px; text-align: center; padding: 56px 20px; }
   footer { color: #5f656b; font-size: 11.5px; text-align: center; padding-top: 18px; }
@@ -152,21 +166,117 @@ export function renderPhonePage(lang: UILang = 'en'): string {
     link.textContent = text;
   }
 
-  /* Partidor mínimo de vallas \`\`\`, el mismo trato que en el overlay: el
-     texto va en nodos de texto y el código en <pre>. No es Markdown y no debe
-     convertirse en Markdown — es el único formato que el prompt promete. */
-  function paint(el, text) {
+  /* Los bloques vienen ya parseados del main (el mismo answer-format que el
+     overlay): código, o texto con marcas en línea. Todo se pinta con textContent
+     y nodos, nunca como marcado — el texto sale de un modelo y no es de fiar. */
+  var KW = {};
+  ('function return if else for while const let var class def import from export new await async ' +
+    'public private protected static void int long float double string bool boolean char true false ' +
+    'null None nil undefined self this super struct enum match case switch break continue in of and ' +
+    'or not is lambda try except catch finally throw raise yield with as elif do end then type ' +
+    'interface extends implements typeof instanceof delete package use fn mut pub')
+    .split(' ')
+    .forEach(function (k) { KW[k] = 1; });
+
+  var TOK = /(\\/\\/[^\\n]*|#[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/)|("[^"\\n]*"|'[^'\\n]*')|(\\b\\d[\\w.]*\\b)|([A-Za-z_$][\\w$]*)/g;
+
+  /* Resaltado mínimo y seguro: comentarios, cadenas, números y un set de
+     palabras clave. Cada token va en su span con textContent. */
+  function highlight(pre, src) {
+    var last = 0, m;
+    TOK.lastIndex = 0;
+    while ((m = TOK.exec(src))) {
+      if (m.index > last) pre.appendChild(document.createTextNode(src.slice(last, m.index)));
+      var cls = m[1] ? 'tok-com' : m[2] ? 'tok-str' : m[3] ? 'tok-num' : (KW[m[4]] ? 'tok-kw' : '');
+      if (cls) {
+        var sp = document.createElement('span');
+        sp.className = cls;
+        sp.textContent = m[0];
+        pre.appendChild(sp);
+      } else {
+        pre.appendChild(document.createTextNode(m[0]));
+      }
+      last = TOK.lastIndex;
+    }
+    if (last < src.length) pre.appendChild(document.createTextNode(src.slice(last)));
+  }
+
+  /* navigator.clipboard no existe sobre http (contexto no seguro), que es justo
+     como el móvil se conecta a la LAN. execCommand sí, así que hay respaldo. */
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(function () { legacyCopy(text); });
+      return;
+    }
+    legacyCopy(text);
+  }
+
+  function legacyCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  function makeCode(block) {
+    var box = document.createElement('div');
+    box.className = 'code';
+    var bar = document.createElement('div');
+    bar.className = 'code__bar';
+    var lang = document.createElement('span');
+    lang.className = 'code__lang';
+    lang.textContent = block.lang || '';
+    bar.appendChild(lang);
+    if (block.open) {
+      /* Valla aún abierta durante el streaming: se copia código incompleto, así
+         que en vez del botón se dice que se está escribiendo. */
+      var w = document.createElement('span');
+      w.className = 'code__lang';
+      w.textContent = T.writing;
+      bar.appendChild(w);
+    } else {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'copy';
+      btn.textContent = T.copy;
+      btn.addEventListener('click', function () {
+        copyText(block.content);
+        btn.textContent = T.copied;
+        setTimeout(function () { btn.textContent = T.copy; }, 1400);
+      });
+      bar.appendChild(btn);
+    }
+    var pre = document.createElement('pre');
+    highlight(pre, block.content);
+    box.appendChild(bar);
+    box.appendChild(pre);
+    return box;
+  }
+
+  function paint(el, blocks) {
     el.textContent = '';
-    var parts = String(text).split(/\`\`\`/);
-    for (var i = 0; i < parts.length; i++) {
-      var chunk = parts[i];
-      if (i % 2 === 1) {
-        var pre = document.createElement('pre');
-        // La primera línea de una valla es el lenguaje, no código.
-        pre.textContent = chunk.replace(/^[a-zA-Z0-9+#.-]*\\n/, '');
-        el.appendChild(pre);
-      } else if (chunk) {
-        el.appendChild(document.createTextNode(chunk));
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i];
+      if (b.type === 'code') { el.appendChild(makeCode(b)); continue; }
+      var spans = b.spans || [];
+      for (var j = 0; j < spans.length; j++) {
+        var s = spans[j];
+        if (s.type === 'bold') {
+          var st = document.createElement('strong');
+          st.textContent = s.text;
+          el.appendChild(st);
+        } else if (s.type === 'code') {
+          var cd = document.createElement('code');
+          cd.textContent = s.text;
+          el.appendChild(cd);
+        } else {
+          el.appendChild(document.createTextNode(s.text));
+        }
       }
     }
   }
@@ -204,7 +314,7 @@ export function renderPhonePage(lang: UILang = 'en'): string {
       body.textContent = T.cancelled;
     } else {
       body.className = 'a';
-      paint(body, answer.text || '');
+      paint(body, answer.blocks || []);
     }
     node.querySelector('.meta').textContent =
       (answer.model || '') + (answer.status === 'streaming' ? ' · ' + T.writing : '');

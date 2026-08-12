@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  mathToReadable,
-  parseAnswerBlocks,
-  parseInline,
-} from '../src/renderer/overlay/answer-format';
+import { mathToReadable, parseAnswerBlocks, parseInline } from '../src/shared/answer-format';
 
 /**
  * El parser se ejercita contra lo que de verdad llega: texto en streaming, con
