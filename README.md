@@ -40,6 +40,11 @@ borrar una conversación o borrarlas todas.
 - **Responde cuestionarios**: `Ctrl+Alt+Q` lee la pregunta de test que haya en
   pantalla y da la opción correcta en la primera línea. Si no lo tiene claro lo
   dice, porque en un examen con penalización hay que saber si arriesgas.
+- **Captura por trozos**: para una prueba en una **pantalla compartida** que el
+  entrevistador va revelando con scroll —para que no puedas copiar y pegar—.
+  `Ctrl+Alt+A` recolecta un trozo por pulsación mientras se scrollea, y
+  `Ctrl+Alt+S` reconstruye el enunciado completo uniendo los solapes y lo
+  resuelve. Ver [Captura por trozos](#captura-por-trozos).
 - **Skills**: instrucciones tuyas en formato `SKILL.md` que cambian cómo suena
   la respuesta —el tono y las palabras, no el formato—. Se activan desde el
   overlay o escribiendo `/nombre`.
@@ -192,6 +197,8 @@ Todos son globales: funcionan aunque la ventana de la videollamada tenga el foco
 | `Ctrl+Shift+S` | Capturar pantalla y responder |
 | `Ctrl+Alt+C` | Resolver el código que hay en pantalla |
 | `Ctrl+Alt+Q` | Responder el test que hay en pantalla |
+| `Ctrl+Alt+A` | Captura por trozos: recolectar un trozo (o arrancar/parar el bucle en modo automático) |
+| `Ctrl+Alt+S` | Reconstruir y resolver los trozos capturados |
 | `Ctrl+Shift+H` | Mostrar u ocultar el overlay |
 | `Ctrl+Shift+M` | Empezar o parar de escuchar |
 | `Ctrl+Shift+C` | Alternar clics atravesables |
@@ -311,6 +318,37 @@ lee el `SKILL.md`.
 Sólo hay **una activa a la vez**, y no es una limitación pendiente: dos
 instrucciones sobre cómo escribir se contradicen enseguida, y el modelo rompe
 el empate en silencio.
+
+## Captura por trozos
+
+Los botones de pantalla asumen que el enunciado cabe en una sola captura. No
+siempre: un entrevistador puede **compartir su pantalla** con la prueba —para
+que no puedas copiar y pegar el texto— e ir **revelándola con scroll**, de modo
+que nunca se ve entera. Un screenshot suelto sólo pilla el trozo visible.
+
+La captura por trozos resuelve eso: acumula varios frames y los manda juntos al
+modelo, que **reconstruye el enunciado completo uniendo los solapes** y lo
+resuelve como en el modo código.
+
+- `Ctrl+Alt+A` **recolecta** un trozo. Púlsalo según vas scrolleando: trozo 1 →
+  scroll → trozo 2 → … Un chip junto a «Sugerencia» lleva la cuenta.
+- `Ctrl+Alt+S` **reconstruye y resuelve** la pila, y la vacía. El ✕ del chip la
+  descarta sin resolver.
+
+Hay **dos modos**, en *dashboard → Comportamiento → Captura por trozos*:
+
+- **Manual** (por defecto): cada pulsación de `Ctrl+Alt+A` añade un trozo. Tú
+  eliges qué entra.
+- **Automático**: `Ctrl+Alt+A` arranca y para un bucle que captura solo cada
+  pocos segundos y **descarta los trozos repetidos** (cuando el scroll se para).
+
+**Consejo que cambia el resultado:** el texto de una pantalla compartida suele
+verse pequeño, y la captura se reduce para el modelo. **Fija a pantalla completa
+el contenido compartido** (el «pin» de Meet/Zoom) antes de recolectar, o el
+enunciado puede quedar ilegible.
+
+Como cualquier acción de pantalla, necesita un **modelo con visión** (Claude,
+Gemini, OpenAI u Ollama multimodal); DeepSeek no lee imágenes.
 
 ## Modo código
 

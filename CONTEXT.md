@@ -703,6 +703,44 @@ más barato que cualquier otra cosa de la tabla, y eso cambia la receta de «tod
 nube, lo más barato que funciona» — con la advertencia de que el modelo de
 pantalla tiene que ser otro.
 
+### Captura por trozos: coser un enunciado que se revela con scroll
+
+El caso lo trajo un usuario real: un entrevistador compartió su pantalla con la
+prueba técnica —para que no se pudiera copiar y pegar— y la fue revelando con
+scroll, así que nunca se veía entera. Los botones de pantalla no sirvieron: cada
+uno captura **un** frame y resuelve, y aquí el enunciado está repartido en el
+tiempo.
+
+**Lo caro ya estaba hecho, y por eso la feature es pequeña.** El pipeline
+multi-imagen existía entero desde el modo código: `AnswerEngine.pendingImages`
+es un array, `attachImage` **apila** en vez de reemplazar, y los cuatro
+proveedores con visión ya recorren `request.images` preservando el orden.
+Mandar varios frames en una consulta funcionaba sin tocar ni un proveedor. Lo
+único que faltaba era **acumular en el tiempo**, y para el bucle del modo
+automático se copió el patrón que ya existía en el audio (`armSettleTimer`).
+
+Tres decisiones que no son obvias:
+
+- **Manual por defecto, no automático.** Lo pidió el usuario y es lo correcto:
+  quien mira el scroll sabe cuándo hay un trozo nuevo, y una pulsación por trozo
+  no gasta tokens en frames que no aportan. El automático existe para manos
+  libres, pero deduplica —`aHash` perceptual en `capture/frame-hash.ts`,
+  distancia de Hamming— porque si no llenaría la pila de copias cada vez que el
+  scroll se detiene. El dedup **sólo** actúa en automático: en manual el usuario
+  ya eligió el trozo a propósito.
+- **No se sube la resolución de captura, se guía.** El tile de una pantalla
+  compartida suele ser pequeño, y la captura se reduce a 1600 px como siempre.
+  Se valoró capturar a más px sólo en este modo; se descartó por coste de tokens
+  y porque el arreglo de verdad está en el uso: fijar el contenido compartido a
+  pantalla completa. El aviso lo dice en el ajuste y en el chip, en vez de pagar
+  cada frame más caro para tapar un encuadre que el usuario controla.
+- **Se resuelve como código, no como un `ScreenTask` nuevo.** El enunciado que
+  motiva esto es una prueba de programación, así que reutiliza el perfil
+  `coding`; sólo cambia la instrucción (`SCROLL_SOLVE_INSTRUCTION`), que le dice
+  al modelo que las imágenes son fragmentos consecutivos con solape y que
+  reconstruya antes de resolver. Añadir un `ScreenTask` habría rozado los
+  `switch` exhaustivos de media app para no ganar nada.
+
 ### Dos idiomas: inglés por defecto, español a un clic
 
 Agosto de 2026. La app estaba entera en español y pasa a tener las dos, con

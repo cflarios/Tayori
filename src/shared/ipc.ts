@@ -51,6 +51,13 @@ export const IPC = {
    */
   contextParseFile: 'context:parse-file',
 
+  /**
+   * Captura por trozos: resolver la pila acumulada o vaciarla. Los disparan los
+   * atajos (desde el main) y los botones del chip del overlay (por IPC).
+   */
+  scrollCaptureSolve: 'scroll-capture:solve',
+  scrollCaptureClear: 'scroll-capture:clear',
+
   captureStart: 'capture:start',
   captureStop: 'capture:stop',
   captureGetStatus: 'capture:get-status',
@@ -256,6 +263,12 @@ export const IPC = {
 
   /** main pide al audio-worker que arranque o pare la captura. */
   onCaptureCommand: 'event:capture-command',
+
+  /**
+   * Cambió el estado de la captura por trozos: cuántos frames hay en la pila y
+   * si el bucle automático está grabando. Lo pinta el chip del overlay.
+   */
+  onScrollCapture: 'event:scroll-capture',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
@@ -276,6 +289,15 @@ export interface AudioChunkMessage {
   speaker: 'me' | 'them';
   pcm: ArrayBuffer;
   sampleRate: number;
+}
+
+/** Estado de la captura por trozos, para el chip del overlay. */
+export interface ScrollCaptureState {
+  /** Frames acumulados en la pila. */
+  frames: number;
+  /** El bucle automático está capturando ahora mismo. */
+  capturing: boolean;
+  mode: 'manual' | 'auto';
 }
 
 /** Progreso de descarga de los assets de Whisper local. */

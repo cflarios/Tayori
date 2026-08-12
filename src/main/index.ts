@@ -300,6 +300,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.askForgetContext, () => sessionOrchestrator.forgetContext());
   ipcMain.handle(IPC.memoryGet, () => sessionOrchestrator.answers.memory);
 
+  // Captura por trozos: los botones del chip del overlay resuelven o vacían la
+  // pila. Los atajos hacen lo mismo desde el main (ver hotkeyActions).
+  ipcMain.handle(IPC.scrollCaptureSolve, () => sessionOrchestrator.solveCaptureStack());
+  ipcMain.handle(IPC.scrollCaptureClear, () => sessionOrchestrator.clearCaptureStack());
+
   // ── Screenshots ──
   ipcMain.handle(IPC.screenshotTake, async () => {
     const image = await captureScreen();
@@ -488,6 +493,10 @@ const hotkeyActions = {
   },
   solveQuiz: () => {
     void sessionOrchestrator.solveOnScreen('quiz');
+  },
+  captureFrame: () => sessionOrchestrator.onCaptureHotkey(),
+  solveCapture: () => {
+    void sessionOrchestrator.solveCaptureStack();
   },
   toggleListening: () => {
     void audioCapture.toggle();

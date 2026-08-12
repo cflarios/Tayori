@@ -3,6 +3,7 @@ import {
   IPC,
   type AudioChunkMessage,
   type CaptureCommand,
+  type ScrollCaptureState,
   type WhisperProgress,
 } from '@shared/ipc';
 import type {
@@ -139,6 +140,17 @@ const api = {
       data: ArrayBuffer
     ): Promise<{ ok: true; text: string } | { ok: false; error: string }> =>
       ipcRenderer.invoke(IPC.contextParseFile, { name, data }),
+  },
+
+  /**
+   * Captura por trozos. El estado (cuántos trozos, si graba) llega por evento y
+   * lo pinta el chip del overlay; resolver y vaciar son los botones del chip.
+   */
+  scrollCapture: {
+    onChange: (cb: (s: ScrollCaptureState) => void) =>
+      subscribe<ScrollCaptureState>(IPC.onScrollCapture, cb),
+    solve: (): Promise<void> => ipcRenderer.invoke(IPC.scrollCaptureSolve),
+    clear: (): Promise<void> => ipcRenderer.invoke(IPC.scrollCaptureClear),
   },
 
   /** Avisos que no vienen del audio (fallo de captura de pantalla, etc.). */

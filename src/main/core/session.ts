@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BrowserWindow } from 'electron';
-import { IPC } from '@shared/ipc';
+import { IPC, type ScrollCaptureState } from '@shared/ipc';
 import { parseSkillInvocation } from '@shared/skills';
 import {
   autoTriggerIsInert,
@@ -24,7 +24,8 @@ import { saveConversation } from '../config/history';
 import { settingsStore } from '../config/store';
 import { m } from '../i18n';
 import { audioCapture } from '../capture/audio';
-import { captureScreen } from '../capture/screenshot';
+import { captureScreen, captureScreenFrame } from '../capture/screenshot';
+import { hamming } from '../capture/frame-hash';
 import {
   createSTTProvider,
   type DirectAnswerEvent,
@@ -60,6 +61,24 @@ const SOLVE_INSTRUCTION: Record<ScreenTask, string> = {
     'y respeta lo que pida cada pregunta (una sola opción, varias, la falsa…). ' +
     'Sólo las respuestas: sin explicaciones.',
 };
+
+/**
+ * La "pregunta" de la captura por trozos.
+ *
+ * A diferencia de `SOLVE_INSTRUCTION.code`, aquí no llega una sola captura sino
+ * VARIAS: fragmentos consecutivos del mismo enunciado, tal como el entrevistador
+ * lo fue revelando con el scroll de su pantalla compartida. El modelo tiene que
+ * coserlos antes de resolver. Se resuelve con el perfil `coding` de siempre;
+ * sólo cambia esta instrucción.
+ */
+const SCROLL_SOLVE_INSTRUCTION =
+  'Las imágenes adjuntas son fragmentos CONSECUTIVOS de una misma pantalla, en ' +
+  'orden de arriba abajo, capturados mientras se hacía scroll: se solapan entre ' +
+  'sí. Reconstruye el enunciado completo en ese orden, uniendo los solapes y sin ' +
+  'repetir las líneas que salgan en dos fragmentos. Si aun así parece incompleto ' +
+  '—falta el principio, el final o un ejemplo—, dilo en la primera línea y ' +
+  'resuelve con lo que haya. Después resuelve el problema de programación como en ' +
+  'el modo código.';
 
 /** Qué se registra en el log por cada acción de pantalla. */
 const TASK_LABEL: Record<ScreenTask, string> = { code: 'código', quiz: 'test' };
@@ -139,6 +158,20 @@ class SessionOrchestrator {
 
   /** Último estado difundido por respuesta, para registrar sólo los cambios. */
   private answerStage = new Map<string, string>();
+
+  /**
+   * Captura por trozos: fragmentos acumulados de una pantalla que se revela con
+   * scroll, para reconstruir un enunciado que no cabe en una sola captura.
+   */
+  private captureStack: ImageAttachment[] = [];
+  /** Huella del último frame apilado, para deduplicar en modo automático. */
+  private lastFrameHash: bigint | null = null;
+  /** Bucle del modo automático; `null` cuando no está grabando. */
+  private autoCaptureTimer: NodeJS.Timeout | null = null;
+  private static readonly SCROLL_MAX_FRAMES = 15;
+  private static readonly SCROLL_INTERVAL_MS = 2_500;
+  /** Distancia de Hamming por debajo de la cual dos frames son el mismo trozo. */
+  private static readonly SCROLL_DEDUP_THRESHOLD = 5;
 
   /** Conecta el flujo de audio al STT. Llamar una vez al arrancar la app. */
   bind(): void {
@@ -249,6 +282,7 @@ class SessionOrchestrator {
     this.answers.abort();
     this.answers.resetHistory();
     this.clearPendingTriggers();
+    this.clearCaptureStack();
     this.flush();
     this.conversation = null;
     this.recordedAnswers.clear();
@@ -417,6 +451,111 @@ class SessionOrchestrator {
     this.broadcast(IPC.onScreenshot, image);
 
     await this.answers.ask(task, SOLVE_INSTRUCTION[task]);
+  }
+
+  /**
+   * El atajo de "captura por trozos". En modo manual apila un frame; en modo
+   * automático arranca o para el bucle de captura. Ver `Settings.scrollCaptureMode`.
+   */
+  onCaptureHotkey(): void {
+    if (settingsStore.get().scrollCaptureMode === 'auto') {
+      if (this.autoCaptureTimer) {
+        this.clearAutoTimer();
+        this.emitScrollState();
+      } else {
+        this.startAutoCapture();
+      }
+      return;
+    }
+    void this.addFrame();
+  }
+
+  private startAutoCapture(): void {
+    this.autoCaptureTimer = setInterval(
+      () => void this.addFrame(),
+      SessionOrchestrator.SCROLL_INTERVAL_MS
+    );
+    // El primer frame ya, sin esperar el primer intervalo.
+    void this.addFrame();
+    this.emitScrollState();
+  }
+
+  private clearAutoTimer(): void {
+    if (this.autoCaptureTimer) {
+      clearInterval(this.autoCaptureTimer);
+      this.autoCaptureTimer = null;
+    }
+  }
+
+  /** Captura un frame y lo apila. En automático deduplica los casi idénticos. */
+  private async addFrame(): Promise<void> {
+    if (this.captureStack.length >= SessionOrchestrator.SCROLL_MAX_FRAMES) {
+      // Pila llena: parar el bucle si grababa y avisar una sola vez.
+      if (this.autoCaptureTimer) {
+        this.clearAutoTimer();
+        this.broadcast(IPC.onNotice, m('notice.scrollFull'));
+        this.emitScrollState();
+      }
+      return;
+    }
+
+    const frame = await captureScreenFrame({ forCode: true });
+    if (!frame) {
+      this.broadcast(IPC.onNotice, m('err.noScreenshot'));
+      return;
+    }
+
+    // Dedup sólo en automático: en manual el usuario elige el trozo a propósito.
+    const auto = settingsStore.get().scrollCaptureMode === 'auto';
+    if (
+      auto &&
+      this.lastFrameHash !== null &&
+      hamming(frame.hash, this.lastFrameHash) <= SessionOrchestrator.SCROLL_DEDUP_THRESHOLD
+    ) {
+      return; // el scroll no se ha movido: es el mismo trozo
+    }
+
+    this.captureStack.push(frame.image);
+    this.lastFrameHash = frame.hash;
+    this.emitScrollState();
+  }
+
+  /** Reconstruye y resuelve la pila de trozos. La vacía antes de preguntar. */
+  async solveCaptureStack(): Promise<void> {
+    this.clearAutoTimer();
+    if (this.captureStack.length === 0) {
+      this.broadcast(IPC.onNotice, m('err.noFrames'));
+      this.emitScrollState();
+      return;
+    }
+
+    const frames = this.captureStack;
+    const last = frames[frames.length - 1];
+    this.captureStack = [];
+    this.lastFrameHash = null;
+
+    for (const image of frames) this.answers.attachImage(image);
+    // El último trozo sirve de miniatura mientras llega la respuesta.
+    if (last) this.broadcast(IPC.onScreenshot, last);
+    this.emitScrollState();
+
+    await this.answers.ask('code', SCROLL_SOLVE_INSTRUCTION);
+  }
+
+  /** Vacía la pila sin resolver (botón ✕ del chip, o nueva conversación). */
+  clearCaptureStack(): void {
+    this.clearAutoTimer();
+    this.captureStack = [];
+    this.lastFrameHash = null;
+    this.emitScrollState();
+  }
+
+  private emitScrollState(): void {
+    this.broadcast(IPC.onScrollCapture, {
+      frames: this.captureStack.length,
+      capturing: this.autoCaptureTimer !== null,
+      mode: settingsStore.get().scrollCaptureMode,
+    } satisfies ScrollCaptureState);
   }
 
   /**

@@ -18,6 +18,7 @@ import type {
   Skill,
   TranscriptSegment,
 } from '@shared/types';
+import type { ScrollCaptureState } from '@shared/ipc';
 
 /** Cuántas líneas de transcript mostramos; el overlay debe ocupar poco espacio. */
 const VISIBLE_LINES = 6;
@@ -533,7 +534,12 @@ function MoreMenu({
 
       {open && (
         <div className="more__menu" role="menu">
-          <button type="button" className="more__item" role="menuitem" onClick={pick(onToggleCompact)}>
+          <button
+            type="button"
+            className="more__item"
+            role="menuitem"
+            onClick={pick(onToggleCompact)}
+          >
             <CompactIcon compact={compact} />
             {compact ? t('overlay.expandShort') : t('overlay.compactShort')}
           </button>
@@ -553,7 +559,12 @@ function MoreMenu({
             píxel de «plegar», que no cuesta nada.
           */}
           <div className="more__sep" />
-          <button type="button" className="more__item" role="menuitem" onClick={pick(onNewConversation)}>
+          <button
+            type="button"
+            className="more__item"
+            role="menuitem"
+            onClick={pick(onNewConversation)}
+          >
             <NewChatIcon />
             {t('overlay.newChatShort')}
           </button>
@@ -637,13 +648,16 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
 function ProfileIcon({ id }: { id: Settings['promptProfileId'] }) {
   const paths: Partial<Record<Settings['promptProfileId'], string>> = {
     // Una persona: la entrevista es uno frente a uno.
-    interview: 'M8 8.2a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Zm-4.3 5.4c0-2.2 1.9-3.5 4.3-3.5s4.3 1.3 4.3 3.5',
+    interview:
+      'M8 8.2a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Zm-4.3 5.4c0-2.2 1.9-3.5 4.3-3.5s4.3 1.3 4.3 3.5',
     // Dos personas: la reunión es de varios.
-    meeting: 'M6 7.6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm5 .4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4ZM2.4 13c0-1.9 1.6-3 3.6-3s3.6 1.1 3.6 3m.7-2.8c1.6.1 2.9 1 2.9 2.8',
+    meeting:
+      'M6 7.6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm5 .4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4ZM2.4 13c0-1.9 1.6-3 3.6-3s3.6 1.1 3.6 3m.7-2.8c1.6.1 2.9 1 2.9 2.8',
     // Birrete: una clase o una charla.
     lecture: 'M8 3 1.8 6.1 8 9.2l6.2-3.1L8 3Zm-3.6 4.6v3c0 1 1.6 1.8 3.6 1.8s3.6-.8 3.6-1.8v-3',
     // Auriculares con micro: soporte.
-    support: 'M3.2 10.4V8a4.8 4.8 0 0 1 9.6 0v2.4M2 9.6h1.6v3.2H2Zm10.4 0H14v3.2h-1.6Zm0 3.2c0 .9-1 1.4-2.2 1.4',
+    support:
+      'M3.2 10.4V8a4.8 4.8 0 0 1 9.6 0v2.4M2 9.6h1.6v3.2H2Zm10.4 0H14v3.2h-1.6Zm0 3.2c0 .9-1 1.4-2.2 1.4',
   };
   const d = paths[id];
   if (!d) return null;
@@ -1448,6 +1462,49 @@ function AnswerNav({
  * Es distinto de "nueva conversación", que además vacía la transcripción y
  * cierra la conversación en disco. Aquí se conserva todo eso.
  */
+/**
+ * Estado de la captura por trozos, junto a "Sugerencia".
+ *
+ * Aparece sólo cuando hay algo que enseñar: trozos en la pila o el bucle
+ * automático grabando. Los dos botones —Resolver y ✕— hacen lo mismo que los
+ * atajos, para quien no los recuerda. `data-interactive` es imprescindible: sin
+ * él, con los clics atravesables activos, el ratón pasaría de largo.
+ */
+function ScrollChip({ state }: { state: ScrollCaptureState }) {
+  const t = useT();
+  if (!state.capturing && state.frames === 0) return null;
+
+  return (
+    <span className="scrollchip" data-interactive>
+      <span className={`scrollchip__label${state.capturing ? ' scrollchip__label--rec' : ''}`}>
+        {state.capturing
+          ? t('scroll.capturing', { count: state.frames })
+          : t('scroll.pieces', { count: state.frames })}
+      </span>
+      {state.frames > 0 && (
+        <>
+          <button
+            type="button"
+            className="scrollchip__btn"
+            onClick={() => void window.api.scrollCapture.solve()}
+          >
+            {t('scroll.solve')}
+          </button>
+          <button
+            type="button"
+            className="scrollchip__x"
+            aria-label={t('scroll.clear')}
+            title={t('scroll.clear')}
+            onClick={() => void window.api.scrollCapture.clear()}
+          >
+            ✕
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
 function MemoryChip({ turns, max }: { turns: number; max: number }) {
   const t = useT();
   const [done, setDone] = useState(false);
@@ -1524,6 +1581,11 @@ export function OverlayApp() {
   const [sttError, setSttError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [memory, setMemory] = useState({ turns: 0, max: 8 });
+  const [scroll, setScroll] = useState<ScrollCaptureState>({
+    frames: 0,
+    capturing: false,
+    mode: 'manual',
+  });
   const [skip, setSkip] = useState<{ text: string; reason: string } | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
 
@@ -1656,6 +1718,7 @@ export function OverlayApp() {
       api.transcript.onError(setSttError),
       api.notices.on(setNotice),
       api.memory.onChange(setMemory),
+      api.scrollCapture.onChange(setScroll),
     ];
 
     return () => unsubs.forEach((off) => off());
@@ -1820,6 +1883,7 @@ export function OverlayApp() {
                 </span>
               )}
               <MemoryChip turns={memory.turns} max={memory.max} />
+              <ScrollChip state={scroll} />
               {/* Parar una generación ya existía en el IPC pero no tenía botón: sólo
               se cancelaba preguntando otra cosa, que es una forma cara de decir
               "para". */}

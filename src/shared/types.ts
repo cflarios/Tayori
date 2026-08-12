@@ -360,6 +360,13 @@ export interface HotkeyMap {
   solveOnScreen: string;
   /** Captura la pantalla y responde la pregunta de test que haya en ella. */
   solveQuiz: string;
+  /**
+   * Captura por trozos: recolecta un frame (modo manual) o arranca/para el
+   * bucle (modo automático). Ver `Settings.scrollCaptureMode`.
+   */
+  captureFrame: string;
+  /** Reconstruye y resuelve la pila de trozos capturados. */
+  solveCapture: string;
   toggleOverlay: string;
   toggleListening: string;
   toggleClickThrough: string;
@@ -505,6 +512,14 @@ export interface Settings {
    * concreto que no se ve en la captura.
    */
   codeLanguage: string;
+
+  /**
+   * Cómo se recolectan los trozos en "captura por trozos" —para una prueba en
+   * una pantalla compartida que se revela con scroll—:
+   * - `manual`: cada pulsación del atajo añade un frame a la pila.
+   * - `auto`: el atajo arranca/para un bucle que captura solo y deduplica.
+   */
+  scrollCaptureMode: 'manual' | 'auto';
 
   hotkeys: HotkeyMap;
 
@@ -711,6 +726,10 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
   solveOnScreen: 'Control+Alt+C',
   // Q de "quiz", en la misma familia que el de código.
   solveQuiz: 'Control+Alt+Q',
+  // A de "acumular" un trozo, S de "solucionar" la pila. Ctrl+Alt+A/S estaban
+  // libres, y quedan en la misma familia que código y test.
+  captureFrame: 'Control+Alt+A',
+  solveCapture: 'Control+Alt+S',
   toggleOverlay: 'Control+Shift+H',
   toggleListening: 'Control+Shift+M',
   toggleClickThrough: 'Control+Shift+C',
@@ -779,6 +798,8 @@ export const DEFAULT_SETTINGS: Settings = {
   // respuestas se enciende a propósito, no viene puesta de fábrica.
   activeSkillId: '',
   codeLanguage: 'auto',
+  // Pila manual por defecto: el usuario elige a propósito qué trozos entran.
+  scrollCaptureMode: 'manual',
 
   hotkeys: DEFAULT_HOTKEYS,
   // Los once encendidos, que es como se comportaba la app antes de que esto
@@ -884,6 +905,8 @@ export const HOTKEY_LABEL: Record<keyof HotkeyMap, UIKey> = {
   screenshotAndAsk: 'hk.screenshotAndAsk',
   solveOnScreen: 'hk.solveOnScreen',
   solveQuiz: 'hk.solveQuiz',
+  captureFrame: 'hk.captureFrame',
+  solveCapture: 'hk.solveCapture',
   toggleOverlay: 'hk.toggleOverlay',
   toggleListening: 'hk.toggleListening',
   toggleClickThrough: 'hk.toggleClickThrough',

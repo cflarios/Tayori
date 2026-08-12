@@ -300,6 +300,18 @@ Cuatro decisiones que no se ven en el diagrama:
 | Sin captura, **no** pregunta | Al revés que `Ctrl+Shift+S`: sin imagen no hay enunciado que leer |
 | Pueden usar **otro modelo** | Conversar pide latencia; leer una captura pide vista. `screenModelFor` decide, y con `same` todo queda como antes |
 
+**La captura por trozos es una tercera acción de pantalla**, para un enunciado
+que se revela con scroll en una pantalla compartida y no cabe en una sola
+captura. En vez de capturar-y-resolver, **acumula**: `onCaptureHotkey`
+(`core/session.ts`) apila frames en `captureStack` —`Ctrl+Alt+A`, y en modo
+automático un bucle con `captureScreenFrame`—, y `solveCaptureStack` los cuelga
+todos con `attachImage` y pregunta una vez con `SCROLL_SOLVE_INSTRUCTION`. No
+hay nada nuevo aguas abajo: `AnswerEngine.pendingImages` **ya era un array** y
+los cuatro proveedores con visión ya recorren `request.images`. El modo
+automático deduplica frames casi idénticos con un `aHash` perceptual
+(`capture/frame-hash.ts`), y el estado de la pila viaja al chip del overlay por
+`onScrollCapture`.
+
 ---
 
 ## 6. Dónde vive el estado

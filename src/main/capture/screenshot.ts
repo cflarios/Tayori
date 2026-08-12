@@ -1,5 +1,6 @@
 import { desktopCapturer, screen } from 'electron';
 import type { ImageAttachment } from '@shared/types';
+import { aHashFromBitmap } from './frame-hash';
 
 /**
  * Captura de pantalla para usarla como contexto visual.
@@ -32,17 +33,17 @@ const JPEG_QUALITY = 72;
  */
 const CODE_JPEG_QUALITY = 92;
 
+/** Lado de la huella perceptual: 8×8 = 64 bits, suficiente para deduplicar. */
+const HASH_SIZE = 8;
+
 /**
- * Captura la pantalla que contiene el cursor.
+ * Captura la pantalla que contiene el cursor, a resolución real y antes de
+ * comprimir. Es la parte común de `captureScreen` y `captureScreenFrame`.
  *
  * Con varios monitores, la pantalla del cursor es la que el usuario está mirando
  * — mucho mejor heurística que coger siempre la principal.
- *
- * @param options.forCode Sube la calidad para que el texto pequeño se lea.
  */
-export async function captureScreen(
-  options: { forCode?: boolean } = {}
-): Promise<ImageAttachment | null> {
+async function acquireScreen(): Promise<Electron.NativeImage | null> {
   const cursor = screen.getCursorScreenPoint();
   const target = screen.getDisplayNearestPoint(cursor);
 
@@ -58,20 +59,50 @@ export async function captureScreen(
 
   // `display_id` es la forma fiable de emparejar fuente y display; el orden de
   // `sources` no coincide con el de `screen.getAllDisplays()`.
-  const source =
-    sources.find((s) => s.display_id === String(target.id)) ?? sources[0];
+  const source = sources.find((s) => s.display_id === String(target.id)) ?? sources[0];
 
   if (!source || source.thumbnail.isEmpty()) return null;
+  return source.thumbnail;
+}
 
+/** Reduce a `MAX_WIDTH` si hace falta y comprime a JPEG base64. */
+function toJpegAttachment(thumb: Electron.NativeImage, forCode?: boolean): ImageAttachment {
   const resized =
-    source.thumbnail.getSize().width > MAX_WIDTH
-      ? source.thumbnail.resize({ width: MAX_WIDTH, quality: 'good' })
-      : source.thumbnail;
+    thumb.getSize().width > MAX_WIDTH ? thumb.resize({ width: MAX_WIDTH, quality: 'good' }) : thumb;
 
   return {
     mime: 'image/jpeg',
-    base64: resized
-      .toJPEG(options.forCode ? CODE_JPEG_QUALITY : JPEG_QUALITY)
-      .toString('base64'),
+    base64: resized.toJPEG(forCode ? CODE_JPEG_QUALITY : JPEG_QUALITY).toString('base64'),
+  };
+}
+
+/**
+ * @param options.forCode Sube la calidad para que el texto pequeño se lea.
+ */
+export async function captureScreen(
+  options: { forCode?: boolean } = {}
+): Promise<ImageAttachment | null> {
+  const thumb = await acquireScreen();
+  return thumb ? toJpegAttachment(thumb, options.forCode) : null;
+}
+
+/**
+ * Como `captureScreen`, pero además devuelve una huella perceptual del frame.
+ *
+ * Lo usa la "captura por trozos" en modo automático para deduplicar frames casi
+ * idénticos (cuando el scroll se detiene). La huella se saca del frame a
+ * resolución completa —antes del JPEG— reducido a 8×8 en gris: barato y estable
+ * frente al ruido de compresión.
+ */
+export async function captureScreenFrame(
+  options: { forCode?: boolean } = {}
+): Promise<{ image: ImageAttachment; hash: bigint } | null> {
+  const thumb = await acquireScreen();
+  if (!thumb) return null;
+
+  const small = thumb.resize({ width: HASH_SIZE, height: HASH_SIZE, quality: 'good' });
+  return {
+    image: toJpegAttachment(thumb, options.forCode),
+    hash: aHashFromBitmap(small.toBitmap(), HASH_SIZE, HASH_SIZE),
   };
 }

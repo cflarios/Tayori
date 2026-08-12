@@ -10,6 +10,8 @@ export interface HotkeyActions {
   screenshotAndAsk: () => void;
   solveOnScreen: () => void;
   solveQuiz: () => void;
+  captureFrame: () => void;
+  solveCapture: () => void;
   toggleListening: () => void;
   teleprompterNext: () => void;
   teleprompterPrev: () => void;
@@ -46,6 +48,8 @@ export function registerHotkeys(actions: HotkeyActions): string[] {
   bind(keys.screenshotAndAsk, actions.screenshotAndAsk);
   bind(keys.solveOnScreen, actions.solveOnScreen);
   bind(keys.solveQuiz, actions.solveQuiz);
+  bind(keys.captureFrame, actions.captureFrame);
+  bind(keys.solveCapture, actions.solveCapture);
   bind(keys.toggleListening, actions.toggleListening);
   // Sólo llegan aquí con el teleprompter encendido: `activeHotkeys` los deja en
   // blanco si no, y `bind` ignora lo vacío.

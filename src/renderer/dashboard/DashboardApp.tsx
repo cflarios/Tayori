@@ -3043,6 +3043,26 @@ function BehaviourCard({
         />
       </Row>
 
+      {/* Captura por trozos: para una prueba en pantalla compartida que se
+          revela con scroll. El modo decide cómo se recolectan los frames. */}
+      <Row
+        icon="monitor"
+        label={t('scroll.title')}
+        desc={`${t('scroll.hint')} ${t(
+          settings.scrollCaptureMode === 'auto' ? 'scroll.autoHint' : 'scroll.manualHint'
+        )}`}
+      >
+        <select
+          value={settings.scrollCaptureMode}
+          onChange={(e) =>
+            void patch({ scrollCaptureMode: e.target.value as Settings['scrollCaptureMode'] })
+          }
+        >
+          <option value="manual">{t('scroll.manual')}</option>
+          <option value="auto">{t('scroll.auto')}</option>
+        </select>
+      </Row>
+
       {settings.promptProfileId === 'custom' && (
         <textarea
           placeholder={t('beh.customPlaceholder')}
