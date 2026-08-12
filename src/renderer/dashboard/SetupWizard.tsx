@@ -123,9 +123,7 @@ export function SetupWizard({
           // roto.
           disabled={at === steps.length - 1 || (step === 'welcome' && !path)}
           onClick={() => goTo(at + 1)}
-          title={
-            step === 'welcome' && !path ? t('wiz.pickFirst') : t('wiz.skipTitle')
-          }
+          title={step === 'welcome' && !path ? t('wiz.pickFirst') : t('wiz.skipTitle')}
         >
           {t('wiz.skip')}
         </button>
@@ -247,9 +245,7 @@ function Welcome({ specs, onPick }: { specs: SystemSpecs | null; onPick: (path: 
         />
       </div>
 
-      <p className="wiz__note">
-        {localIsViable ? t('wiz.localViable') : t('wiz.localWeak')}
-      </p>
+      <p className="wiz__note">{localIsViable ? t('wiz.localViable') : t('wiz.localWeak')}</p>
     </>
   );
 }
@@ -306,7 +302,7 @@ const CLOUD_PROVIDERS = [
     id: 'gemini' as const,
     secret: 'google' as const,
     label: 'Gemini (Google)',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.6-flash',
     where: 'aistudio.google.com → Get API key',
     note: 'wiz.geminiNote' as UIKey,
   },
@@ -533,9 +529,7 @@ function LocalStep({
   };
 
   /** Los dos ya están: no hay nada que descargar, sólo que elegirlos. */
-  const nothingToDownload = Boolean(
-    advice && has(advice.chat.model) && has(advice.vision.model)
-  );
+  const nothingToDownload = Boolean(advice && has(advice.chat.model) && has(advice.vision.model));
 
   const download = async (): Promise<void> => {
     if (!advice) return;
@@ -616,8 +610,7 @@ function LocalStep({
       {reachable === false && (
         <>
           <p className="wiz__lead">
-            {t('wiz.ollamaIs')}{' '}
-            {installed ? t('wiz.installedNotRunning') : t('wiz.notInstalled')}
+            {t('wiz.ollamaIs')} {installed ? t('wiz.installedNotRunning') : t('wiz.notInstalled')}
           </p>
 
           {/*
@@ -652,7 +645,11 @@ function LocalStep({
                 <button className="btn" onClick={onBack} disabled={Boolean(busy)}>
                   {t('wiz.backPlain')}
                 </button>
-                <button className="btn btn--primary" disabled={Boolean(busy)} onClick={() => void install()}>
+                <button
+                  className="btn btn--primary"
+                  disabled={Boolean(busy)}
+                  onClick={() => void install()}
+                >
                   {busy || t('wiz.installOllama')}
                 </button>
               </div>
@@ -684,8 +681,7 @@ function LocalStep({
           <div className="wiz__models">
             <div className="wizmodel">
               <span className="wizmodel__role">
-                {t('wiz.forChat')}{' '}
-                {has(advice.chat.model) && <em>{t('wiz.alreadyDownloaded')}</em>}
+                {t('wiz.forChat')} {has(advice.chat.model) && <em>{t('wiz.alreadyDownloaded')}</em>}
               </span>
               <code className="wizmodel__id">{advice.chat.model}</code>
               <span className="wizmodel__note">{t(advice.chat.note)}</span>
@@ -702,9 +698,7 @@ function LocalStep({
 
           <div className="warn">{t(advice.caveat)}</div>
 
-          {!nothingToDownload && (
-            <p className="wiz__note">{t('wiz.sizeNote')}</p>
-          )}
+          {!nothingToDownload && <p className="wiz__note">{t('wiz.sizeNote')}</p>}
 
           {avance}
 
@@ -714,7 +708,11 @@ function LocalStep({
             <button className="btn" onClick={onBack} disabled={Boolean(busy)}>
               {t('wiz.backPlain')}
             </button>
-            <button className="btn btn--primary" disabled={Boolean(busy)} onClick={() => void download()}>
+            <button
+              className="btn btn--primary"
+              disabled={Boolean(busy)}
+              onClick={() => void download()}
+            >
               {busy || (nothingToDownload ? t('wiz.useThese') : t('wiz.downloadAndSet'))}
             </button>
           </div>
@@ -842,7 +840,11 @@ function VoiceStep({
         )}
 
         {showCloud && (
-          <button className="choice" disabled={!canUseGemini} onClick={() => void pick('gemini-live')}>
+          <button
+            className="choice"
+            disabled={!canUseGemini}
+            onClick={() => void pick('gemini-live')}
+          >
             <span className="choice__title">{t('wiz.geminiLiveTitle')}</span>
             <span className="choice__note">
               {canUseGemini ? t('wiz.geminiLiveOk') : t('wiz.geminiLiveNoKey')}
@@ -956,7 +958,11 @@ function ContextStep({
         <button className="btn" onClick={onDone} disabled={busy}>
           {t('wiz.notNow')}
         </button>
-        <button className="btn btn--primary" disabled={busy || !text.trim()} onClick={() => void save()}>
+        <button
+          className="btn btn--primary"
+          disabled={busy || !text.trim()}
+          onClick={() => void save()}
+        >
           {t('wiz.saveAndFinish')}
         </button>
       </div>

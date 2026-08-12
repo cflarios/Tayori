@@ -1120,7 +1120,7 @@ export const en = {
   'guide.priceHaiku45': '$1 / $5 per million tokens (input / output)',
   'guide.priceSonnet5': '$3 / $15 (introductory $2 / $10 until 31-08-2026)',
   'guide.priceOpus5': '$5 / $25',
-  'guide.priceGemini': 'See ai.google.dev/pricing — usually the cheapest in the cloud',
+  'guide.priceGemini': 'See ai.google.dev/pricing for the current price',
   'guide.priceLuna': '$0.20 / $1.20 per million tokens (input / output)',
   'guide.priceTerra': '$2 / $12',
   'guide.priceDsFlash': '$0.28 / $0.28 ($0.14 for already-cached input)',
@@ -1136,7 +1136,7 @@ export const en = {
     'This app’s default, and with good reason: it reads a screenshot well and answers fast. If you are only going to set up one model, this one.',
   'guide.opus5':
     'For the exercises Sonnet cannot crack. It costs twice as much per token and answers more slowly: it makes sense as a screen-ONLY model, not for conversation.',
-  'guide.gemini25flash':
+  'guide.gemini36flash':
     'The same key works for transcription with Gemini Live, so a single credential gives you ears and answers. The price is not reproduced here because it could not be verified against the same kind of source as the Anthropic ones.',
   'guide.luna':
     'The cheapest in this whole table, by an order of magnitude. It is OpenAI’s model for price-sensitive workloads: the obvious pick if what worries you is what the automatic listening spends.',

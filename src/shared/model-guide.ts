@@ -102,11 +102,11 @@ const CLOUD_MODELS: CloudModel[] = [
     note: 'guide.opus5',
   },
   {
-    id: 'gemini-2.5-flash',
-    label: 'Gemini 2.5 Flash',
+    id: 'gemini-3.6-flash',
+    label: 'Gemini 3.6 Flash',
     price: 'guide.priceGemini',
     vision: 'guide.visionYes',
-    note: 'guide.gemini25flash',
+    note: 'guide.gemini36flash',
   },
   {
     id: 'gpt-5.6-luna',
@@ -334,9 +334,9 @@ export function renderModelGuide(
   ${VISION_MODELS.map(localRow).join('')}
 </table>
 <p>${raw('guide.pullNote', {
-  chat: esc(advice.chat.model),
-  vision: esc(advice.vision.model),
-})}</p>
+    chat: esc(advice.chat.model),
+    vision: esc(advice.vision.model),
+  })}</p>
 
 <h2>${t('guide.h2Cloud')}</h2>
 <p>${t('guide.cloudIntro')}</p>

@@ -35,10 +35,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
     case 'claude': {
       const apiKey = getSecret('anthropic');
       if (!apiKey) {
-        throw new LLMError(
-          m('err.noKeyAnthropic'),
-          'claude'
-        );
+        throw new LLMError(m('err.noKeyAnthropic'), 'claude');
       }
       return new ClaudeProvider(apiKey, model || 'claude-sonnet-5');
     }
@@ -46,21 +43,15 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
     case 'gemini': {
       const apiKey = getSecret('google');
       if (!apiKey) {
-        throw new LLMError(
-          m('err.noKeyGoogle'),
-          'gemini'
-        );
+        throw new LLMError(m('err.noKeyGoogle'), 'gemini');
       }
-      return new GeminiProvider(apiKey, model || 'gemini-2.5-flash');
+      return new GeminiProvider(apiKey, model || 'gemini-3.6-flash');
     }
 
     case 'openai': {
       const apiKey = getSecret('openai');
       if (!apiKey) {
-        throw new LLMError(
-          m('err.noKeyOpenai'),
-          'openai'
-        );
+        throw new LLMError(m('err.noKeyOpenai'), 'openai');
       }
       return new OpenAIProvider(apiKey, model || 'gpt-5.6-terra');
     }
@@ -68,10 +59,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
     case 'deepseek': {
       const apiKey = getSecret('deepseek');
       if (!apiKey) {
-        throw new LLMError(
-          m('err.noKeyDeepseek'),
-          'deepseek'
-        );
+        throw new LLMError(m('err.noKeyDeepseek'), 'deepseek');
       }
       return new DeepSeekProvider(apiKey, model || 'deepseek-v4-flash');
     }

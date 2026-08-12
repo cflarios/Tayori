@@ -63,11 +63,7 @@ export interface CaptureStatus {
 
 export type LLMProviderId = 'claude' | 'gemini' | 'openai' | 'deepseek' | 'ollama';
 export type STTProviderId =
-  | 'gemini-live'
-  | 'whisper-local'
-  | 'gemini-audio'
-  | 'openai-live'
-  | 'openai-transcribe';
+  'gemini-live' | 'whisper-local' | 'gemini-audio' | 'openai-live' | 'openai-transcribe';
 
 export interface ModelInfo {
   id: string;
@@ -308,13 +304,7 @@ export interface ContextPack {
 }
 
 export type PromptProfileId =
-  | 'interview'
-  | 'meeting'
-  | 'lecture'
-  | 'support'
-  | 'coding'
-  | 'quiz'
-  | 'custom';
+  'interview' | 'meeting' | 'lecture' | 'support' | 'coding' | 'quiz' | 'custom';
 
 /**
  * Las acciones que resuelven lo que hay en la pantalla.
@@ -352,10 +342,7 @@ export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
 };
 
 /** Los packs que aplican al perfil activo. Vacío en `profiles` = siempre. */
-export function packsForProfile(
-  packs: ContextPack[],
-  profile: PromptProfileId
-): ContextPack[] {
+export function packsForProfile(packs: ContextPack[], profile: PromptProfileId): ContextPack[] {
   return packs.filter(
     (pack) => pack.enabled && (pack.profiles.length === 0 || pack.profiles.includes(profile))
   );
@@ -703,10 +690,7 @@ export function autoTriggerIsInert(
  * toca las fuentes: ahí el usuario está eligiendo el hablante a propósito, y el
  * propio dashboard ya avisa si la combinación no puede saltar.
  */
-export function alignAutoTrigger(
-  current: Settings,
-  patch: Partial<Settings>
-): Partial<Settings> {
+export function alignAutoTrigger(current: Settings, patch: Partial<Settings>): Partial<Settings> {
   if (!patch.audioSources || patch.audioSources === current.audioSources) return patch;
 
   const merged = { ...current, ...patch };
@@ -764,7 +748,7 @@ export const DEFAULT_SETTINGS: Settings = {
   llmProviderId: 'claude',
   llmModels: {
     claude: 'claude-sonnet-5',
-    gemini: 'gemini-2.5-flash',
+    gemini: 'gemini-3.6-flash',
     openai: 'gpt-5.6-terra',
     deepseek: 'deepseek-v4-flash',
     ollama: '',

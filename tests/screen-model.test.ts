@@ -40,10 +40,8 @@ describe('screenModelFor', () => {
   it('sin modelo elegido cae al del proveedor en lugar de quedarse vacío', () => {
     // Un campo vacío daría un error del proveedor sobre un ajuste que el
     // usuario no sabe que existe; responder con algo es preferible.
-    const target = screenModelFor(
-      settings({ screenProviderId: 'gemini', screenModel: '' })
-    );
-    expect(target.model).toBe('gemini-2.5-flash');
+    const target = screenModelFor(settings({ screenProviderId: 'gemini', screenModel: '' }));
+    expect(target.model).toBe('gemini-3.6-flash');
   });
 
   it('el mismo proveedor puede llevar otro modelo', () => {
@@ -54,7 +52,7 @@ describe('screenModelFor', () => {
         llmProviderId: 'ollama',
         llmModels: {
           claude: 'claude-sonnet-5',
-          gemini: 'gemini-2.5-flash',
+          gemini: 'gemini-3.6-flash',
           openai: 'gpt-5.6-terra',
           deepseek: 'deepseek-v4-flash',
           ollama: 'llama3.2:3b',
@@ -125,9 +123,7 @@ describe('adviseLocalModels', () => {
       expect(advice.vision.model).toBeTruthy();
       expect(advice.caveat).toBeTruthy();
       // El tramo sale como clave con un hueco: la cifra la pone quien pinta.
-      expect(translate('en', advice.tier, { ram: totalMemoryGB })).toContain(
-        String(totalMemoryGB)
-      );
+      expect(translate('en', advice.tier, { ram: totalMemoryGB })).toContain(String(totalMemoryGB));
     }
   });
 

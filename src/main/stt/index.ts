@@ -38,7 +38,7 @@ export async function testSTTConnection(
       if (settings.sttProviderId === 'gemini-audio') {
         return await new GeminiAudioSTT(
           apiKey,
-          settings.llmModels.gemini || 'gemini-2.5-flash',
+          settings.llmModels.gemini || 'gemini-3.6-flash',
           () => ({ systemPrompt: '', history: [] })
         ).testConnection();
       }
@@ -73,9 +73,7 @@ export function createSTTProvider(
     case 'gemini-live': {
       const apiKey = getSecret('google');
       if (!apiKey) {
-        throw new Error(
-          m('err.sttNoKeyGoogleLive')
-        );
+        throw new Error(m('err.sttNoKeyGoogleLive'));
       }
       return new GeminiLiveSTT(apiKey);
     }
@@ -83,25 +81,25 @@ export function createSTTProvider(
     case 'gemini-audio': {
       const apiKey = getSecret('google');
       if (!apiKey) {
-        throw new Error(
-          m('err.sttNoKeyGoogleAudio')
-        );
+        throw new Error(m('err.sttNoKeyGoogleAudio'));
       }
       if (!answerContext) {
         // Sin contexto no hay ni prompt ni memoria: mejor fallar aquí que
         // responder con el system prompt vacío y no entender por qué.
         throw new Error(m('err.sttNoContext'));
       }
-      return new GeminiAudioSTT(apiKey, settings.llmModels.gemini || 'gemini-2.5-flash', answerContext);
+      return new GeminiAudioSTT(
+        apiKey,
+        settings.llmModels.gemini || 'gemini-3.6-flash',
+        answerContext
+      );
     }
 
     case 'openai-live':
     case 'openai-transcribe': {
       const apiKey = getSecret('openai');
       if (!apiKey) {
-        throw new Error(
-          m('err.sttNoKeyOpenaiEngine')
-        );
+        throw new Error(m('err.sttNoKeyOpenaiEngine'));
       }
       return settings.sttProviderId === 'openai-live'
         ? new OpenAILiveSTT(apiKey)

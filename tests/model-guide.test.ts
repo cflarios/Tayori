@@ -59,7 +59,7 @@ describe('renderModelGuide', () => {
     expect(html).toContain('qwen2.5vl:7b');
     expect(html).toContain('multimodal');
     expect(html).toContain('claude-haiku-4-5');
-    expect(html).toContain('gemini-2.5-flash');
+    expect(html).toContain('gemini-3.6-flash');
   });
 
   it('separa el modelo de conversar del de pantalla', () => {

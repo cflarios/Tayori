@@ -1089,7 +1089,7 @@ export const es: Record<UIKey, string> = {
   'guide.priceHaiku45': '1 $ / 5 $ por millón de tokens (entrada / salida)',
   'guide.priceSonnet5': '3 $ / 15 $ (introductorio 2 $ / 10 $ hasta el 31-08-2026)',
   'guide.priceOpus5': '5 $ / 25 $',
-  'guide.priceGemini': 'Consulta ai.google.dev/pricing — suele ser el más barato de la nube',
+  'guide.priceGemini': 'Consulta ai.google.dev/pricing para el precio actual',
   'guide.priceLuna': '0,20 $ / 1,20 $ por millón de tokens (entrada / salida)',
   'guide.priceTerra': '2 $ / 12 $',
   'guide.priceDsFlash': '0,28 $ / 0,28 $ (0,14 $ la entrada ya cacheada)',
@@ -1105,7 +1105,7 @@ export const es: Record<UIKey, string> = {
     'La opción por defecto de esta app, y con razón: lee bien una captura y responde rápido. Si sólo vas a configurar un modelo, éste.',
   'guide.opus5':
     'Para los ejercicios que Sonnet no saca. Cuesta el doble por token y responde más despacio: tiene sentido como modelo SÓLO de pantalla, no para conversar.',
-  'guide.gemini25flash':
+  'guide.gemini36flash':
     'La misma clave sirve para la transcripción con Gemini Live, así que con una sola credencial tienes oído y respuesta. El precio no se reproduce aquí porque no se pudo verificar con la misma fuente que los de Anthropic.',
   'guide.luna':
     'El más barato de toda esta tabla, por un orden de magnitud. Es el modelo de OpenAI para cargas sensibles al precio: la opción obvia si lo que te preocupa es lo que gasta la escucha automática.',
