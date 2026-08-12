@@ -1,4 +1,6 @@
-import { desktopCapturer, screen } from 'electron';
+import { app, desktopCapturer, screen } from 'electron';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { ImageAttachment } from '@shared/types';
 import { aHashFromBitmap } from './frame-hash';
 
@@ -65,15 +67,41 @@ async function acquireScreen(): Promise<Electron.NativeImage | null> {
   return source.thumbnail;
 }
 
+/**
+ * Volcado de depuración, apagado por defecto.
+ *
+ * La app NO persiste medios: las capturas van al modelo y a la miniatura del
+ * overlay, nunca al disco. Pero con `IH_DEBUG_CAPTURES` en el entorno, cada una
+ * se escribe además a `userData/debug-captures` para poder abrirla y juzgar el
+ * recorte y la legibilidad. Es best-effort y fuera del camino crítico: si falla,
+ * la captura sigue yendo al modelo igual. Sólo para desarrollo.
+ */
+async function dumpCapture(jpeg: Buffer, label: string): Promise<void> {
+  if (!process.env.IH_DEBUG_CAPTURES) return;
+  try {
+    const dir = join(app.getPath('userData'), 'debug-captures');
+    await mkdir(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = join(dir, `${stamp}-${label}.jpg`);
+    await writeFile(file, jpeg);
+    console.log(`[debug] captura guardada: ${file}`);
+  } catch (err) {
+    console.warn('[debug] no se pudo guardar la captura:', err);
+  }
+}
+
 /** Reduce a `MAX_WIDTH` si hace falta y comprime a JPEG base64. */
-function toJpegAttachment(thumb: Electron.NativeImage, forCode?: boolean): ImageAttachment {
+function toJpegAttachment(
+  thumb: Electron.NativeImage,
+  forCode?: boolean,
+  label = 'screen'
+): ImageAttachment {
   const resized =
     thumb.getSize().width > MAX_WIDTH ? thumb.resize({ width: MAX_WIDTH, quality: 'good' }) : thumb;
 
-  return {
-    mime: 'image/jpeg',
-    base64: resized.toJPEG(forCode ? CODE_JPEG_QUALITY : JPEG_QUALITY).toString('base64'),
-  };
+  const jpeg = resized.toJPEG(forCode ? CODE_JPEG_QUALITY : JPEG_QUALITY);
+  void dumpCapture(jpeg, label);
+  return { mime: 'image/jpeg', base64: jpeg.toString('base64') };
 }
 
 /**
@@ -102,7 +130,7 @@ export async function captureScreenFrame(
 
   const small = thumb.resize({ width: HASH_SIZE, height: HASH_SIZE, quality: 'good' });
   return {
-    image: toJpegAttachment(thumb, options.forCode),
+    image: toJpegAttachment(thumb, options.forCode, 'frame'),
     hash: aHashFromBitmap(small.toBitmap(), HASH_SIZE, HASH_SIZE),
   };
 }
