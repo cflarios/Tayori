@@ -54,6 +54,7 @@ import { getSystemSpecs } from './system-specs';
 import { mqttBridge } from './bridge/mqtt';
 import { phoneBridge } from './bridge/phone';
 import { installOllama, ollamaInstalled, pullModel, wingetAvailable } from './setup/ollama-install';
+import { parseDocument } from './context-parse';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -263,6 +264,12 @@ function registerIpcHandlers(): void {
     else win.maximize();
   });
   ipcMain.on(IPC.dashboardClose, (e) => BrowserWindow.fromWebContents(e.sender)?.close());
+
+  // Parseo de archivos de contexto (PDF, Word) → texto plano. El renderer manda
+  // los bytes; los .txt/.md ni pasan por aquí (los lee él con FileReader).
+  ipcMain.handle(IPC.contextParseFile, (_e, payload: { name: string; data: ArrayBuffer }) =>
+    parseDocument(payload.name, payload.data)
+  );
 
   // Alto tráfico (un evento por mousemove), así que van por `on` y no `handle`.
   ipcMain.on(IPC.overlayMouseIgnore, (_e, ignore: boolean) => setOverlayMouseIgnore(ignore));

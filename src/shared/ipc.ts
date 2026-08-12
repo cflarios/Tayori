@@ -41,6 +41,16 @@ export const IPC = {
   dashboardToggleMaximize: 'dashboard:toggle-maximize',
   dashboardClose: 'dashboard:close',
 
+  /**
+   * Extrae texto de un archivo de contexto (PDF, Word) en el main.
+   *
+   * El renderer manda los bytes y recibe el texto ya plano. Va al main porque
+   * parsear un PDF o un .docx es trabajo pesado con librerías, y el proyecto
+   * concentra eso en el proceso con Node. El texto plano (.txt/.md) no pasa por
+   * aquí: lo lee el renderer con FileReader.
+   */
+  contextParseFile: 'context:parse-file',
+
   captureStart: 'capture:start',
   captureStop: 'capture:stop',
   captureGetStatus: 'capture:get-status',

@@ -3105,18 +3105,36 @@ const CONTEXT_KIND_KEY: Record<ContextKind, UIKey> = {
  * material llega al modelo. Por debajo siguen siendo packs, así que quien
  * quiera algo distinto lo añade abajo.
  */
+/** Icono de cada tipo de contexto en su tarjeta. */
+const KIND_ICON: Record<ContextKind, IconName> = {
+  cv: 'user',
+  job: 'briefcase',
+  qa: 'message',
+  vocabulary: 'book',
+  notes: 'file',
+};
+
 function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
   const packs = settings.contextPacks;
   const profile = settings.promptProfileId;
   const slots = PROFILE_SLOTS[profile];
 
+  // Qué tarjeta está abierta en el editor: un hueco del perfil (por kind) o un
+  // pack propio (por id). `null` = sólo la cuadrícula.
+  const [sel, setSel] = useState<
+    { type: 'slot'; kind: ContextKind } | { type: 'pack'; id: string } | null
+  >(null);
+
   const write = (next: ContextPack[]): void => void patch({ contextPacks: next });
 
   const update = (id: string, changes: Partial<ContextPack>): void =>
     write(packs.map((p) => (p.id === id ? { ...p, ...changes } : p)));
 
-  const remove = (id: string): void => write(packs.filter((p) => p.id !== id));
+  const remove = (id: string): void => {
+    write(packs.filter((p) => p.id !== id));
+    setSel(null);
+  };
 
   /** El pack de este hueco para el perfil activo, si ya existe. */
   const slotPack = (kind: ContextKind): ContextPack | undefined =>
@@ -3124,7 +3142,8 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
 
   /**
    * Escribe en un hueco, creándolo si hace falta. Se crea al primer carácter y
-   * no al renderizar: si no, abrir el dashboard dejaría packs vacíos sembrados.
+   * no al seleccionarlo: si no, pasear por las tarjetas dejaría packs vacíos
+   * sembrados.
    */
   const writeSlot = (kind: ContextKind, content: string): void => {
     const existing = slotPack(kind);
@@ -3145,11 +3164,12 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
     ]);
   };
 
-  const addOwn = (): void =>
+  const addOwn = (): void => {
+    const id = crypto.randomUUID();
     write([
       ...packs,
       {
-        id: crypto.randomUUID(),
+        id,
         name: t('ctx.newName'),
         content: '',
         enabled: true,
@@ -3159,11 +3179,17 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         profiles: [],
       },
     ]);
+    setSel({ type: 'pack', id });
+  };
 
   // Los que no ocupan un hueco del perfil activo: packs propios del usuario y
   // los de otros perfiles, que conviene poder ver y editar sin cambiar de modo.
   const others = packs.filter((p) => !slots.includes(p.kind) || !p.profiles.includes(profile));
   const activeNow = packsForProfile(packs, profile).filter((p) => p.content.trim());
+  const isActive = (pack?: ContextPack): boolean =>
+    !!pack && activeNow.some((a) => a.id === pack.id);
+
+  const editing = sel?.type === 'pack' ? packs.find((p) => p.id === sel.id) : undefined;
 
   return (
     <section className="card">
@@ -3181,42 +3207,64 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         </span>
       </div>
 
-      {slots.map((kind) => (
-        <ContextSlot
-          key={kind}
-          kind={kind}
-          pack={slotPack(kind)}
-          onChange={(content) => writeSlot(kind, content)}
-          onToggle={(on) => {
-            const existing = slotPack(kind);
-            if (existing) update(existing.id, { enabled: on });
-          }}
-        />
-      ))}
+      <div className="ctxgrid">
+        {slots.map((kind) => (
+          <ContextTile
+            key={kind}
+            icon={KIND_ICON[kind]}
+            name={t(CONTEXT_KIND_KEY[kind])}
+            content={slotPack(kind)?.content}
+            active={isActive(slotPack(kind))}
+            selected={sel?.type === 'slot' && sel.kind === kind}
+            onClick={() => setSel({ type: 'slot', kind })}
+          />
+        ))}
 
-      <div className="ctxbar" style={{ marginTop: 18 }}>
-        <span className="ctxbar__label">{t('ctx.others')}</span>
-        <span className="ctxbar__spacer" />
-        <span className="ctxbar__active">{t('ctx.othersNote')}</span>
+        {others.map((pack) => (
+          <ContextTile
+            key={pack.id}
+            icon={KIND_ICON[pack.kind]}
+            name={pack.name || t('ctx.newName')}
+            kindLabel={t(CONTEXT_KIND_KEY[pack.kind])}
+            content={pack.content}
+            active={isActive(pack)}
+            selected={sel?.type === 'pack' && sel.id === pack.id}
+            onClick={() => setSel({ type: 'pack', id: pack.id })}
+          />
+        ))}
+
+        <button type="button" className="ctxtile ctxtile--add" onClick={addOwn}>
+          <span className="ctxtile__plus">
+            <Icon name="plus" size={20} />
+          </span>
+          <span className="ctxtile__addlabel">{t('ctx.addOwn')}</span>
+        </button>
       </div>
 
-      {others.length === 0 && (
-        <p className="card__hint" style={{ marginBottom: 0 }}>
-          {t('ctx.noOthers')}
-        </p>
+      {sel?.type === 'slot' && (
+        <SlotEditor
+          kind={sel.kind}
+          pack={slotPack(sel.kind)}
+          onChange={(content) => writeSlot(sel.kind, content)}
+          onToggle={(on) => {
+            const existing = slotPack(sel.kind);
+            if (existing) update(existing.id, { enabled: on });
+          }}
+          onClose={() => setSel(null)}
+        />
       )}
 
-      {others.map((pack) => (
-        <div key={pack.id} className="pack">
-          <div className="pack__head">
+      {editing && (
+        <div className="ctxeditor">
+          <div className="ctxeditor__head">
             <input
               type="text"
-              value={pack.name}
-              onChange={(e) => update(pack.id, { name: e.target.value })}
+              value={editing.name}
+              onChange={(e) => update(editing.id, { name: e.target.value })}
             />
             <select
-              value={pack.kind}
-              onChange={(e) => update(pack.id, { kind: e.target.value as ContextKind })}
+              value={editing.kind}
+              onChange={(e) => update(editing.id, { kind: e.target.value as ContextKind })}
             >
               {(Object.keys(CONTEXT_KIND_KEY) as ContextKind[]).map((k) => (
                 <option key={k} value={k}>
@@ -3224,9 +3272,13 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
                 </option>
               ))}
             </select>
-            <Switch on={pack.enabled} onChange={(v) => update(pack.id, { enabled: v })} />
-            <button className="btn btn--danger" onClick={() => remove(pack.id)}>
+            <Switch on={editing.enabled} onChange={(v) => update(editing.id, { enabled: v })} />
+            <span className="ctxbar__spacer" />
+            <button className="btn btn--danger" onClick={() => remove(editing.id)}>
               {t('ctx.remove')}
+            </button>
+            <button className="btn" onClick={() => setSel(null)}>
+              {t('ctx.close')}
             </button>
           </div>
           <div className="pack__profiles">
@@ -3234,12 +3286,12 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
               <label key={p} className="pack__profile">
                 <input
                   type="checkbox"
-                  checked={pack.profiles.includes(p)}
+                  checked={editing.profiles.includes(p)}
                   onChange={(e) =>
-                    update(pack.id, {
+                    update(editing.id, {
                       profiles: e.target.checked
-                        ? [...pack.profiles, p]
-                        : pack.profiles.filter((x) => x !== p),
+                        ? [...editing.profiles, p]
+                        : editing.profiles.filter((x) => x !== p),
                     })
                   }
                 />
@@ -3249,73 +3301,169 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
           </div>
           <textarea
             placeholder={t('ctx.pasteHere')}
-            value={pack.content}
-            onChange={(e) => update(pack.id, { content: e.target.value })}
+            value={editing.content}
+            onChange={(e) => update(editing.id, { content: e.target.value })}
           />
+          <FileDrop onText={(text) => update(editing.id, { content: text })} />
         </div>
-      ))}
-
-      <div className="field">
-        <button className="btn" onClick={addOwn}>
-          {t('ctx.addOwn')}
-        </button>
-      </div>
+      )}
     </section>
   );
 }
 
-/** Un hueco con nombre del perfil activo, con importación de archivo. */
-function ContextSlot({
+/** Una tarjeta de la cuadrícula: un hueco tipado o un pack propio. */
+function ContextTile({
+  icon,
+  name,
+  kindLabel,
+  content,
+  active,
+  selected,
+  onClick,
+}: {
+  icon: IconName;
+  name: string;
+  kindLabel?: string;
+  content: string | undefined;
+  active: boolean;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const t = useT();
+  const text = content?.trim();
+  return (
+    <button
+      type="button"
+      className={`ctxtile${selected ? ' ctxtile--sel' : ''}${active ? ' ctxtile--on' : ''}`}
+      onClick={onClick}
+    >
+      {active && <span className="ctxtile__badge">{t('ctx.badgeInUse')}</span>}
+      <span className="ctxtile__ico">
+        <Icon name={icon} />
+      </span>
+      <span className="ctxtile__name">{name}</span>
+      {kindLabel && <span className="ctxtile__kind">{kindLabel}</span>}
+      <span className={`ctxtile__snip${text ? '' : ' ctxtile__snip--empty'}`}>
+        {text || t('ctx.tileEmpty')}
+      </span>
+    </button>
+  );
+}
+
+/** Editor de un hueco tipado del perfil activo (CV, oferta, Q&A…). */
+function SlotEditor({
   kind,
   pack,
   onChange,
   onToggle,
+  onClose,
 }: {
   kind: ContextKind;
   pack: ContextPack | undefined;
   onChange: (content: string) => void;
   onToggle: (on: boolean) => void;
+  onClose: () => void;
 }) {
   const t = useT();
-  const fileRef = useRef<HTMLInputElement>(null);
   const help = SLOT_HELP[kind];
-
-  // Se lee en el renderer con FileReader: no hace falta cruzar el IPC ni pedirle
-  // al proceso principal acceso al disco para algo que el usuario acaba de
-  // elegir en un diálogo.
-  const importFile = (file: File): void => {
-    const reader = new FileReader();
-    reader.onload = () => onChange(String(reader.result ?? ''));
-    reader.readAsText(file);
-  };
-
   return (
-    <div className="pack">
-      <div className="pack__head">
+    <div className="ctxeditor">
+      <div className="ctxeditor__head">
         <strong className="slot__title">{t(CONTEXT_KIND_KEY[kind])}</strong>
         {pack && <Switch on={pack.enabled} onChange={onToggle} />}
-        <button className="btn" onClick={() => fileRef.current?.click()}>
-          {t('ctx.import')}
+        <span className="ctxbar__spacer" />
+        <button className="btn" onClick={onClose}>
+          {t('ctx.close')}
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".txt,.md,text/plain,text/markdown"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) importFile(file);
-            // Se limpia para que elegir el MISMO archivo otra vez vuelva a
-            // disparar el evento.
-            e.target.value = '';
-          }}
-        />
       </div>
       <p className="slot__hint">{t(help.hint)}</p>
       <textarea
         placeholder={t(help.placeholder)}
         value={pack?.content ?? ''}
         onChange={(e) => onChange(e.target.value)}
+      />
+      <FileDrop onText={onChange} />
+    </div>
+  );
+}
+
+/**
+ * Zona de subida de archivos de contexto.
+ *
+ * El texto plano —`.txt`/`.md`— se lee aquí mismo con FileReader, sin cruzar el
+ * IPC. El PDF y el Word (`.docx`) van al main a parsear (`context.parseFile`),
+ * que es donde viven las librerías pesadas; mientras tanto se enseña «Leyendo…»
+ * y, si el archivo no se deja leer —un PDF sin texto, un escaneo, algo
+ * corrupto—, un aviso en rojo en vez de tragárselo en silencio.
+ */
+function FileDrop({ onText }: { onText: (text: string) => void }) {
+  const t = useT();
+  const ref = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const read = async (file: File): Promise<void> => {
+    setError(null);
+    const ext = file.name.toLowerCase().split('.').pop();
+    // PDF y Word: los parsea el main. El resto (.txt/.md) es texto plano y lo
+    // lee el propio renderer.
+    if (ext === 'pdf' || ext === 'docx') {
+      setBusy(true);
+      try {
+        const result = await window.api.context.parseFile(file.name, await file.arrayBuffer());
+        if (result.ok) onText(result.text);
+        else setError(t('ctx.parseFailed'));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => onText(String(reader.result ?? ''));
+    reader.readAsText(file);
+  };
+
+  return (
+    <div
+      className={`ctxdrop${over ? ' ctxdrop--over' : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => ref.current?.click()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') ref.current?.click();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) void read(file);
+      }}
+    >
+      <span className="ctxdrop__ico">
+        <Icon name="upload" size={22} />
+      </span>
+      <span className="ctxdrop__t1">{busy ? t('ctx.parsing') : t('ctx.dropHint')}</span>
+      <span className={`ctxdrop__t2${error ? ' ctxdrop__t2--err' : ''}`}>
+        {error ?? t('ctx.import')}
+      </span>
+      <input
+        ref={ref}
+        type="file"
+        accept=".txt,.md,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void read(file);
+          // Se limpia para que elegir el MISMO archivo otra vez vuelva a
+          // disparar el evento.
+          e.target.value = '';
+        }}
       />
     </div>
   );

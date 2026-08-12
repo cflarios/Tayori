@@ -1090,6 +1090,200 @@ button.btn--primary:hover:not(:disabled) {
   cursor: pointer;
 }
 
+/* ── Contexto: cuadrícula de tarjetas ── */
+
+.ctxgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ctxtile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 118px;
+  padding: 14px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.ctxtile:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* En uso para el perfil activo: un realce tenue en azul de acento. */
+.ctxtile--on {
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+/* Abierta en el editor de abajo: el acento a plena intensidad. */
+.ctxtile--sel {
+  border-color: var(--accent);
+}
+
+.ctxtile__badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ok);
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.ctxtile__ico {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: rgba(96, 165, 250, 0.14);
+  border-radius: 7px;
+}
+
+.ctxtile__name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ctxtile__kind {
+  margin-top: 1px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ctxtile__snip {
+  margin-top: 8px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ctxtile__snip--empty {
+  color: #5f6368;
+  font-style: italic;
+}
+
+.ctxtile--add {
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-dim);
+}
+
+.ctxtile--add:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.ctxtile__plus {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.ctxtile__addlabel {
+  font-size: 12px;
+}
+
+/* ── Contexto: editor de la tarjeta abierta ── */
+
+.ctxeditor {
+  margin-top: 14px;
+  padding: 16px;
+  background: var(--bg-nav);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.ctxeditor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ctxeditor__head input[type='text'] {
+  flex: 1;
+  min-width: 140px;
+}
+
+.ctxdrop {
+  margin-top: 10px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.ctxdrop:hover,
+.ctxdrop--over {
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.05);
+}
+
+.ctxdrop__ico {
+  width: 38px;
+  height: 38px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  background: var(--surface-2);
+  border-radius: 9px;
+}
+
+.ctxdrop__t1 {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.ctxdrop__t2 {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.ctxdrop__t2--err {
+  color: var(--danger);
+}
+
 /* ── Deslizadores (opacidad, tamaño de texto) ── */
 
 .slider {

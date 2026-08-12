@@ -129,6 +129,18 @@ const api = {
     write: (text: string): Promise<void> => ipcRenderer.invoke(IPC.clipboardWrite, text),
   },
 
+  /**
+   * Contexto: extrae texto de un archivo (PDF, Word) en el main. Los .txt/.md
+   * los lee el renderer con FileReader y no llegan aquí.
+   */
+  context: {
+    parseFile: (
+      name: string,
+      data: ArrayBuffer
+    ): Promise<{ ok: true; text: string } | { ok: false; error: string }> =>
+      ipcRenderer.invoke(IPC.contextParseFile, { name, data }),
+  },
+
   /** Avisos que no vienen del audio (fallo de captura de pantalla, etc.). */
   notices: {
     on: (cb: (message: string) => void) => subscribe<string>(IPC.onNotice, cb),

@@ -114,7 +114,8 @@ export const es: Record<UIKey, string> = {
   'overlay.suggestion': 'Sugerencia',
   'overlay.answeringWith': 'Respondiendo con {model}',
   'overlay.generatedBy': 'Esta respuesta la generó {provider} · {model}',
-  'overlay.emptyIdle': 'Ctrl+Enter para pedir una respuesta · Ctrl+Alt+C para resolver la pantalla.',
+  'overlay.emptyIdle':
+    'Ctrl+Enter para pedir una respuesta · Ctrl+Alt+C para resolver la pantalla.',
   'overlay.emptyStopped':
     'Pulsa «Escuchar» para que siga la conversación, o Ctrl+Alt+C para resolver lo que tengas en pantalla.',
   'overlay.footAsk': 'preguntar',
@@ -152,7 +153,8 @@ export const es: Record<UIKey, string> = {
     'Revisa tus respuestas anteriores. Di sólo las que cambiarías y por cuál.',
 
   'mqtt.password': 'Contraseña del broker',
-  'mqtt.passwordHint': 'Se guarda cifrada con DPAPI, igual que las API keys, y no vuelve a mostrarse.',
+  'mqtt.passwordHint':
+    'Se guarda cifrada con DPAPI, igual que las API keys, y no vuelve a mostrarse.',
   'mqtt.passwordPlaceholder': 'Pega la contraseña del broker',
 
   // ───────────────────── Ajustes · modelo ─────────────────────
@@ -180,13 +182,15 @@ export const es: Record<UIKey, string> = {
   'screen.title': 'Modelo para la pantalla',
   'screen.hint':
     'El que resuelve `Ctrl+Alt+C` (código) y `Ctrl+Alt+Q` (tests). Puede ser distinto del que responde a lo que se habla: aquello pide rapidez, y esto pide leer bien una captura. **Tiene que admitir imágenes.**',
-  'screen.providerDesc': '«El mismo» usa el modelo de respuestas de arriba, que es como funcionaba antes.',
+  'screen.providerDesc':
+    '«El mismo» usa el modelo de respuestas de arriba, que es como funcionaba antes.',
   'screen.same': 'El mismo que para responder',
   'screen.claude': 'Claude (nube)',
   'screen.gemini': 'Gemini (nube)',
   'screen.openai': 'ChatGPT (nube)',
   'screen.ollama': 'Ollama (local)',
-  'screen.noModels': 'Sin modelos disponibles. Si es Ollama, comprueba que el servidor está corriendo.',
+  'screen.noModels':
+    'Sin modelos disponibles. Si es Ollama, comprueba que el servidor está corriendo.',
   'screen.visionOnly': 'Sólo los que admiten imágenes pueden leer tu pantalla.',
   'screen.visionOnlyCloud':
     'Sólo los que admiten imágenes pueden leer tu pantalla. Si tu cuenta tiene acceso a otro modelo, elige «Otro…» y escribe su id.',
@@ -325,9 +329,6 @@ export const es: Record<UIKey, string> = {
   'ctx.preparingFor': 'Preparando para',
   'ctx.inUse': '{count} en uso: {names}',
   'ctx.nothingActive': 'nada activo todavía',
-  'ctx.others': 'Otros contextos',
-  'ctx.othersNote': 'Sin perfil marcado, se aplican siempre',
-  'ctx.noOthers': 'Ninguno. Los huecos de arriba cubren lo habitual.',
   'ctx.remove': 'Quitar',
   'ctx.addOwn': 'Añadir contexto propio',
   'ctx.pasteHere': 'Pega aquí el texto…',
@@ -372,10 +373,17 @@ export const es: Record<UIKey, string> = {
   'sk.activeDesc': 'Manda sobre el tono y las palabras. El formato lo sigue decidiendo el perfil.',
   'sk.noneDesc': 'Sin ninguna puesta, el modelo responde como siempre.',
   'sk.none': 'Ninguna',
-  'sk.empty': 'No hay ninguna skill todavía. Crea una carpeta con un `SKILL.md` dentro y pulsa «Recargar».',
+  'sk.empty':
+    'No hay ninguna skill todavía. Crea una carpeta con un `SKILL.md` dentro y pulsa «Recargar».',
   'sk.builtIn': 'De serie',
   'sk.noDescription': 'Sin description en el frontmatter.',
-  'ctx.import': 'Importar .txt / .md',
+  'ctx.import': 'PDF · Word · Markdown · texto',
+  'ctx.badgeInUse': 'En uso',
+  'ctx.tileEmpty': 'Vacío — pega o importa el texto',
+  'ctx.dropHint': 'Arrastra o haz clic para subir',
+  'ctx.close': 'Cerrar',
+  'ctx.parsing': 'Leyendo…',
+  'ctx.parseFailed': 'No se pudo leer el archivo',
 
   // ───────────────────── Ajustes · historial ─────────────────────
   'hist.save': 'Guardar conversaciones',
@@ -476,8 +484,7 @@ export const es: Record<UIKey, string> = {
   // ───────────────────── Ajustes · MQTT ─────────────────────
   'mq.publish': 'Publicar en un broker',
   'mq.brokerTitle': 'Broker',
-  'mq.brokerHint':
-    'El esquema decide el cifrado: `mqtt://` va en claro y `mqtts://` cifrado.',
+  'mq.brokerHint': 'El esquema decide el cifrado: `mqtt://` va en claro y `mqtts://` cifrado.',
   'mq.address': 'Dirección',
   'mq.addressDesc': 'Incluye el puerto: 1883 en claro, 8883 con TLS.',
   'mq.topic': 'Tema',
@@ -558,37 +565,48 @@ export const es: Record<UIKey, string> = {
     'Dos fuentes independientes: tu micrófono y la salida del sistema. Mantenerlas separadas es lo que permite distinguir quién habla sin diarización.',
 
   // ───────────────────── Errores del proceso principal ─────────────────────
-  'err.noKeyAnthropic': 'Falta la API key de Anthropic. Configúrala en el dashboard o cambia de proveedor.',
-  'err.noKeyGoogle': 'Falta la API key de Google. Configúrala en el dashboard o cambia de proveedor.',
-  'err.noKeyOpenai': 'Falta la API key de OpenAI. Configúrala en el dashboard o cambia de proveedor.',
-  'err.noKeyDeepseek': 'Falta la API key de DeepSeek. Configúrala en el dashboard o cambia de proveedor.',
+  'err.noKeyAnthropic':
+    'Falta la API key de Anthropic. Configúrala en el dashboard o cambia de proveedor.',
+  'err.noKeyGoogle':
+    'Falta la API key de Google. Configúrala en el dashboard o cambia de proveedor.',
+  'err.noKeyOpenai':
+    'Falta la API key de OpenAI. Configúrala en el dashboard o cambia de proveedor.',
+  'err.noKeyDeepseek':
+    'Falta la API key de DeepSeek. Configúrala en el dashboard o cambia de proveedor.',
   'err.badKeyAnthropic': 'La API key de Anthropic no es válida.',
   'err.badKeyGoogle': 'La API key de Google no es válida.',
   'err.badKeyOpenai': 'La API key de OpenAI no es válida.',
   'err.badKeyDeepseek': 'La API key de DeepSeek no es válida.',
   'err.rateAnthropic': 'Límite de peticiones de Anthropic alcanzado.',
   'err.rateGoogle': 'Cuota de Gemini agotada o límite de peticiones alcanzado.',
-  'err.rateOpenai': 'Límite de peticiones de OpenAI alcanzado, o tu cuenta se ha quedado sin saldo.',
-  'err.rateDeepseek': 'Límite de peticiones de DeepSeek alcanzado, o la cuenta se ha quedado sin saldo.',
-  'err.noModel': 'El modelo indicado no existe o tu cuenta no tiene acceso. Elige otro en el dashboard.',
+  'err.rateOpenai':
+    'Límite de peticiones de OpenAI alcanzado, o tu cuenta se ha quedado sin saldo.',
+  'err.rateDeepseek':
+    'Límite de peticiones de DeepSeek alcanzado, o la cuenta se ha quedado sin saldo.',
+  'err.noModel':
+    'El modelo indicado no existe o tu cuenta no tiene acceso. Elige otro en el dashboard.',
   'err.noModelGemini': 'El modelo de Gemini indicado no existe o no tienes acceso.',
   'err.noModelDeepseek': 'El modelo indicado no existe en DeepSeek. Elige otro en el dashboard.',
-  'err.noAccessOpenai': 'Tu cuenta de OpenAI no tiene acceso a este modelo. Elige otro en el dashboard.',
+  'err.noAccessOpenai':
+    'Tu cuenta de OpenAI no tiene acceso a este modelo. Elige otro en el dashboard.',
   'err.offlineAnthropic': 'Sin conexión con la API de Anthropic.',
   'err.offlineOpenai': 'Sin conexión con la API de OpenAI.',
   'err.offlineDeepseek': 'Sin conexión con la API de DeepSeek.',
-  'err.refusedClaude': 'Claude declinó responder a este contenido. Prueba con otro proveedor o reformula la pregunta.',
+  'err.refusedClaude':
+    'Claude declinó responder a este contenido. Prueba con otro proveedor o reformula la pregunta.',
   'err.refusedOpenai': 'OpenAI declinó responder a este contenido: {detail}',
   'err.apiError': 'Error de {provider} ({status}): {message}',
   'err.geminiError': 'Error de Gemini: {message}',
   'err.unknownProvider': 'Proveedor desconocido: {id}',
   'err.noOllamaModel': 'No hay ningún modelo de Ollama seleccionado. Elige uno en el dashboard.',
-  'err.ollamaOffline': 'No se pudo conectar con Ollama. Comprueba que esté corriendo (ollama serve).',
+  'err.ollamaOffline':
+    'No se pudo conectar con Ollama. Comprueba que esté corriendo (ollama serve).',
   'err.ollamaError': 'Error de Ollama: {message}',
   'err.ollamaTimeout': 'Ollama no respondió a tiempo.',
   'err.ollamaNotFound': 'No se encontró ningún servidor de Ollama escuchando.',
   'err.ollamaHttp': 'Ollama respondió HTTP {status}.',
-  'err.ollamaNoModels': 'Ollama responde pero no tiene modelos. Descarga uno con: ollama pull llama3.2',
+  'err.ollamaNoModels':
+    'Ollama responde pero no tiene modelos. Descarga uno con: ollama pull llama3.2',
   'err.budgetOllama':
     '"{model}" gastó todo su presupuesto razonando y no llegó a escribir la respuesta. Es un modelo de razonamiento sobre un problema demasiado grande: elige uno sin "thinking" en el dashboard → Modelo para la pantalla, o recorta la captura a lo que hay que resolver.',
   'err.budgetOpenai':
@@ -649,7 +667,8 @@ export const es: Record<UIKey, string> = {
   'wiz.claudeNote': 'La mejor calidad de respuesta y de lectura de pantalla.',
   'wiz.geminiNote': 'Más barato, y la misma clave sirve para transcribir en directo.',
   'wiz.openaiNote': 'Si ya pagas OpenAI. Responde y también transcribe.',
-  'wiz.deepseekNote': 'El más barato con diferencia. No lee imágenes, así que la pantalla pide otro.',
+  'wiz.deepseekNote':
+    'El más barato con diferencia. No lee imágenes, así que la pantalla pide otro.',
   'wiz.apiKey': 'API key',
   'wiz.alreadyHave': 'ya tienes una',
   'wiz.keepExisting': 'Déjalo vacío para usar la que ya guardaste',
@@ -777,21 +796,27 @@ export const es: Record<UIKey, string> = {
   'sec.audio': 'Audio',
   'sec.audioHint': 'Qué se escucha, y la comprobación de que las dos fuentes llegan por separado.',
   'sec.phone': 'Espejo en el móvil',
-  'sec.phoneHint': 'Manda las respuestas al navegador de tu teléfono. Sirve para lo que el modo invisible no puede cubrir: cuando compartes la pantalla entera, lo que está en tu monitor está al otro lado.',
+  'sec.phoneHint':
+    'Manda las respuestas al navegador de tu teléfono. Sirve para lo que el modo invisible no puede cubrir: cuando compartes la pantalla entera, lo que está en tu monitor está al otro lado.',
   'sec.mqtt': 'MQTT',
-  'sec.mqttHint': 'Publica cada respuesta terminada en un broker, para que la recoja otra cosa: un ESP32, un script, lo que montes.',
+  'sec.mqttHint':
+    'Publica cada respuesta terminada en un broker, para que la recoja otra cosa: un ESP32, un script, lo que montes.',
   'sec.models': 'Modelos de IA',
   'sec.modelsHint': 'Las claves, quién genera las respuestas y quién lee tu pantalla.',
   'sec.transcription': 'Transcripción',
-  'sec.transcriptionHint': 'Los motores de nube transcriben en ~300 ms pero envían el audio a su proveedor. Whisper local no sale de tu máquina, a cambio de ~1–2 s de latencia.',
+  'sec.transcriptionHint':
+    'Los motores de nube transcriben en ~300 ms pero envían el audio a su proveedor. Whisper local no sale de tu máquina, a cambio de ~1–2 s de latencia.',
   'sec.behaviour': 'Comportamiento',
   'sec.behaviourHint': 'Cuándo responde el asistente y con cuánto contexto.',
   'sec.context': 'Contexto',
-  'sec.contextHint': 'Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de parafrasearse.',
+  'sec.contextHint':
+    'Lo que preparas aquí es lo que separa una respuesta genérica de una tuya. Cada tipo se le explica al modelo de forma distinta, así que una respuesta preparada se reutiliza en vez de parafrasearse.',
   'sec.skills': 'Skills',
-  'sec.skillsHint': 'Instrucciones locales en formato SKILL.md que refinan CÓMO responde el modelo: el tono y las palabras, no el formato. Se activan aquí o escribiendo /nombre en la pestaña de escritura.',
+  'sec.skillsHint':
+    'Instrucciones locales en formato SKILL.md que refinan CÓMO responde el modelo: el tono y las palabras, no el formato. Se activan aquí o escribiendo /nombre en la pestaña de escritura.',
   'sec.history': 'Historial',
-  'sec.historyHint': 'Se guarda en tu máquina, en texto plano, y no se envía a ningún sitio. Incluye la transcripción completa: lo que dijo la otra persona, no sólo lo que preguntaste tú.',
+  'sec.historyHint':
+    'Se guarda en tu máquina, en texto plano, y no se envía a ningún sitio. Incluye la transcripción completa: lo que dijo la otra persona, no sólo lo que preguntaste tú.',
   'sec.hotkeys': 'Atajos',
   'sec.hotkeysHint':
     'Son **globales**: funcionan con el foco en la videollamada, y por eso se los quitan a la aplicación que lo tenga. Pulsa un campo y teclea la combinación que quieras.',
@@ -938,7 +963,8 @@ export const es: Record<UIKey, string> = {
   'err.noScreenshot': 'No se pudo capturar la pantalla, así que no hay nada que resolver.',
   'err.whisperNoBinary':
     'El ejecutable de Whisper no está instalado. Descárgalo desde el dashboard (7,6 MB).',
-  'err.whisperNoModel': 'El modelo de Whisper "{model}" no está descargado. Hazlo desde el dashboard.',
+  'err.whisperNoModel':
+    'El modelo de Whisper "{model}" no está descargado. Hazlo desde el dashboard.',
   'err.geminiLiveNoModel':
     'Ningún modelo de Gemini Live está disponible para esta API key.\n{failures}',
   'err.openaiStreamFailed': 'Error de OpenAI: {message}',
@@ -1052,7 +1078,8 @@ export const es: Record<UIKey, string> = {
   'guide.qwen7b': 'Mejor en preguntas técnicas que llama3.2:3b, a cambio de latencia.',
   'guide.llama8b': 'El caballo de batalla. Buen equilibrio si hay GPU que lo sostenga.',
   'guide.qwen14b': 'Calidad alta. Sin GPU dedicada, demasiado lento para conversar.',
-  'guide.moondream': 'Visión mínima. Describe una pantalla; no lee un enunciado largo con fiabilidad.',
+  'guide.moondream':
+    'Visión mínima. Describe una pantalla; no lee un enunciado largo con fiabilidad.',
   'guide.qwenvl3b': 'El multimodal pequeño que mejor lee texto de pantalla.',
   'guide.gemma3': 'Multimodal de propósito general. Alternativa si qwen2.5vl no convence.',
   'guide.qwenvl7b': 'El punto dulce para las acciones de pantalla en local.',

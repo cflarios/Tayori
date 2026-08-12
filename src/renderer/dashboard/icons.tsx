@@ -97,7 +97,9 @@ const PATHS = {
     </>
   ),
   activity: <path d="M3 12h4l3-8 4 16 3-8h4" />,
-  cloud: <path d="M7 18.5a4.2 4.2 0 0 1 .5-8.37 5.6 5.6 0 0 1 10.7 1.55A3.7 3.7 0 0 1 17.8 18.5z" />,
+  cloud: (
+    <path d="M7 18.5a4.2 4.2 0 0 1 .5-8.37 5.6 5.6 0 0 1 10.7 1.55A3.7 3.7 0 0 1 17.8 18.5z" />
+  ),
   broadcast: (
     <>
       <circle cx="12" cy="12" r="2.4" />
@@ -223,6 +225,37 @@ const PATHS = {
       <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
       <path d="M3.5 4.5V9H8" />
       <path d="M12 8v4.3l3 1.8" />
+    </>
+  ),
+
+  /* ── Contexto ── */
+  user: (
+    <>
+      <circle cx="12" cy="8" r="3.4" />
+      <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+    </>
+  ),
+  briefcase: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7" />
+      <line x1="3" y1="12.5" x2="21" y2="12.5" />
+    </>
+  ),
+  message: (
+    <path d="M4 4h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+  ),
+  plus: (
+    <>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </>
+  ),
+  upload: (
+    <>
+      <path d="M12 15V4" />
+      <path d="M8 8l4-4 4 4" />
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
     </>
   ),
 } satisfies Record<string, React.ReactNode>;

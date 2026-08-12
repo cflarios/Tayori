@@ -199,7 +199,8 @@ export const en = {
   'screen.title': 'Screen model',
   'screen.hint':
     'The one that solves `Ctrl+Alt+C` (code) and `Ctrl+Alt+Q` (quizzes). It can be different from the one that answers what is being said: that one needs speed, this one needs to read a screenshot properly. **It has to accept images.**',
-  'screen.providerDesc': '«The same one» uses the answering model above, which is how it worked before.',
+  'screen.providerDesc':
+    '«The same one» uses the answering model above, which is how it worked before.',
   'screen.same': 'The same one that answers',
   'screen.claude': 'Claude (cloud)',
   'screen.gemini': 'Gemini (cloud)',
@@ -223,8 +224,7 @@ export const en = {
   'gen.clickThrough': 'Click-through',
   'gen.clickThroughDesc':
     'The overlay ignores the mouse and clicks reach the window underneath. Recommended during a call.',
-  'gen.stealthWarn':
-    'Stealth mode is off: the overlay **will** show up if you share your screen.',
+  'gen.stealthWarn': 'Stealth mode is off: the overlay **will** show up if you share your screen.',
   'gen.lookTitle': 'Overlay appearance',
   'gen.lookHint':
     'How the floating panel looks. It applies immediately, so it is worth adjusting with the overlay in sight.',
@@ -263,7 +263,8 @@ export const en = {
   'stt.geminiAudioNote':
     'The audio goes **straight to the model**, without passing through a recogniser. A bad transcription can no longer spoil the answer, because the model hears your voice instead of reading what somebody else understood. It uses the Gemini model you pick above, and the question detector stays out of it: the model itself decides whether what you said asked for an answer.',
   'stt.language': 'Language',
-  'stt.languageDesc': 'Automatic detects the language; fixing it improves accuracy when you get it right.',
+  'stt.languageDesc':
+    'Automatic detects the language; fixing it improves accuracy when you get it right.',
   'stt.auto': 'Automatic',
   'stt.langEs': 'Spanish',
   'stt.langEn': 'English',
@@ -344,9 +345,6 @@ export const en = {
   'ctx.preparingFor': 'Preparing for',
   'ctx.inUse': '{count} in use: {names}',
   'ctx.nothingActive': 'nothing active yet',
-  'ctx.others': 'Other contexts',
-  'ctx.othersNote': 'With no profile ticked, they always apply',
-  'ctx.noOthers': 'None. The slots above cover the usual cases.',
   'ctx.remove': 'Remove',
   'ctx.addOwn': 'Add your own context',
   'ctx.pasteHere': 'Paste the text here…',
@@ -394,7 +392,13 @@ export const en = {
   'sk.empty': 'No skills yet. Create a folder with a `SKILL.md` inside and press «Reload».',
   'sk.builtIn': 'Built-in',
   'sk.noDescription': 'No description in the frontmatter.',
-  'ctx.import': 'Import .txt / .md',
+  'ctx.import': 'PDF · Word · Markdown · text',
+  'ctx.badgeInUse': 'In use',
+  'ctx.tileEmpty': 'Empty — paste or import the text',
+  'ctx.dropHint': 'Drag or click to upload',
+  'ctx.close': 'Close',
+  'ctx.parsing': 'Reading…',
+  'ctx.parseFailed': "Couldn't read that file",
 
   // ───────────────────── Ajustes · historial ─────────────────────
   'hist.save': 'Save conversations',
@@ -422,7 +426,8 @@ export const en = {
   'hk.teleprompterNext': 'Teleprompter: next line',
   'hk.teleprompterPrev': 'Teleprompter: previous line',
   'hk.reset': 'Reset',
-  'hk.resetDesc': 'Puts every shortcut back to its factory combination, and turns them all back on.',
+  'hk.resetDesc':
+    'Puts every shortcut back to its factory combination, and turns them all back on.',
   'hk.resetButton': 'Default values',
   'hk.askNow': 'Answer now',
   'hk.screenshotAndAsk': 'Capture the screen and answer',
@@ -454,7 +459,8 @@ export const en = {
   'about.license': 'License',
   'about.licenseDesc': 'Open source, no monetisation.',
   'about.dataTitle': 'What it does with what it hears',
-  'about.dataHint': 'This is what is worth being clear about before leaving it listening to something important.',
+  'about.dataHint':
+    'This is what is worth being clear about before leaving it listening to something important.',
   'about.audio':
     '**Audio never touches the disk.** The chunks go to the transcription engine and are dropped on the spot. There are no audio files, not even temporary ones.',
   'about.text':
@@ -579,10 +585,12 @@ export const en = {
   // ───────────────────── Errores del proceso principal ─────────────────────
   // Se leen en el OVERLAY, así que van traducidos: sin esto, la app entera en
   // inglés soltaba un «Falta la API key de Anthropic» en cuanto algo fallaba.
-  'err.noKeyAnthropic': 'The Anthropic API key is missing. Set it in the dashboard or switch provider.',
+  'err.noKeyAnthropic':
+    'The Anthropic API key is missing. Set it in the dashboard or switch provider.',
   'err.noKeyGoogle': 'The Google API key is missing. Set it in the dashboard or switch provider.',
   'err.noKeyOpenai': 'The OpenAI API key is missing. Set it in the dashboard or switch provider.',
-  'err.noKeyDeepseek': 'The DeepSeek API key is missing. Set it in the dashboard or switch provider.',
+  'err.noKeyDeepseek':
+    'The DeepSeek API key is missing. Set it in the dashboard or switch provider.',
   'err.badKeyAnthropic': 'The Anthropic API key is not valid.',
   'err.badKeyGoogle': 'The Google API key is not valid.',
   'err.badKeyOpenai': 'The OpenAI API key is not valid.',
@@ -591,14 +599,18 @@ export const en = {
   'err.rateGoogle': 'Gemini quota exhausted or rate limit reached.',
   'err.rateOpenai': 'OpenAI rate limit reached, or your account has run out of credit.',
   'err.rateDeepseek': 'DeepSeek rate limit reached, or the account has run out of credit.',
-  'err.noModel': 'The model does not exist or your account has no access. Pick another one in the dashboard.',
+  'err.noModel':
+    'The model does not exist or your account has no access. Pick another one in the dashboard.',
   'err.noModelGemini': 'That Gemini model does not exist or you have no access.',
-  'err.noModelDeepseek': 'That model does not exist in DeepSeek. Pick another one in the dashboard.',
-  'err.noAccessOpenai': 'Your OpenAI account has no access to this model. Pick another one in the dashboard.',
+  'err.noModelDeepseek':
+    'That model does not exist in DeepSeek. Pick another one in the dashboard.',
+  'err.noAccessOpenai':
+    'Your OpenAI account has no access to this model. Pick another one in the dashboard.',
   'err.offlineAnthropic': 'No connection to the Anthropic API.',
   'err.offlineOpenai': 'No connection to the OpenAI API.',
   'err.offlineDeepseek': 'No connection to the DeepSeek API.',
-  'err.refusedClaude': 'Claude declined to answer this content. Try another provider or rephrase the question.',
+  'err.refusedClaude':
+    'Claude declined to answer this content. Try another provider or rephrase the question.',
   'err.refusedOpenai': 'OpenAI declined to answer this content: {detail}',
   'err.apiError': '{provider} error ({status}): {message}',
   'err.geminiError': 'Gemini error: {message}',
@@ -670,7 +682,8 @@ export const en = {
   'wiz.claudeNote': 'The best answer quality and screen reading.',
   'wiz.geminiNote': 'Cheaper, and the same key works for live transcription.',
   'wiz.openaiNote': 'If you already pay for OpenAI. It answers and also transcribes.',
-  'wiz.deepseekNote': 'The cheapest by far. It does not read images, so the screen needs another one.',
+  'wiz.deepseekNote':
+    'The cheapest by far. It does not read images, so the screen needs another one.',
   'wiz.apiKey': 'API key',
   'wiz.alreadyHave': 'you already have one',
   'wiz.keepExisting': 'Leave it empty to use the one you already saved',
@@ -722,8 +735,10 @@ export const en = {
     'Just as fast. It uses the Google key you already set; the audio is sent to Google.',
   'wiz.geminiLiveNoKey': 'It needs a Google key, and you have not set one.',
   'wiz.whisperTitle': 'Whisper local · ~1–2 s',
-  'wiz.whisperReady': 'Already installed. It works offline and your voice does not leave the machine.',
-  'wiz.whisperNew': 'Your voice does not leave the machine. About 150 MB have to be downloaded once.',
+  'wiz.whisperReady':
+    'Already installed. It works offline and your voice does not leave the machine.',
+  'wiz.whisperNew':
+    'Your voice does not leave the machine. About 150 MB have to be downloaded once.',
   'wiz.noSttKey':
     'There is no key that can transcribe. Go back and set the OpenAI or the Google one, or use **Whisper local** from the dashboard: it works without any key.',
   'wiz.geminiLiveStuck':
@@ -794,37 +809,45 @@ export const en = {
 
   // ───────────────────── Ajustes · secciones ─────────────────────
   'sec.general': 'General',
-  'sec.generalHint': 'Whether the overlay shows up when you share your screen, and how it looks meanwhile.',
+  'sec.generalHint':
+    'Whether the overlay shows up when you share your screen, and how it looks meanwhile.',
   'sec.audio': 'Audio',
   'sec.audioHint': 'What it listens to, and the check that both sources arrive separately.',
   'sec.phone': 'Phone mirror',
-  'sec.phoneHint': "Sends the answers to your phone's browser. It covers what stealth mode cannot: when you share your whole screen, whatever is on your monitor is on the other side too.",
+  'sec.phoneHint':
+    "Sends the answers to your phone's browser. It covers what stealth mode cannot: when you share your whole screen, whatever is on your monitor is on the other side too.",
   'sec.mqtt': 'MQTT',
-  'sec.mqttHint': 'Publishes every finished answer to a broker so something else can pick it up: an ESP32, a script, whatever you build.',
+  'sec.mqttHint':
+    'Publishes every finished answer to a broker so something else can pick it up: an ESP32, a script, whatever you build.',
   'sec.models': 'AI models',
   'sec.modelsHint': 'The keys, who writes the answers and who reads your screen.',
   'sec.transcription': 'Transcription',
-  'sec.transcriptionHint': 'Cloud engines transcribe in ~300 ms but send the audio to their provider. Whisper local never leaves your machine, in exchange for ~1–2 s of latency.',
+  'sec.transcriptionHint':
+    'Cloud engines transcribe in ~300 ms but send the audio to their provider. Whisper local never leaves your machine, in exchange for ~1–2 s of latency.',
   'sec.behaviour': 'Behaviour',
   'sec.behaviourHint': 'When the assistant answers, and with how much context.',
   'sec.context': 'Context',
-  'sec.contextHint': 'What you prepare here is what separates a generic answer from one of yours. Each kind is explained to the model differently, so a prepared answer gets reused instead of paraphrased.',
+  'sec.contextHint':
+    'What you prepare here is what separates a generic answer from one of yours. Each kind is explained to the model differently, so a prepared answer gets reused instead of paraphrased.',
   'sec.skills': 'Skills',
-  'sec.skillsHint': 'Local SKILL.md instructions that refine HOW the model answers: the tone and the words, not the format. You turn them on here or by typing /name in the write tab.',
+  'sec.skillsHint':
+    'Local SKILL.md instructions that refine HOW the model answers: the tone and the words, not the format. You turn them on here or by typing /name in the write tab.',
   'sec.history': 'History',
-  'sec.historyHint': 'Stored on your machine, in plain text, and never sent anywhere. It includes the full transcript: what the other person said, not just what you asked.',
+  'sec.historyHint':
+    'Stored on your machine, in plain text, and never sent anywhere. It includes the full transcript: what the other person said, not just what you asked.',
   'sec.hotkeys': 'Shortcuts',
   'sec.hotkeysHint':
     'They are **global**: they work with the video call focused, which is exactly why they take the shortcut away from whatever app has focus. Click a field and type the combination you want.',
   'sec.diagnostics': 'Diagnostics',
-  'sec.diagnosticsHint': 'If something is not working, this is what to look at before anything else.',
+  'sec.diagnosticsHint':
+    'If something is not working, this is what to look at before anything else.',
   'sec.about': 'About',
   'sec.aboutHint': 'What Tayori is, which version you have and what it does with your data.',
 
   // ────────────────────────────── Ajustes ──────────────────────────────
   'dash.language': 'Language',
   'dash.languageDesc':
-    "The interface language. It has nothing to do with the language you speak in the meeting — that one is set under Transcription.",
+    'The interface language. It has nothing to do with the language you speak in the meeting — that one is set under Transcription.',
 
   // ───────────────────── Dashboard · rótulos sueltos ─────────────────────
   'nav.eyebrow': 'Settings',
@@ -841,7 +864,8 @@ export const en = {
   // ───────────────────── Ajustes · atajos ─────────────────────
   'hk.needsModifier':
     'A global shortcut needs at least Ctrl, Alt or Shift: without a modifier, that key would stop working everywhere in the system.',
-  'hk.taken': 'Windows rejected this shortcut: another application already has it. Pick a different one.',
+  'hk.taken':
+    'Windows rejected this shortcut: another application already has it. Pick a different one.',
   'hk.duplicated': 'Repeated: two actions on the same shortcut means only one of them works.',
   'hk.pressCombo': 'Press the combination…',
   'hk.unassigned': 'Unassigned',
@@ -895,7 +919,8 @@ export const en = {
     'The broker refused the connection. Check the address, and that it is listening on that port.',
   'mq.errNoHost': 'That host was not found. Check the broker address.',
   'mq.errAuth': 'The broker rejected the user or the password.',
-  'mq.errBadUrl': 'That URL is not valid. It has to start with mqtt:// or mqtts:// and include the port.',
+  'mq.errBadUrl':
+    'That URL is not valid. It has to start with mqtt:// or mqtts:// and include the port.',
 
   // ───────────────────── Modelos locales · recomendación ─────────────────────
   'local.tierTight': '{ram} GB of RAM: tight for local models',
@@ -903,7 +928,8 @@ export const en = {
   'local.tierComfy': '{ram} GB of RAM: comfortable for 7B–8B, tight for 14B',
   'local.tierBig': '{ram} GB of RAM: enough for large models',
   'local.noteLlama1b': 'The smallest thing that is still useful.',
-  'local.noteMoondream': 'Minimal vision; it reads simple screenshots, not long problem statements.',
+  'local.noteMoondream':
+    'Minimal vision; it reads simple screenshots, not long problem statements.',
   'local.noteLlama3b': 'Genuinely fast on CPU; enough to suggest answers.',
   'local.noteQwenVl3b': 'A small multimodal. It reads a problem statement from a good screenshot.',
   'local.noteLlama8b': 'The usual balance between quality and speed.',
@@ -969,7 +995,8 @@ export const en = {
   'err.workletFailed': 'The audio processor for "{speaker}" failed.',
   'err.noLoopbackAudio':
     'The screen capture returned no audio. Check that Windows has an active output device.',
-  'err.micDegraded': 'The microphone could not be opened (the meeting is still being heard): {detail}',
+  'err.micDegraded':
+    'The microphone could not be opened (the meeting is still being heard): {detail}',
   'err.micFailed': 'The microphone could not be opened: {detail}',
   'err.captureUnknown': 'Unknown failure while starting the capture.',
   'notice.nowThem': 'I now answer what the other person says.',
@@ -1049,14 +1076,16 @@ export const en = {
   'guide.h2Recipes': 'Recommended combinations',
   'guide.dtCost': 'Cost',
   'guide.recipe1Title': 'All local, offline and free',
-  'guide.recipe1Who': 'You are worried about anything leaving your machine, or you do not want to pay.',
+  'guide.recipe1Who':
+    'You are worried about anything leaving your machine, or you do not want to pay.',
   'guide.recipe1Cost': '$0, in exchange for latency and for getting screenshots wrong more often.',
   'guide.recipe2Title': 'Local to talk, cloud for the screen',
   'guide.recipe2Who':
     'The combination most people would want: cheap on the frequent thing, good on the hard thing.',
   'guide.recipe2Cost': 'You only pay for the Ctrl+Alt+C and Ctrl+Alt+Q presses. Cents per session.',
   'guide.recipe3Title': 'All cloud, the cheapest that works',
-  'guide.recipe3Who': 'You do not want to install anything and your machine cannot run local models.',
+  'guide.recipe3Who':
+    'You do not want to install anything and your machine cannot run local models.',
   'guide.recipe3Cost':
     'The cheapest thing that works. Conversation is almost free and you only really pay per screen press. Careful: the conversation one can be anything, but the screen one HAS to read images, and DeepSeek does not.',
   'guide.recipe4Title': 'No compromises',
@@ -1072,17 +1101,21 @@ export const en = {
   'guide.footer':
     'Generated by Tayori for this machine. This document is not sent anywhere: it was written to your data folder and opened in your browser.',
   // Notas de los modelos locales.
-  'guide.llama1b': 'The bare minimum that works. Good for rephrasing and summarising, not for reasoning.',
+  'guide.llama1b':
+    'The bare minimum that works. Good for rephrasing and summarising, not for reasoning.',
   'guide.llama3b': 'The balance for a modest machine. It answers quickly on CPU.',
   'guide.qwen7b': 'Better on technical questions than llama3.2:3b, at the cost of latency.',
   'guide.llama8b': 'The workhorse. A good balance if there is a GPU to hold it up.',
   'guide.qwen14b': 'High quality. Without a dedicated GPU, too slow for conversation.',
-  'guide.moondream': 'Minimal vision. It describes a screen; it does not read a long statement reliably.',
+  'guide.moondream':
+    'Minimal vision. It describes a screen; it does not read a long statement reliably.',
   'guide.qwenvl3b': 'The small multimodal that reads on-screen text best.',
-  'guide.gemma3': 'A general-purpose multimodal. The alternative if qwen2.5vl does not convince you.',
+  'guide.gemma3':
+    'A general-purpose multimodal. The alternative if qwen2.5vl does not convince you.',
   'guide.qwenvl7b': 'The sweet spot for the screen actions locally.',
   'guide.llava13b': 'A veteran, very well tested. Worse with small print than qwen2.5vl.',
-  'guide.qwenvl32b': 'The best you can run locally for reading screens. It asks for a real machine.',
+  'guide.qwenvl32b':
+    'The best you can run locally for reading screens. It asks for a real machine.',
   // Precios, visión y notas de los de pago.
   'guide.priceHaiku45': '$1 / $5 per million tokens (input / output)',
   'guide.priceSonnet5': '$3 / $15 (introductory $2 / $10 until 31-08-2026)',
