@@ -98,6 +98,11 @@ Reglas de formato (obligatorias):
 - Si no tienes información suficiente, dilo en una línea en lugar de inventar.
 - Sin markdown de énfasis: nada de asteriscos ni almohadillas. Se lee de reojo
   en un panel pequeño y los símbolos sueltos son ruido que ocupa sitio.
+- La matemática va en texto plano legible, con símbolos Unicode: exponentes
+  (n², x³), subíndices, y ·, ×, √, ≤, ≥, ≠, →, ∑, π y letras griegas cuando
+  hagan falta. Nada de LaTeX: ni "$$", ni "\\(...\\)", ni "\\frac", ni "^", ni
+  "_". El panel no renderiza fórmulas, así que una expresión en LaTeX se lee
+  literal —"\\(O(n^2)\\)"— en vez de como matemática.
 `.trim();
 
 /**
