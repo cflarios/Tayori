@@ -41,6 +41,42 @@ body {
   overflow: hidden;
 }
 
+/*
+ * Scrollbars al estilo de la app, no la gris nativa de Windows.
+ *
+ * El overlay ya llevaba la suya —fina y discreta, para no delatarse en una
+ * demo—; el dashboard se había quedado con la del sistema, que sobre el fondo
+ * oscuro cantaba. Aquí una versión un poco más agarrable, porque es una ventana
+ * de ajustes y no el overlay: una pastilla translúcida al estilo de macOS. El
+ * borde transparente + `background-clip: padding-box` le dan aire a los lados,
+ * así que parece flotar en vez de pegarse al borde.
+ */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.13);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  /* Sólo `background-color` en el hover: el atajo `background` reiniciaría el
+     clip a border-box y la pastilla perdería su aire. */
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .loading {
   padding: 32px;
   font-size: 13px;
@@ -48,6 +84,99 @@ body {
 }
 
 /* ── Estructura: barra lateral + panel ── */
+
+/*
+ * Barra de título propia (la ventana es `frame: false`), al estilo de macOS.
+ *
+ * `.shell` es una columna: la barra arriba y, debajo, lo que toque —panel,
+ * asistente o el «cargando»—. El segundo hijo ocupa el resto y se queda con su
+ * propio scroll; `height: auto` desarma el `height: 100%` que `.app` y `.wiz`
+ * traen para llenar la ventana entera cuando eran la raíz.
+ */
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.shell > :not(.titlebar) {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.titlebar {
+  flex: none;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  padding-left: 13px;
+  background: var(--bg-nav);
+  border-bottom: 1px solid var(--line);
+  /* Toda la barra arrastra la ventana; los semáforos se excluyen abajo. Esto
+     sólo funciona porque el dashboard SÍ es enfocable (el overlay no lo es). */
+  -webkit-app-region: drag;
+}
+
+.lights {
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.light {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.light--close {
+  background: #ff5f57;
+}
+
+.light--min {
+  background: #febc2e;
+}
+
+.light--zoom {
+  background: #28c840;
+}
+
+/* Los glifos, como en macOS, sólo asoman al pasar el ratón por el grupo. */
+.light svg {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.lights:hover .light svg {
+  opacity: 1;
+}
+
+.light path {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.light--close path {
+  stroke: #4d0000;
+}
+
+.light--min path {
+  stroke: #5a3a00;
+}
+
+.light--zoom path {
+  stroke: #003d00;
+}
 
 .app {
   display: flex;

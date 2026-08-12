@@ -35,6 +35,16 @@ export function openDashboard(): BrowserWindow {
     title: 'Audio Helper',
     backgroundColor: '#0f1115',
     autoHideMenuBar: true,
+    /*
+     * Sin marco del sistema: el dashboard pinta su propia barra de título al
+     * estilo de macOS (los tres semáforos a la izquierda), y sus controles van
+     * por IPC (`dashboardMinimize`/`ToggleMaximize`/`Close`). Sigue siendo
+     * redimensionable desde los bordes —Electron conserva las asas de resize en
+     * una ventana `frame: false` que no es `resizable: false`—, así que
+     * `minWidth`/`minHeight` siguen valiendo. El `title` neutro se mantiene: una
+     * ventana sin marco sigue teniendo título en Alt+Tab.
+     */
+    frame: false,
     webPreferences: {
       preload: preloadPath(),
       sandbox: false,

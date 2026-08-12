@@ -401,6 +401,56 @@ function storedSection(): SectionId {
   return 'general';
 }
 
+/**
+ * Barra de título propia, al estilo de macOS.
+ *
+ * La ventana del dashboard es `frame: false` (ver windows/dashboard.ts), así que
+ * los botones del sistema los pinta la app: los tres semáforos, a la izquierda.
+ * El resto de la barra es zona de arrastre —aquí `-webkit-app-region: drag` SÍ
+ * vale, porque el dashboard es una ventana enfocable normal, a diferencia del
+ * overlay—. Los glifos (×, −, +) sólo aparecen al pasar el ratón por el grupo,
+ * como en macOS. Cerrar cierra SÓLO esta ventana; la app vive en el overlay.
+ */
+function TitleBar() {
+  const { window: win } = window.api;
+  return (
+    <div className="titlebar">
+      <div className="lights">
+        <button
+          type="button"
+          className="light light--close"
+          aria-label="Close"
+          onClick={() => win.closeDashboard()}
+        >
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M3.4 3.4l5.2 5.2M8.6 3.4l-5.2 5.2" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="light light--min"
+          aria-label="Minimize"
+          onClick={() => win.minimizeDashboard()}
+        >
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M3 6h6" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="light light--zoom"
+          aria-label="Maximize"
+          onClick={() => win.toggleMaximizeDashboard()}
+        >
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M6 3v6M3 6h6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [presence, setPresence] = useState<SecretsPresence>({
@@ -470,7 +520,13 @@ export function DashboardApp() {
     setPresence(await window.api.secrets.clear(key));
   }, []);
 
-  if (!settings) return <div className="loading">…</div>;
+  if (!settings)
+    return (
+      <div className="shell">
+        <TitleBar />
+        <div className="loading">…</div>
+      </div>
+    );
 
   /*
    * El asistente sustituye al dashboard entero mientras está abierto, y no es
@@ -480,18 +536,21 @@ export function DashboardApp() {
    */
   if (!settings.onboardingDone || wizard) {
     return (
-      <SetupWizard
-        settings={settings}
-        presence={presence}
-        patch={patch}
-        saveSecret={saveSecret}
-        onClose={() => {
-          setWizard(false);
-          // Salir del asistente cuenta como "ya no me lo enseñes": si no,
-          // cerrarlo lo volvería a abrir en el siguiente render.
-          if (!settings.onboardingDone) void patch({ onboardingDone: true });
-        }}
-      />
+      <div className="shell">
+        <TitleBar />
+        <SetupWizard
+          settings={settings}
+          presence={presence}
+          patch={patch}
+          saveSecret={saveSecret}
+          onClose={() => {
+            setWizard(false);
+            // Salir del asistente cuenta como "ya no me lo enseñes": si no,
+            // cerrarlo lo volvería a abrir en el siguiente render.
+            if (!settings.onboardingDone) void patch({ onboardingDone: true });
+          }}
+        />
+      </div>
     );
   }
 
@@ -515,114 +574,116 @@ export function DashboardApp() {
     audio: status.state === 'error',
     models: !providerIsReady(settings, presence),
     behaviour: autoTriggerIsInert(settings),
-    hotkeys:
-      failedHotkeys.length > 0 || duplicateAccelerators(activeHotkeys(settings)).size > 0,
+    hotkeys: failedHotkeys.length > 0 || duplicateAccelerators(activeHotkeys(settings)).size > 0,
   };
 
   return (
-    <LangProvider lang={settings.uiLanguage}>
-      <div className="app">
-        <aside className="nav">
-          <div className="nav__brand">
-            <div className="nav__eyebrow">{t('nav.eyebrow')}</div>
-            <div className="nav__app">Tayori</div>
-          </div>
+    <div className="shell">
+      <TitleBar />
+      <LangProvider lang={settings.uiLanguage}>
+        <div className="app">
+          <aside className="nav">
+            <div className="nav__brand">
+              <div className="nav__eyebrow">{t('nav.eyebrow')}</div>
+              <div className="nav__app">Tayori</div>
+            </div>
 
-          <nav className="nav__list">
-            {SECTION_ORDER.map((id) => (
-              <button
-                key={id}
-                className="navitem"
-                aria-current={id === section}
-                onClick={() => go(id)}
-              >
-                <Icon name={SECTIONS[id].icon} />
-                <span className="navitem__label">{t(SECTIONS[id].label)}</span>
-                {alerts[id] && <span className="navitem__dot" title={t('nav.attention')} />}
-              </button>
-            ))}
-          </nav>
+            <nav className="nav__list">
+              {SECTION_ORDER.map((id) => (
+                <button
+                  key={id}
+                  className="navitem"
+                  aria-current={id === section}
+                  onClick={() => go(id)}
+                >
+                  <Icon name={SECTIONS[id].icon} />
+                  <span className="navitem__label">{t(SECTIONS[id].label)}</span>
+                  {alerts[id] && <span className="navitem__dot" title={t('nav.attention')} />}
+                </button>
+              ))}
+            </nav>
 
-          <div className="nav__foot">
-            {/* El asistente se puede volver a llamar: haberlo terminado una vez no
+            <div className="nav__foot">
+              {/* El asistente se puede volver a llamar: haberlo terminado una vez no
               debería dejarte sin él. Vive en el pie y no al final de una sección
               porque no pertenece a ninguna — las cruza todas. */}
-            <button className="navitem navitem--ghost" onClick={() => setWizard(true)}>
-              <Icon name="compass" />
-              <span className="navitem__label">{t('nav.wizard')}</span>
-            </button>
-            <p className="nav__note">{t('nav.footer')}</p>
-          </div>
-        </aside>
-
-        <main className="pane">
-          <header className="pane__head">
-            <div className="pane__heading">
-              <h1 className="pane__title">{t(meta.label)}</h1>
-              <p className="pane__sub">{renderMarkup(t(meta.hint))}</p>
+              <button className="navitem navitem--ghost" onClick={() => setWizard(true)}>
+                <Icon name="compass" />
+                <span className="navitem__label">{t('nav.wizard')}</span>
+              </button>
+              <p className="nav__note">{t('nav.footer')}</p>
             </div>
-            {/* El control más usado de la app, alcanzable desde cualquier sección:
+          </aside>
+
+          <main className="pane">
+            <header className="pane__head">
+              <div className="pane__heading">
+                <h1 className="pane__title">{t(meta.label)}</h1>
+                <p className="pane__sub">{renderMarkup(t(meta.hint))}</p>
+              </div>
+              {/* El control más usado de la app, alcanzable desde cualquier sección:
               antes había que llegar hasta la tarjeta de captura para pulsarlo. */}
-            <ListenButton status={status} />
-          </header>
+              <ListenButton status={status} />
+            </header>
 
-          <div className="pane__body" ref={bodyRef}>
-            <div className="pane__inner">
-              {section === 'general' && <VisibilityCards settings={settings} patch={patch} />}
+            <div className="pane__body" ref={bodyRef}>
+              <div className="pane__inner">
+                {section === 'general' && <VisibilityCards settings={settings} patch={patch} />}
 
-              {section === 'audio' && (
-                <>
-                  <CaptureCard status={status} levels={levels} />
-                  <AudioSourcesCard settings={settings} patch={patch} go={go} />
-                </>
-              )}
+                {section === 'audio' && (
+                  <>
+                    <CaptureCard status={status} levels={levels} />
+                    <AudioSourcesCard settings={settings} patch={patch} go={go} />
+                  </>
+                )}
 
-              {section === 'phone' && <PhoneMirrorCard settings={settings} patch={patch} />}
+                {section === 'phone' && <PhoneMirrorCard settings={settings} patch={patch} />}
 
-              {section === 'mqtt' && (
-                <MqttCard
-                  settings={settings}
-                  presence={presence}
-                  patch={patch}
-                  saveSecret={saveSecret}
-                  clearSecret={clearSecret}
-                />
-              )}
-
-              {section === 'models' && (
-                <>
-                  <ApiKeysCard
+                {section === 'mqtt' && (
+                  <MqttCard
+                    settings={settings}
                     presence={presence}
+                    patch={patch}
                     saveSecret={saveSecret}
                     clearSecret={clearSecret}
                   />
-                  <ModelCard settings={settings} patch={patch} />
-                  {/* Justo detrás del modelo de respuestas: se lee como "y para la
-                    pantalla, esto otro", que es la decisión que hay que tomar. */}
-                  <ScreenModelCard settings={settings} patch={patch} />
-                  <LocalModelGuide />
-                </>
-              )}
+                )}
 
-              {section === 'transcription' && (
-                <TranscriptionCard settings={settings} patch={patch} go={go} />
-              )}
-              {section === 'behaviour' && (
-                <BehaviourCard settings={settings} patch={patch} go={go} />
-              )}
-              {section === 'context' && <ContextCard settings={settings} patch={patch} />}
-              {section === 'skills' && <SkillsCard settings={settings} patch={patch} />}
-              {section === 'history' && <HistoryCard settings={settings} patch={patch} />}
-              {section === 'hotkeys' && (
-                <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
-              )}
-              {section === 'diagnostics' && <DiagnosticsCard />}
-              {section === 'about' && <AboutCard />}
+                {section === 'models' && (
+                  <>
+                    <ApiKeysCard
+                      presence={presence}
+                      saveSecret={saveSecret}
+                      clearSecret={clearSecret}
+                    />
+                    <ModelCard settings={settings} patch={patch} />
+                    {/* Justo detrás del modelo de respuestas: se lee como "y para la
+                    pantalla, esto otro", que es la decisión que hay que tomar. */}
+                    <ScreenModelCard settings={settings} patch={patch} />
+                    <LocalModelGuide />
+                  </>
+                )}
+
+                {section === 'transcription' && (
+                  <TranscriptionCard settings={settings} patch={patch} go={go} />
+                )}
+                {section === 'behaviour' && (
+                  <BehaviourCard settings={settings} patch={patch} go={go} />
+                )}
+                {section === 'context' && <ContextCard settings={settings} patch={patch} />}
+                {section === 'skills' && <SkillsCard settings={settings} patch={patch} />}
+                {section === 'history' && <HistoryCard settings={settings} patch={patch} />}
+                {section === 'hotkeys' && (
+                  <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
+                )}
+                {section === 'diagnostics' && <DiagnosticsCard />}
+                {section === 'about' && <AboutCard />}
+              </div>
             </div>
-          </div>
-        </main>
-      </div>
-    </LangProvider>
+          </main>
+        </div>
+      </LangProvider>
+    </div>
   );
 }
 
@@ -758,11 +819,7 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           podían tocar editando el JSON: el overlay los aplicaba pero nadie
           tenía cómo cambiarlos.
         */}
-        <Row
-          icon="contrast"
-          label={t('gen.opacity')}
-          desc={t('gen.opacityDesc')}
-        >
+        <Row icon="contrast" label={t('gen.opacity')} desc={t('gen.opacityDesc')}>
           <div className="slider">
             <input
               type="range"
@@ -776,11 +833,7 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           </div>
         </Row>
 
-        <Row
-          icon="type"
-          label={t('gen.textSize')}
-          desc={t('gen.textSizeDesc')}
-        >
+        <Row icon="type" label={t('gen.textSize')} desc={t('gen.textSizeDesc')}>
           <div className="slider">
             <input
               type="range"
@@ -796,11 +849,7 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           </div>
         </Row>
 
-        <Row
-          icon="collapse"
-          label={t('gen.compact')}
-          desc={t('gen.compactDesc')}
-        >
+        <Row icon="collapse" label={t('gen.compact')} desc={t('gen.compactDesc')}>
           <Switch
             on={settings.overlayCompact}
             onChange={(v) => void patch({ overlayCompact: v })}
@@ -810,11 +859,7 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
         {/* Va aquí y no en «Comportamiento» porque no cambia qué responde la
             app, cambia cómo se lee: es apariencia del overlay, como los dos
             de arriba. */}
-        <Row
-          icon="type"
-          label={t('gen.teleprompter')}
-          desc={t('gen.teleprompterDesc')}
-        >
+        <Row icon="type" label={t('gen.teleprompter')} desc={t('gen.teleprompterDesc')}>
           <Switch
             on={settings.teleprompterEnabled}
             onChange={(v) => void patch({ teleprompterEnabled: v })}
@@ -885,10 +930,7 @@ function AudioSourcesCard({
 
       {autoTriggerIsInert(settings) && (
         <div className="warn">
-          <Tx
-            k="aud.inertWarn"
-            vars={{ wanted: t(SPEAKER_LABEL[settings.autoTriggerSpeaker]) }}
-          />
+          <Tx k="aud.inertWarn" vars={{ wanted: t(SPEAKER_LABEL[settings.autoTriggerSpeaker]) }} />
           <div className="field">
             <Jump to="behaviour" go={go}>
               {t('aud.seeTrigger')}
@@ -991,9 +1033,7 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
         <div className="hero__text">
           <div className="hero__title">{t('ph.allowLan')}</div>
           <div className="hero__desc">
-            {settings.phoneMirrorLan
-              ? t('ph.lanOn')
-              : t('ph.lanOff')}
+            {settings.phoneMirrorLan ? t('ph.lanOn') : t('ph.lanOff')}
           </div>
         </div>
         <Switch on={settings.phoneMirrorLan} onChange={(v) => void patch({ phoneMirrorLan: v })} />
@@ -1177,11 +1217,7 @@ function MqttCard({
           />
         </Row>
 
-        <Row
-          icon="key"
-          label={t('mq.user')}
-          desc={t('mq.userDesc')}
-        >
+        <Row icon="key" label={t('mq.user')} desc={t('mq.userDesc')}>
           <input
             type="text"
             style={{ width: 180, flex: 'none' }}
@@ -1480,9 +1516,7 @@ function AboutCard() {
           </p>
         </div>
 
-        <div className="warn">
-          {t('about.legal')}
-        </div>
+        <div className="warn">{t('about.legal')}</div>
       </section>
     </>
   );
@@ -1815,11 +1849,7 @@ function LocalModelGuide() {
         columna sería un muro. Va a un documento y no a otra ventana de la app:
         cada ventana de Electron hay que registrarla en la protección de captura.
       */}
-      <Row
-        icon="book"
-        label={t('local.guide')}
-        desc={t('local.guideDesc')}
-      >
+      <Row icon="book" label={t('local.guide')} desc={t('local.guideDesc')}>
         <button
           className="btn"
           onClick={() => {
@@ -1930,11 +1960,7 @@ function HotkeyField({
           enabled ? '' : ' hotkey--off'
         }`}
         style={{ width: 190, flex: 'none' }}
-        value={
-          capturing
-            ? t('hk.pressCombo')
-            : formatAccelerator(accelerator, t('hk.unassigned'))
-        }
+        value={capturing ? t('hk.pressCombo') : formatAccelerator(accelerator, t('hk.unassigned'))}
         onFocus={() => setCapturing(true)}
         onBlur={() => {
           setCapturing(false);
@@ -2082,11 +2108,7 @@ function DiagnosticsCard() {
         <Tx k="diag.logAt" vars={{ where: location || t('diag.dataFolder') }} />
       </p>
 
-      <Row
-        icon="activity"
-        label={t('diag.testStt')}
-        desc={t('diag.testSttDesc')}
-      >
+      <Row icon="activity" label={t('diag.testStt')} desc={t('diag.testSttDesc')}>
         <button className="btn" disabled={testing} onClick={() => void runTest()}>
           {testing ? t('keys.testing') : t('keys.test')}
         </button>
@@ -2533,11 +2555,7 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         más difícil de sospechar, porque una captura ocupa muchos tokens.
       */}
       {(provider === 'ollama' || settings.screenProviderId === 'ollama') && (
-        <Row
-          icon="file"
-          label={t('model.ollamaContext')}
-          desc={t('model.ollamaContextDesc')}
-        >
+        <Row icon="file" label={t('model.ollamaContext')} desc={t('model.ollamaContextDesc')}>
           <select
             value={settings.ollamaContextTokens}
             onChange={(e) => void patch({ ollamaContextTokens: Number(e.target.value) })}
@@ -2734,11 +2752,7 @@ function TranscriptionCard({
         </div>
       )}
 
-      <Row
-        icon="globe"
-        label={t('stt.language')}
-        desc={t('stt.languageDesc')}
-      >
+      <Row icon="globe" label={t('stt.language')} desc={t('stt.languageDesc')}>
         <select
           value={settings.language}
           onChange={(e) => void patch({ language: e.target.value })}
@@ -2901,11 +2915,7 @@ function BehaviourCard({
   const t = useT();
   return (
     <section className="card">
-      <Row
-        icon="bolt"
-        label={t('beh.auto')}
-        desc={t('beh.autoDesc')}
-      >
+      <Row icon="bolt" label={t('beh.auto')} desc={t('beh.autoDesc')}>
         <select
           value={settings.autoTriggerMode}
           onChange={(e) =>
@@ -2928,11 +2938,7 @@ function BehaviourCard({
 
       {settings.autoTriggerMode !== 'off' && (
         <>
-          <Row
-            icon="mic"
-            label={t('beh.speaker')}
-            desc={t('beh.speakerDesc')}
-          >
+          <Row icon="mic" label={t('beh.speaker')} desc={t('beh.speakerDesc')}>
             <select
               value={settings.autoTriggerSpeaker}
               onChange={(e) =>
@@ -2990,11 +2996,7 @@ function BehaviourCard({
         </>
       )}
 
-      <Row
-        icon="clock"
-        label={t('beh.window')}
-        desc={t('beh.windowDesc')}
-      >
+      <Row icon="clock" label={t('beh.window')} desc={t('beh.windowDesc')}>
         <input
           type="number"
           min={10}
@@ -3008,11 +3010,7 @@ function BehaviourCard({
         />
       </Row>
 
-      <Row
-        icon="file"
-        label={t('beh.profile')}
-        desc={t('beh.profileDesc')}
-      >
+      <Row icon="file" label={t('beh.profile')} desc={t('beh.profileDesc')}>
         <select
           value={settings.promptProfileId}
           onChange={(e) =>
@@ -3035,11 +3033,7 @@ function BehaviourCard({
         el perfil. Esconder este ajuste detrás del perfil lo dejaría invisible
         justo para quien más lo va a usar.
       */}
-      <Row
-        icon="monitor"
-        label={t('beh.codeLang')}
-        desc={t('beh.codeLangDesc')}
-      >
+      <Row icon="monitor" label={t('beh.codeLang')} desc={t('beh.codeLangDesc')}>
         <input
           type="text"
           placeholder="auto"

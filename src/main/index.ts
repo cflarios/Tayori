@@ -1,12 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  desktopCapturer,
-  ipcMain,
-  session,
-  shell,
-} from 'electron';
+import { app, BrowserWindow, clipboard, desktopCapturer, ipcMain, session, shell } from 'electron';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -61,12 +53,7 @@ import { initLogging, logLocation, readLogTail } from './logging';
 import { getSystemSpecs } from './system-specs';
 import { mqttBridge } from './bridge/mqtt';
 import { phoneBridge } from './bridge/phone';
-import {
-  installOllama,
-  ollamaInstalled,
-  pullModel,
-  wingetAvailable,
-} from './setup/ollama-install';
+import { installOllama, ollamaInstalled, pullModel, wingetAvailable } from './setup/ollama-install';
 
 /**
  * Habilita la captura de audio del sistema (loopback).
@@ -195,10 +182,7 @@ function registerIpcHandlers(): void {
     }
     // El espejo se aplica desde aquí, no desde la UI, para que el estado del
     // servidor no dependa de qué ventana tocó el interruptor.
-    if (
-      patch.phoneMirrorEnabled !== undefined ||
-      patch.phoneMirrorLan !== undefined
-    ) {
+    if (patch.phoneMirrorEnabled !== undefined || patch.phoneMirrorLan !== undefined) {
       phoneBridge.apply(next);
     }
     // Igual con el broker: cambiar la URL, el usuario o el tema obliga a
@@ -266,6 +250,19 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.dashboardOpen, () => {
     openDashboard();
   });
+
+  // Barra de título propia del dashboard (frame: false). Actúan sobre la ventana
+  // que emite, así que sirven aunque en el futuro haya otra ventana con marco
+  // propio. Cerrar cierra SÓLO esa ventana —el overlay es la app—, igual que la
+  // X nativa de antes.
+  ipcMain.on(IPC.dashboardMinimize, (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());
+  ipcMain.on(IPC.dashboardToggleMaximize, (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (!win) return;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  });
+  ipcMain.on(IPC.dashboardClose, (e) => BrowserWindow.fromWebContents(e.sender)?.close());
 
   // Alto tráfico (un evento por mousemove), así que van por `on` y no `handle`.
   ipcMain.on(IPC.overlayMouseIgnore, (_e, ignore: boolean) => setOverlayMouseIgnore(ignore));

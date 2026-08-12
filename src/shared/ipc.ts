@@ -27,6 +27,19 @@ export const IPC = {
   overlayDragEnd: 'overlay:drag-end',
   overlayQuit: 'overlay:quit',
   dashboardOpen: 'dashboard:open',
+  /**
+   * Controles de la barra de título propia del dashboard.
+   *
+   * La ventana es `frame: false` para poder pintar una barra al estilo de macOS
+   * —los tres semáforos a la izquierda—, así que minimizar, maximizar y cerrar
+   * dejan de tener botones del sistema y se piden por aquí. Actúan sobre la
+   * ventana que emite (`fromWebContents`), no sobre una global. Cerrar cierra
+   * SÓLO el dashboard: el overlay es la app y sigue vivo, igual que hacía la X
+   * nativa.
+   */
+  dashboardMinimize: 'dashboard:minimize',
+  dashboardToggleMaximize: 'dashboard:toggle-maximize',
+  dashboardClose: 'dashboard:close',
 
   captureStart: 'capture:start',
   captureStop: 'capture:stop',

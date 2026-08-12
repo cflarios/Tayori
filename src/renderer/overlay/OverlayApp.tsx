@@ -63,19 +63,24 @@ function CodeIcon() {
   );
 }
 
-/** Interrogación en un círculo: responder el test de la pantalla. */
+/**
+ * Lista con marcas de verificación: responder el test de la pantalla.
+ *
+ * Antes era una interrogación en un círculo, y ese icono se leía como "ayuda",
+ * no como "responde el cuestionario". Una lista con checks dice justo lo que
+ * hace el botón.
+ */
 function QuizIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <circle cx="8" cy="8" r="6.2" stroke="currentColor" strokeWidth="1.3" fill="none" />
       <path
         stroke="currentColor"
         strokeWidth="1.4"
         strokeLinecap="round"
+        strokeLinejoin="round"
         fill="none"
-        d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.3"
+        d="M2.4 4.6l1.3 1.3 2.2-2.5M2.4 10.9l1.3 1.3 2.2-2.5M8.6 4.6h5M8.6 10.9h5"
       />
-      <circle cx="8" cy="11.4" r="0.85" fill="currentColor" />
     </svg>
   );
 }

@@ -402,13 +402,27 @@ body {
  * de verdad, y ahora el mismo control dice qué se ESPERA escuchar y permite
  * cambiarlo sin abrir el dashboard.
  */
+/*
+ * Un solo control segmentado, no tres botones sueltos.
+ *
+ * Antes eran tres píldoras con borde propio: los bordes competían entre sí y el
+ * segmento activo apenas se distinguía de los apagados. `AudioSourceMode`
+ * siempre fue "una de tres", así que se pinta como tal — el borde vive en el
+ * contenedor y los segmentos comparten fondo, como un segmented control.
+ */
 .sources {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 2px;
 }
 
 .source {
+  /* Ancla del medidor, que ahora va integrado en el borde inferior. */
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -416,51 +430,52 @@ body {
   font-size: 10px;
   color: #6b7075;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 3px 8px;
+  border: 0;
+  border-radius: 6px;
+  /* Algo más de abajo: el hueco por donde asoma la línea del medidor. */
+  padding: 4px 9px 6px;
   cursor: pointer;
   transition:
     background 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease,
-    opacity 120ms ease;
+    color 120ms ease;
 }
 
-/* Apagada: se ve que existe y que está apagada, sin competir por atención. */
-.source:not(.source--on) {
-  opacity: 0.5;
-}
-
-.source:hover {
-  background: rgba(255, 255, 255, 0.08);
+.source:hover:not(.source--on) {
+  background: rgba(255, 255, 255, 0.06);
   color: #e8eaed;
-  opacity: 1;
 }
 
+/* El segmento activo va relleno con el azul de acento: eso es el "una de tres". */
 .source--on {
-  color: #c8ccd0;
-  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--text);
+  background: rgba(76, 141, 255, 0.16);
 }
 
 /*
  * Configurada pero sin abrirse. Es el estado que antes no se veía en ninguna
  * parte: la app decía "Escuchando" con el micrófono cerrado, y por fuera eso
- * es idéntico a una sala en silencio.
+ * es idéntico a una sala en silencio. El relleno del segmento pasa a ámbar.
  */
 .source--mute {
   color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.4);
-  background: rgba(251, 191, 36, 0.1);
+  background: rgba(251, 191, 36, 0.14);
 }
 
 .source__label {
   white-space: nowrap;
 }
 
+/*
+ * El medidor ya no es una barra que flota al lado del rótulo: es una línea fina
+ * pegada al borde inferior del segmento, del ancho de la fuente. Dice lo mismo
+ * —qué entra de verdad— sin parecer un indicador de debug suelto.
+ */
 .source__bar {
-  width: 26px;
-  height: 3px;
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 2px;
+  height: 2px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
@@ -475,6 +490,11 @@ body {
 }
 
 .source__fill--them {
+  background: #fbbf24;
+}
+
+/* Cuando la fuente activa no llegó a abrirse, su medidor también va en ámbar. */
+.source--mute .source__fill {
   background: #fbbf24;
 }
 
@@ -497,20 +517,11 @@ body {
     display: none;
   }
 
-  /* Sólo con esconder los rótulos faltaban 10 px medidos para que la barra
-     cupiera en una línea a tamaño M; el resto sale de apretar el propio
-     selector, que es lo último que se ha ensanchado. */
-  .sources {
-    gap: 2px;
-  }
-
+  /* Sin rótulo el segmento se aprieta a icono; el medidor sigue integrado
+     abajo, así que ya no hay un ancho de barra que retocar aquí. */
   .source {
-    padding: 3px 6px;
+    padding: 4px 7px 6px;
     gap: 4px;
-  }
-
-  .source__bar {
-    width: 20px;
   }
 }
 

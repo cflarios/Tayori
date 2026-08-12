@@ -66,22 +66,28 @@ const api = {
   },
 
   window: {
-    setStealth: (enabled: boolean): Promise<boolean> =>
-      ipcRenderer.invoke(IPC.stealthSet, enabled),
+    setStealth: (enabled: boolean): Promise<boolean> => ipcRenderer.invoke(IPC.stealthSet, enabled),
     setClickThrough: (enabled: boolean): Promise<boolean> =>
       ipcRenderer.invoke(IPC.clickThroughSet, enabled),
     hideOverlay: (): Promise<void> => ipcRenderer.invoke(IPC.overlayHide),
-    resizeOverlay: (height: number): Promise<void> =>
-      ipcRenderer.invoke(IPC.overlayResize, height),
+    resizeOverlay: (height: number): Promise<void> => ipcRenderer.invoke(IPC.overlayResize, height),
     openDashboard: (): Promise<void> => ipcRenderer.invoke(IPC.dashboardOpen),
+
+    /**
+     * Controles de la barra de título propia del dashboard (ventana sin marco).
+     * Van por `send`: son un clic puntual y no necesitan respuesta. `close`
+     * cierra SÓLO el dashboard —el overlay es la app y sigue vivo—.
+     */
+    minimizeDashboard: (): void => ipcRenderer.send(IPC.dashboardMinimize),
+    toggleMaximizeDashboard: (): void => ipcRenderer.send(IPC.dashboardToggleMaximize),
+    closeDashboard: (): void => ipcRenderer.send(IPC.dashboardClose),
 
     /**
      * Alterna si el overlay deja pasar el ratón. Se envía con `send` y no con
      * `invoke` porque se dispara en cada mousemove: esperar una respuesta por
      * cada uno añadiría latencia al hover sin ninguna ventaja.
      */
-    setMouseIgnore: (ignore: boolean): void =>
-      ipcRenderer.send(IPC.overlayMouseIgnore, ignore),
+    setMouseIgnore: (ignore: boolean): void => ipcRenderer.send(IPC.overlayMouseIgnore, ignore),
 
     /**
      * Vuelve el overlay enfocable para poder escribir en él. Se envía con
@@ -99,8 +105,7 @@ const api = {
     start: (): Promise<CaptureStatus> => ipcRenderer.invoke(IPC.captureStart),
     stop: (): Promise<CaptureStatus> => ipcRenderer.invoke(IPC.captureStop),
     getStatus: (): Promise<CaptureStatus> => ipcRenderer.invoke(IPC.captureGetStatus),
-    onStatus: (cb: (s: CaptureStatus) => void) =>
-      subscribe<CaptureStatus>(IPC.onCaptureStatus, cb),
+    onStatus: (cb: (s: CaptureStatus) => void) => subscribe<CaptureStatus>(IPC.onCaptureStatus, cb),
     onLevels: (cb: (l: AudioLevels) => void) => subscribe<AudioLevels>(IPC.onAudioLevels, cb),
   },
 
@@ -144,8 +149,7 @@ const api = {
   hotkeys: {
     /** Aceleradores que Windows rechazó; el dashboard los marca en rojo. */
     getFailed: (): Promise<string[]> => ipcRenderer.invoke(IPC.hotkeysGetFailed),
-    onFailures: (cb: (failed: string[]) => void) =>
-      subscribe<string[]>(IPC.onHotkeyFailures, cb),
+    onFailures: (cb: (failed: string[]) => void) => subscribe<string[]>(IPC.onHotkeyFailures, cb),
   },
 
   logs: {
@@ -234,8 +238,7 @@ const api = {
   },
 
   app: {
-    getInfo: (): Promise<{ version: string; author: string }> =>
-      ipcRenderer.invoke(IPC.appGetInfo),
+    getInfo: (): Promise<{ version: string; author: string }> => ipcRenderer.invoke(IPC.appGetInfo),
   },
 
   /**
@@ -256,8 +259,7 @@ const api = {
   whisper: {
     getStatus: (): Promise<{ binaryInstalled: boolean; modelInstalled: boolean }> =>
       ipcRenderer.invoke(IPC.whisperGetStatus),
-    install: (): Promise<{ ok: boolean; error?: string }> =>
-      ipcRenderer.invoke(IPC.whisperInstall),
+    install: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.whisperInstall),
     onProgress: (cb: (p: WhisperProgress) => void) =>
       subscribe<WhisperProgress>(IPC.onWhisperProgress, cb),
   },
