@@ -4,6 +4,14 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.2.0](https://github.com/cflarios/Tayori/compare/v1.1.0...v1.2.0) (2026-08-12)
+
+
+### Features
+
+* fórmulas matemáticas legibles en el overlay, sin LaTeX crudo ([b53c943](https://github.com/cflarios/Tayori/commit/b53c943c72edb4ed5520a5a92b2ab8e3fe3ff7d5))
+* rediseño del front — fuentes segmentadas, barra de título Mac y scrollbar ([44e92a6](https://github.com/cflarios/Tayori/commit/44e92a6027ac5370b588e566fa94c965c6927b34))
+
 ## [1.1.0](https://github.com/cflarios/Tayori/compare/v1.0.0...v1.1.0) (2026-08-04)
 
 
