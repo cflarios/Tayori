@@ -20,36 +20,36 @@ import { neutralize } from './untrusted';
 import type { TranscriptBuffer } from './transcript-buffer';
 
 /**
- * Genera respuestas y las va emitiendo mientras llegan.
+ * Generates answers and emits them as they arrive.
  *
- * Regla central: SOLO UNA respuesta en vuelo. Si llega una pregunta nueva, se
- * aborta la anterior. En una conversación en directo una respuesta obsoleta es
- * peor que ninguna: el usuario la lee y contesta a algo que ya pasó.
+ * Central rule: ONLY ONE answer in flight. If a new question arrives, the
+ * previous one is aborted. In a live conversation a stale answer is worse than
+ * none: the user reads it and answers something that already passed.
  *
- * Emite `answer` con el estado completo en cada actualización, en lugar de sólo
- * el delta, para que el renderer no tenga que reconstruir el estado.
+ * It emits `answer` with the full state on each update, instead of just the
+ * delta, so the renderer doesn't have to rebuild the state.
  */
 
-/** Tope de salida. Corto a propósito: hay que poder leerlo de un vistazo. */
+/** Output cap. Short on purpose: you have to be able to read it at a glance. */
 const MAX_ANSWER_TOKENS = 700;
 
 /**
- * Tope del modo código.
+ * Code-mode cap.
  *
- * Con 700 la solución sale cortada a media función, y una implementación
- * truncada no vale para nada. 4096 cubre soluciones grandes —una prueba técnica
- * con varias partes, no sólo un algoritmo suelto— en cualquier lenguaje verboso.
- * Lo que aún no quepa se extiende con `continueAnswer()`, que añade a la misma
- * respuesta en lugar de subir el tope hasta permitir un ensayo.
+ * With 700 the solution comes out cut off mid-function, and a truncated
+ * implementation is worthless. 4096 covers large solutions —a technical test
+ * with several parts, not just a stray algorithm— in any verbose language. What
+ * still doesn't fit is extended with `continueAnswer()`, which adds to the same
+ * answer instead of raising the cap enough to allow an essay.
  */
 const MAX_CODE_TOKENS = 4_096;
 
 /**
- * Qué perfil impone cada disparo, si impone alguno.
+ * Which profile each trigger imposes, if any.
  *
- * Los botones de pantalla resuelven en su modo **sin cambiar los ajustes**: se
- * usa el de código en mitad de una entrevista y la siguiente pregunta hablada
- * sigue saliendo en viñetas.
+ * The screen buttons solve in their mode **without changing the settings**: code
+ * mode is used mid-interview and the next spoken question still comes out in
+ * bullets.
  */
 const PROFILE_BY_TRIGGER: Partial<Record<AnswerTrigger, PromptProfileId>> = {
   code: 'coding',
@@ -57,22 +57,22 @@ const PROFILE_BY_TRIGGER: Partial<Record<AnswerTrigger, PromptProfileId>> = {
 };
 
 /**
- * Tope de salida por perfil. El que no aparece usa `MAX_ANSWER_TOKENS`.
+ * Output cap per profile. Whatever isn't listed uses `MAX_ANSWER_TOKENS`.
  *
- * Sólo el de código lo sube: una respuesta de test cabe de sobra en el tope
- * normal —es una línea y dos viñetas— y subírselo sólo invita a divagar.
+ * Only code raises it: a quiz answer fits easily in the normal cap —it's one
+ * line and two bullets— and raising it only invites rambling.
  */
 const TOKENS_BY_PROFILE: Partial<Record<PromptProfileId, number>> = {
   coding: MAX_CODE_TOKENS,
 };
 
 /**
- * La "pregunta" de "Continuar".
+ * The "question" for "Continue".
  *
- * El modelo ya tiene su parcial como último turno del asistente —lo metió
- * `remember` al cerrar la respuesta—, así que aquí sólo hay que pedirle que siga
- * desde donde se cortó, sin repetir. Es lo que permite una solución más larga
- * que el tope de una sola llamada.
+ * The model already has its partial as the assistant's last turn —`remember`
+ * put it there when closing the answer— so here all it takes is asking it to
+ * keep going from where it was cut off, without repeating. It's what allows a
+ * solution longer than a single call's cap.
  */
 const CONTINUE_INSTRUCTION =
   'Tu respuesta anterior se cortó por longitud. Continúa EXACTAMENTE desde donde ' +
@@ -80,47 +80,47 @@ const CONTINUE_INSTRUCTION =
   'ya escrito. Si el bloque de código seguía abierto, sigue dentro de él sin ' +
   'volver a abrir la valla. Nada de saludos ni resúmenes: sólo la continuación.';
 
-/** Cada cuántos ms se difunde el texto acumulado durante el streaming. */
+/** How often, in ms, the accumulated text is broadcast during streaming. */
 const FLUSH_INTERVAL_MS = 60;
 
 /**
- * Tope de tiempo para una respuesta completa.
+ * Time cap for a complete answer.
  *
- * Sin esto, un proveedor que se queda colgado deja la respuesta en "Pensando…"
- * **para siempre**: no hay error, no hay reintento, y como el overlay se ve
- * exactamente igual que mientras piensa de verdad, desde fuera es "la app dejó
- * de responder". Pasa de verdad con Ollama en CPU: si el modelo se descargó por
- * inactividad y hay que recargarlo mientras Whisper está usando la máquina, la
- * primera petición puede tardar minutos o no volver.
+ * Without it, a provider that hangs leaves the answer on "Thinking…" **forever**:
+ * no error, no retry, and since the overlay looks exactly the same as while it's
+ * genuinely thinking, from the outside it's "the app stopped responding". It
+ * really happens with Ollama on CPU: if the model was unloaded for inactivity
+ * and has to be reloaded while Whisper is using the machine, the first request
+ * can take minutes or never come back.
  *
- * 2 minutos es largo de sobra para cualquier generación legítima de 700 tokens,
- * incluso en CPU, y corto para que el fallo se vea dentro de la conversación.
+ * 2 minutes is more than long enough for any legitimate 700-token generation,
+ * even on CPU, and short enough that the failure shows within the conversation.
  */
 const GENERATION_TIMEOUT_MS = 120_000;
 
-/** Sin un solo token en este tiempo, el proveedor no va a arrancar. */
+/** With not a single token in this time, the provider isn't going to start. */
 const FIRST_TOKEN_TIMEOUT_MS = 45_000;
 
 export class AnswerEngine extends EventEmitter {
   private current: Answer | null = null;
   private controller: AbortController | null = null;
-  /** Capturas pendientes de adjuntar a la siguiente consulta. */
+  /** Captures pending attachment to the next query. */
   private pendingImages: ImageAttachment[] = [];
 
   /**
-   * Turnos ya cerrados de esta conversación, del más antiguo al más reciente.
+   * Already-closed turns of this conversation, oldest to newest.
    *
-   * Sin esto el asistente no tenía ninguna memoria de lo que él mismo había
-   * dicho: cada pregunta era una conversación nueva de un solo turno. El
-   * transcript no lo suplía, porque sólo contiene voz —lo que dice el
-   * micrófono y el sistema—, nunca las respuestas generadas.
+   * Without this the assistant had no memory of what it had said itself: each
+   * question was a new one-turn conversation. The transcript didn't supply it,
+   * because it only contains speech —what the mic and the system say—, never the
+   * generated answers.
    */
   private history: ConversationExchange[] = [];
 
   /**
-   * Cuántos intercambios se reenvían. Ocho cubre de sobra una conversación de
-   * varios minutos sin que el prompt crezca hasta doler; los más antiguos se
-   * caen por el principio.
+   * How many exchanges are resent. Eight easily covers a several-minute
+   * conversation without the prompt growing until it hurts; the oldest fall off
+   * the front.
    */
   private static readonly MAX_HISTORY = 8;
 
@@ -128,7 +128,7 @@ export class AnswerEngine extends EventEmitter {
     super();
   }
 
-  /** Adjunta una captura a la siguiente pregunta. */
+  /** Attaches a capture to the next question. */
   attachImage(image: ImageAttachment): void {
     this.pendingImages.push(image);
   }
@@ -137,21 +137,22 @@ export class AnswerEngine extends EventEmitter {
     return this.pendingImages.length > 0;
   }
 
-  /** Copia de la memoria, para quien tenga que componer la petición por su cuenta. */
+  /** Copy of the memory, for whoever has to compose the request themselves. */
   historySnapshot(): ConversationExchange[] {
     return [...this.history];
   }
 
   /**
-   * Muestra una respuesta que generó otro (el motor de audio directo).
+   * Shows an answer generated by someone else (the direct-audio engine).
    *
-   * No pasa por `ask()` porque no hay nada que pedir: cuando el WAV va al propio
-   * modelo, la respuesta llega junto con la transcripción en la misma llamada.
-   * Lo que sí comparte es todo lo de después —difusión al overlay, memoria,
-   * historial en disco—, y por eso vive aquí y no suelta por el orquestador.
+   * It doesn't go through `ask()` because there's nothing to request: when the
+   * WAV goes to the model itself, the answer arrives with the transcription in
+   * the same call. What it does share is everything after —broadcast to the
+   * overlay, memory, on-disk history—, and that's why it lives here and not
+   * loose in the orchestrator.
    */
   present(question: string, text: string, providerId: LLMProviderId, model: string): void {
-    // Si había una generación en vuelo, esta respuesta la sustituye.
+    // If there was a generation in flight, this answer replaces it.
     this.abort();
 
     this.current = {
@@ -169,35 +170,35 @@ export class AnswerEngine extends EventEmitter {
   }
 
   /**
-   * Olvida los turnos anteriores. Lo llama "nueva conversación": si no, la
-   * memoria del asistente sobreviviría a un reinicio que existe justamente para
-   * cortar con lo anterior.
+   * Forgets the previous turns. "New conversation" calls it: otherwise the
+   * assistant's memory would survive a reset that exists precisely to cut with
+   * what came before.
    */
   resetHistory(): void {
     this.history = [];
   }
 
   /**
-   * Cuántos intercambios lleva el modelo en la cabeza, y cuántos caben.
+   * How many exchanges the model has in its head, and how many fit.
    *
-   * Se enseña porque es lo único del coste de una consulta que el usuario puede
-   * controlar, y no había forma de saberlo: cada turno guardado se reenvía
-   * entero en la siguiente pregunta. Con Ollama eso además choca contra
-   * `num_ctx`, y lo que no cabe se descarta **sin ningún error** — el síntoma es
-   * que el modelo "olvida" algo que le acabas de decir.
+   * It's shown because it's the only part of a query's cost the user can
+   * control, and there was no way to know it: each saved turn is resent whole in
+   * the next question. With Ollama that also collides with `num_ctx`, and what
+   * doesn't fit is discarded **with no error at all** — the symptom is the model
+   * "forgetting" something you just told it.
    */
   get memory(): { turns: number; max: number } {
     return { turns: this.history.length, max: AnswerEngine.MAX_HISTORY };
   }
 
   /**
-   * Olvida la memoria de la conversación SIN tocar nada más.
+   * Forgets the conversation memory WITHOUT touching anything else.
    *
-   * Es más fino que "nueva conversación", y por eso existe: aquélla aborta la
-   * respuesta en vuelo, vacía la transcripción, cierra la conversación en disco
-   * y empieza otra. Aquí se tira sólo lo que se reenvía al modelo en cada
-   * consulta, que es lo que hincha el prompt y lo que hace que un modelo local
-   * con la ventana pequeña empiece a perder el principio.
+   * It's finer than "new conversation", and that's why it exists: that one
+   * aborts the in-flight answer, empties the transcript, closes the conversation
+   * on disk and starts another. Here only what's resent to the model on each
+   * query is dropped, which is what bloats the prompt and what makes a local
+   * model with a small window start losing the beginning.
    */
   forgetContext(): void {
     const had = this.history.length;
@@ -205,7 +206,7 @@ export class AnswerEngine extends EventEmitter {
     console.log(`[answer] contexto olvidado a petición: ${had} intercambios fuera.`);
   }
 
-  /** Cancela la generación en curso, si hay alguna. */
+  /** Cancels the current generation, if there is one. */
   abort(): void {
     this.controller?.abort();
     this.controller = null;
@@ -218,40 +219,40 @@ export class AnswerEngine extends EventEmitter {
   }
 
   /**
-   * Lanza una respuesta.
+   * Fires an answer.
    *
-   * @param question Pregunta concreta si se pudo aislar; si no, el modelo la
-   *                 deduce de la transcripción.
+   * @param question Specific question if it could be isolated; otherwise the
+   *                 model infers it from the transcript.
    *
-   * El disparo `code` no es sólo una etiqueta para el log: cambia el perfil y el
-   * tope de tokens de ESTA consulta sin tocar los ajustes. Es lo que permite
-   * resolver lo que hay en pantalla en mitad de una entrevista y que la
-   * siguiente pregunta hablada siga saliendo en cuatro viñetas.
+   * The `code` trigger isn't just a label for the log: it changes the profile
+   * and the token cap of THIS query without touching the settings. It's what
+   * lets you solve what's on screen mid-interview and have the next spoken
+   * question still come out in four bullets.
    *
-   * @param skillId Skill sólo para esta consulta, del prefijo `/skill` de la
-   *        pestaña de escritura. Sin él manda `settings.activeSkillId`, que es
-   *        la que está puesta en el overlay.
+   * @param skillId Skill for this query only, from the `/skill` prefix of the
+   *        writing tab. Without it `settings.activeSkillId` rules, which is the
+   *        one set in the overlay.
    */
   async ask(trigger: AnswerTrigger, question?: string, skillId?: string): Promise<void> {
-    // Abortar antes de arrancar es lo que garantiza la invariante de "una sola
-    // en vuelo" sin importar desde dónde se llame.
+    // Aborting before starting is what guarantees the "only one in flight"
+    // invariant no matter where it's called from.
     this.abort();
 
     const settings = settingsStore.get();
 
     /*
-     * Dos caminos llevan a un perfil especial: el botón de pantalla, que lo
-     * impone sólo para esta consulta, y el chip del overlay, que lo deja puesto.
-     * Los dos tienen que llegar al mismo sitio — cuando sólo se miraba el
-     * disparo, elegir "Código" a mano dejaba el tope en 700 tokens y la solución
-     * salía cortada a media función.
+     * Two paths lead to a special profile: the screen button, which imposes it
+     * for this query only, and the overlay chip, which leaves it set. Both have
+     * to reach the same place — when only the trigger was looked at, choosing
+     * "Code" by hand left the cap at 700 tokens and the solution came out cut off
+     * mid-function.
      */
     const forced = PROFILE_BY_TRIGGER[trigger];
     const profile = forced ?? settings.promptProfileId;
     const onScreen = isScreenTrigger(trigger);
 
-    // Las acciones de pantalla pueden tener su propio modelo: lo hablado pide
-    // latencia y lo de la pantalla pide vista. Ver `screenModelFor`.
+    // Screen actions can have their own model: speech asks for latency and the
+    // screen asks for vision. See `screenModelFor`.
     const target = onScreen
       ? screenModelFor(settings)
       : { providerId: settings.llmProviderId, model: settings.llmModels[settings.llmProviderId] };
@@ -274,11 +275,11 @@ export class AnswerEngine extends EventEmitter {
     this.emitCurrent();
 
     /*
-     * Dos relojes, no uno. El primero cubre "el proveedor no arranca" —modelo
-     * descargándose, servidor atascado— y el segundo "arrancó pero no termina".
-     * Distinguirlos importa porque el mensaje al usuario es distinto, y porque
-     * una respuesta a medias es mejor que ninguna: al vencer el largo se
-     * conserva lo que ya se había escrito.
+     * Two clocks, not one. The first covers "the provider doesn't start" —model
+     * downloading, server stuck— and the second "it started but doesn't finish".
+     * Telling them apart matters because the message to the user is different,
+     * and because a partial answer is better than none: when the long one
+     * expires, what was already written is kept.
      */
     let gotFirstToken = false;
     const firstTokenTimer = setTimeout(() => {
@@ -314,11 +315,11 @@ export class AnswerEngine extends EventEmitter {
       const provider = createLLMProvider(settings, onScreen);
 
       /*
-       * Con un modelo sin visión, una captura se descarta en silencio. Para una
-       * pregunta hablada eso degrada y ya está —la pregunta sigue en el audio—,
-       * pero en las acciones de pantalla la captura ES el enunciado: sin ella el
-       * modelo se inventaría el ejercicio entero y la respuesta parecería
-       * perfecta. Es mejor gastar la pulsación en decir qué falta.
+       * With a vision-less model, a capture is discarded silently. For a spoken
+       * question that just degrades and that's it —the question is still in the
+       * audio—, but in the screen actions the capture IS the prompt: without it
+       * the model would invent the whole exercise and the answer would look
+       * perfect. It's better to spend the keypress saying what's missing.
        */
       if (onScreen && images.length && !provider.supportsVision) {
         this.update({
@@ -329,11 +330,11 @@ export class AnswerEngine extends EventEmitter {
       }
 
       /*
-       * La skill se resuelve aquí y no en quien llama para que las tres vías
-       * —el prefijo escrito, el chip del overlay y el disparo automático—
-       * pasen por la misma puerta. `getSkill` devuelve `undefined` si está rota
-       * o si el id ya no existe, que es lo que hace que una carpeta borrada no
-       * deje la app mandando un prompt a medias.
+       * The skill is resolved here and not in the caller so that the three paths
+       * —the written prefix, the overlay chip and the automatic trigger— pass
+       * through the same door. `getSkill` returns `undefined` if it's broken or
+       * if the id no longer exists, which is what keeps a deleted folder from
+       * leaving the app sending a half-baked prompt.
        */
       const skill = getSkill(skillId ?? settings.activeSkillId);
 
@@ -342,15 +343,15 @@ export class AnswerEngine extends EventEmitter {
           systemPrompt: buildSystemPrompt(settings, forced, skill),
           transcript: this.transcript.format(this.transcript.recent(settings.manualContextSeconds)),
           ...(question ? { question } : {}),
-          // Se pasa una copia: la generación es asíncrona y `history` puede
-          // recibir un turno nuevo mientras ésta sigue en vuelo.
+          // A copy is passed: generation is async and `history` can receive a
+          // new turn while this one is still in flight.
           ...(this.history.length ? { history: [...this.history] } : {}),
-          // Un modelo sin visión ignoraría las imágenes silenciosamente; mejor
-          // no enviarlas y ahorrar el ancho de banda.
+          // A vision-less model would ignore the images silently; better not to
+          // send them and save the bandwidth.
           ...(provider.supportsVision && images.length ? { images } : {}),
           maxTokens: TOKENS_BY_PROFILE[profile] ?? MAX_ANSWER_TOKENS,
-          // Sin los sobres del turno de usuario: el intérprete traduce todo y se
-          // llevaba las etiquetas puestas. Ver `AnswerRequest.interpreter`.
+          // Without the user-turn envelopes: the interpreter translates
+          // everything and carried the tags along. See `AnswerRequest.interpreter`.
           interpreter: profile === 'interpreter',
         },
         controller.signal
@@ -375,17 +376,17 @@ export class AnswerEngine extends EventEmitter {
   }
 
   /**
-   * Extiende la última respuesta terminada, añadiendo a la MISMA respuesta.
+   * Extends the last finished answer, adding to the SAME answer.
    *
-   * Es lo que resuelve una solución más larga que el tope de una sola llamada:
-   * el candidato pulsa "Continuar" y el modelo sigue donde se cortó. Se reusa el
-   * mismo id y se siembra el texto base, así que `consume` —que añade a
-   * `this.current.text`— pega la continuación al final; el overlay y el móvil,
-   * que actualizan por id, ven crecer una sola respuesta en lugar de dos.
+   * It's what solves a solution longer than a single call's cap: the candidate
+   * presses "Continue" and the model keeps going where it was cut off. The same
+   * id is reused and the base text is seeded, so `consume` —which adds to
+   * `this.current.text`— glues the continuation onto the end; the overlay and
+   * the phone, which update by id, watch a single answer grow instead of two.
    *
-   * El parcial ya viaja como el último turno del asistente (lo metió
-   * `remember`), así que no hay que reenviar la captura: el modelo continúa su
-   * propio código. Se puede pulsar varias veces.
+   * The partial already travels as the assistant's last turn (`remember` put it
+   * there), so the capture doesn't need resending: the model continues its own
+   * code. It can be pressed several times.
    */
   async continueAnswer(): Promise<void> {
     const prev = this.current;
@@ -397,7 +398,7 @@ export class AnswerEngine extends EventEmitter {
     const forced = PROFILE_BY_TRIGGER[prev.trigger];
     const profile = forced ?? settings.promptProfileId;
 
-    // Misma respuesta, mismo id, con su texto ya puesto: `consume` añade encima.
+    // Same answer, same id, with its text already in place: `consume` adds on top.
     this.current = { ...prev, status: 'streaming' };
     this.emitCurrent();
 
@@ -408,7 +409,7 @@ export class AnswerEngine extends EventEmitter {
     const firstTokenTimer = setTimeout(() => {
       if (!gotFirstToken && !controller.signal.aborted) {
         controller.abort();
-        // Ya hay texto: se conserva lo que había en vez de dejarlo en error.
+        // There's already text: keep what there was instead of leaving it in error.
         this.update({ status: 'done' });
       }
     }, FIRST_TOKEN_TIMEOUT_MS);
@@ -452,9 +453,9 @@ export class AnswerEngine extends EventEmitter {
   }
 
   /**
-   * Como `remember`, pero para una continuación: es la MISMA vuelta, así que se
-   * actualiza el último intercambio en lugar de apilar uno nuevo (si no, el
-   * modelo vería su solución dos veces en la memoria).
+   * Like `remember`, but for a continuation: it's the SAME round, so the last
+   * exchange is updated instead of stacking a new one (otherwise the model would
+   * see its solution twice in memory).
    */
   private rememberContinuation(): void {
     const answer = this.current;
@@ -465,10 +466,10 @@ export class AnswerEngine extends EventEmitter {
   }
 
   /**
-   * Consume el stream acumulando texto y difundiendo con throttle.
+   * Consumes the stream, accumulating text and broadcasting with throttle.
    *
-   * Sin throttle, cada token dispararía un mensaje IPC y un re-render de React:
-   * cientos por respuesta, con el overlay dando tirones.
+   * Without throttle, every token would fire an IPC message and a React
+   * re-render: hundreds per answer, with the overlay stuttering.
    */
   private async consume(
     stream: AsyncIterable<string>,
@@ -503,35 +504,35 @@ export class AnswerEngine extends EventEmitter {
 
     this.update({
       status: 'done',
-      // Un stream que termina sin texto casi siempre significa que el modelo
-      // rechazó o se quedó sin tokens; decirlo es mejor que un panel vacío.
+      // A stream that ends with no text almost always means the model refused or
+      // ran out of tokens; saying so is better than an empty panel.
       ...(this.current?.text ? {} : { status: 'error', error: m('err.emptyAnswer') }),
     });
   }
 
   /**
-   * Archiva el turno recién terminado para las siguientes consultas.
+   * Archives the just-finished turn for the next queries.
    *
-   * Sólo se guardan las completadas con texto: una abortada o fallida no es
-   * algo que el modelo "dijo", y meterla le haría creer que sí. Si no hubo
-   * pregunta aislada se guarda una marca, porque la API exige contenido no
-   * vacío en cada mensaje.
+   * Only ones completed with text are saved: an aborted or failed one isn't
+   * something the model "said", and adding it would make it believe otherwise.
+   * If there was no isolated question a marker is saved, because the API demands
+   * non-empty content in every message.
    */
   private remember(): void {
     const answer = this.current;
     if (!answer || answer.status !== 'done' || !answer.text.trim()) return;
 
     /*
-     * La pregunta se desarma al guardarla, no al enviarla.
+     * The question is dismantled when saved, not when sent.
      *
-     * Viaja como un mensaje `user` de verdad —es lo que hace que el modelo trate
-     * sus respuestas anteriores como cosas que dijo él— y por tanto **fuera de
-     * todo sobre**. Sin esto, una orden que se hubiera frenado en
-     * `<transcripcion>` volvería en la consulta siguiente sin nada alrededor.
+     * It travels as a real `user` message —that's what makes the model treat its
+     * previous answers as things it said— and therefore **outside every
+     * envelope**. Without this, an instruction that had been stopped in
+     * `<transcripcion>` would come back in the next query with nothing around it.
      *
-     * Aquí y no en cada proveedor porque ésta es la única puerta a la memoria;
-     * el historial que se guarda en disco es otro camino y conserva el texto
-     * literal, que es lo que hay que poder releer.
+     * Here and not in each provider because this is the only door to memory; the
+     * history saved on disk is another path and keeps the literal text, which is
+     * what has to be re-readable.
      */
     this.history.push({
       question: neutralize(answer.question.trim()) || m('hist.inferredQuestion'),
