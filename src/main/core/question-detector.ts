@@ -1,20 +1,21 @@
 /**
- * Decide si una intervención del interlocutor merece una respuesta automática.
+ * Decides whether an utterance from the other party deserves an automatic
+ * answer.
  *
- * Es una escalera de coste creciente, y el orden importa: la heurística local es
- * gratis y descarta la gran mayoría de los segmentos, así que sólo lo que pasa
- * ese filtro puede llegar a costar tokens.
+ * It's a ladder of increasing cost, and the order matters: the local heuristic
+ * is free and discards the vast majority of segments, so only what passes that
+ * filter can ever cost tokens.
  *
- * Optimizamos para precisión, no para recall: una sugerencia que aparece cuando
- * nadie preguntó nada distrae en el peor momento posible. Si el detector falla
- * un caso, el usuario todavía tiene el hotkey manual.
+ * We optimize for precision, not recall: a suggestion that appears when no one
+ * asked anything distracts at the worst possible moment. If the detector misses
+ * a case, the user still has the manual hotkey.
  */
 
 import type { AutoTriggerSensitivity } from '@shared/types';
 
-/** Marcadores de pregunta en español e inglés, al principio de la frase. */
+/** Question markers in Spanish and English, at the start of the sentence. */
 const INTERROGATIVE_OPENERS = [
-  // Español
+  // Spanish
   'que', 'qué', 'cual', 'cuál', 'cuales', 'cuáles', 'como', 'cómo', 'cuando',
   'cuándo', 'donde', 'dónde', 'quien', 'quién', 'por que', 'por qué', 'porque',
   'para que', 'para qué', 'cuanto', 'cuánto', 'cuanta', 'cuánta', 'cuantos',
@@ -27,49 +28,50 @@ const INTERROGATIVE_OPENERS = [
 ];
 
 /**
- * Aperturas imperativas que son preguntas de entrevista sin signo de
- * interrogación: "cuéntame sobre tu experiencia", "walk me through...".
+ * Imperative openings that are interview questions without a question mark:
+ * "cuéntame sobre tu experiencia", "walk me through...".
  */
 const IMPERATIVE_PROMPTS = [
   'cuentame', 'cuéntame', 'hablame', 'háblame', 'explicame', 'explícame',
   'describeme', 'descríbeme', 'dime', 'dame un ejemplo', 'ponme un ejemplo',
   'imagina', 'supon', 'supón',
-  // Las formas con "-nos" son tan imperativas como las de "-me", y en una
-  // reunión con varias personas son las que salen. Éstas sí valen en cualquier
-  // posición: nadie dice "explicanos" sin estar pidiendo algo.
+  // The "-nos" forms are as imperative as the "-me" ones, and in a meeting with
+  // several people they're the ones that come up. These do count in any
+  // position: nobody says "explicanos" without asking for something.
   'cuentanos', 'explicanos', 'hablanos', 'describenos', 'dinos',
   'tell me', 'walk me through', 'talk me through', 'give me an example',
   'describe a time', 'explain how', 'explain why', 'take me through',
 ];
 
 /**
- * Verbos en imperativo que abren una petición, **sólo al principio**.
+ * Imperative verbs that open a request, **at the start only**.
  *
- * El hueco que tapan salió de una prueba real: «Explica un poco el rol de un
- * SRE» se descartó, y la misma pregunta con otra forma —«¿Podrías explicar un
- * poco el rol de un SRE?»— disparó sin problema. Las dos piden exactamente lo
- * mismo; sólo una está formulada como pregunta, y **la gente usa las dos**.
+ * The gap they cover came from a real test: "Explica un poco el rol de un SRE"
+ * was discarded, and the same question in another form —"¿Podrías explicar un
+ * poco el rol de un SRE?"— fired without a problem. Both ask for exactly the
+ * same thing; only one is phrased as a question, and **people use both**.
  *
- * Era además una asimetría entre idiomas: en inglés los imperativos pelados ya
- * estaban cubiertos —`explain`, `describe`, `tell` viven en la lista de
- * aperturas— y en español sólo se reconocían las formas con pronombre
- * (`explícame`, `cuéntame`). Quien dice «explica» sin el «me» pedía lo mismo.
+ * It was also a cross-language asymmetry: in English the bare imperatives were
+ * already covered —`explain`, `describe`, `tell` live in the openers list— and
+ * in Spanish only the pronoun forms were recognized (`explícame`, `cuéntame`).
+ * Whoever says "explica" without the "me" was asking for the same thing.
  *
- * **Sólo al principio, y esto no es negociable.** Estos verbos son idénticos a
- * la tercera persona del indicativo, que aparece a todas horas en mitad de una
- * frase: «el informe explica que…», «él describe el problema». Al principio de
- * una intervención, en cambio, es una petición casi siempre.
+ * **At the start only, and this isn't negotiable.** These verbs are identical to
+ * the third person indicative, which shows up constantly mid-sentence: "el
+ * informe explica que…", "él describe el problema". At the start of an
+ * utterance, by contrast, it's almost always a request.
  *
- * Se quedan fuera a propósito, y no por olvido:
+ * These are left out on purpose, not by oversight:
  *
- * | Verbo | Por qué no |
+ * | Verb | Why not |
  * |---|---|
- * | `cuenta` | Es también sustantivo, y «cuenta con» significa otra cosa |
- * | `indica` | «indica que…» en tercera persona es lo normal, no la excepción |
- * | `desarrolla` | «desarrolla software» abre una frase perfectamente afirmativa |
- * | `habla` | «habla muy rápido» describe a alguien, no pide nada |
+ * | `cuenta` | It's also a noun, and "cuenta con" means something else |
+ * | `indica` | "indica que…" in the third person is the norm, not the exception |
+ * | `desarrolla` | "desarrolla software" opens a perfectly declarative sentence |
+ * | `habla` | "habla muy rápido" describes someone, it asks for nothing |
  *
- * Van sin acentos porque se comparan contra el texto ya normalizado.
+ * They go without accents because they're compared against the already
+ * normalized text.
  */
 const IMPERATIVE_OPENERS = [
   'explica', 'describe', 'define', 'compara', 'enumera', 'resume', 'detalla',
@@ -77,30 +79,30 @@ const IMPERATIVE_OPENERS = [
   'ilustra', 'menciona',
 ];
 
-/** Frases demasiado cortas casi nunca son preguntas reales que valga responder. */
+/** Sentences that are too short are almost never real questions worth answering. */
 const MIN_WORDS = 3;
 
 /**
- * Mínimo cuando hay una señal inequívoca de pregunta.
+ * Minimum when there's an unambiguous question signal.
  *
- * En español muchas preguntas completas son de dos palabras: "¿Podrías
- * presentarte?", "¿Qué recomiendas?", "¿Cómo funciona?". Con el mínimo fijo en
- * tres se descartaban en silencio — pasó de verdad, y desde fuera parecía que
- * la app había dejado de responder. Se baja sólo cuando hay signo de
- * interrogación o interrogativo inicial, para no abrir la puerta a
- * confirmaciones sueltas como "vale ya".
+ * In Spanish many complete questions are two words: "¿Podrías presentarte?",
+ * "¿Qué recomiendas?", "¿Cómo funciona?". With the minimum fixed at three they
+ * were discarded silently — it really happened, and from the outside it looked
+ * like the app had stopped responding. It's lowered only when there's a question
+ * mark or a leading question word, so as not to open the door to stray
+ * confirmations like "vale ya".
  */
 const MIN_WORDS_WITH_MARKER = 2;
 
 /**
- * Muletillas y confirmaciones que la heurística marcaría por empezar con un
- * interrogativo pero que no piden respuesta.
+ * Fillers and confirmations that the heuristic would flag for starting with a
+ * question word but that don't ask for an answer.
  */
 const FILLERS = [
   'que tal', 'qué tal', 'como estas', 'cómo estás', 'como va', 'cómo va',
   'me escuchas', 'me oyes', 'se me escucha', 'puedes oirme', 'puedes oírme',
-  // Variantes de la comprobación de audio que faltaban. Salieron de una prueba
-  // real: "me puedes escuchar" no estaba y no lo cazaba ninguna otra regla.
+  // Audio-check variants that were missing. They came from a real test: "me
+  // puedes escuchar" wasn't there and no other rule caught it.
   'me puedes escuchar', 'puedes escucharme', 'me escuchan', 'se escucha',
   'me oyen', 'probando',
   'hola buenos dias', 'hola buenas', 'buenos dias', 'buenas tardes',
@@ -127,18 +129,17 @@ const ACCENTED_INTERROGATIVE =
   /(^|[^\p{L}])(qué|cuál|cuáles|cómo|cuándo|dónde|quién|quiénes|cuánto|cuánta|cuántos|cuántas)([^\p{L}]|$)/u;
 
 /**
- * Fórmulas que piden criterio, en cualquier posición.
+ * Formulas that ask for judgment, in any position.
  *
- * Un ASR no puntúa de forma fiable, así que muchas preguntas llegan como
- * afirmaciones. Estas construcciones piden una respuesta aunque el texto acabe
- * en punto.
+ * An ASR doesn't punctuate reliably, so many questions arrive as statements.
+ * These constructions ask for an answer even when the text ends in a period.
  *
- * **Aquí NO hay ninguna variante de "debería"**, y no es un olvido. Se probaron
- * (`que deberia`, `deberia usar`, …) y disparaban con subordinadas normales:
- * "creo que debería haber estudiado más" no es una pregunta. Lo que distingue
- * "¿qué lenguaje debería usar?" de esa frase no es el verbo, es el
- * interrogativo — y de eso ya se encarga `ACCENTED_INTERROGATIVE`. El test de
- * falsos positivos de `question-detector.test.ts` fija esta decisión.
+ * **There is NO variant of "debería" here**, and it's not an oversight. They
+ * were tried (`que deberia`, `deberia usar`, …) and fired on normal subordinate
+ * clauses: "creo que debería haber estudiado más" isn't a question. What
+ * distinguishes "¿qué lenguaje debería usar?" from that sentence isn't the verb,
+ * it's the question word — and `ACCENTED_INTERROGATIVE` already handles that.
+ * The false-positive test in `question-detector.test.ts` pins this decision.
  */
 const EMBEDDED_MARKERS = [
   'me recomiendas', 'que recomiendas', 'recomendarias', 'me aconsejas',
@@ -149,7 +150,7 @@ const EMBEDDED_MARKERS = [
   'what would you', 'which one should', 'how would you', 'what do you think',
 ];
 
-/** Quita acentos y puntuación para comparar de forma estable. */
+/** Strips accents and punctuation to compare in a stable way. */
 function normalize(text: string): string {
   return text
     .toLowerCase()
@@ -160,21 +161,21 @@ function normalize(text: string): string {
     .trim();
 }
 
-/** Saludos que casi siempre van pegados delante de una prueba de audio. */
+/** Greetings that almost always sit right in front of an audio check. */
 const GREETINGS = ['hola', 'hey', 'oye', 'buenas', 'buenos dias', 'buenas tardes', 'hi', 'hello'];
 
 /**
- * `true` si la intervención ENTERA es saludo y comprobación de audio.
+ * `true` if the WHOLE utterance is a greeting and audio check.
  *
- * La regla anterior descartaba cualquier frase que **empezara** por una
- * muletilla, y eso mataba preguntas de verdad: en una sesión real se descartó
- * "¿Qué tal es la idea de software?" porque empieza por "qué tal". Una muletilla
- * tiene que ser la frase entera, no su primera mitad.
+ * The previous rule discarded any sentence that **started** with a filler, and
+ * that killed real questions: in a real session "¿Qué tal es la idea de
+ * software?" was discarded because it starts with "qué tal". A filler has to be
+ * the whole sentence, not its first half.
  *
- * Se parte en oraciones porque en la práctica se dicen encadenadas —"Hola,
- * ¿cómo estás? ¿Me escuchas?"— y sólo se descarta si **todas** las partes son
- * saludo o comprobación. Basta con que una no lo sea para que valga la pena
- * mirarla.
+ * It's split into clauses because in practice they're said chained —"Hola,
+ * ¿cómo estás? ¿Me escuchas?"— and it's only discarded if **all** the parts are
+ * a greeting or check. It's enough for one not to be for it to be worth looking
+ * at.
  */
 function isAllFiller(raw: string): boolean {
   const clauses = raw
@@ -190,30 +191,29 @@ function isAllFiller(raw: string): boolean {
 
 export interface QuestionVerdict {
   isQuestion: boolean;
-  /** Por qué se decidió así. Se registra para poder afinar la heurística. */
+  /** Why it was decided this way. Logged so the heuristic can be tuned. */
   reason: string;
   /**
-   * `true` si el descarte es una **duda**, no una certeza.
+   * `true` if the discard is a **doubt**, not a certainty.
    *
-   * Lo mira el segundo escalón para decidir si vale la pena gastar una consulta
-   * preguntándole al modelo. Una muletilla o una frase de dos palabras se
-   * descartan con certeza; una oración larga sin ningún marcador puede ser
-   * perfectamente una pregunta dicha en forma de afirmación, y eso una lista de
-   * palabras no lo puede saber.
+   * The second step looks at it to decide whether it's worth spending a query
+   * asking the model. A filler or a two-word phrase is discarded with certainty;
+   * a long sentence with no marker can perfectly well be a question said in the
+   * form of a statement, and a word list can't know that.
    *
-   * Es un campo y no una comparación del texto de `reason` a propósito: ese
-   * texto está escrito para que lo lea una persona, y atarle lógica lo convierte
-   * en una API que se rompe al reescribir un mensaje. Es la misma razón por la
-   * que los errores de los proveedores se distinguen por clase y no por cadena.
+   * It's a field and not a comparison of the `reason` text on purpose: that text
+   * is written for a person to read, and tying logic to it turns it into an API
+   * that breaks when a message is reworded. It's the same reason provider errors
+   * are told apart by class and not by string.
    */
   ambiguous?: boolean;
 }
 
 /**
- * Heurística local, coste cero.
+ * Local heuristic, zero cost.
  *
- * No requiere signo de interrogación porque muchos motores de STT no lo ponen
- * de forma fiable — apoyarse en él perdería la mayoría de las preguntas.
+ * It doesn't require a question mark because many STT engines don't add one
+ * reliably — relying on it would lose most of the questions.
  */
 export function looksLikeQuestion(
   text: string,
@@ -225,8 +225,8 @@ export function looksLikeQuestion(
   const normalized = normalize(raw);
   const words = normalized.split(' ').filter(Boolean);
 
-  // Las muletillas se comprueban antes que todo lo demás: "¿cómo estás?" tiene
-  // signo de interrogación y empieza por interrogativo, y aun así no se responde.
+  // Fillers are checked before everything else: "¿cómo estás?" has a question
+  // mark and starts with a question word, and still isn't answered.
   if (isAllFiller(raw)) {
     return { isQuestion: false, reason: 'muletilla o comprobación de audio' };
   }
@@ -243,8 +243,8 @@ export function looksLikeQuestion(
     return { isQuestion: false, reason: `demasiado corto (${words.length} palabras)` };
   }
 
-  // Superado el filtro de muletillas y de longitud, en `all` ya no hay nada que
-  // decidir: si estás dictando tú las preguntas, no hay ruido del que protegerse.
+  // Past the filler and length filters, in `all` there's nothing left to
+  // decide: if you're dictating the questions, there's no noise to protect from.
   if (sensitivity === 'all') {
     return { isQuestion: true, reason: 'sensibilidad "todo"' };
   }
@@ -256,18 +256,18 @@ export function looksLikeQuestion(
   }
 
   /*
-   * El verbo en imperativo pelado: "explica el rol de un SRE".
+   * The bare imperative verb: "explica el rol de un SRE".
    *
-   * Va aquí arriba, con las demás señales fuertes, y no abajo con las reglas de
-   * `balanced`: pedir algo es igual de explícito que preguntarlo, así que el
-   * modo estricto también tiene que verlo. Que la petición no lleve signo de
-   * interrogación no la vuelve dudosa.
+   * It goes up here, with the other strong signals, and not down with the
+   * `balanced` rules: asking for something is as explicit as questioning it, so
+   * strict mode has to see it too. The request lacking a question mark doesn't
+   * make it doubtful.
    */
   if (IMPERATIVE_OPENERS.includes(firstWord)) {
     return { isQuestion: true, reason: `verbo en imperativo: "${firstWord}"` };
   }
 
-  // El signo de interrogación explícito es señal fuerte cuando el motor lo pone.
+  // The explicit question mark is a strong signal when the engine adds it.
   if (raw.includes('?')) {
     return { isQuestion: true, reason: 'signo de interrogación' };
   }
@@ -277,33 +277,33 @@ export function looksLikeQuestion(
     return { isQuestion: true, reason: `interrogativo inicial: "${firstWord}"` };
   }
 
-  // A partir de aquí, sólo en `balanced`. Son las reglas que recuperan las
-  // preguntas que el ASR entrega sin signos, a cambio de algún disparo de más.
+  // From here on, only in `balanced`. These are the rules that recover the
+  // questions the ASR delivers without marks, at the cost of some extra firing.
   if (sensitivity === 'strict') {
     return {
       isQuestion: false,
       reason: 'sin marcadores de pregunta (modo estricto)',
-      // Ambigua igualmente: `strict` decide cuánto se arriesga la heurística,
-      // no si el modelo puede opinar. Estricto + clasificador es de hecho la
-      // combinación más precisa que hay — nada de adivinar por palabras, y el
-      // modelo resolviendo las dudas.
+      // Ambiguous anyway: `strict` decides how much the heuristic gambles, not
+      // whether the model gets a say. Strict + classifier is in fact the most
+      // precise combination there is — no guessing by words, and the model
+      // resolving the doubts.
       ambiguous: true,
     };
   }
 
-  // Sobre el texto CRUDO: el acento sobrevive aquí y no en `normalized`.
+  // On the RAW text: the accent survives here and not in `normalized`.
   const accented = ACCENTED_INTERROGATIVE.exec(raw.toLowerCase());
   if (accented) {
     return { isQuestion: true, reason: `interrogativo acentuado: "${accented[2]}"` };
   }
 
   /*
-   * Aperturas imperativas en CUALQUIER posición, no sólo al principio.
+   * Imperative openings in ANY position, not just at the start.
    *
-   * Al unir los fragmentos de una intervención titubeante, el imperativo deja
-   * de encabezar la frase: "Bueno... a ver, cuéntame sobre tu experiencia" es
-   * una petición de manual y la comprobación de prefijo no la veía. Pedir algo
-   * sigue siendo pedir algo aunque haya un titubeo delante.
+   * When the fragments of a hesitant utterance are joined, the imperative stops
+   * leading the sentence: "Bueno... a ver, cuéntame sobre tu experiencia" is a
+   * textbook request and the prefix check didn't see it. Asking for something is
+   * still asking for something even with a hesitation in front.
    */
   for (const prompt of IMPERATIVE_PROMPTS) {
     if (new RegExp(`(^|[^\\p{L}])${prompt}([^\\p{L}]|$)`, 'u').test(normalized)) {
@@ -318,13 +318,13 @@ export function looksLikeQuestion(
   }
 
   /*
-   * Aquí es donde muere el techo de esta heurística, y por eso se marca como
-   * duda en lugar de como descarte.
+   * This is where the ceiling of this heuristic dies, and that's why it's
+   * marked as a doubt instead of a discard.
    *
    * "Una persona que conozca de DevOps debería conocer también de seguridad"
-   * llega aquí, y es una pregunta: quien la dice espera que le contesten. Lo
-   * que la hace pregunta no está en el léxico —está en que es una afirmación
-   * dirigida a alguien— así que ninguna lista la va a coger nunca.
+   * reaches here, and it's a question: whoever says it expects an answer. What
+   * makes it a question isn't in the lexicon —it's that it's a statement aimed
+   * at someone— so no list will ever catch it.
    */
   return { isQuestion: false, reason: 'sin marcadores de pregunta', ambiguous: true };
 }

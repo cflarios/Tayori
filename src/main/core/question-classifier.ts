@@ -3,58 +3,58 @@ import { createLLMProvider } from '../llm';
 import type { QuestionVerdict } from './question-detector';
 
 /**
- * El segundo escalón del auto-disparo: preguntarle al modelo.
+ * The auto-trigger's second step: ask the model.
  *
- * `question-detector.ts` es una heurística de palabras clave y tiene un techo
- * que no se puede subir con más listas. El caso que lo destapó, sacado de una
- * conversación real:
+ * `question-detector.ts` is a keyword heuristic and has a ceiling that no
+ * amount of extra lists can raise. The case that exposed it, taken from a real
+ * conversation:
  *
  *   "Una persona que conozca de DevOps debería conocer también de seguridad."
  *   "Si una persona sabe DevOps, necesariamente tendría que saber de seguridad."
  *
- * Las dos son **preguntas** dichas en voz alta —quien las dice espera que le
- * contesten— y las dos llegan del reconocedor como oraciones afirmativas, sin
- * signo y sin ningún interrogativo. Ninguna lista de marcadores las va a coger,
- * porque lo que las hace preguntas no está en el léxico: está en que son
- * afirmaciones dirigidas a alguien que espera respuesta. Y añadir "debería" a
- * la heurística ya se probó y se descartó — dispara con "creo que debería haber
- * estudiado más", que no pide nada.
+ * Both are **questions** said out loud —whoever says them expects an answer—
+ * and both arrive from the recognizer as declarative sentences, with no mark and
+ * no question word. No marker list will catch them, because what makes them
+ * questions isn't in the lexicon: it's that they're statements aimed at someone
+ * who expects an answer. And adding "should" to the heuristic was tried and
+ * dropped — it fires on "I think I should have studied more", which asks for
+ * nothing.
  *
- * Eso es lo que un modelo sí sabe leer, y es el escalón que `AutoTriggerMode`
- * llevaba prometido desde el principio en el tipo sin que existiera el código.
+ * That's what a model can read, and it's the step `AutoTriggerMode` had promised
+ * from the start in the type without the code existing.
  *
- * ## Las tres reglas que lo hacen viable
+ * ## The three rules that make it viable
  *
- * - **Sólo se pregunta por lo que la heurística no supo decidir.** Una
- *   muletilla o una frase de dos palabras se descartan gratis, como siempre.
- *   Pagar una llamada por un "vale, perfecto" sería absurdo.
- * - **Nunca bloquea.** Con reloj propio y `AbortSignal`: si el modelo tarda o
- *   falla, la respuesta es "no era una pregunta" y la app sigue como antes. Un
- *   clasificador caído no puede dejar la escucha colgada.
- * - **Cuesta dinero, y se dice.** Es una consulta más por cada intervención
- *   ambigua, y en un modelo que razona ni siquiera es una consulta barata. Por
- *   eso no es el valor por defecto y el dashboard lo avisa.
+ * - **The model is only asked about what the heuristic couldn't decide.** A
+ *   filler or a two-word phrase is discarded for free, as always. Paying for a
+ *   call over an "okay, great" would be absurd.
+ * - **It never blocks.** With its own clock and `AbortSignal`: if the model is
+ *   slow or fails, the answer is "it wasn't a question" and the app carries on
+ *   as before. A downed classifier can't leave listening hung.
+ * - **It costs money, and it's said.** It's one extra query per ambiguous
+ *   utterance, and on a reasoning model it's not even a cheap query. That's why
+ *   it isn't the default and the dashboard warns about it.
  */
 
 /**
- * Tope de espera.
+ * Wait cap.
  *
- * Ocho segundos es mucho para un sí/no, y es a propósito: el listón lo pone un
- * modelo local en una máquina modesta, que es justo donde este modo tiene más
- * sentido porque la consulta no cuesta dinero. Pasado eso, la intervención ya
- * es agua pasada en una conversación en directo y contestar tarde es peor que
- * no contestar.
+ * Eight seconds is a lot for a yes/no, and it's on purpose: the bar is set by a
+ * local model on a modest machine, which is exactly where this mode makes the
+ * most sense because the query costs no money. Past that, the utterance is
+ * already water under the bridge in a live conversation and answering late is
+ * worse than not answering.
  */
 const CLASSIFY_TIMEOUT_MS = 8_000;
 
 /**
- * Presupuesto de salida.
+ * Output budget.
  *
- * La respuesta útil es una palabra, pero el tope no puede ser de una palabra:
- * los modelos que razonan cuentan el pensamiento dentro de este mismo número y
- * se quedarían sin escribir nada — la trampa que ya está documentada tres veces
- * en este proyecto. Cada proveedor añade por su cuenta lo que necesite para
- * razonar (`budgetFor`), así que aquí basta con dejar sitio a la palabra.
+ * The useful answer is one word, but the cap can't be one word: reasoning
+ * models count the thinking inside this same number and would end up writing
+ * nothing — the trap already documented three times in this project. Each
+ * provider adds on its own whatever it needs to reason (`budgetFor`), so here
+ * it's enough to leave room for the word.
  */
 const CLASSIFY_MAX_TOKENS = 16;
 
@@ -83,11 +83,11 @@ preguntado nada interrumpe en el peor momento.
 `.trim();
 
 /**
- * `true` si la intervención pide una respuesta.
+ * `true` if the utterance asks for an answer.
  *
- * No lanza nunca. Cualquier fallo —sin credencial, modelo caído, tiempo
- * agotado— se resuelve como `false`, que es el veredicto que ya tenía la
- * heurística: el modo degrada a `heuristic` en lugar de romperse.
+ * It never throws. Any failure —no credential, downed model, timed out— resolves
+ * as `false`, which is the verdict the heuristic already had: the mode degrades
+ * to `heuristic` instead of breaking.
  */
 export async function classifyQuestion(
   text: string,
@@ -103,9 +103,9 @@ export async function classifyQuestion(
     for await (const chunk of provider.streamAnswer(
       {
         systemPrompt: SYSTEM_PROMPT,
-        // La transcripción va vacía a propósito: lo que se clasifica es ESTA
-        // intervención, y darle la conversación entera invita a contestar por
-        // el contexto en lugar de por lo que se acaba de decir.
+        // The transcript is empty on purpose: what's classified is THIS
+        // utterance, and giving it the whole conversation invites answering
+        // by the context instead of by what was just said.
         transcript: '',
         question: text,
         maxTokens: CLASSIFY_MAX_TOKENS,
@@ -113,17 +113,16 @@ export async function classifyQuestion(
       controller.signal
     )) {
       answer += chunk;
-      // Con la primera palabra ya está decidido; seguir leyendo sería esperar
-      // por tokens que no se van a mirar.
+      // With the first word it's already decided; reading on would be waiting
+      // for tokens that won't be looked at.
       if (answer.trim().length >= 2) break;
     }
 
     const verdict = answer.trim().toUpperCase();
     /*
-     * Se acepta SI y también YES: el prompt está en español y los modelos
-     * responden en el idioma de la conversación con más frecuencia de la que
-     * uno espera — es la misma sorpresa que ya obligó a poner una regla de
-     * idioma en todos los perfiles.
+     * SI is accepted and so is YES: the prompt is in Spanish and the models
+     * answer in the conversation's language more often than one expects — it's
+     * the same surprise that already forced a language rule into every profile.
      */
     const isQuestion = verdict.startsWith('SI') || verdict.startsWith('SÍ') || verdict.startsWith('YES');
 
@@ -146,17 +145,17 @@ export async function classifyQuestion(
 }
 
 /**
- * Si merece la pena gastar una consulta en esta intervención.
+ * Whether it's worth spending a query on this utterance.
  *
- * Sólo se escala lo que la heurística marcó como **duda**. Un descarte por
- * muletilla o por longitud es una certeza: preguntarle al modelo si "vale,
- * perfecto" es una pregunta cuesta lo mismo que preguntarle algo útil, y la
- * respuesta ya se sabe.
+ * Only what the heuristic marked as **doubt** is escalated. A discard by filler
+ * or by length is a certainty: asking the model whether "okay, great" is a
+ * question costs the same as asking it something useful, and the answer is
+ * already known.
  *
- * Lee un campo del veredicto y no el texto de `reason`, que está escrito para
- * que lo lea una persona. La primera versión comparaba el prefijo de la cadena
- * y un test la cazó enseguida: el motivo del modo estricto empieza igual, así
- * que la decisión dependía de cómo estuviera redactado un mensaje.
+ * It reads a field of the verdict and not the `reason` text, which is written
+ * for a person to read. The first version compared the string prefix and a test
+ * caught it right away: the strict-mode reason starts the same way, so the
+ * decision depended on how a message happened to be worded.
  */
 export function worthClassifying(verdict: QuestionVerdict): boolean {
   return verdict.ambiguous === true;
