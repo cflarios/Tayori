@@ -842,6 +842,16 @@ tan aislado:
   detecte de cuál viene cada frase y lo dé en el otro. Por eso `PROFILES` y
   `RULES` **excluyen** `interpreter` de su `Record`: el `return` temprano estrecha
   el tipo y no hacen falta entradas muertas.
+- **El turno de usuario también va sin sobres.** No basta con quitar el aviso de
+  inyección del *system prompt*: `buildUserTurn` envuelve la transcripción y la
+  pregunta en `<transcripcion>`/`<pregunta>` (la frontera de seguridad del resto
+  de perfiles), y el intérprete, que traduce TODO lo que recibe, **traducía los
+  nombres de las etiquetas** —`<transcripcion>` → `<transcription>`, `<pregunta>` →
+  `<question>`— y los colaba en la salida. Salía la traducción envuelta en XML
+  traducido. Con `AnswerRequest.interpreter` el turno va **en crudo** —sólo la
+  última frase, sin sobres ni instrucción final—, y no se pierde ninguna defensa
+  porque traducir es literal por diseño. El contexto para desambiguar lo aporta el
+  `history`, que viaja como mensajes de verdad.
 
 Dos límites asumidos en v1: es de **una traducción a la vez** (el `AnswerEngine`
 sólo tiene una respuesta en vuelo; hablar encima aborta la anterior), y **no va

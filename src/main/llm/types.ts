@@ -40,6 +40,17 @@ export interface AnswerRequest {
   images?: ImageAttachment[];
   /** Tope de tokens de salida. Corto a propósito: hay que leerlo en voz alta. */
   maxTokens: number;
+  /**
+   * Modo Intérprete: el turno de usuario va **en crudo**, sin los sobres
+   * `<transcripcion>`/`<pregunta>` ni la instrucción final.
+   *
+   * Esos sobres son la frontera de seguridad contra inyección del resto de
+   * perfiles, pero aquí sobran: el intérprete traduce TODO al otro idioma, así
+   * que traducía también los nombres de las etiquetas (`<transcripcion>` →
+   * `<transcription>`) y los colaba en la salida. Y no hay nada que defender:
+   * traducir es literal por diseño. Ver `buildUserTurn` y CONTEXT.md §Intérprete.
+   */
+  interpreter?: boolean;
 }
 
 export interface LLMProvider {

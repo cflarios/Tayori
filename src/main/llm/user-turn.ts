@@ -26,6 +26,18 @@ export function buildUserTurn(
    */
   sendsImages: boolean
 ): string {
+  /*
+   * Intérprete: el turno va en crudo, sin sobres ni instrucción final. El modelo
+   * traduce todo lo que recibe, así que con los sobres se llevaba los nombres de
+   * las etiquetas traducidos a la salida (`<transcripcion>` → `<transcription>`).
+   * Se le manda sólo la última intervención —lo que hay que traducir—; el prompt
+   * del sistema ya le dice qué hacer, y no hay frontera que defender porque
+   * traducir es literal por diseño.
+   */
+  if (request.interpreter) {
+    return request.question || request.transcript || '';
+  }
+
   const parts = [fence('transcripcion', request.transcript || '(sin audio aún)')];
 
   if (request.question) parts.push(fence('pregunta', request.question));

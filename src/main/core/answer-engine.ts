@@ -349,6 +349,9 @@ export class AnswerEngine extends EventEmitter {
           // no enviarlas y ahorrar el ancho de banda.
           ...(provider.supportsVision && images.length ? { images } : {}),
           maxTokens: TOKENS_BY_PROFILE[profile] ?? MAX_ANSWER_TOKENS,
+          // Sin los sobres del turno de usuario: el intérprete traduce todo y se
+          // llevaba las etiquetas puestas. Ver `AnswerRequest.interpreter`.
+          interpreter: profile === 'interpreter',
         },
         controller.signal
       );

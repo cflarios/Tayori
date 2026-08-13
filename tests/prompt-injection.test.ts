@@ -176,6 +176,21 @@ describe('buildUserTurn · el mismo sobre para todos los proveedores', () => {
     expect(buildUserTurn(withImage, true)).toContain('captura de su pantalla');
     expect(buildUserTurn(withImage, false)).not.toContain('captura de su pantalla');
   });
+
+  it('el modo intérprete manda la frase en crudo, sin sobres ni instrucción', () => {
+    // El intérprete traduce TODO lo que recibe, así que con los sobres se llevaba
+    // los nombres de las etiquetas traducidos a la salida (<transcripcion> →
+    // <transcription>). En crudo, la traducción sale limpia.
+    const turn = buildUserTurn(
+      request({ transcript: 'ME: hola\nTHEM: adiós', question: 'adiós', interpreter: true }),
+      false
+    );
+
+    expect(turn).toBe('adiós');
+    expect(turn).not.toContain('<transcripcion>');
+    expect(turn).not.toContain('<pregunta>');
+    expect(turn).not.toContain('Responde');
+  });
 });
 
 describe('buildSystemPrompt · la regla de seguridad', () => {
