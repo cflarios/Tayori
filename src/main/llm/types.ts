@@ -1,22 +1,22 @@
 import type { ImageAttachment, LLMProviderId, ModelInfo } from '@shared/types';
 
 /**
- * Contrato de un proveedor de respuestas.
+ * Contract of an answer provider.
  *
- * El orquestador no sabe si detrás hay Claude, Gemini, ChatGPT u Ollama. Añadir
- * Groq o cualquier otro es un archivo nuevo más una entrada en el mapa de
- * `index.ts`.
+ * The orchestrator doesn't know whether Claude, Gemini, ChatGPT or Ollama is
+ * behind it. Adding Groq or any other one is a new file plus an entry in the
+ * `index.ts` map.
  */
 
 /**
- * Un intercambio ya cerrado de esta misma conversación.
+ * An already-closed exchange from this same conversation.
  *
- * Existe porque faltaba: cada consulta se enviaba como un turno único —system
- * prompt más un mensaje de usuario— y **las respuestas anteriores del propio
- * modelo no volvían nunca**. El resultado, verificado en una conversación real,
- * es que el asistente decía ser comercial y noventa segundos después contestaba
- * "no tengo información sobre cuál es mi profesión". No era falta de contexto en
- * el transcript: era que su propia voz no formaba parte de la entrada.
+ * It exists because it was missing: each query used to be sent as a single turn
+ * —system prompt plus one user message— and **the model's own previous answers
+ * never came back**. The result, verified in a real conversation, is that the
+ * assistant would say it was in sales and ninety seconds later reply "I have no
+ * information about what my profession is". It wasn't a lack of context in the
+ * transcript: it was that its own voice wasn't part of the input.
  */
 export interface ConversationExchange {
   question: string;
@@ -24,31 +24,32 @@ export interface ConversationExchange {
 }
 
 export interface AnswerRequest {
-  /** Instrucciones + context packs. Es la parte estable, y por tanto cacheable. */
+  /** Instructions + context packs. The stable part, and therefore cacheable. */
   systemPrompt: string;
-  /** Transcripción reciente ya formateada con etiquetas de hablante. */
+  /** Recent transcript, already formatted with speaker tags. */
   transcript: string;
-  /** La pregunta concreta a responder, si se pudo aislar. */
+  /** The specific question to answer, if it could be isolated. */
   question?: string;
   /**
-   * Turnos anteriores, del más antiguo al más reciente. Se envían como mensajes
-   * de verdad (`user`/`assistant`), no embebidos en el texto: es lo que hace que
-   * el modelo los trate como algo que dijo él y no como material de referencia.
+   * Previous turns, oldest to newest. They're sent as real messages
+   * (`user`/`assistant`), not embedded in the text: that's what makes the model
+   * treat them as something it said and not as reference material.
    */
   history?: ConversationExchange[];
-  /** Capturas de pantalla adjuntas. Se ignoran si el modelo no ve imágenes. */
+  /** Attached screenshots. Ignored if the model can't see images. */
   images?: ImageAttachment[];
-  /** Tope de tokens de salida. Corto a propósito: hay que leerlo en voz alta. */
+  /** Output token cap. Short on purpose: it has to be read out loud. */
   maxTokens: number;
   /**
-   * Modo Intérprete: el turno de usuario va **en crudo**, sin los sobres
-   * `<transcripcion>`/`<pregunta>` ni la instrucción final.
+   * Interpreter mode: the user turn goes in **raw**, without the
+   * `<transcripcion>`/`<pregunta>` envelopes or the final instruction.
    *
-   * Esos sobres son la frontera de seguridad contra inyección del resto de
-   * perfiles, pero aquí sobran: el intérprete traduce TODO al otro idioma, así
-   * que traducía también los nombres de las etiquetas (`<transcripcion>` →
-   * `<transcription>`) y los colaba en la salida. Y no hay nada que defender:
-   * traducir es literal por diseño. Ver `buildUserTurn` y CONTEXT.md §Intérprete.
+   * Those envelopes are the injection safety boundary for the other profiles,
+   * but here they're in the way: the interpreter translates EVERYTHING into the
+   * other language, so it also translated the tag names (`<transcripcion>` →
+   * `<transcription>`) and slipped them into the output. And there's nothing to
+   * defend: translating is literal by design. See `buildUserTurn` and
+   * CONTEXT.md §Intérprete.
    */
   interpreter?: boolean;
 }
@@ -58,23 +59,24 @@ export interface LLMProvider {
   readonly model: string;
   readonly supportsVision: boolean;
 
-  /** Modelos disponibles. Puede consultar la red (Ollama) o ser estático. */
+  /** Available models. May hit the network (Ollama) or be static. */
   listModels(): Promise<ModelInfo[]>;
 
   /**
-   * Emite el texto en trozos a medida que llega.
+   * Emits the text in chunks as it arrives.
    *
-   * `signal` no es opcional por diseño: si el interlocutor hace una pregunta
-   * nueva mientras se genera la anterior, hay que cancelar la petición en vuelo
-   * o el overlay mostraría la respuesta a una pregunta que ya pasó.
+   * `signal` isn't optional by design: if the other party asks a new question
+   * while the previous one is being generated, the in-flight request has to be
+   * cancelled or the overlay would show the answer to a question that already
+   * passed.
    */
   streamAnswer(request: AnswerRequest, signal: AbortSignal): AsyncIterable<string>;
 
-  /** Comprueba credenciales y conectividad; lo usa el botón del dashboard. */
+  /** Checks credentials and connectivity; used by the dashboard button. */
   testConnection(): Promise<{ ok: boolean; error?: string }>;
 }
 
-/** Error con un mensaje pensado para mostrarse al usuario tal cual. */
+/** Error with a message meant to be shown to the user as-is. */
 export class LLMError extends Error {
   constructor(
     message: string,

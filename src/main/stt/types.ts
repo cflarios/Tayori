@@ -2,87 +2,87 @@ import type { EventEmitter } from 'node:events';
 import type { Speaker, STTProviderId } from '@shared/types';
 
 /**
- * Contrato que debe cumplir todo motor de transcripción.
+ * Contract every transcription engine must implement.
  *
- * La abstracción existe para que Gemini Live (nube, baja latencia) y
- * whisper.cpp (local, offline) sean intercambiables desde el dashboard sin que
- * el orquestador sepa cuál está activo. Añadir Deepgram o Soniox después es
- * un archivo nuevo más una entrada en el factory.
+ * The abstraction exists so that Gemini Live (cloud, low latency) and
+ * whisper.cpp (local, offline) are interchangeable from the dashboard without
+ * the orchestrator knowing which one is active. Adding Deepgram or Soniox later
+ * is a new file plus an entry in the factory.
  */
 
 export interface TranscriptEvent {
   speaker: Speaker;
   text: string;
-  /** `false` mientras el motor aún puede revisar el texto. */
+  /** `false` while the engine can still revise the text. */
   isFinal: boolean;
   /**
-   * `true` si `text` es el turno **entero hasta ahora**, no lo nuevo.
+   * `true` if `text` is the **whole turn so far**, not just what's new.
    *
-   * Los motores no se ponen de acuerdo en esto y la diferencia no es cosmética:
-   * Gemini Live manda fragmentos incrementales que hay que concatenar, y la API
-   * en tiempo real de OpenAI manda incrementos **y además** el turno completo al
-   * cerrarlo. Tratar lo segundo como incremental escribe la frase dos veces —
-   * pasó, se vio en pantalla, y la primera copia salía encima con las palabras
-   * partidas porque unir trozos de token mete espacios donde no van.
+   * The engines don't agree on this and the difference isn't cosmetic: Gemini
+   * Live sends incremental fragments that have to be concatenated, and OpenAI's
+   * real-time API sends increments **and also** the full turn when it closes.
+   * Treating the latter as incremental writes the sentence twice — it happened,
+   * it showed on screen, and the first copy came out on top with split words
+   * because joining token fragments inserts spaces where they don't belong.
    *
-   * Sin este campo la única alternativa era que el buffer adivinara comparando
-   * prefijos, que es exactamente la clase de heurística que falla el día que
-   * alguien repite una frase a propósito.
+   * Without this field the only alternative was for the buffer to guess by
+   * comparing prefixes, which is exactly the kind of heuristic that fails the
+   * day someone repeats a sentence on purpose.
    */
   cumulative?: boolean;
 }
 
 export interface STTStartOptions {
-  /** Siempre 16000: el worklet ya normaliza a esa frecuencia. */
+  /** Always 16000: the worklet already normalizes to that rate. */
   sampleRate: number;
-  /** BCP-47, o `'auto'` para detección automática. */
+  /** BCP-47, or `'auto'` for automatic detection. */
   language: string;
   /**
-   * Hablantes que se van a escuchar realmente.
+   * Speakers that are actually going to be listened to.
    *
-   * Importa porque Gemini Live abre una sesión WebSocket por hablante: crear la
-   * del micrófono cuando el usuario eligió escuchar solo el sistema gastaría una
-   * conexión que nunca recibe audio.
+   * It matters because Gemini Live opens one WebSocket session per speaker:
+   * creating the mic one when the user chose to listen to the system only would
+   * waste a connection that never receives audio.
    */
   speakers: Speaker[];
   /**
-   * Términos que sesgan el reconocedor. En una entrevista son oro: nombres de
-   * empresa, siglas y tecnologías son justo lo que un ASR generalista falla.
+   * Terms that bias the recognizer. In an interview they're gold: company
+   * names, acronyms and technologies are exactly what a generalist ASR botches.
    */
   vocabulary?: string[];
 }
 
-/** Respuesta que produce por su cuenta un motor de audio directo. */
+/** Answer produced on its own by a direct-audio engine. */
 export interface DirectAnswerEvent {
   speaker: Speaker;
-  /** Lo que se entendió, para que el overlay siga mostrando transcripción. */
+  /** What was understood, so the overlay keeps showing a transcript. */
   question: string;
   answer: string;
   model: string;
 }
 
 /**
- * Un provider emite:
+ * A provider emits:
  *   - `segment` → TranscriptEvent
- *   - `error`   → Error (no fatal; el orquestador decide qué hacer)
- *   - `answer`  → DirectAnswerEvent, sólo si `answersDirectly`
+ *   - `error`   → Error (non-fatal; the orchestrator decides what to do)
+ *   - `answer`  → DirectAnswerEvent, only if `answersDirectly`
  */
 export interface STTProvider {
   readonly id: STTProviderId;
   readonly events: EventEmitter;
 
   /**
-   * `true` si el motor **también responde**, porque le llega el audio al propio
-   * modelo de lenguaje y devuelve transcripción y respuesta en la misma llamada.
+   * `true` if the engine **also answers**, because the audio reaches the
+   * language model itself and it returns transcription and answer in one call.
    *
-   * El orquestador lo necesita para no disparar una segunda respuesta por su
-   * cuenta: el detector de preguntas sobra cuando quien decide es el modelo que
-   * está oyendo el audio.
+   * The orchestrator needs this so it doesn't fire a second answer on its own:
+   * the question detector is redundant when the one deciding is the model that's
+   * hearing the audio.
    */
   readonly answersDirectly?: boolean;
 
   start(options: STTStartOptions): Promise<void>;
-  /** PCM16 little-endian mono a `sampleRate`. */
+  /** PCM16 little-endian mono at `sampleRate`. */
   push(speaker: Speaker, pcm: Buffer): void;
   stop(): Promise<void>;
 }

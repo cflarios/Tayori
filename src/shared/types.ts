@@ -1,50 +1,50 @@
 import type { UIKey, UILang } from './i18n';
 
 /**
- * Tipos compartidos entre main, preload y renderer.
- * Fuente única de verdad: si un tipo cruza el puente IPC, vive aquí.
+ * Types shared between main, preload and renderer.
+ * Single source of truth: if a type crosses the IPC bridge, it lives here.
  */
 
-// ─────────────────────────── Audio y transcripción ───────────────────────────
+// ─────────────────────────── Audio and transcription ─────────────────────────
 
 /**
- * Quién habla. Se deriva del stream de origen, no de diarización:
- * `me` viene del micrófono, `them` del loopback del sistema.
+ * Who's speaking. Derived from the source stream, not from diarization:
+ * `me` comes from the microphone, `them` from the system loopback.
  */
 export type Speaker = 'me' | 'them';
 
 /**
- * Qué fuentes de audio se escuchan.
+ * Which audio sources are listened to.
  *
- * `system` (solo la salida del sistema) es lo que quieres si te molesta que el
- * asistente procese tus propias respuestas. Nota: el auto-disparo ya ignora lo
- * que dices tú — solo evalúa intervenciones del interlocutor — así que esto
- * afecta al contexto que se envía al modelo, no a cuándo se dispara.
+ * `system` (system output only) is what you want if it bothers you that the
+ * assistant processes your own answers. Note: auto-trigger already ignores what
+ * you say — it only evaluates the other party's utterances — so this affects the
+ * context sent to the model, not when it triggers.
  */
 export type AudioSourceMode = 'both' | 'system' | 'mic';
 
-/** Traduce el modo a los hablantes que estarán activos. */
+/** Translates the mode to the speakers that will be active. */
 export function speakersFor(mode: AudioSourceMode): Speaker[] {
   if (mode === 'system') return ['them'];
   if (mode === 'mic') return ['me'];
   return ['me', 'them'];
 }
 
-/** Frecuencia de muestreo a la que normalizamos todo el audio antes del STT. */
+/** Sample rate we normalize all audio to before the STT. */
 export const TARGET_SAMPLE_RATE = 16_000 as const;
 
 export interface TranscriptSegment {
   id: string;
   speaker: Speaker;
   text: string;
-  /** `false` mientras el STT aún puede revisar el texto. */
+  /** `false` while the STT can still revise the text. */
   isFinal: boolean;
-  /** Epoch ms del inicio del habla. */
+  /** Epoch ms of the start of speech. */
   startedAt: number;
   endedAt?: number;
 }
 
-/** Nivel de señal por stream, para el indicador visual del overlay. */
+/** Signal level per stream, for the overlay's visual meter. */
 export interface AudioLevels {
   me: number;
   them: number;
@@ -68,88 +68,89 @@ export type STTProviderId =
 export interface ModelInfo {
   id: string;
   label: string;
-  /** Si acepta imágenes; controla si adjuntamos screenshots. */
+  /** Whether it accepts images; controls whether we attach screenshots. */
   supportsVision: boolean;
   /**
-   * El «(rápido)», «(más capaz)» que acompaña al nombre, como clave.
+   * The "(fast)", "(more capable)" that accompanies the name, as a key.
    *
-   * Va aparte del `label` porque el nombre del modelo es un **nombre propio**
-   * —«Claude Sonnet 5» no se traduce— y el cualificador sí. Tenerlos pegados
-   * dejaba media etiqueta en español dentro de un desplegable en inglés, que es
-   * de las cosas que más cantan porque se ven sin abrir nada.
+   * It's separate from `label` because the model name is a **proper noun**
+   * —"Claude Sonnet 5" isn't translated— and the qualifier is. Keeping them
+   * glued left half a label in Spanish inside an English dropdown, which is one
+   * of the things that stands out most because it's visible without opening
+   * anything.
    */
   note?: UIKey;
 }
 
 export interface ImageAttachment {
   mime: 'image/jpeg' | 'image/png';
-  /** Sin el prefijo `data:`. */
+  /** Without the `data:` prefix. */
   base64: string;
 }
 
 // ────────────────────────────────── Skills ──────────────────────────────────
 
 /**
- * Una instrucción suelta que refina **cómo** responde el modelo.
+ * A standalone instruction that refines **how** the model answers.
  *
- * Formato de Anthropic: una carpeta con un `SKILL.md` que lleva frontmatter y
- * el cuerpo en Markdown. Ver `shared/skills.ts` para el parser y
- * `main/skills/` para la carga.
+ * Anthropic's format: a folder with a `SKILL.md` carrying frontmatter and the
+ * body in Markdown. See `shared/skills.ts` for the parser and `main/skills/`
+ * for the loading.
  *
- * No se confunde con las otras dos cosas que acaban en el mismo prompt: el
- * perfil dice **qué forma** tiene la respuesta y los context packs aportan
- * **material**. Una skill cambia la **manera** — el tono, las palabras que
- * evita, el ritmo — y por eso se suma a un perfil en lugar de sustituirlo.
+ * Not to be confused with the other two things that end up in the same prompt:
+ * the profile says **what shape** the answer has and the context packs provide
+ * **material**. A skill changes the **way** — the tone, the words it avoids, the
+ * rhythm — and that's why it adds to a profile instead of replacing it.
  */
 export interface Skill {
-  /** Sale del nombre de la carpeta, que es lo que se escribe tras `/` o `$`. */
+  /** Comes from the folder name, which is what you type after `/` or `$`. */
   id: string;
-  /** Del frontmatter. Si falta, el id. */
+  /** From the frontmatter. If missing, the id. */
   name: string;
   description: string;
-  /** El cuerpo del SKILL.md: lo que de verdad se le manda al modelo. */
+  /** The body of the SKILL.md: what's actually sent to the model. */
   instructions: string;
-  /** Las que vienen con la app. No se pueden borrar, sí sustituir. */
+  /** The ones that ship with the app. Can't be deleted, can be replaced. */
   builtIn: boolean;
   /**
-   * Sólo las de serie: su nombre y su descripción, como claves.
+   * Built-in ones only: their name and description, as keys.
    *
-   * Las del usuario traen el texto en el frontmatter y no hay nada que
-   * traducir; las que escribimos nosotros sí, y son las únicas que ve alguien
-   * que no ha creado ninguna. `name` y `description` siguen ahí porque el
-   * prompt necesita una cadena —y los prompts no se traducen—, así que la UI
-   * pinta la clave si la hay y el texto si no.
+   * User skills carry the text in the frontmatter and there's nothing to
+   * translate; the ones we write do, and they're the only ones someone who
+   * hasn't created any will see. `name` and `description` are still there
+   * because the prompt needs a string —and prompts aren't translated—, so the
+   * UI paints the key if there is one and the text otherwise.
    */
   nameKey?: UIKey;
   descriptionKey?: UIKey;
   /**
-   * Por qué no se puede usar, como clave.
+   * Why it can't be used, as a key.
    *
-   * Una skill rota se lista igualmente, con su motivo. Desaparecer sin decir
-   * nada dejaría a alguien mirando una carpeta que sí existe y preguntándose
-   * por qué la app no la ve. Es una clave y no una frase porque quien lee el
-   * motivo es una persona, y puede tener la app en cualquiera de los dos
-   * idiomas.
+   * A broken skill is listed anyway, with its reason. Disappearing without
+   * saying anything would leave someone staring at a folder that does exist,
+   * wondering why the app doesn't see it. It's a key and not a sentence because
+   * the one reading the reason is a person, and they may have the app in either
+   * language.
    */
   error?: UIKey;
-  /** Lo que dijo el sistema, cuando el motivo lo trae `readFile` y no nosotros. */
+  /** What the system said, when the reason comes from `readFile` and not us. */
   errorDetail?: string;
 }
 
-// ──────────────────────────────── Respuestas ────────────────────────────────
+// ──────────────────────────────── Answers ───────────────────────────────────
 
 export type AnswerStatus = 'idle' | 'thinking' | 'streaming' | 'done' | 'aborted' | 'error';
 
 /**
- * Qué originó la consulta; útil para depurar y para métricas.
+ * What originated the query; useful for debugging and metrics.
  *
- * `code` es el único que además cambia CÓMO se responde: fuerza el perfil de
- * programación y un tope de tokens mayor, porque un algoritmo no cabe en las
- * cuatro viñetas que sirven para hablar.
+ * `code` is the only one that also changes HOW it's answered: it forces the
+ * coding profile and a higher token cap, because an algorithm doesn't fit in
+ * the four bullets that work for speaking.
  */
 export type AnswerTrigger = 'hotkey' | 'auto' | 'manual-input' | 'code' | 'quiz';
 
-/** `true` si el disparo viene de resolver la pantalla. */
+/** `true` if the trigger comes from solving the screen. */
 export function isScreenTrigger(trigger: AnswerTrigger): trigger is ScreenTask {
   return trigger === 'code' || trigger === 'quiz';
 }
@@ -158,9 +159,9 @@ export interface Answer {
   id: string;
   status: AnswerStatus;
   trigger: AnswerTrigger;
-  /** La pregunta detectada o escrita que originó la respuesta. */
+  /** The detected or typed question that originated the answer. */
   question: string;
-  /** Texto acumulado hasta ahora. */
+  /** Text accumulated so far. */
   text: string;
   providerId: LLMProviderId;
   model: string;
@@ -168,14 +169,14 @@ export interface Answer {
   error?: string;
 }
 
-// ──────────────────────────────── Historial ─────────────────────────────────
+// ──────────────────────────────── History ───────────────────────────────────
 
 /**
- * Una pregunta y su respuesta, ya cerradas.
+ * A question and its answer, already closed.
  *
- * Se guarda el proveedor y el modelo junto al texto: al repasar una respuesta
- * floja lo primero que quieres saber es con qué la generaste, y esa información
- * ya no está en ningún otro sitio una vez cambias de modelo.
+ * The provider and model are stored alongside the text: when reviewing a weak
+ * answer the first thing you want to know is what you generated it with, and
+ * that information is no longer anywhere else once you switch models.
  */
 export interface ConversationTurn {
   id: string;
@@ -185,25 +186,25 @@ export interface ConversationTurn {
   providerId: LLMProviderId;
   model: string;
   createdAt: number;
-  /** Presente si la generación falló; el turno se guarda igual. */
+  /** Present if generation failed; the turn is saved anyway. */
   error?: string;
 }
 
 export interface Conversation {
   id: string;
-  /** Derivado de la primera pregunta; el usuario no tiene que ponerle nombre. */
+  /** Derived from the first question; the user doesn't have to name it. */
   title: string;
   startedAt: number;
   endedAt?: number;
   profileId: PromptProfileId;
-  /** Transcripción completa, sólo segmentos cerrados. */
+  /** Full transcript, closed segments only. */
   segments: TranscriptSegment[];
   turns: ConversationTurn[];
 }
 
 /**
- * Cabecera para pintar la lista sin leer el cuerpo entero de cada archivo.
- * Con 200 conversaciones, cargar todas para mostrar una lista sería absurdo.
+ * Header to paint the list without reading each file's whole body.
+ * With 200 conversations, loading them all to show a list would be absurd.
  */
 export interface ConversationSummary {
   id: string;
@@ -214,13 +215,13 @@ export interface ConversationSummary {
 }
 
 /**
- * Título a partir de la primera intervención útil.
+ * Title from the first useful utterance.
  *
- * Sin nada aprovechable devuelve **cadena vacía**, y no un «sin título» ya
- * escrito: el título se guarda en disco y se pinta en el dashboard, así que un
- * literal aquí sería una frase en un idioma dentro de una interfaz que puede
- * estar en el otro. El hueco lo rellena la UI con su clave (`hist.untitled`),
- * que es la única que sabe en qué idioma está mirando alguien.
+ * With nothing usable it returns an **empty string**, not an already-written
+ * "untitled": the title is stored on disk and painted in the dashboard, so a
+ * literal here would be a sentence in one language inside a UI that may be in
+ * the other. The gap is filled by the UI with its key (`hist.untitled`), which
+ * is the only one that knows which language someone is looking at.
  */
 export function conversationTitle(text: string): string {
   const clean = text.trim().replace(/\s+/g, ' ');
@@ -231,11 +232,11 @@ export function conversationTitle(text: string): string {
 // ───────────────────────────────── Settings ─────────────────────────────────
 
 /**
- * Tamaños del overlay.
+ * Overlay sizes.
  *
- * Cuatro presets en vez de un redimensionado libre: la ventana es `frameless`,
- * así que no hay bordes que arrastrar, y montar asas propias por un ajuste que
- * se toca dos veces no compensa.
+ * Four presets instead of free resizing: the window is `frameless`, so there
+ * are no borders to drag, and building custom handles for a setting touched
+ * twice isn't worth it.
  */
 export type OverlaySize = 'S' | 'M' | 'L' | 'XL';
 
@@ -246,59 +247,59 @@ export const OVERLAY_SIZES: Record<OverlaySize, { width: number; height: number 
   XL: { width: 680, height: 820 },
 };
 
-/** Escalera de auto-disparo, de más barato a más costoso. */
+/** Auto-trigger ladder, from cheapest to most expensive. */
 export type AutoTriggerMode = 'off' | 'heuristic' | 'heuristic+classifier';
 
 /**
- * Qué hablante puede disparar una respuesta automática.
+ * Which speaker can trigger an automatic answer.
  *
- * El default es y sigue siendo `them`: en una entrevista responder a tu propia
- * voz no tiene sentido, y el detector está afinado para precisión sobre recall.
- * Es configurable porque la combinación `audioSources: 'mic'` + `them` deja el
- * auto-disparo muerto en silencio — no hay carril `them` que evaluar — y quien
- * usa la app para dictar preguntas necesita `me`.
+ * The default is and stays `them`: in an interview, answering your own voice
+ * makes no sense, and the detector is tuned for precision over recall. It's
+ * configurable because the `audioSources: 'mic'` + `them` combination leaves
+ * auto-trigger dead silent — there's no `them` lane to evaluate — and whoever
+ * uses the app to dictate questions needs `me`.
  */
 export type AutoTriggerSpeaker = 'them' | 'me' | 'any';
 
 /**
- * Cuánto se arriesga el detector de preguntas.
+ * How much the question detector gambles.
  *
- * Existe porque el equilibrio correcto **depende de para qué uses la app**, y no
- * hay un único acierto:
+ * It exists because the right balance **depends on what you use the app for**,
+ * and there's no single right answer:
  *
- * - `strict`: sólo señales inequívocas (interrogativo al principio, signo de
- *   interrogación, apertura imperativa). Es el comportamiento original, pensado
- *   para una entrevista real donde una sugerencia a destiempo distrae.
- * - `balanced`: añade interrogativos acentuados en cualquier posición y
- *   fórmulas de consulta. Recupera las preguntas que el ASR entrega sin signos.
- * - `all`: responde a toda intervención cerrada que no sea una muletilla. Es lo
- *   que quieres cuando eres tú quien le dicta las preguntas a propósito, porque
- *   ahí no hay ruido del que protegerse.
+ * - `strict`: unambiguous signals only (question word at the start, question
+ *   mark, imperative opening). It's the original behavior, meant for a real
+ *   interview where an ill-timed suggestion distracts.
+ * - `balanced`: adds accented question words in any position and query phrasing.
+ *   It recovers the questions the ASR delivers without punctuation.
+ * - `all`: answers every closed utterance that isn't a filler. It's what you
+ *   want when you're the one dictating the questions on purpose, because there
+ *   there's no noise to protect against.
  */
 export type AutoTriggerSensitivity = 'strict' | 'balanced' | 'all';
 
 /**
- * Qué ES un contexto, no sólo cómo se llama.
+ * What a context IS, not just what it's called.
  *
- * Antes todos los packs eran texto libre y el prompt los volcaba igual, bajo un
- * `## Nombre`. Pero un CV, una oferta y una respuesta que has preparado piden
- * instrucciones distintas: el CV es la fuente de verdad sobre ti, la oferta
- * dice hacia dónde alinear el discurso, y una respuesta preparada hay que
- * **reutilizarla**, no parafrasearla. Sin el tipo, el modelo no podía saberlo.
+ * Before, all packs were free text and the prompt dumped them the same way,
+ * under a `## Name`. But a CV, a job offer and an answer you prepared ask for
+ * different instructions: the CV is the source of truth about you, the offer
+ * says where to align the discourse, and a prepared answer has to be **reused**,
+ * not paraphrased. Without the kind, the model couldn't know.
  */
 export type ContextKind = 'cv' | 'job' | 'qa' | 'vocabulary' | 'notes';
 
 export interface ContextPack {
   id: string;
   name: string;
-  /** Ej. el CV, la descripción del puesto, notas técnicas. */
+  /** E.g. the CV, the job description, technical notes. */
   content: string;
   enabled: boolean;
-  /** Qué clase de contexto es. Los packs antiguos son `notes`. */
+  /** What kind of context it is. Old packs are `notes`. */
   kind: ContextKind;
   /**
-   * Perfiles en los que aplica. **Vacío significa siempre**, que es lo que
-   * mantiene funcionando a los packs creados antes de que esto existiera.
+   * Profiles it applies to. **Empty means always**, which is what keeps packs
+   * created before this existed working.
    */
   profiles: PromptProfileId[];
 }
@@ -307,13 +308,13 @@ export type PromptProfileId =
   'interview' | 'meeting' | 'lecture' | 'support' | 'coding' | 'quiz' | 'interpreter' | 'custom';
 
 /**
- * Un mini-perfil de modelos: la combinación de motores y modelos para un caso.
+ * A model mini-profile: the combination of engines and models for a case.
  *
- * Guarda **sólo** motores+modelos y el perfil de prompt, no toda la sesión: no
- * toca idioma, fuentes de audio, sensibilidad ni skill, que son ajustes que se
- * quieren estables entre casos. `llmModel` es el modelo del proveedor de
- * respuestas del preset; al aplicarlo sólo se pisa ese, respetando el resto del
- * `Record<LLMProviderId, string>` de `Settings.llmModels`.
+ * It stores **only** engines+models and the prompt profile, not the whole
+ * session: it doesn't touch language, audio sources, sensitivity or skill,
+ * which are settings you want stable across cases. `llmModel` is the model of
+ * the preset's answer provider; applying it only overwrites that one, respecting
+ * the rest of `Settings.llmModels`'s `Record<LLMProviderId, string>`.
  */
 export interface ModelPreset {
   id: string;
@@ -328,10 +329,10 @@ export interface ModelPreset {
 }
 
 /**
- * Idiomas del modo Intérprete. Se guardan por código; el nombre se resuelve al
- * idioma de la interfaz para el dashboard y al español para el prompt (que va en
- * español). El modelo entiende el nombre en cualquier idioma, pero nombrarlos en
- * el idioma del prompt se lee mejor.
+ * Interpreter-mode languages. Stored by code; the name is resolved to the UI
+ * language for the dashboard and to Spanish for the prompt (which is in
+ * Spanish). The model understands the name in any language, but naming them in
+ * the prompt's language reads better.
  */
 export const INTERPRETER_LANGS = [
   { code: 'es', es: 'español', en: 'Spanish' },
@@ -349,15 +350,15 @@ export function interpreterLangName(code: string, ui: 'es' | 'en'): string {
 }
 
 /**
- * Las acciones que resuelven lo que hay en la pantalla.
+ * The actions that solve what's on the screen.
  *
- * Comparten camino —captura de alta calidad, perfil forzado, modelo con visión—
- * y se diferencian en el prompt: un test de opción múltiple no se responde como
- * un ejercicio de programación.
+ * They share a path —high-quality capture, forced profile, vision-capable
+ * model— and differ in the prompt: a multiple-choice quiz isn't answered like a
+ * programming exercise.
  */
 export type ScreenTask = 'code' | 'quiz';
 
-/** Etiquetas de los tipos, compartidas entre el prompt y el dashboard. */
+/** Kind labels, shared between the prompt and the dashboard. */
 export const CONTEXT_KIND_LABEL: Record<ContextKind, string> = {
   cv: 'Tu CV o experiencia',
   job: 'Descripción del puesto',
@@ -367,11 +368,11 @@ export const CONTEXT_KIND_LABEL: Record<ContextKind, string> = {
 };
 
 /**
- * Qué huecos ofrece el dashboard para cada perfil.
+ * Which slots the dashboard offers for each profile.
  *
- * No es una restricción: el usuario puede añadir cualquier tipo a cualquier
- * perfil. Es lo que se le enseña relleno de antemano para que no tenga que
- * adivinar qué conviene preparar para una entrevista.
+ * It's not a restriction: the user can add any kind to any profile. It's what's
+ * shown pre-filled so they don't have to guess what's worth preparing for an
+ * interview.
  */
 export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
   interview: ['cv', 'job', 'qa', 'vocabulary'],
@@ -384,7 +385,7 @@ export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
   custom: ['notes', 'vocabulary'],
 };
 
-/** Los packs que aplican al perfil activo. Vacío en `profiles` = siempre. */
+/** The packs that apply to the active profile. Empty `profiles` = always. */
 export function packsForProfile(packs: ContextPack[], profile: PromptProfileId): ContextPack[] {
   return packs.filter(
     (pack) => pack.enabled && (pack.profiles.length === 0 || pack.profiles.includes(profile))
@@ -392,23 +393,23 @@ export function packsForProfile(packs: ContextPack[], profile: PromptProfileId):
 }
 
 /**
- * No hay atajo para el dashboard a propósito: se abre únicamente con el botón
- * de engranaje del overlay. Si el overlay está oculto, `toggleOverlay` lo
- * recupera.
+ * There's no shortcut for the dashboard on purpose: it opens only with the
+ * overlay's gear button. If the overlay is hidden, `toggleOverlay` brings it
+ * back.
  */
 export interface HotkeyMap {
   askNow: string;
   screenshotAndAsk: string;
-  /** Captura la pantalla y resuelve el problema de código que haya en ella. */
+  /** Captures the screen and solves the coding problem on it. */
   solveOnScreen: string;
-  /** Captura la pantalla y responde la pregunta de test que haya en ella. */
+  /** Captures the screen and answers the quiz question on it. */
   solveQuiz: string;
   /**
-   * Captura por trozos: recolecta un frame (modo manual) o arranca/para el
-   * bucle (modo automático). Ver `Settings.scrollCaptureMode`.
+   * Chunk capture: collects a frame (manual mode) or starts/stops the loop
+   * (automatic mode). See `Settings.scrollCaptureMode`.
    */
   captureFrame: string;
-  /** Reconstruye y resuelve la pila de trozos capturados. */
+  /** Reconstructs and solves the stack of captured chunks. */
   solveCapture: string;
   toggleOverlay: string;
   toggleListening: string;
@@ -418,12 +419,12 @@ export interface HotkeyMap {
   moveLeft: string;
   moveRight: string;
   /**
-   * Avanzar y retroceder la línea del teleprompter.
+   * Advance and rewind the teleprompter line.
    *
-   * Sólo se registran con el teleprompter encendido — ver `activeHotkeys`. Un
-   * acelerador global le quita la combinación a la aplicación que tenga el
-   * foco, y tomar dos por una función apagada es exactamente lo que el
-   * interruptor por atajo existe para evitar.
+   * Only registered with the teleprompter on — see `activeHotkeys`. A global
+   * accelerator takes the combination away from whatever app has focus, and
+   * holding two for a disabled feature is exactly what the per-shortcut switch
+   * exists to avoid.
    */
   teleprompterNext: string;
   teleprompterPrev: string;
@@ -431,333 +432,335 @@ export interface HotkeyMap {
 
 export interface Settings {
   /**
-   * `true` = invisible al compartir pantalla (setContentProtection activo).
-   * El switch del dashboard invierte esto para volver la app detectable.
+   * `true` = invisible when sharing the screen (setContentProtection on).
+   * The dashboard switch inverts this to make the app detectable again.
    */
   stealthEnabled: boolean;
-  /** Si el overlay ignora clics y los reenvía a la ventana de abajo. */
+  /** Whether the overlay ignores clicks and forwards them to the window below. */
   clickThrough: boolean;
   overlayOpacity: number;
-  /** Tamaño del panel. Ver `OVERLAY_SIZES`. */
+  /** Panel size. See `OVERLAY_SIZES`. */
   overlaySize: OverlaySize;
 
   /**
-   * Escala del texto de CONTENIDO del overlay: respuesta, código y transcripción.
+   * Scale of the overlay's CONTENT text: answer, code and transcript.
    *
-   * No toca la barra ni los chips a propósito. Los cuatro presets de tamaño
-   * agrandan la ventana, no la letra, así que en un monitor 4K el panel crecía y
-   * el texto seguía igual de pequeño. Escalar sólo el contenido es lo que
-   * resuelve eso sin que los controles se coman el panel.
+   * It deliberately doesn't touch the bar or the chips. The four size presets
+   * enlarge the window, not the text, so on a 4K monitor the panel grew and the
+   * text stayed just as small. Scaling only the content is what fixes that
+   * without the controls eating the panel.
    */
   overlayFontScale: number;
 
   /**
-   * Modo compacto: sólo la respuesta.
+   * Compact mode: the answer only.
    *
-   * Pliega los chips de perfil, la transcripción y el pie de atajos. Es el
-   * estado que quieres cuando ya está todo configurado y el overlay sólo sirve
-   * para leer. Se guarda porque quien lo prefiere lo prefiere siempre.
+   * It folds away the profile chips, the transcript and the shortcut footer.
+   * It's the state you want once everything is set up and the overlay is only
+   * for reading. It's saved because whoever prefers it prefers it always.
    */
   overlayCompact: boolean;
 
   /**
-   * Si las conversaciones se guardan en disco.
+   * Whether conversations are saved to disk.
    *
-   * Rompe la promesa original de "la app no graba nada": mientras esté activo
-   * se escriben transcripciones a `userData/conversations`. Es un interruptor y
-   * no una constante justamente para que se pueda volver al comportamiento
-   * anterior sin desinstalar nada.
+   * It breaks the original "the app records nothing" promise: while it's on,
+   * transcripts are written to `userData/conversations`. It's a switch and not
+   * a constant precisely so you can go back to the previous behavior without
+   * uninstalling anything.
    */
   historyEnabled: boolean;
 
   llmProviderId: LLMProviderId;
-  /** Modelo elegido por provider, para no perder la selección al cambiar. */
+  /** Model chosen per provider, so the selection isn't lost when switching. */
   llmModels: Record<LLMProviderId, string>;
 
   /**
-   * Proveedor para las acciones de pantalla (código y test), o `same` para usar
-   * el de arriba.
+   * Provider for the screen actions (code and quiz), or `same` to use the one
+   * above.
    *
-   * Existe porque las dos tareas piden cosas distintas y antes compartían un
-   * único modelo. Lo hablado necesita **latencia**: la respuesta se lee mientras
-   * alguien te mira. Lo de la pantalla necesita **vista y cabeza**: leer un
-   * enunciado en una captura y no equivocarse. Un modelo local pequeño vale para
-   * lo primero y no para lo segundo; uno grande de pago, al revés, es caro para
-   * cada frase suelta de una reunión.
+   * It exists because the two tasks ask for different things and used to share
+   * a single model. Speech needs **latency**: the answer is read while someone
+   * looks at you. The screen needs **vision and brains**: reading a prompt in a
+   * capture and not getting it wrong. A small local model works for the first
+   * and not the second; a big paid one, the reverse, is expensive for every
+   * stray sentence in a meeting.
    *
-   * El default es `same`, que reproduce exactamente el comportamiento anterior.
+   * The default is `same`, which reproduces exactly the previous behavior.
    */
   screenProviderId: LLMProviderId | 'same';
 
   /**
-   * Modelo de las acciones de pantalla. Se ignora con `screenProviderId: same`.
+   * Model for the screen actions. Ignored with `screenProviderId: same`.
    *
-   * Es un campo suelto y no otro `Record` por provider: al elegir "Ollama para
-   * la pantalla" lo que se quiere es un modelo **concreto** —el multimodal que
-   * tengas descargado—, distinto del que uses para conversar aunque el
-   * proveedor sea el mismo.
+   * It's a standalone field and not another `Record` per provider: when you
+   * pick "Ollama for the screen" what you want is a **specific** model —the
+   * multimodal one you downloaded—, different from the one you use to converse
+   * even if the provider is the same.
    */
   screenModel: string;
 
   sttProviderId: STTProviderId;
-  /** Código BCP-47; `auto` deja que el provider decida. */
+  /** BCP-47 code; `auto` lets the provider decide. */
   language: string;
   whisperModel: string;
 
   /**
-   * Modelos de transcripción local marcados como favoritos, por id.
+   * Local transcription models marked as favorites, by id.
    *
-   * Pura conveniencia del Model Manager: una estrella los sube arriba del listado
-   * para no rebuscar el que sueles usar entre toda la familia de Whisper. No
-   * cambia cuál está activo —eso lo dice `whisperModel`—, solo el orden en que se
-   * pintan. Es una lista y no un `Set` porque tiene que cruzar el IPC y sobrevivir
-   * a `settings.json`.
+   * Pure Model Manager convenience: a star raises them to the top of the list
+   * so you don't dig for the one you usually use among the whole Whisper family.
+   * It doesn't change which one is active —that's `whisperModel`—, only the
+   * order they're painted in. It's a list and not a `Set` because it has to
+   * cross the IPC and survive `settings.json`.
    */
   favoriteLocalModels: string[];
 
-  /** Qué se escucha: micrófono, salida del sistema, o ambas. */
+  /** What's listened to: microphone, system output, or both. */
   audioSources: AudioSourceMode;
 
   autoTriggerMode: AutoTriggerMode;
-  /** Quién puede disparar una respuesta automática. */
+  /** Who can trigger an automatic answer. */
   autoTriggerSpeaker: AutoTriggerSpeaker;
-  /** Cuánto se arriesga el detector al decidir si algo es una pregunta. */
+  /** How much the detector gambles when deciding if something is a question. */
   autoTriggerSensitivity: AutoTriggerSensitivity;
-  /** Segundos de transcript que se envían con el hotkey manual. */
+  /** Seconds of transcript sent with the manual hotkey. */
   manualContextSeconds: number;
-  /** Máximo de segmentos que retiene el buffer rodante. */
+  /** Maximum segments the rolling buffer retains. */
   transcriptWindowSize: number;
 
   /**
-   * Apagado por inactividad: si nadie habla durante `idleShutoffMinutes`, la app
-   * deja de escuchar sola.
+   * Idle shutoff: if no one speaks for `idleShutoffMinutes`, the app stops
+   * listening on its own.
    *
-   * "Actividad" es **sólo voz transcribible** (un segmento nuevo), no que el
-   * usuario pida una respuesta a mano: el caso que esto resuelve es la reunión
-   * que terminó y el asistente quedó escuchando una sala vacía. Apagado por
-   * defecto. Son dos campos —y no un `0 = off`— para conservar los minutos
-   * elegidos al apagar y volver a encender el interruptor.
+   * "Activity" is **only transcribable speech** (a new segment), not the user
+   * asking for an answer by hand: the case this solves is the meeting that
+   * ended and the assistant kept listening to an empty room. Off by default.
+   * It's two fields —and not a `0 = off`— to keep the chosen minutes when you
+   * turn the switch off and back on.
    */
   idleShutoffEnabled: boolean;
   idleShutoffMinutes: number;
 
   /**
-   * Idioma de la INTERFAZ.
+   * The INTERFACE language.
    *
-   * No confundir con `language`, que es el del reconocedor de voz y va en
-   * BCP-47. Son dos cosas que suenan igual y no lo son: alguien puede tener la
-   * app en inglés y estar entrevistándose en español, y de hecho es un caso
-   * normal. Por eso son dos ajustes y no uno.
+   * Not to be confused with `language`, which is the speech recognizer's and is
+   * in BCP-47. They're two things that sound alike and aren't: someone can have
+   * the app in English and be interviewing in Spanish, and in fact that's a
+   * normal case. That's why they're two settings and not one.
    */
   uiLanguage: UILang;
 
   promptProfileId: PromptProfileId;
 
   /**
-   * Mini-perfiles de modelos: presets con nombre que fijan de un clic qué
-   * motores y modelos usar para un caso (entrevista, reunión, intérprete…).
+   * Model mini-profiles: named presets that pin, in one click, which engines
+   * and models to use for a case (interview, meeting, interpreter…).
    *
-   * Es una entidad aparte y NO se activa al cambiar `promptProfileId`: ese
-   * sigue decidiendo la **forma** de la respuesta, y un preset guarda además
-   * **qué modelos** tener cargados. Se aplica a mano con `applyModelPreset`.
+   * It's a separate entity and does NOT activate when `promptProfileId`
+   * changes: that one still decides the **shape** of the answer, and a preset
+   * also stores **which models** to have loaded. It's applied by hand with
+   * `applyModelPreset`.
    */
   modelPresets: ModelPreset[];
 
-  /** Los dos idiomas del modo Intérprete (códigos de `INTERPRETER_LANGS`). */
+  /** The two Interpreter-mode languages (codes from `INTERPRETER_LANGS`). */
   interpreterLangA: string;
   interpreterLangB: string;
   customPrompt: string;
   contextPacks: ContextPack[];
 
   /**
-   * Skill aplicada a todas las respuestas. Vacío = ninguna.
+   * Skill applied to all answers. Empty = none.
    *
-   * Es un solo id y no una lista **a propósito**. Dos instrucciones sobre cómo
-   * escribir se contradicen enseguida —una pide frases cortas y otra un registro
-   * cuidado— y el modelo resuelve el empate en silencio, así que el resultado
-   * dependería del orden en que estuvieran encendidas. Con una sola, lo que se
-   * lee en pantalla es lo que se le pidió.
+   * It's a single id and not a list **on purpose**. Two instructions about how
+   * to write contradict each other quickly —one asks for short sentences and
+   * another for a careful register— and the model breaks the tie silently, so
+   * the result would depend on the order they were enabled in. With a single
+   * one, what's read on screen is what was asked for.
    *
-   * Se queda puesta entre consultas porque el caso que la justifica —«que no
-   * suene a IA»— no es algo que se quiera para un mensaje: se quiere para toda
-   * la conversación. Para un mensaje suelto está el prefijo `/skill`.
+   * It stays set between queries because the case that justifies it —"don't
+   * sound like AI"— isn't something you want for one message: you want it for
+   * the whole conversation. For a single message there's the `/skill` prefix.
    */
   activeSkillId: string;
 
   /**
-   * Lenguaje de programación de las soluciones del modo código.
+   * Programming language for code-mode solutions.
    *
-   * `auto` deja que lo deduzca de la pantalla, que es lo correcto cuando hay un
-   * editor delante con el lenguaje ya elegido. Se fija a mano para el caso
-   * contrario: un enunciado en blanco, o una prueba que exige un lenguaje
-   * concreto que no se ve en la captura.
+   * `auto` lets it infer from the screen, which is right when there's an editor
+   * in front with the language already chosen. It's pinned by hand for the
+   * opposite case: a blank prompt, or a test that demands a specific language
+   * that isn't visible in the capture.
    */
   codeLanguage: string;
 
   /**
-   * Cómo se recolectan los trozos en "captura por trozos" —para una prueba en
-   * una pantalla compartida que se revela con scroll—:
-   * - `manual`: cada pulsación del atajo añade un frame a la pila.
-   * - `auto`: el atajo arranca/para un bucle que captura solo y deduplica.
+   * How chunks are collected in "chunk capture" —for a test on a shared screen
+   * that's revealed by scrolling—:
+   * - `manual`: each press of the shortcut adds a frame to the stack.
+   * - `auto`: the shortcut starts/stops a loop that captures on its own and
+   *   deduplicates.
    */
   scrollCaptureMode: 'manual' | 'auto';
 
   hotkeys: HotkeyMap;
 
   /**
-   * Atajos apagados, por acción.
+   * Disabled shortcuts, by action.
    *
-   * Un acelerador global **se lo quita a la aplicación que tenga el foco**, así
-   * que quien no use uno de estos prefiere recuperar la combinación para su
-   * editor antes que dejarla tomada por una app que la ignora. Apagado no es lo
-   * mismo que vacío: el acelerador se conserva para poder volver a encenderlo
-   * sin teclearlo otra vez.
+   * A global accelerator **takes it away from whatever app has focus**, so
+   * whoever doesn't use one of these prefers to reclaim the combination for
+   * their editor rather than leave it taken by an app that ignores it. Disabled
+   * isn't the same as empty: the accelerator is kept so you can turn it back on
+   * without typing it again.
    *
-   * Se guarda la lista de **apagados** y no un mapa de encendidos a propósito.
-   * Un `Record<keyof HotkeyMap, boolean>` leído de un `settings.json` anterior a
-   * esta función llegaría sin claves, cada una saldría `undefined`, y eso es
-   * falso: actualizar la app apagaría los once atajos de golpe y en silencio.
-   * Con una lista, lo que falta es el array vacío y todo sigue encendido.
+   * The list of **disabled** ones is stored, and not a map of enabled ones, on
+   * purpose. A `Record<keyof HotkeyMap, boolean>` read from a `settings.json`
+   * older than this feature would arrive with no keys, each one would come out
+   * `undefined`, and that's falsy: updating the app would silently disable all
+   * eleven shortcuts at once. With a list, what's missing is the empty array and
+   * everything stays on.
    */
   disabledHotkeys: (keyof HotkeyMap)[];
 
   /**
-   * Modo teleprompter: la respuesta, una frase por línea.
+   * Teleprompter mode: the answer, one sentence per line.
    *
-   * Lo que delata que alguien lee no es el tamaño de la letra, es el movimiento
-   * horizontal de los ojos. Este modo pone una columna estrecha con la línea
-   * activa siempre a la misma altura, de modo que los ojos apenas se muevan.
-   * Ver `renderer/overlay/teleprompter.ts`.
+   * What gives away that someone is reading isn't the font size, it's the
+   * horizontal movement of the eyes. This mode puts a narrow column with the
+   * active line always at the same height, so the eyes barely move. See
+   * `renderer/overlay/teleprompter.ts`.
    */
   teleprompterEnabled: boolean;
   ollamaBaseUrl: string;
 
   /**
-   * Ventana de contexto de Ollama, en tokens (`num_ctx`).
+   * Ollama context window, in tokens (`num_ctx`).
    *
-   * Ollama **no usa la del modelo**: aplica su propio valor por defecto, 2048
-   * tokens, y lo que no cabe se descarta por el principio **sin ningún error**.
-   * Con un system prompt con CV, la transcripción y ocho turnos de memoria, esos
-   * 2048 se agotan enseguida y el síntoma es que el modelo "olvida" cosas que
-   * acabas de decirle.
+   * Ollama **doesn't use the model's**: it applies its own default, 2048
+   * tokens, and what doesn't fit is dropped from the start **with no error at
+   * all**. With a system prompt with CV, the transcript and eight turns of
+   * memory, those 2048 run out fast and the symptom is the model "forgetting"
+   * things you just told it.
    *
-   * Sube memoria: el caché de atención crece con este número, así que no se pone
-   * al máximo por defecto.
+   * It raises memory: the attention cache grows with this number, so it isn't
+   * maxed out by default.
    */
   ollamaContextTokens: number;
 
   /**
-   * La guía de primeros pasos ya no hace falta.
+   * The first-steps guide is no longer needed.
    *
-   * Se marca sola cuando los pasos están cumplidos, y también a mano: quien
-   * sabe lo que hace no tiene por qué cargar con una lista de tareas encima de
-   * su configuración para siempre.
+   * It checks itself off when the steps are done, and also by hand: whoever
+   * knows what they're doing shouldn't have to carry a task list on top of their
+   * settings forever.
    */
   onboardingDone: boolean;
 
   /**
-   * Espejo en el teléfono: sirve las respuestas a un navegador del móvil.
+   * Phone mirror: serves the answers to a phone browser.
    *
-   * Resuelve el caso que el overlay no puede resolver por definición: cuando
-   * **compartes la pantalla entera**, lo que se ve en tu monitor lo ve el otro
-   * lado. El modo invisible cubre la captura de la ventana, pero no una cámara,
-   * ni un monitor secundario que alguien mire, ni la duda de estar leyendo algo
-   * que no está donde crees. Un segundo dispositivo saca la respuesta de la
-   * pantalla compartida del todo.
+   * It solves the case the overlay can't solve by definition: when you **share
+   * the whole screen**, what's on your monitor is seen by the other side.
+   * Invisible mode covers the window capture, but not a camera, nor a secondary
+   * monitor someone watches, nor the doubt of reading something that isn't where
+   * you think. A second device takes the answer off the shared screen entirely.
    *
-   * **Apagado por defecto, y no es simetría con los demás ajustes**: abre un
-   * puerto y sirve por HTTP el texto de tus respuestas. Eso se enciende a
-   * propósito o no se enciende.
+   * **Off by default, and it's not symmetry with the other settings**: it opens
+   * a port and serves the text of your answers over HTTP. That's turned on on
+   * purpose or it isn't turned on.
    */
   phoneMirrorEnabled: boolean;
 
   /**
-   * Si el espejo escucha en la red local o sólo en `127.0.0.1`.
+   * Whether the mirror listens on the local network or only on `127.0.0.1`.
    *
-   * Con `false` —el defecto— sólo puede conectarse **esta misma máquina**, que
-   * no sirve para un teléfono pero sí para probarlo y para túneles SSH. Con
-   * `true` cualquiera de tu red que tenga el enlace puede leer las respuestas,
-   * y por eso es un interruptor aparte y no una consecuencia de encender el
-   * espejo: son dos decisiones distintas y la segunda es la que tiene alcance.
+   * With `false` —the default— only **this same machine** can connect, which is
+   * useless for a phone but works to test it and for SSH tunnels. With `true`
+   * anyone on your network who has the link can read the answers, and that's why
+   * it's a separate switch and not a consequence of turning the mirror on:
+   * they're two different decisions and the second is the one with reach.
    */
   phoneMirrorLan: boolean;
 
   /**
-   * Publicar las respuestas en un broker MQTT.
+   * Publish the answers to an MQTT broker.
    *
-   * No es una función de la app para la app: es una **salida hacia otra cosa**.
-   * El caso que la motivó es un ESP32 suscrito al tema, que recibe la respuesta
-   * de un test y hace lo que su dueño haya programado. Aquí se acaba nuestra
-   * responsabilidad: publicamos, y lo que pase al otro lado es de quien montó
-   * el dispositivo.
+   * It's not a feature of the app for the app: it's an **output toward something
+   * else**. The case that motivated it is an ESP32 subscribed to the topic,
+   * which receives a quiz answer and does whatever its owner programmed. Our
+   * responsibility ends here: we publish, and what happens on the other side
+   * belongs to whoever built the device.
    *
-   * Apagado por defecto, y con más motivo que el espejo del móvil: un broker
-   * puede estar en internet, así que esto puede sacar el texto de tus
-   * respuestas de tu red por completo.
+   * Off by default, and with more reason than the phone mirror: a broker can be
+   * on the internet, so this can take the text of your answers out of your
+   * network entirely.
    */
   mqttEnabled: boolean;
 
   /**
-   * URL del broker, con el esquema por delante.
+   * The broker URL, with the scheme up front.
    *
-   * Es un solo campo y no host/puerto/TLS por separado porque el esquema ya lo
-   * dice todo: `mqtt://` va en claro y `mqtts://` cifrado. Partirlo en tres
-   * casillas obligaría a inventar una checkbox de TLS que significa lo mismo
-   * que cuatro letras.
+   * It's a single field and not host/port/TLS separately because the scheme
+   * already says it all: `mqtt://` goes in the clear and `mqtts://` encrypted.
+   * Splitting it into three boxes would force inventing a TLS checkbox that
+   * means the same as four letters.
    */
   mqttUrl: string;
 
-  /** Tema base. Ver `mqttTopics()` para los dos que se publican. */
+  /** Base topic. See `mqttTopics()` for the two that are published. */
   mqttTopic: string;
 
-  /** Usuario del broker; vacío si el broker es anónimo. La contraseña va cifrada. */
+  /** Broker user; empty if the broker is anonymous. The password is encrypted. */
   mqttUsername: string;
 }
 
 /**
- * Los dos temas que se publican, derivados del tema base.
+ * The two topics that are published, derived from the base topic.
  *
- * Publicar **dos** no es indecisión: son dos consumidores distintos.
- * `<base>` lleva el JSON completo —id, pregunta, modelo, disparo— para quien
- * quiera contexto; `<base>/text` lleva **sólo el texto de la respuesta**, que es
- * lo que un microcontrolador puede usar sin meter un parser de JSON en 320 KB
- * de RAM. El caso que motivó esto es exactamente ése: una placa suscrita que
- * quiere las letras del test y nada más.
+ * Publishing **two** isn't indecision: they're two different consumers.
+ * `<base>` carries the full JSON —id, question, model, trigger— for whoever
+ * wants context; `<base>/text` carries **only the answer text**, which is what
+ * a microcontroller can use without putting a JSON parser in 320 KB of RAM. The
+ * case that motivated this is exactly that: a subscribed board that wants the
+ * quiz letters and nothing else.
  *
- * Vive en `shared/` porque lo necesitan los dos lados: el main para publicar y
- * el dashboard para enseñar a qué suscribirse. Si se calcularan por separado,
- * la pantalla acabaría diciendo un tema y el broker recibiendo otro.
+ * It lives in `shared/` because both sides need it: main to publish and the
+ * dashboard to show what to subscribe to. If they were computed separately, the
+ * screen would end up saying one topic and the broker receiving another.
  */
 export function mqttTopics(base: string): { json: string; text: string } {
-  // Una barra final del usuario no debe convertirse en un tema con `//`, que
-  // en MQTT es un nivel vacío y perfectamente legal — y por tanto otro tema.
+  // A trailing slash from the user must not become a topic with `//`, which in
+  // MQTT is an empty level and perfectly legal — and therefore another topic.
   const clean = base.trim().replace(/\/+$/, '') || 'tayori/answer';
   return { json: clean, text: `${clean}/text` };
 }
 
-/** Estado de la conexión con el broker, tal y como lo enseña el dashboard. */
+/** State of the connection to the broker, as the dashboard shows it. */
 export interface MqttStatus {
   state: 'off' | 'connecting' | 'connected' | 'error';
   error?: string;
   /**
-   * Respuestas publicadas en esta sesión.
+   * Answers published in this session.
    *
-   * Es la única confirmación honesta de que la cosa funciona: un broker mal
-   * puesto y uno bien puesto se ven igual desde aquí hasta que este número se
-   * mueve.
+   * It's the only honest confirmation that the thing works: a misconfigured
+   * broker and a well-configured one look the same from here until this number
+   * moves.
    */
   published: number;
-  /** Tema al que suscribirse, ya resuelto. Vacío si está apagado. */
+  /** Topic to subscribe to, already resolved. Empty if it's off. */
   topic: string;
 }
 
 /**
- * `true` si los ajustes dejan el auto-disparo inerte: el hablante que debería
- * dispararlo no está entre los que se escuchan, así que no puede saltar nunca.
+ * `true` if the settings leave auto-trigger inert: the speaker that should
+ * trigger it isn't among those being listened to, so it can never fire.
  *
- * Es un fallo silencioso —todo el pipeline funciona y la última puerta se cierra
- * sin traza—, así que el main lo registra al arrancar la transcripción y el
- * dashboard lo avisa. Ambos usan esta función para no duplicar la regla.
+ * It's a silent failure —the whole pipeline works and the last gate closes with
+ * no trace—, so main logs it when starting transcription and the dashboard
+ * warns about it. Both use this function so as not to duplicate the rule.
  */
 export function autoTriggerIsInert(
   settings: Pick<Settings, 'autoTriggerMode' | 'autoTriggerSpeaker' | 'audioSources'>
@@ -768,12 +771,13 @@ export function autoTriggerIsInert(
 }
 
 /**
- * `true` si toca apagar la escucha por inactividad: está activado y se lleva más
- * de `idleShutoffMinutes` sin voz transcribible (`silentMs`).
+ * `true` if it's time to stop listening for inactivity: it's enabled and more
+ * than `idleShutoffMinutes` have passed with no transcribable speech
+ * (`silentMs`).
  *
- * Pura y en `shared/` para poder fijarla con un test: el orquestador la llama
- * desde su watchdog. `minutes > 0` protege de un JSON editado a mano con un cero,
- * que si no apagaría la escucha en el acto.
+ * Pure and in `shared/` so it can be pinned with a test: the orchestrator calls
+ * it from its watchdog. `minutes > 0` guards against a hand-edited JSON with a
+ * zero, which would otherwise stop listening on the spot.
  */
 export function idleShutoffDue(
   settings: Pick<Settings, 'idleShutoffEnabled' | 'idleShutoffMinutes'>,
@@ -785,23 +789,24 @@ export function idleShutoffDue(
 }
 
 /**
- * Ajusta el patch para que cambiar de fuente no deje el disparo mudo.
+ * Adjusts the patch so that switching source doesn't leave the trigger mute.
  *
- * Elegir "Ellos" significa una cosa: quiero oír al interlocutor y que me
- * responda. Pero el disparo automático espera a un hablante concreto, y si ese
- * hablante deja de escucharse la combinación queda **inerte**: todo el pipeline
- * funciona, la transcripción entra, y la última puerta se cierra sin dejar
- * rastro. Le pasó a alguien de verdad: pulsó "Ellos", no llegó ninguna
- * respuesta, y sólo se arregló entrando al dashboard a cambiar a mano un ajuste
- * cuya relación con el botón que había pulsado no es evidente.
+ * Choosing "Them" means one thing: I want to hear the other party and have it
+ * answer me. But auto-trigger waits for a specific speaker, and if that speaker
+ * stops being listened to the combination goes **inert**: the whole pipeline
+ * works, the transcript comes in, and the last gate closes without a trace. It
+ * happened to a real person: they pressed "Them", no answer came, and it was
+ * only fixed by going into the dashboard to change by hand a setting whose
+ * relation to the button they'd pressed isn't obvious.
  *
- * Así que el hablante del disparo sigue a la fuente. Es cambiar un ajuste que
- * el usuario no pidió, sí — pero la alternativa es un silencio que se ve igual
- * que una app rota, y el cambio se le dice por pantalla.
+ * So the trigger speaker follows the source. It is changing a setting the user
+ * didn't ask for, yes — but the alternative is a silence that looks just like a
+ * broken app, and the change is told to them on screen.
  *
- * Sólo actúa en esa dirección. Cambiar el hablante a mano desde el dashboard NO
- * toca las fuentes: ahí el usuario está eligiendo el hablante a propósito, y el
- * propio dashboard ya avisa si la combinación no puede saltar.
+ * It only acts in that direction. Changing the speaker by hand from the
+ * dashboard does NOT touch the sources: there the user is choosing the speaker
+ * on purpose, and the dashboard itself already warns if the combination can't
+ * fire.
  */
 export function alignAutoTrigger(current: Settings, patch: Partial<Settings>): Partial<Settings> {
   if (!patch.audioSources || patch.audioSources === current.audioSources) return patch;
@@ -809,7 +814,7 @@ export function alignAutoTrigger(current: Settings, patch: Partial<Settings>): P
   const merged = { ...current, ...patch };
   if (!autoTriggerIsInert(merged)) return patch;
 
-  // Inerte implica que sólo se escucha un hablante y no es el esperado.
+  // Inert implies only one speaker is listened to and it's not the expected one.
   const heard = speakersFor(merged.audioSources)[0];
   return heard ? { ...patch, autoTriggerSpeaker: heard } : patch;
 }
@@ -817,15 +822,15 @@ export function alignAutoTrigger(current: Settings, patch: Partial<Settings>): P
 export const DEFAULT_HOTKEYS: HotkeyMap = {
   askNow: 'Control+Enter',
   screenshotAndAsk: 'Control+Shift+S',
-  // Control+Alt+C y no Control+Shift+C —que ya es el de los clics atravesables—
-  // ni Control+Shift+X, que le quitaría el atajo de extensiones a VS Code: un
-  // acelerador global gana al de la app que tenga el foco, y quien usa esto
-  // suele tener el editor delante.
+  // Control+Alt+C and not Control+Shift+C —which is already click-through— nor
+  // Control+Shift+X, which would steal VS Code's extensions shortcut: a global
+  // accelerator beats the focused app's, and whoever uses this usually has the
+  // editor in front.
   solveOnScreen: 'Control+Alt+C',
-  // Q de "quiz", en la misma familia que el de código.
+  // Q for "quiz", in the same family as the code one.
   solveQuiz: 'Control+Alt+Q',
-  // A de "acumular" un trozo, S de "solucionar" la pila. Ctrl+Alt+A/S estaban
-  // libres, y quedan en la misma familia que código y test.
+  // A for "accumulate" a chunk, S for "solve" the stack. Ctrl+Alt+A/S were
+  // free, and stay in the same family as code and quiz.
   captureFrame: 'Control+Alt+A',
   solveCapture: 'Control+Alt+S',
   toggleOverlay: 'Control+Shift+H',
@@ -836,17 +841,17 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
   moveLeft: 'Control+Alt+Left',
   moveRight: 'Control+Alt+Right',
   /*
-   * X avanza, Z retrocede: contiguas, mano izquierda y sin Fn.
+   * X advances, Z rewinds: adjacent, left hand and no Fn.
    *
-   * Este atajo se pulsa muchas veces seguidas MIENTRAS HABLAS, que es una
-   * exigencia que no tiene ningún otro de la lista: tiene que salir sin mirar y
-   * sin mover la mano. Z está a la izquierda de X, así que la posición coincide
-   * con la dirección.
+   * This shortcut is pressed many times in a row WHILE YOU SPEAK, a demand no
+   * other one on the list has: it has to come out without looking and without
+   * moving the hand. Z is to the left of X, so the position matches the
+   * direction.
    *
-   * Lo evidente —Ctrl+Shift+Abajo/Arriba— se probó y Windows lo RECHAZA en una
-   * máquina normal: ya lo tenía tomado otra aplicación. Ctrl+Alt+flechas son
-   * mover el overlay, y Ctrl+Alt+Espacio, Ctrl+Shift+Enter y Ctrl+Alt+coma/punto
-   * también salieron ocupadas al comprobarlas.
+   * The obvious one —Ctrl+Shift+Down/Up— was tried and Windows REJECTS it on a
+   * normal machine: another app already had it taken. Ctrl+Alt+arrows move the
+   * overlay, and Ctrl+Alt+Space, Ctrl+Shift+Enter and Ctrl+Alt+comma/period also
+   * came out taken when checked.
    */
   teleprompterNext: 'Control+Alt+X',
   teleprompterPrev: 'Control+Alt+Z',
@@ -855,7 +860,7 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
 export const DEFAULT_SETTINGS: Settings = {
   stealthEnabled: true,
   clickThrough: true,
-  // Opaco por defecto: la legibilidad manda. Se puede bajar desde el dashboard.
+  // Opaque by default: legibility rules. It can be lowered from the dashboard.
   overlayOpacity: 1,
   overlaySize: 'M',
   overlayFontScale: 1,
@@ -870,14 +875,14 @@ export const DEFAULT_SETTINGS: Settings = {
     deepseek: 'deepseek-v4-flash',
     ollama: '',
   },
-  // `same` reproduce el comportamiento de antes de que esto existiera.
+  // `same` reproduces the behavior from before this existed.
   screenProviderId: 'same',
   screenModel: '',
 
   sttProviderId: 'gemini-live',
   language: 'auto',
   whisperModel: 'base',
-  // Sin favoritos de fábrica: la estrella la pone quien tiene un modelo preferido.
+  // No factory favorites: the star is set by whoever has a preferred model.
   favoriteLocalModels: [],
   audioSources: 'both',
 
@@ -886,47 +891,47 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTriggerSensitivity: 'balanced',
   manualContextSeconds: 30,
   transcriptWindowSize: 40,
-  // Apagado: dejar de escuchar sola es un comportamiento que se elige, no un
-  // valor de fábrica. Los 10 minutos se conservan para cuando se encienda.
+  // Off: stopping listening on its own is a behavior you choose, not a factory
+  // value. The 10 minutes are kept for when it's turned on.
   idleShutoffEnabled: false,
   idleShutoffMinutes: 10,
 
-  // Inglés por defecto. El primer arranque lo ajusta al idioma del sistema si
-  // resulta ser español; a partir de ahí manda lo que el usuario elija.
+  // English by default. The first launch adjusts it to the system language if it
+  // happens to be Spanish; from there on whatever the user picks rules.
   uiLanguage: 'en',
 
   promptProfileId: 'interview',
-  // Sin presets de fábrica: los crea el usuario a partir de su configuración.
+  // No factory presets: the user creates them from their configuration.
   modelPresets: [],
   interpreterLangA: 'es',
   interpreterLangB: 'en',
   customPrompt: '',
   contextPacks: [],
-  // Ninguna skill activa: una instrucción que cambia el tono de todas las
-  // respuestas se enciende a propósito, no viene puesta de fábrica.
+  // No active skill: an instruction that changes the tone of every answer is
+  // turned on on purpose, it doesn't come set from the factory.
   activeSkillId: '',
   codeLanguage: 'auto',
-  // Pila manual por defecto: el usuario elige a propósito qué trozos entran.
+  // Manual stack by default: the user chooses on purpose which chunks go in.
   scrollCaptureMode: 'manual',
 
   hotkeys: DEFAULT_HOTKEYS,
-  // Los once encendidos, que es como se comportaba la app antes de que esto
-  // existiera. Apagar uno es una decisión, no un valor de fábrica.
+  // All eleven on, which is how the app behaved before this existed. Disabling
+  // one is a decision, not a factory value.
   disabledHotkeys: [],
-  // Apagado: cambia por completo cómo se lee la respuesta, así que es una
-  // decisión, no un valor de fábrica.
+  // Off: it completely changes how the answer is read, so it's a decision, not a
+  // factory value.
   teleprompterEnabled: false,
   ollamaBaseUrl: 'http://127.0.0.1:11434',
-  // 8192 y no 2048: es el mínimo con el que caben prompt, transcripción y
-  // memoria sin que Ollama empiece a tirar contexto en silencio.
+  // 8192 and not 2048: it's the minimum where prompt, transcript and memory fit
+  // without Ollama starting to drop context silently.
   ollamaContextTokens: 8192,
   onboardingDone: false,
-  // Los dos apagados: abrir un puerto y publicar el texto de las respuestas es
-  // una decisión del usuario, no un valor de fábrica.
+  // Both off: opening a port and publishing the text of the answers is a user
+  // decision, not a factory value.
   phoneMirrorEnabled: false,
   phoneMirrorLan: false,
-  // Apagado, y con el tema ya puesto: quien lo encienda sólo tiene que rellenar
-  // la dirección de su broker.
+  // Off, and with the topic already set: whoever turns it on only has to fill in
+  // their broker's address.
   mqttEnabled: false,
   mqttUrl: 'mqtt://192.168.1.100:1883',
   mqttTopic: 'tayori/answer',
@@ -934,17 +939,17 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /**
- * Qué proveedor y modelo resuelven la pantalla.
+ * Which provider and model solve the screen.
  *
- * Vive aquí y no en el main porque lo necesitan los dos lados: el main para
- * construir el proveedor, y el dashboard y el overlay para enseñar con qué se
- * está respondiendo. Si `screenProviderId` es `same`, todo se resuelve como
- * antes de que este ajuste existiera.
+ * It lives here and not in main because both sides need it: main to build the
+ * provider, and the dashboard and overlay to show what's answering. If
+ * `screenProviderId` is `same`, everything resolves as it did before this
+ * setting existed.
  */
 export function screenModelFor(settings: Settings): {
   providerId: LLMProviderId;
   model: string;
-  /** `true` si hereda del proveedor principal. */
+  /** `true` if it inherits from the main provider. */
   inherited: boolean;
 } {
   if (settings.screenProviderId === 'same') {
@@ -956,20 +961,20 @@ export function screenModelFor(settings: Settings): {
   }
   return {
     providerId: settings.screenProviderId,
-    // Sin modelo elegido se cae al del proveedor: es mejor responder con algo
-    // que fallar por un campo vacío que el usuario no sabe que existe.
+    // With no model chosen it falls back to the provider's: better to answer
+    // with something than fail on an empty field the user doesn't know exists.
     model: settings.screenModel || settings.llmModels[settings.screenProviderId],
     inherited: false,
   };
 }
 
 /**
- * El patch que aplica un mini-perfil de modelos.
+ * The patch that a model mini-profile applies.
  *
- * Devuelve sólo los campos que el preset gobierna. Lo delicado es `llmModels`:
- * es un `Record` por proveedor, así que se **fusiona** en lugar de sustituirse
- * —pisar el modelo del proveedor del preset y conservar el resto—, para no
- * perder el modelo que el usuario eligió en los otros proveedores.
+ * Returns only the fields the preset governs. The delicate one is `llmModels`:
+ * it's a `Record` per provider, so it's **merged** instead of replaced
+ * —overwrite the model of the preset's provider and keep the rest— so as not to
+ * lose the model the user chose in the other providers.
  */
 export function applyModelPreset(current: Settings, preset: ModelPreset): Partial<Settings> {
   return {
@@ -984,9 +989,9 @@ export function applyModelPreset(current: Settings, preset: ModelPreset): Partia
 }
 
 /**
- * Captura la configuración actual como preset, sin id ni nombre (los pone quien
- * lo guarda). Es la inversa de `applyModelPreset`: lo que un preset fija es lo
- * que de aquí se lee.
+ * Captures the current configuration as a preset, without id or name (set by
+ * whoever saves it). It's the inverse of `applyModelPreset`: what a preset pins
+ * is what's read from here.
  */
 export function presetFromSettings(settings: Settings): Omit<ModelPreset, 'id' | 'name'> {
   return {
@@ -1000,40 +1005,40 @@ export function presetFromSettings(settings: Settings): Omit<ModelPreset, 'id' |
   };
 }
 
-/** Límites de la escala de texto, compartidos por el ajuste y quien lo aplica. */
+/** Text-scale limits, shared by the setting and whoever applies it. */
 export const FONT_SCALE = { min: 0.8, max: 1.8, step: 0.05 } as const;
 
-/** Recorta la escala a un valor usable; un JSON editado a mano puede traer cualquier cosa. */
+/** Clamps the scale to a usable value; a hand-edited JSON can bring anything. */
 export function clampFontScale(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.min(FONT_SCALE.max, Math.max(FONT_SCALE.min, value));
 }
 
 /**
- * Los atajos que de verdad se van a registrar.
+ * The shortcuts that will actually be registered.
  *
- * Los apagados salen con el acelerador **en blanco**, no fuera del mapa, y eso
- * no es un detalle de implementación: `registerHotkeys` y
- * `duplicateAccelerators` ya se saltaban los vacíos desde el primer día, así
- * que apagar uno reutiliza ese camino en lugar de abrir un segundo concepto de
- * "atajo que no cuenta" en cada sitio que los recorre.
+ * The disabled ones come out with the accelerator **blank**, not out of the
+ * map, and that's not an implementation detail: `registerHotkeys` and
+ * `duplicateAccelerators` already skipped the empty ones from day one, so
+ * disabling one reuses that path instead of opening a second concept of
+ * "shortcut that doesn't count" in every place that iterates over them.
  *
- * Consecuencia buscada: un atajo apagado ni se registra —la combinación queda
- * libre para otra aplicación, que es justo para lo que existe el interruptor—
- * ni puede chocar con otro ni aparecer como rechazado por Windows.
+ * Intended consequence: a disabled shortcut isn't registered —the combination
+ * is left free for another app, which is exactly what the switch exists for—
+ * nor can it clash with another or show up as rejected by Windows.
  */
 export function activeHotkeys(settings: Settings): HotkeyMap {
   const off = new Set<string>(settings.disabledHotkeys);
-  // Con el teleprompter apagado sus dos atajos no existen: no hay línea que
-  // avanzar, y la combinación se queda libre para quien la quiera.
+  // With the teleprompter off its two shortcuts don't exist: there's no line to
+  // advance, and the combination is left free for whoever wants it.
   if (!settings.teleprompterEnabled) {
     off.add('teleprompterNext');
     off.add('teleprompterPrev');
   }
-  // Se parte de una copia y se vacían los apagados, en vez de reconstruir el
-  // objeto con `fromEntries`: eso devuelve un `Record<string, string>` que hay
-  // que castear a `HotkeyMap`, y el casteo es justo lo que dejaría de avisar el
-  // día que a `HotkeyMap` le falte una clave.
+  // Start from a copy and blank out the disabled ones, instead of rebuilding the
+  // object with `fromEntries`: that returns a `Record<string, string>` that has
+  // to be cast to `HotkeyMap`, and the cast is exactly what would stop warning
+  // the day `HotkeyMap` is missing a key.
   const active: HotkeyMap = { ...settings.hotkeys };
   for (const action of Object.keys(active) as (keyof HotkeyMap)[]) {
     if (off.has(action)) active[action] = '';
@@ -1042,8 +1047,8 @@ export function activeHotkeys(settings: Settings): HotkeyMap {
 }
 
 /**
- * Etiquetas de los atajos, para poder listarlos sin repetir los textos en cada
- * sitio que los enseñe. El orden es el de la tabla del README.
+ * Shortcut labels, so they can be listed without repeating the texts in every
+ * place that shows them. The order is the one in the README table.
  */
 export const HOTKEY_LABEL: Record<keyof HotkeyMap, UIKey> = {
   askNow: 'hk.askNow',
@@ -1064,52 +1069,53 @@ export const HOTKEY_LABEL: Record<keyof HotkeyMap, UIKey> = {
 };
 
 /**
- * La máquina donde corre la app, para recomendar un modelo local con criterio.
+ * The machine the app runs on, to recommend a local model with judgment.
  *
- * No incluye VRAM a propósito: es el número que de verdad decide si un modelo
- * cabe en la GPU y no hay forma fiable de leerlo desde Electron. Dar una cifra
- * inventada sería peor que no darla.
+ * It deliberately doesn't include VRAM: it's the number that really decides
+ * whether a model fits in the GPU and there's no reliable way to read it from
+ * Electron. Giving a made-up figure would be worse than not giving one.
  */
 export interface SystemSpecs {
   totalMemoryGB: number;
   cpuModel: string;
   cpuCores: number;
-  /** Nombre comercial de la GPU, si se pudo averiguar. */
+  /** Commercial GPU name, if it could be figured out. */
   gpu?: string;
 }
 
 /**
- * Recomendación de modelos locales para una máquina.
+ * Local-model recommendation for a machine.
  *
- * Se calcula en el renderer porque es una tabla, no una medida: la parte que sí
- * es medir vive en `system-specs.ts`.
+ * It's computed in the renderer because it's a table, not a measurement: the
+ * part that is measuring lives in `system-specs.ts`.
  */
 export interface LocalModelAdvice {
-  /** Cómo se resume esta máquina en una línea. Lleva el hueco `{ram}`. */
+  /** How this machine is summarized in one line. Carries the `{ram}` slot. */
   tier: UIKey;
-  /** Para conversar: el que responde a lo que se oye. Prima la latencia. */
+  /** For conversing: the one that answers what's heard. Latency comes first. */
   chat: { model: string; note: UIKey };
-  /** Para la pantalla: tiene que VER. Prima la capacidad de leer una captura. */
+  /** For the screen: it has to SEE. Reading a capture comes first. */
   vision: { model: string; note: UIKey };
-  /** Advertencia honesta sobre lo que va a costar en esta máquina. */
+  /** Honest warning about what it will cost on this machine. */
   caveat: UIKey;
 }
 
 /**
- * Qué recomendar según la RAM, que es lo único que se mide con certeza.
+ * What to recommend based on RAM, which is the only thing measured with
+ * certainty.
  *
- * Los tramos salen de una regla sencilla: un modelo cuantizado a 4 bits ocupa
- * más o menos 0,6 GB por cada mil millones de parámetros, y hace falta dejarle
- * sitio al sistema y a la ventana de contexto. De ahí que un 7B pida ~8 GB
- * libres y un 14B ronde los 16 GB.
+ * The tiers come from a simple rule: a model quantized to 4 bits takes roughly
+ * 0.6 GB per billion parameters, and you have to leave room for the system and
+ * the context window. Hence a 7B asks for ~8 GB free and a 14B lands around
+ * 16 GB.
  *
- * Los nombres son de la biblioteca de Ollama y pueden cambiar con el tiempo;
- * por eso el dashboard enseña también el comando y enlaza a la biblioteca en
- * lugar de prometer que existen para siempre.
+ * The names are from Ollama's library and may change over time; that's why the
+ * dashboard also shows the command and links to the library instead of
+ * promising they exist forever.
  *
- * Los textos salen como **claves**, no como frases: esto lo consumen el
- * dashboard, el asistente y la guía de modelos, y los tres pintan en el idioma
- * que tenga puesto quien mira. El `tier` lleva el hueco `{ram}`.
+ * The texts come out as **keys**, not sentences: this is consumed by the
+ * dashboard, the assistant and the model guide, and all three paint in the
+ * language of whoever's looking. The `tier` carries the `{ram}` slot.
  */
 export function adviseLocalModels(specs: SystemSpecs): LocalModelAdvice {
   const ram = specs.totalMemoryGB;
@@ -1149,102 +1155,104 @@ export function adviseLocalModels(specs: SystemSpecs): LocalModelAdvice {
   };
 }
 
-/** Estado del servidor local de Ollama, sondeado bajo demanda. */
+/** State of the local Ollama server, probed on demand. */
 export interface OllamaStatus {
-  /** `false` si Ollama no está instalado o no está corriendo. */
+  /** `false` if Ollama isn't installed or isn't running. */
   reachable: boolean;
   version?: string;
-  /** Modelos ya descargados en la máquina. */
+  /** Models already downloaded on the machine. */
   models: ModelInfo[];
   error?: string;
 }
 
 /**
- * Progreso de lo que el asistente de configuración instala por su cuenta.
+ * Progress of what the setup wizard installs on its own.
  *
- * Un solo tipo para las dos fases porque el usuario ve una sola barra: le da
- * igual si lo que tarda es winget o una descarga de tres gigas, y separarlo en
- * dos formas obligaría a la UI a saber en cuál está para leer el campo bueno.
+ * A single type for the two phases because the user sees one bar: they don't
+ * care whether what takes time is winget or a three-gig download, and splitting
+ * it into two shapes would force the UI to know which one it's in to read the
+ * right field.
  */
 export interface SetupProgress {
   phase: 'install' | 'pull';
-  /** Qué modelo se está bajando. Vacío durante la instalación de Ollama. */
+  /** Which model is downloading. Empty during Ollama's installation. */
   model?: string;
-  /** Línea legible tal cual, del estilo «descargando manifest». */
+  /** Human-readable line as-is, along the lines of "downloading manifest". */
   message: string;
-  /** Sólo durante la descarga de un modelo; `0` mientras no se sepa el total. */
+  /** Only during a model download; `0` while the total isn't known. */
   receivedBytes?: number;
   totalBytes?: number;
 }
 
 /**
- * Estado del espejo del teléfono, tal y como lo enseña el dashboard.
+ * State of the phone mirror, as the dashboard shows it.
  *
- * El QR viaja como **matriz de módulos**, no como imagen: dibujarlo es un
- * `<svg>` de rectángulos en el renderer, así que no hace falta un `data:` URI
- * que la CSP tenga que permitir, sale nítido a cualquier tamaño y se adapta al
- * tema sin regenerarlo.
+ * The QR travels as a **module matrix**, not as an image: drawing it is an
+ * `<svg>` of rectangles in the renderer, so there's no need for a `data:` URI
+ * the CSP has to allow, it comes out crisp at any size and adapts to the theme
+ * without regenerating it.
  */
 export interface PhoneMirrorStatus {
   running: boolean;
-  /** `true` si escucha en la LAN; `false` si sólo en loopback. */
+  /** `true` if it listens on the LAN; `false` if only on loopback. */
   lan: boolean;
-  /** Enlace principal, con el token puesto. Vacío si no corre. */
+  /** Primary link, with the token in place. Empty if it's not running. */
   url: string;
   /**
-   * Otros enlaces igual de válidos.
+   * Other, equally valid links.
    *
-   * No es un lujo: una máquina con VPN, Docker o VirtualBox tiene varias IPv4
-   * y la primera no siempre es la buena. Adivinar mal y no ofrecer alternativa
-   * deja al usuario con un QR que no lleva a ninguna parte.
+   * It's not a luxury: a machine with VPN, Docker or VirtualBox has several
+   * IPv4s and the first one isn't always the right one. Guessing wrong and not
+   * offering an alternative leaves the user with a QR that leads nowhere.
    */
   alternates: string[];
-  /** Módulos del QR de `url`, fila por fila. Vacío si no corre. */
+  /** Modules of the `url` QR, row by row. Empty if it's not running. */
   qr: boolean[][];
-  /** Teléfonos conectados ahora mismo. Es la única confirmación de que funciona. */
+  /** Phones connected right now. It's the only confirmation that it works. */
   clients: number;
-  /** Por qué no arrancó, si no arrancó. */
+  /** Why it didn't start, if it didn't. */
   error?: string;
 }
 
 /**
- * Limpia un id de modelo escrito o pegado a mano.
+ * Cleans up a model id typed or pasted by hand.
  *
- * Existe por un fallo concreto y muy difícil de ver: un id copiado de una
- * página de documentación se pega con un espacio al final —o con un salto de
- * línea, o con un espacio duro— y el proveedor responde 404. El mensaje que
- * llega es "el modelo indicado no existe", que manda a buscar el modelo bueno
- * cuando el modelo ya era el bueno. Un id de modelo no lleva espacios en
- * ninguno de los proveedores, así que quitarlos no puede romper nada.
+ * It exists because of a concrete, very hard-to-see failure: an id copied from
+ * a documentation page is pasted with a trailing space —or a line break, or a
+ * non-breaking space— and the provider responds 404. The message that arrives
+ * is "the given model doesn't exist", which sends you looking for the right
+ * model when the model was already right. A model id has no spaces in any of the
+ * providers, so removing them can't break anything.
  */
 export function normalizeModelId(raw: string): string {
   return raw.replace(/\s+/g, '').trim();
 }
 
 /**
- * Resultado de comprobar si hay una versión nueva en GitHub.
+ * Result of checking whether there's a new version on GitHub.
  *
- * Cruza el IPC (lo pide el dashboard, lo resuelve el main consultando la API de
- * releases), así que vive aquí. `downloadUrl` puede venir vacío si el release no
- * trae el `.exe` portable; la UI cae entonces a "Ver release".
+ * It crosses the IPC (the dashboard asks for it, main resolves it by querying
+ * the releases API), so it lives here. `downloadUrl` may come empty if the
+ * release doesn't carry the portable `.exe`; the UI then falls back to "View
+ * release".
  */
 export interface UpdateInfo {
   current: string;
   latest: string;
   isNewer: boolean;
-  /** Notas del release (Markdown crudo), para enseñar un resumen. */
+  /** Release notes (raw Markdown), to show a summary. */
   notes: string;
   releaseUrl: string;
   downloadUrl: string;
 }
 
 /**
- * `true` si `latest` es una versión posterior a `current` (semver simple).
+ * `true` if `latest` is a version after `current` (simple semver).
  *
- * Compara major.minor.patch numéricamente, tolera la `v` inicial de los tags, y
- * cualquier sufijo (`-beta`) se ignora cayendo a la base. Pura para poder fijarla
- * con un test: la comparación de cadenas ("1.10.0" < "1.9.0" alfabéticamente) es
- * justo el fallo que esto evita.
+ * Compares major.minor.patch numerically, tolerates the leading `v` of tags,
+ * and any suffix (`-beta`) is ignored by falling back to the base. Pure so it
+ * can be pinned with a test: string comparison ("1.10.0" < "1.9.0"
+ * alphabetically) is exactly the bug this avoids.
  */
 export function isNewerVersion(latest: string, current: string): boolean {
   const parse = (v: string): number[] =>
@@ -1263,26 +1271,24 @@ export function isNewerVersion(latest: string, current: string): boolean {
 }
 
 /**
- * Si el proveedor elegido puede responder ahora mismo.
+ * Whether the chosen provider can answer right now.
  *
- * Vive aquí, y en `shared/`, porque **tres pantallas hacían esta misma cuenta
- * por separado**: el aviso del dashboard, el estado central del overlay y el
- * paso del asistente. Cada una era una cadena de `if` con los proveedores de
- * cuando se escribió, y ninguna rompía el build al añadir uno nuevo — la
- * cadena simplemente caía al último caso y contestaba por el proveedor
- * equivocado. Añadir ChatGPT lo dejó a la vista: preguntar por Ollama y que
- * respondiera la clave de Google.
+ * It lives here, and in `shared/`, because **three screens did this same
+ * calculation separately**: the dashboard warning, the overlay's central state
+ * and the wizard step. Each was an `if` chain with the providers of when it was
+ * written, and none broke the build when a new one was added — the chain simply
+ * fell to the last case and answered for the wrong provider. Adding ChatGPT
+ * exposed it: ask about Ollama and have the Google key answer.
  *
- * El `Record` es lo que lo arregla de verdad: un id nuevo en `LLMProviderId`
- * **no compila** hasta que alguien decida qué necesita ese proveedor para
- * poder responder.
+ * The `Record` is what actually fixes it: a new id in `LLMProviderId` **doesn't
+ * compile** until someone decides what that provider needs to be able to answer.
  */
 const READY_BY_PROVIDER: Record<
   LLMProviderId,
   (settings: Settings, presence: SecretsPresence) => boolean
 > = {
-  // Ollama no necesita credencial, pero SÍ un modelo elegido: sin él cada
-  // pregunta falla con "no hay ningún modelo seleccionado".
+  // Ollama needs no credential, but it DOES need a chosen model: without it
+  // every question fails with "no model is selected".
   ollama: (settings) => Boolean(settings.llmModels.ollama),
   claude: (_settings, presence) => presence.anthropic,
   gemini: (_settings, presence) => presence.google,
@@ -1294,32 +1300,32 @@ export function providerIsReady(settings: Settings, presence: SecretsPresence): 
   return READY_BY_PROVIDER[settings.llmProviderId](settings, presence);
 }
 
-/** Las keys nunca viajan al renderer; solo si están presentes o no. */
+/** The keys never travel to the renderer; only whether they're present or not. */
 export interface SecretsPresence {
   anthropic: boolean;
   google: boolean;
   /**
-   * API key de OpenAI.
+   * OpenAI API key.
    *
-   * Vale para responder y para transcribir, igual que la de Google: los motores
-   * `openai-live` y `openai-transcribe` usan ésta misma. La de Anthropic es la
-   * única que sólo sirve para responder.
+   * It works for answering and for transcribing, like Google's: the
+   * `openai-live` and `openai-transcribe` engines use this same one. Anthropic's
+   * is the only one that only answers.
    */
   openai: boolean;
   /**
-   * API key de DeepSeek.
+   * DeepSeek API key.
    *
-   * Sólo responde: no tienen modelos de transcripción, así que la voz la sigue
-   * resolviendo otro motor.
+   * Answers only: they have no transcription models, so speech is still handled
+   * by another engine.
    */
   deepseek: boolean;
   /**
-   * Contraseña del broker MQTT.
+   * MQTT broker password.
    *
-   * Vive aquí y no en `settings.json` porque es una credencial, y la regla del
-   * proyecto sobre credenciales no distingue entre las caras y las baratas: se
-   * cifran con DPAPI y no vuelven al renderer. Un broker de la red de casa
-   * parece inofensivo hasta que la misma contraseña abre otra cosa.
+   * It lives here and not in `settings.json` because it's a credential, and the
+   * project's rule on credentials doesn't distinguish expensive from cheap ones:
+   * they're encrypted with DPAPI and don't come back to the renderer. A home
+   * broker seems harmless until the same password opens something else.
    */
   mqtt: boolean;
 }
