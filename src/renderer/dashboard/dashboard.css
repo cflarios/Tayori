@@ -216,7 +216,29 @@ body {
 }
 
 .nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 20px 18px 14px;
+}
+
+.nav__mascot {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.about__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.about__mascot {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
 }
 
 .nav__eyebrow {

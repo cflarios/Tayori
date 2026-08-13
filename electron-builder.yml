@@ -27,6 +27,11 @@ files:
 npmRebuild: false
 
 win:
+  # Icono del .exe (y del instalador y accesos directos): el fantasmita de Tayori.
+  # Es un .ico multi-tamaño (256→16) generado desde `build/icon.svg` con
+  # `scripts/make-icon.mjs`. `build/` es la carpeta de buildResources, así que
+  # electron-builder lo encuentra solo, pero se deja explícito.
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]

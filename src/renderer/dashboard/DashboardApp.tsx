@@ -34,6 +34,7 @@ import {
   type ModelSpeed,
 } from '@shared/whisper-models';
 import { LangProvider, renderMarkup, Tx, useT, useUILang } from '@renderer/i18n';
+import { Mascot } from '@renderer/Mascot';
 import { Icon, type IconName } from './icons';
 import { SetupWizard } from './SetupWizard';
 import type {
@@ -625,8 +626,11 @@ export function DashboardApp() {
         <div className="app">
           <aside className="nav">
             <div className="nav__brand">
-              <div className="nav__eyebrow">{t('nav.eyebrow')}</div>
-              <div className="nav__app">Tayori</div>
+              <Mascot className="nav__mascot" autoBlink />
+              <div className="nav__brandtext">
+                <div className="nav__eyebrow">{t('nav.eyebrow')}</div>
+                <div className="nav__app">Tayori</div>
+              </div>
             </div>
 
             <nav className="nav__list">
@@ -1547,7 +1551,12 @@ function AboutCard() {
   return (
     <>
       <section className="card">
-        <h2 className="card__title">Tayori</h2>
+        <div className="about__head">
+          <Mascot className="about__mascot" autoBlink />
+          <h2 className="card__title" style={{ margin: 0 }}>
+            Tayori
+          </h2>
+        </div>
         <p className="card__hint">
           <Tx k="about.what" />
         </p>
