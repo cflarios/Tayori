@@ -158,6 +158,9 @@ class Lane {
   }
 }
 
+/** Un 500 aislado no condena la sesión; varios seguidos, sí. */
+const SERVER_FAILURE_LIMIT = 3;
+
 export class WhisperLocalSTT implements STTProvider {
   readonly id: STTProviderId = 'whisper-local';
   readonly events = new EventEmitter();
@@ -168,6 +171,8 @@ export class WhisperLocalSTT implements STTProvider {
   private stopped = false;
   /** `false` cae al CLI, que arranca un proceso por intervención. */
   private useServer = false;
+  /** Fallos seguidos del servidor antes de rendirse al CLI toda la sesión. */
+  private serverFailures = 0;
 
   constructor(
     private readonly binaryPath: string,
@@ -197,6 +202,7 @@ export class WhisperLocalSTT implements STTProvider {
     // El servidor ahorra ~570 ms por turno frente a lanzar el CLI cada vez. Si
     // no arranca se sigue con el CLI: más lento, pero la transcripción funciona.
     this.useServer = await whisperServer.ensure(this.modelPath, options.language, options.vocabulary);
+    this.serverFailures = 0;
     console.log(
       `[whisper] transcribiendo con ${this.useServer ? 'whisper-server (modelo residente)' : 'whisper-cli (un proceso por turno)'}`
     );
@@ -244,15 +250,30 @@ export class WhisperLocalSTT implements STTProvider {
 
     if (this.useServer && whisperServer.running) {
       try {
-        return cleanOutput(await whisperServer.transcribe(wav, options.language));
+        const text = cleanOutput(await whisperServer.transcribe(wav, options.language));
+        this.serverFailures = 0;
+        return text;
       } catch (err) {
-        // El servidor puede haberse caído entre turnos. Se degrada al CLI en
-        // lugar de perder la intervención, y se deja de intentarlo.
-        console.warn(
-          `[whisper-server] falló (${err instanceof Error ? err.message : String(err)}); ` +
-            'se continúa con whisper-cli.'
-        );
-        this.useServer = false;
+        // Un fallo aislado del servidor (un HTTP 500 por un pico de memoria, por
+        // ejemplo) no significa que esté roto. Se cae al CLI SÓLO para este turno
+        // y se sigue intentando el servidor en el siguiente. Sólo se abandona
+        // para el resto de la sesión si el proceso ha muerto o si acumula varios
+        // fallos seguidos, que ya es un patrón y no un tropiezo.
+        this.serverFailures++;
+        const dead = !whisperServer.running;
+        const detail = err instanceof Error ? err.message : String(err);
+        if (dead || this.serverFailures >= SERVER_FAILURE_LIMIT) {
+          console.warn(
+            `[whisper-server] ${dead ? 'caído' : `${this.serverFailures} fallos seguidos`} ` +
+              `(${detail}); se continúa con whisper-cli el resto de la sesión.`
+          );
+          this.useServer = false;
+        } else {
+          console.warn(
+            `[whisper-server] fallo transitorio (${detail}); este turno va por ` +
+              'whisper-cli, el servidor sigue en uso.'
+          );
+        }
       }
     }
 
