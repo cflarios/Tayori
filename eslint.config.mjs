@@ -7,11 +7,12 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    // Scripts de build: JS plano ejecutado por Node, así que necesita los
-    // globals de Node declarados (los .ts los aporta @types/node vía tsconfig).
-    files: ['scripts/**/*.{js,mjs}', '*.config.{js,mjs}'],
+    // Scripts de build y config de tooling: JS plano ejecutado por Node, así que
+    // necesita los globals de Node declarados (los .ts los aporta @types/node vía
+    // tsconfig). Los `.cjs` (p. ej. commitlint.config.cjs) usan `module.exports`.
+    files: ['scripts/**/*.{js,mjs}', '*.config.{js,mjs,cjs}'],
     languageOptions: {
-      globals: { process: 'readonly', console: 'readonly' },
+      globals: { process: 'readonly', console: 'readonly', module: 'readonly', require: 'readonly' },
     },
   },
   {

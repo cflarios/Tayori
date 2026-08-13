@@ -1,8 +1,11 @@
 # Changelog
 
-Todos los cambios relevantes de este proyecto se documentan en este archivo.
-El contenido de cada versión se genera automáticamente a partir de los commits
-que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
+All notable changes to this project are documented in this file. Each release's
+contents are generated automatically from commits following the
+[Conventional Commits](https://www.conventionalcommits.org/) format.
+
+> Entries up to and including **1.6.0** are in Spanish, mirroring the commit
+> history at the time. From the next release onward they are in English.
 
 ## [1.6.0](https://github.com/cflarios/Tayori/compare/v1.5.1...v1.6.0) (2026-08-13)
 

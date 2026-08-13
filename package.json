@@ -1,7 +1,7 @@
 {
   "name": "interview-helper",
   "version": "1.6.0",
-  "description": "Asistente de IA en tiempo real para reuniones, invisible al compartir pantalla",
+  "description": "Real-time AI assistant for meetings and interviews, invisible when you share your screen",
   "license": "MIT",
   "author": "Cristian Larios",
   "private": true,
@@ -17,6 +17,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "test": "vitest run",
     "test:watch": "vitest",
+    "prepare": "husky",
     "build:win": "npm run build && node scripts/build-win.mjs",
     "build:portable": "npm run build && node scripts/build-win.mjs --win portable",
     "build:unpacked": "npm run build && node scripts/build-win.mjs --dir"
@@ -36,8 +37,11 @@
     "zustand": "5.0.14"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
     "@electron-toolkit/tsconfig": "2.0.0",
     "@eslint/js": "10.0.1",
+    "husky": "^9.1.7",
     "@types/node": "26.1.1",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "19.2.17",
