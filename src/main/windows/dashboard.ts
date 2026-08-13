@@ -58,10 +58,18 @@ export function openDashboard(): BrowserWindow {
     },
   });
 
-  // Persistente como el overlay: se mantiene por encima aunque pulses otra
-  // ventana, en vez de irse detrás. `screen-saver` es el nivel más alto —el mismo
-  // que el overlay—, así que aguanta incluso sobre una videollamada maximizada.
-  dashboard.setAlwaysOnTop(true, 'screen-saver');
+  /*
+   * El dashboard NO es `always-on-top` a propósito, aunque se intentó.
+   *
+   * Se probó hacerlo persistente (que no se fuera detrás al pulsar otra app),
+   * pero eso lo dejaba a nivel `screen-saver` peleándose con el overlay —la otra
+   * ventana topmost— por el foco. Cada cambio de foco entre las dos rompe el
+   * reenvío de `mousemove` del overlay (del que depende para detectar el hover y
+   * volverse clicable), y el bloqueo se acumulaba cuanto más se usaba el
+   * dashboard, peor en el `.exe`. Con una sola ventana topmost —el overlay— no
+   * hay pelea y el overlay es estable. El coste es que el dashboard se va detrás
+   * como cualquier ventana normal; se recupera con el engranaje del overlay.
+   */
 
   dashboard.once('ready-to-show', () => {
     const win = dashboard;
@@ -76,20 +84,16 @@ export function openDashboard(): BrowserWindow {
   dashboard.on('closed', () => {
     dashboard = null;
     /*
-     * Desbloquea el overlay tras cerrar el dashboard.
+     * Red de seguridad: re-sincroniza el ratón del overlay al cerrar el dashboard.
      *
-     * Mientras el dashboard tiene el foco, Windows deja de reenviar los
-     * `mousemove` al overlay (que los necesita para detectar el hover sobre su
-     * barra y volverse clicable). Al cerrarse hay que rearmarlo, y son DOS cosas:
-     *
-     *  1. `webContents.send(onOverlayResync)`: el renderer resetea su caché de
-     *     ignore —que pudo quedar desincronizado— y re-manda el estado, lo que en
-     *     el main re-aplica `setIgnoreMouseEvents(..., { forward: true })`.
-     *  2. `setAlwaysOnTop`: reasegura que el overlay vuelve al frente, por si el
-     *     dashboard (también topmost) le robó la posición.
-     *
-     * Con un `setTimeout(0)`: al dispararse `closed` Windows aún no ha reasignado
-     * el foreground, y rearmar el reenvío demasiado pronto no prende.
+     * Con el dashboard ya sin `always-on-top` el bloqueo no debería darse —el
+     * overlay es la única ventana topmost y no pierde su reenvío—, pero abrir y
+     * cerrar una ventana enfocable puede dejar un hipo puntual en el reenvío de
+     * `mousemove`. Esto lo cura: el renderer resetea su caché de ignore (que pudo
+     * quedar desincronizado) y re-manda el estado, lo que en el main re-aplica
+     * `setIgnoreMouseEvents(..., { forward: true })`, y se reasegura el topmost del
+     * overlay. Con un `setTimeout` porque al dispararse `closed` Windows aún no ha
+     * reasignado el foreground.
      */
     setTimeout(() => {
       const overlay = getOverlay();
