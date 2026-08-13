@@ -552,14 +552,24 @@ Dos cosas distintas que el usuario pidió, con alcances muy distintos:
 - **Barra de tareas:** ni el overlay ni el dashboard aparecen. El overlay ya la
   evitaba; se añadió `skipTaskbar: true` al dashboard y un `setSkipTaskbar(true)`
   re-afirmado tras `showInactive()` en el overlay, por un gotcha de Electron en
-  ventanas `transparent`+`frameless`. También se neutralizó el **título de
-  ventana** del dashboard (BrowserWindow `title` y el `<title>` del HTML — este
-  último gana tras cargar la página, así que hay que cambiar los dos), porque se
-  filtra por Alt+Tab y la sección "Aplicaciones" del Administrador.
+  ventanas `transparent`+`frameless`. El **título de ventana** del dashboard
+  (BrowserWindow `title` y el `<title>` del HTML — este último gana tras cargar la
+  página, así que hay que cambiar los dos) se filtra por Alt+Tab y la sección
+  "Aplicaciones" del Administrador. Llevó un tiempo un nombre neutro; hoy lleva la
+  marca real —ver el punto siguiente—.
 
-- **Nombre del proceso:** renombrado a `Audio Helper` en `electron-builder.yml`
-  (`productName` + `executableName` + `nsis.shortcutName`). Es **cosmético**: no
-  oculta el proceso, sólo evita que un vistazo casual muestre "Tayori".
+- **Nombre del proceso y de la ventana: la marca real, no un disfraz.** Al
+  principio se puso `Audio Helper` en `electron-builder.yml` (`productName` +
+  `executableName` + `nsis.shortcutName`) y como título de ventana, para que un
+  vistazo casual no dijera "Tayori". Se revirtió a propósito (agosto de 2026): el
+  usuario prefirió la marca real, con el argumento de que **el sigilo que importa
+  no depende de este nombre**. Lo que de verdad esconde la app es
+  `setContentProtection` (invisible al compartir pantalla); el nombre del proceso
+  siempre fue **cosmético** —un software de proctoring que enumere procesos lo
+  detecta se llame como se llame—, así que el disfraz sólo compraba que no cantara
+  de un vistazo, y no compensaba la incoherencia de que el `.exe` descargable se
+  llamara distinto que la app. Ahora todo es `Tayori`. Es reversible sin romper
+  nada: **no toca la frontera de datos** (ver el aviso de abajo).
 
 **Se descartó explícitamente el ocultamiento tipo rootkit** (driver de kernel
 que intercepte `NtQuerySystemInformation`, o hooking de `taskmgr.exe`): es
@@ -586,17 +596,16 @@ frontera de arriba. Tres capas, tres criterios:
 |---|---|---|
 | Marca visible (UI, docs, guía de modelos, cliente MQTT, tema por defecto) | Renombrada | Es lo que el usuario lee: es *el* rebranding |
 | `package.json` `name` y `app.setName('interview-helper')` | **Intactos** | Son la ruta de `%APPDATA%`. Renombrarlos deja los settings y las claves cifradas en la carpeta vieja, **sin ningún error**: la app arranca como recién instalada |
-| `appId`, `productName`, `executableName` (`Audio Helper`) | **Intactos** | Es la cara que ve el Administrador de tareas, y es neutra a propósito. Además, cambiar `appId` orfanaría las instalaciones existentes |
+| `appId` (`com.interviewhelper.app`) | **Intacto** | Identifica la instalación para NSIS; cambiarlo orfanaría las instalaciones existentes |
+| `productName`, `executableName`, `shortcutName`, título de ventana | Renombrados a `Tayori` (agosto 2026) | Empezaron neutros (`Audio Helper`) por discreción; se pasaron a la marca real. Es cosmético y no toca la ruta de datos (`app.name` no sale de aquí) |
 
-La tentación al ver un rebranding a medias es "terminarlo". No está a medias: el
-`electron-builder.yml` ya documentaba esta separación antes del cambio de nombre
-—«la marca que ve el usuario vive en la UI, no aquí»— y el rebranding se limitó
-a la capa que ese comentario señala.
-
-**Lo que sí se puede renombrar sin romper nada** es `productName` /
-`executableName`: sólo cambia el nombre del `.exe` y del acceso directo. Pero es
-una decisión de discreción, no de marca — el nombre neutro existe para que un
-vistazo al Administrador de tareas no diga a qué se dedica la app.
+La primera vez, el rebranding paró en `productName`/`executableName` a propósito:
+el `electron-builder.yml` documentaba que la marca visible vivía en la UI y que
+esa capa era un disfraz de discreción. Después se decidió quitar el disfraz —ver
+«Nombre del proceso y de la ventana» arriba—, así que hoy esa capa también dice
+`Tayori`. **Lo que no se movió** es la frontera de datos: `package.json` `name`,
+`app.setName('interview-helper')` y `appId` siguen exactamente igual, que es lo
+único cuyo cambio rompería algo.
 
 **`release-please-config.json` conserva `package-name: interview-helper`.** Es
 cosmético —afecta al título del changelog—, pero la publicación costó tres
@@ -2452,7 +2461,7 @@ Two GitHub Actions workflows live under `.github/workflows/`:
 
 When Release Please creates a release, a Windows runner rebuilds the portable
 from **that tag** and attaches two files to the Releases page:
-`Audio Helper-<version>-portable.exe` and a `.zip` containing that same
+`Tayori-<version>-portable.exe` and a `.zip` containing that same
 executable. The CI artifact is deliberately not reused, so the published binary
 always belongs to the versioned commit.
 

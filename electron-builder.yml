@@ -1,13 +1,16 @@
+# NO cambiar `appId`: identifica la instalación para NSIS, y cambiarlo orfanaría
+# las instalaciones existentes (una actualización se vería como una app nueva).
 appId: com.interviewhelper.app
-# Nombre neutro a propósito: es lo que ve el Administrador de tareas (nombre de
-# imagen del .exe y FileDescription/ProductName en los recursos de versión), los
-# accesos directos y el instalador. Genérico y plausible durante una llamada, y
-# NO imita un proceso real de Windows (svchost, RuntimeBroker…) porque eso
-# dispararía el antivirus. Cámbialo por el que prefieras: es solo cosmético.
-# La marca "Tayori" que ve el usuario vive en la UI (código), no aquí,
-# y `app.name` (ruta de userData) se ancla en main/index.ts, no en este campo.
-productName: Audio Helper
-executableName: Audio Helper
+# La marca que ve el usuario: el descargable, el .exe, el acceso directo y la
+# imagen del proceso en el Administrador de tareas. Antes iba con un nombre neutro
+# ("Audio Helper") para no delatar de un vistazo qué es la app; se decidió usar la
+# marca real, porque el sigilo que de verdad importa —invisible al compartir
+# pantalla, vía setContentProtection— no depende de este nombre. Es solo cosmético
+# y se puede cambiar sin romper nada: `app.name` (la ruta de userData con los
+# ajustes y las API keys cifradas) NO sale de aquí, sino de `package.json` `name`
+# y de `app.setName('interview-helper')` en main/index.ts, que siguen intactos.
+productName: Tayori
+executableName: Tayori
 copyright: MIT
 
 directories:
@@ -39,8 +42,8 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  # Coherente con el nombre neutro: el acceso directo tampoco debe delatar.
-  shortcutName: Audio Helper
+  # Coherente con la marca: el acceso directo también lleva el nombre real.
+  shortcutName: Tayori
 
 portable:
   artifactName: ${productName}-${version}-portable.exe

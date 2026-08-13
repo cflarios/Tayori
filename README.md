@@ -452,10 +452,11 @@ Ni el overlay ni la ventana de configuración aparecen en la **barra de tareas**
 La configuración se recupera desde el menú `⋯` del overlay; el overlay, con
 `Ctrl+Shift+H`.
 
-En el build empaquetado, el proceso se llama **Audio Helper**, no "Interview
-Helper", así que un vistazo casual al Administrador de tareas no lo delata (sus
-subprocesos se agrupan bajo ese nombre, igual que cualquier app de Electron
-como Slack o VS Code). Esto es **cosmético, no ocultamiento**:
+En el build empaquetado, el proceso se llama **Tayori**, con su marca real (sus
+subprocesos se agrupan bajo ese nombre, igual que cualquier app de Electron como
+Slack o VS Code). El nombre **no** es un mecanismo de ocultamiento —lo que
+esconde la app es la exclusión de la captura de pantalla, no cómo se llame el
+proceso—:
 
 - En la pestaña **Detalles** se ve la ruta del `.exe`.
 - Un software de **proctoring** que enumere procesos o compare firmas/binarios
@@ -465,8 +466,8 @@ como Slack o VS Code). Esto es **cosmético, no ocultamiento**:
 Ocultar de verdad el proceso del Administrador exigiría técnicas de rootkit
 (driver de kernel, hooking de `taskmgr.exe`) que son indistinguibles de malware,
 las marca el antivirus y pueden desestabilizar el sistema. **No se implementan
-a propósito.** El nombre se cambia en `electron-builder.yml` (`productName` /
-`executableName`) si prefieres otro.
+a propósito.** Si prefieres un nombre neutro en su lugar, se cambia en
+`electron-builder.yml` (`productName` / `executableName`).
 
 ## Espejo en el móvil
 
@@ -706,7 +707,7 @@ Las publicaciones se gestionan con Release Please: al fusionar en `main` un
 commit con formato [Conventional Commits](https://www.conventionalcommits.org/)
 (`fix:`, `feat:`, `feat!:`, etc.), crea o actualiza una PR de release. Al
 fusionarla, actualiza la versión, `CHANGELOG.md`, crea el GitHub Release y le
-adjunta `Audio Helper-<versión>-portable.exe` junto a un `.zip` con el ejecutable.
+adjunta `Tayori-<versión>-portable.exe` junto a un `.zip` con el ejecutable.
 
 ## Consideraciones legales
 

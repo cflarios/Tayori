@@ -32,7 +32,7 @@ export function openDashboard(): BrowserWindow {
     minHeight: 560,
     show: false,
     skipTaskbar: true,
-    title: 'Audio Helper',
+    title: 'Tayori',
     backgroundColor: '#0f1115',
     autoHideMenuBar: true,
     /*
@@ -41,8 +41,9 @@ export function openDashboard(): BrowserWindow {
      * por IPC (`dashboardMinimize`/`ToggleMaximize`/`Close`). Sigue siendo
      * redimensionable desde los bordes —Electron conserva las asas de resize en
      * una ventana `frame: false` que no es `resizable: false`—, así que
-     * `minWidth`/`minHeight` siguen valiendo. El `title` neutro se mantiene: una
-     * ventana sin marco sigue teniendo título en Alt+Tab.
+     * `minWidth`/`minHeight` siguen valiendo. El `title` lleva la marca real
+     * ("Tayori") en vez de un nombre neutro: una ventana sin marco sigue teniendo
+     * título en Alt+Tab, y se decidió que ahí también vaya la marca.
      */
     frame: false,
     webPreferences: {
