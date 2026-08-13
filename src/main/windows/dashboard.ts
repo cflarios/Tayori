@@ -1,6 +1,7 @@
 import { BrowserWindow, shell } from 'electron';
 import { settingsStore } from '../config/store';
-import { setStealthContentOnly } from './stealth';
+import { setClickThrough, setStealthContentOnly } from './stealth';
+import { getOverlay, isOverlayInteractive } from './overlay';
 import { loadRenderer, preloadPath } from './resolve';
 
 let dashboard: BrowserWindow | null = null;
@@ -73,6 +74,22 @@ export function openDashboard(): BrowserWindow {
   });
   dashboard.on('closed', () => {
     dashboard = null;
+    /*
+     * Re-aplica los clics atravesables del overlay al cerrar el dashboard.
+     *
+     * El overlay ignora el ratón con `{ forward: true }`, y son esos eventos de
+     * movimiento reenviados los que le permiten detectar el hover sobre su barra
+     * y volverse clicable. Cuando el dashboard roba el foco y luego se cierra,
+     * Windows deja de reenviar esos `mousemove` al overlay, y como nada los
+     * restablece el hover deja de dispararse: el overlay queda inclicable —ni el
+     * menú `⋯` responde—. Volver a llamar a `setIgnoreMouseEvents` rearma el
+     * reenvío. En modo escritura manda `setOverlayInteractive`, así que ahí no se
+     * toca.
+     */
+    const overlay = getOverlay();
+    if (overlay && !isOverlayInteractive()) {
+      setClickThrough(overlay, settingsStore.get().clickThrough);
+    }
   });
 
   /*
