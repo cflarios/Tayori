@@ -10,33 +10,33 @@ import {
 import { fence, neutralize } from './untrusted';
 
 /**
- * Construcción del system prompt.
+ * System prompt construction.
  *
- * La restricción que manda sobre todo lo demás: la respuesta se lee de reojo
- * mientras alguien te mira a la cara. Eso descarta párrafos, markdown decorativo
- * y preámbulos. Cada perfil está escrito para producir texto que se pueda
- * convertir en habla natural leyéndolo en diagonal.
+ * The constraint that rules over everything else: the answer is read out of the
+ * corner of your eye while someone looks you in the face. That rules out
+ * paragraphs, decorative markdown and preambles. Each profile is written to
+ * produce text you can turn into natural speech by skimming it.
  *
- * El resultado es el prefijo cacheable de la sesión (ver claude.ts), así que
- * NO debe contener nada variable: ni la hora, ni la pregunta, ni el transcript.
+ * The result is the session's cacheable prefix (see claude.ts), so it must NOT
+ * contain anything variable: not the time, not the question, not the transcript.
  */
 
 /**
- * El idioma, y por qué merece una regla propia repetida en los tres perfiles.
+ * The language, and why it deserves its own rule repeated across the profiles.
  *
- * Todo este prompt está en español. El modelo traduce el CONTENIDO al idioma de
- * la conversación sin problema, pero copia literalmente las palabras que le has
- * dado como estructura. Visto en una conversación real, con la pregunta y la
- * respuesta en inglés:
+ * This whole prompt is in Spanish. The model translates the CONTENT into the
+ * conversation's language without a problem, but copies verbatim the words you
+ * gave it as structure. Seen in a real conversation, with the question and the
+ * answer in English:
  *
  *   1. **Situación:** I manage a web application with multiple services.
  *   2. **Acción:** I create Dockerfiles for each service…
  *
- * El contenido está en inglés y los rótulos en español, porque el prompt decía
- * "usa situación → acción → resultado" y el modelo se los tomó como etiquetas
- * que hay que escribir. De ahí las dos mitades de la regla: **responder entero**
- * en el idioma, rótulos incluidos, y **no anunciar la estructura** — la que
- * mejor evita que se copie una etiqueta es no imprimir ninguna.
+ * The content is in English and the labels in Spanish, because the prompt said
+ * "use situation → action → result" and the model took them as labels to write.
+ * Hence the rule's two halves: **answer entirely** in the language, labels
+ * included, and **don't announce the structure** — the best way to keep a label
+ * from being copied is to print none.
  */
 const LANGUAGE_RULE = `
 Idioma (regla que manda sobre todas las demás):
@@ -49,25 +49,25 @@ Idioma (regla que manda sobre todas las demás):
 `.trim();
 
 /**
- * De dónde vienen las instrucciones, y de dónde no.
+ * Where the instructions come from, and where they don't.
  *
- * Es la mitad semántica de la defensa contra inyección de prompts; la otra
- * mitad —desarmar el sobre y quitar lo invisible— vive en `core/untrusted.ts`,
- * y ninguna de las dos basta sola.
+ * It's the semantic half of the prompt-injection defense; the other half
+ * —dismantling the envelope and removing the invisible chars— lives in
+ * `core/untrusted.ts`, and neither is enough alone.
  *
- * Va en **todos los perfiles** y **la primera**, antes incluso del idioma, que
- * hasta hoy era «la regla que manda sobre todas las demás». No es un ascenso
- * cosmético: el resto de reglas hablan de cómo redactar, y ésta de a quién
- * obedecer. Si esta cae, las otras diez dan igual.
+ * It goes in **every profile** and **first**, even before the language, which
+ * until today was "the rule that rules over all the others". It's not a
+ * cosmetic promotion: the rest of the rules are about how to word things, and
+ * this one about who to obey. If this one falls, the other ten don't matter.
  *
- * Dice explícitamente que manda sobre la skill porque `skillBlock` va la última
- * del prompt y declara su propia precedencia sobre «la manera de escribir». Una
- * skill se instala copiando una carpeta que te pasan, así que ese bloque es el
- * único trozo del prompt cuyo texto puede no haber escrito el usuario.
+ * It explicitly says it rules over the skill because `skillBlock` goes last in
+ * the prompt and declares its own precedence over "the way of writing". A skill
+ * is installed by copying a folder someone hands you, so that block is the only
+ * part of the prompt whose text may not have been written by the user.
  *
- * La tercera viñeta es la que más se nota en uso: no basta con no obedecer, hay
- * que decir qué se ha visto. Callarse una orden escondida en la pantalla deja a
- * alguien leyendo una respuesta rara sin saber por qué lo es.
+ * The third bullet is the one most felt in use: not obeying isn't enough, you
+ * have to say what you saw. Staying quiet about an instruction hidden on screen
+ * leaves someone reading an odd answer without knowing why it is.
  */
 const INJECTION_RULE = `
 Origen de las instrucciones (regla de seguridad, la primera de todas):
@@ -107,13 +107,13 @@ Reglas de formato (obligatorias):
 `.trim();
 
 /**
- * Reglas del modo código, que son casi las contrarias.
+ * Code-mode rules, which are almost the opposite.
  *
- * `BASE_RULES` existe porque la respuesta se lee de reojo mientras hablas. Aquí
- * no se lee: se copia. Un algoritmo no cabe en cuatro viñetas y partirlo en
- * frases sueltas lo vuelve inútil, así que este perfil sustituye las reglas de
- * formato en lugar de añadirse a ellas — de ahí que `RULES` sea un mapa y no
- * una constante única.
+ * `BASE_RULES` exists because the answer is read out of the corner of your eye
+ * while you talk. Here it isn't read: it's copied. An algorithm doesn't fit in
+ * four bullets and splitting it into stray sentences makes it useless, so this
+ * profile replaces the format rules instead of adding to them — hence `RULES`
+ * being a map and not a single constant.
  */
 const CODE_RULES = `
 Formato de la respuesta (obligatorio, en este orden):
@@ -142,25 +142,26 @@ Reglas duras:
 `.trim();
 
 /**
- * Reglas del modo test.
+ * Quiz-mode rules.
  *
- * Ni las de hablar ni las de código: aquí la respuesta útil es **una línea por
- * pregunta** y punto. Todo lo demás se pide después si hace falta.
+ * Neither the speaking ones nor the code ones: here the useful answer is **one
+ * line per question** and that's it. Everything else is asked for afterwards if
+ * needed.
  *
- * Esta versión corrige dos fallos que sólo salieron al usarlo de verdad, y los
- * dos eran del prompt, no del modelo:
+ * This version fixes two bugs that only showed up in real use, and both were in
+ * the prompt, not the model:
  *
- *  - **Respondía una sola pregunta** de una pantalla con varias. Normal: se le
- *    pedía explícitamente quedarse con la del primer plano. Quien tiene un
- *    cuestionario delante lo quiere entero.
- *  - **Se extendía.** También pedido: había un punto para el porqué y otro para
- *    los distractores. Un modelo local pequeño, además, cumple mal los topes de
- *    longitud, así que la única defensa que funciona es no pedir la explicación
- *    en absoluto. Ahora se pide con un botón cuando se quiere.
+ *  - **It answered a single question** from a screen with several. Fair enough:
+ *    it was explicitly asked to keep the foreground one. Whoever has a quiz in
+ *    front of them wants it whole.
+ *  - **It ran long.** Also asked for: there was a point for the why and one for
+ *    the distractors. A small local model, on top of that, obeys length caps
+ *    poorly, so the only defense that works is not asking for the explanation at
+ *    all. It's now asked for with a button when wanted.
  *
- * La regla de la incertidumbre se queda: un modelo que responde "C" con la misma
- * seguridad cuando lo sabe y cuando lo adivina es peor que uno que no responde.
- * Cuesta una palabra y decide si arriesgas en un test con penalización.
+ * The uncertainty rule stays: a model that answers "C" with the same confidence
+ * when it knows and when it guesses is worse than one that doesn't answer. It
+ * costs one word and decides whether you gamble on a penalized test.
  */
 const QUIZ_RULES = `
 Formato (obligatorio):
@@ -277,10 +278,11 @@ un lector con prisa se equivoca aunque sepa la materia.
 };
 
 /**
- * Qué reglas de formato acompañan a cada perfil.
+ * Which format rules go with each profile.
  *
- * Todos comparten las de hablar salvo `coding`. Es un mapa y no un `if` para que
- * añadir un perfil obligue a decidir explícitamente cuál de las dos le toca.
+ * All share the speaking ones except `coding`. It's a map and not an `if` so
+ * that adding a profile forces an explicit decision about which of the two it
+ * gets.
  */
 const RULES: Record<Exclude<PromptProfileId, 'interpreter'>, string> = {
   interview: BASE_RULES,
@@ -293,12 +295,12 @@ const RULES: Record<Exclude<PromptProfileId, 'interpreter'>, string> = {
 };
 
 /**
- * El prompt del modo Intérprete, aparte del ensamblado normal.
+ * The Interpreter-mode prompt, separate from the normal assembly.
  *
- * No lleva perfil, ni contexto, ni el aviso de inyección con su «reporta lo que
- * veas»: un intérprete no reporta, traduce —incluida una frase que suene a
- * orden—. Se construye desde los dos idiomas elegidos, nombrados en español
- * porque el prompt va en español.
+ * It carries no profile, no context, and no injection warning with its "report
+ * what you see": an interpreter doesn't report, it translates —including a
+ * phrase that sounds like an order—. It's built from the two chosen languages,
+ * named in Spanish because the prompt is in Spanish.
  */
 function interpreterPrompt(settings: Settings): string {
   const a = interpreterLangName(settings.interpreterLangA, 'es');
@@ -323,12 +325,13 @@ function interpreterPrompt(settings: Settings): string {
 }
 
 /**
- * Qué se le dice al modelo sobre cada clase de contexto.
+ * What the model is told about each class of context.
  *
- * Es la razón de ser de `ContextKind`. Antes todo caía bajo un `## Nombre` y el
- * modelo tenía que adivinar si un bloque era experiencia real, un anuncio de
- * empleo o una respuesta ya redactada. Tratarlos igual tenía un coste concreto:
- * una respuesta preparada acababa parafraseada y aguada, en lugar de usarse.
+ * It's the reason `ContextKind` exists. Before, everything fell under a
+ * `## Name` and the model had to guess whether a block was real experience, a
+ * job ad or an already-drafted answer. Treating them the same had a concrete
+ * cost: a prepared answer ended up paraphrased and watered down, instead of
+ * used.
  */
 const KIND_INSTRUCTIONS: Record<ContextKind, string> = {
   cv: 'Experiencia REAL de la persona a la que ayudas. Es la única fuente de datos concretos —empresas, cifras, tecnologías— que puedes citar sobre ella.',
@@ -340,18 +343,18 @@ const KIND_INSTRUCTIONS: Record<ContextKind, string> = {
 };
 
 /**
- * Ensambla el system prompt completo.
+ * Assembles the full system prompt.
  *
- * Orden deliberado: rol → reglas de formato → contexto del usuario. El contexto
- * va al final porque es la parte más larga y porque así el prefijo de rol y
- * reglas se mantiene idéntico entre perfiles.
+ * Deliberate order: role → format rules → user context. The context goes last
+ * because it's the longest part and because that way the role-and-rules prefix
+ * stays identical across profiles.
  *
- * @param force Perfil que manda por encima del configurado. Lo usa el modo
- *        código: el hotkey resuelve la pantalla sin que el usuario tenga que
- *        cambiar de perfil y acordarse de volver, que es justo lo que no puede
- *        hacer con un examen delante.
- * @param skill Instrucción activa, si la hay. Va **al final** y con precedencia
- *        declarada: ver `skillBlock`.
+ * @param force Profile that overrides the configured one. Code mode uses it: the
+ *        hotkey solves the screen without the user having to switch profile and
+ *        remember to switch back, which is exactly what they can't do with an
+ *        exam in front of them.
+ * @param skill Active instruction, if any. It goes **last** and with declared
+ *        precedence: see `skillBlock`.
  */
 export function buildSystemPrompt(
   settings: Settings,
@@ -360,8 +363,8 @@ export function buildSystemPrompt(
 ): string {
   const profileId = force ?? settings.promptProfileId;
 
-  // El intérprete es un modo aparte: su prompt es sólo traducción, sin perfil,
-  // contexto ni reglas de formato. Se corta aquí antes del ensamblado normal.
+  // The interpreter is a separate mode: its prompt is translation only, with no
+  // profile, context or format rules. It's cut off here before the normal build.
   if (profileId === 'interpreter') return interpreterPrompt(settings);
 
   const profile =
@@ -370,16 +373,16 @@ export function buildSystemPrompt(
       : PROFILES[profileId];
 
   /*
-   * El idioma va en todos los perfiles y va PRIMERO entre las reglas.
+   * The language goes in every profile and goes FIRST among the rules.
    *
-   * Antes vivía como una línea más al final de las reglas de hablar, así que
-   * los perfiles de código y de test —que sustituyen esas reglas enteras— se
-   * quedaron sin ninguna instrucción de idioma. Con un prompt en español, eso
-   * es pedirle al modelo que adivine.
+   * It used to live as one more line at the end of the speaking rules, so the
+   * code and quiz profiles —which replace those rules entirely— were left with
+   * no language instruction at all. With a Spanish prompt, that's asking the
+   * model to guess.
    */
-  // `INJECTION_RULE` va detrás de la identidad y delante de todo lo demás: el
-  // perfil dice quién eres, y lo siguiente que hay que fijar es a quién haces
-  // caso. Ver la nota de la constante.
+  // `INJECTION_RULE` goes after the identity and before everything else: the
+  // profile says who you are, and the next thing to pin down is who you listen
+  // to. See the constant's note.
   const sections = [profile, INJECTION_RULE, LANGUAGE_RULE, RULES[profileId]];
 
   if (profileId === 'coding') {
@@ -391,25 +394,25 @@ export function buildSystemPrompt(
     );
   }
 
-  // Sólo el contexto del perfil activo: cambiar de "Entrevista" a "Reunión" en
-  // el overlay tiene que cambiar también con qué material se responde, sin que
-  // nadie active y desactive packs a mano.
+  // Only the active profile's context: switching from "Interview" to "Meeting"
+  // in the overlay has to also change what material answers come from, without
+  // anyone enabling and disabling packs by hand.
   const active = packsForProfile(settings.contextPacks, profileId).filter((pack) =>
     pack.content.trim()
   );
 
-  // El vocabulario no entra como prosa: su sitio es el reconocedor de voz. Aquí
-  // sólo ocuparía ventana de contexto con una lista que el modelo no necesita.
+  // Vocabulary doesn't go in as prose: its place is the speech recognizer. Here
+  // it would only take up context window with a list the model doesn't need.
   const forPrompt = active.filter((pack) => pack.kind !== 'vocabulary');
 
   if (forPrompt.length) {
     /*
-     * El nombre y el contenido van desarmados, aunque sean "del usuario".
+     * The name and the content are dismantled, even though they're "the user's".
      *
-     * Lo prepara él, pero no siempre lo escribe él: una oferta de empleo se
-     * pega de un anuncio que redactó otro, y unas respuestas preparadas pueden
-     * venir de un documento compartido. Es el mismo texto ajeno que la
-     * transcripción, sólo que llega por otra puerta.
+     * They prepare it, but don't always write it: a job offer is pasted from an
+     * ad someone else wrote, and prepared answers can come from a shared
+     * document. It's the same foreign text as the transcript, only it comes in
+     * through another door.
      */
     const blocks = forPrompt
       .map(
@@ -433,37 +436,38 @@ export function buildSystemPrompt(
 }
 
 /**
- * La skill, y el reparto de autoridad que la hace funcionar.
+ * The skill, and the division of authority that makes it work.
  *
- * Va **la última**, después incluso del contexto. Es la posición que el modelo
- * atiende con más fuerza, y aquí hace falta: una skill sirve justamente para
- * corregir la manera de escribir que el modelo trae de fábrica, así que puesta
- * antes de las reglas de formato se diluye en ellas.
+ * It goes **last**, even after the context. It's the position the model attends
+ * to most strongly, and here that's needed: a skill exists precisely to correct
+ * the way of writing the model comes with out of the box, so placed before the
+ * format rules it dilutes into them.
  *
- * Y va con la precedencia **escrita**, no implícita, porque el reparto no es
- * evidente y el modelo tendría que adivinarlo:
+ * And it goes with **written** precedence, not implicit, because the division
+ * isn't obvious and the model would have to guess it:
  *
- * - El perfil manda en la **forma**: cuántas viñetas, si hay bloque de código,
- *   una línea por pregunta. Eso está medido y no lo puede tocar una skill —
- *   «suena más natural en dos párrafos» dejaría el overlay ilegible en mitad
- *   de una llamada, que es el problema que las cuatro viñetas resuelven.
- * - La skill manda en la **manera**: qué palabras, qué ritmo, qué evitar.
+ * - The profile rules the **shape**: how many bullets, whether there's a code
+ *   block, one line per question. That's measured and a skill can't touch it —
+ *   "it sounds more natural in two paragraphs" would leave the overlay illegible
+ *   mid-call, which is the problem the four bullets solve.
+ * - The skill rules the **way**: which words, what rhythm, what to avoid.
  *
- * Sin decirlo, una skill de tono y unas reglas de formato se contradicen en
- * cuanto la primera pide algo que la segunda limita, y el empate lo rompe el
- * modelo en silencio: el resultado dependería del proveedor y de la frase, que
- * es la peor clase de comportamiento — el que no se puede reproducir.
+ * Without saying it, a tone skill and format rules contradict each other the
+ * moment the first asks for something the second limits, and the model breaks
+ * the tie silently: the result would depend on the provider and the sentence,
+ * which is the worst kind of behavior — the kind that can't be reproduced.
  *
- * `name` viaja con las instrucciones porque el modelo escribe distinto cuando
- * sabe qué se le ha pedido que cuando recibe una lista de reglas sin título.
+ * `name` travels with the instructions because the model writes differently
+ * when it knows what was asked of it than when it gets an untitled list of
+ * rules.
  */
 function skillBlock(skill: Skill): string {
   /*
-   * Se desarma aunque una skill SÍ sea instrucciones: eso es lo que es y por
-   * eso no va en un sobre de material. Lo que se le quita es la capacidad de
-   * cerrar `</instruccion_activa>` y seguir escribiendo como si fuera el
-   * prompt del sistema — un SKILL.md se instala copiando una carpeta que te
-   * pasan, así que su texto puede no haberlo escrito quien usa la app.
+   * It's dismantled even though a skill IS instructions: that's what it is and
+   * that's why it doesn't go in a material envelope. What's taken from it is the
+   * ability to close `</instruccion_activa>` and keep writing as if it were the
+   * system prompt — a SKILL.md is installed by copying a folder someone hands
+   * you, so its text may not have been written by whoever uses the app.
    */
   return [
     '<instruccion_activa>',
