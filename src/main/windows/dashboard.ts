@@ -56,13 +56,18 @@ export function openDashboard(): BrowserWindow {
     },
   });
 
+  // Persistente como el overlay: se mantiene por encima aunque pulses otra
+  // ventana, en vez de irse detrás. `screen-saver` es el nivel más alto —el mismo
+  // que el overlay—, así que aguanta incluso sobre una videollamada maximizada.
+  dashboard.setAlwaysOnTop(true, 'screen-saver');
+
   dashboard.once('ready-to-show', () => {
     const win = dashboard;
     if (!win) return;
     // Antes del primer `show`, o el dashboard aparecería un frame en la captura.
-    // `content-only`: se excluye de la captura como el overlay, pero sigue siendo
-    // una ventana normal (no flota sobre la videollamada). Sigue el interruptor
-    // de sigilo, así que el modo demo lo vuelve visible igual que al overlay.
+    // `content-only`: se excluye de la captura como el overlay, pero conserva la
+    // barra de tareas y el foco de una ventana de ajustes. Sigue el interruptor de
+    // sigilo, así que el modo demo lo vuelve visible igual que al overlay.
     setStealthContentOnly(win, settingsStore.get().stealthEnabled);
     win.show();
   });

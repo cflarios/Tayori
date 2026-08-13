@@ -91,9 +91,12 @@ body {
  */
 .detectable-frame {
   position: fixed;
-  inset: 3px;
+  /* Pegado al borde de la ventana. El contenido se aparta con el `padding` de
+     `.shell`, así que el marco queda por FUERA, con un hueco entre medias (del
+     mismo color de fondo, así que sólo se ve la línea roja). */
+  inset: 1px;
   border: 2px dashed #ef4444;
-  border-radius: 8px;
+  border-radius: 9px;
   pointer-events: none;
   z-index: 1000;
 }
@@ -112,6 +115,11 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* Aparta el contenido del borde de la ventana para dejar un hueco donde vive
+     el marco rojo de "detectable" (ver `.detectable-frame`). El hueco es del
+     mismo `--bg` que la ventana, así que sólo se nota cuando la línea roja está.
+     `box-sizing: border-box` mantiene el tamaño; sólo se encoge el contenido. */
+  padding: 6px;
 }
 
 .shell > :not(.titlebar) {

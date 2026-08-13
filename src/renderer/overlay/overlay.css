@@ -33,9 +33,12 @@ body {
  */
 .detectable-frame {
   position: fixed;
-  inset: 3px;
+  /* Pegado al borde de la ventana: como el panel se aparta 4px (ver `.panel`),
+     el marco queda por FUERA del panel, con un hueco transparente entre medias
+     —igual que la referencia—, no encima del contenido. */
+  inset: 0;
   border: 2px dashed #ef4444;
-  border-radius: 12px;
+  border-radius: 16px;
   pointer-events: none;
   z-index: 60;
 }
@@ -66,7 +69,11 @@ body {
 
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* Un pequeño margen deja sitio para que el marco de "detectable" quede por
+     fuera del panel. Como la ventana es transparente, ese hueco no se ve cuando
+     el sigilo está activo. */
+  margin: 4px;
+  height: calc(100% - 8px);
   gap: 10px;
   padding: 12px;
   border-radius: 14px;
