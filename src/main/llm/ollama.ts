@@ -5,17 +5,17 @@ import type { LLMProviderId, ModelInfo, OllamaStatus } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
 /**
- * Proveedor local vía Ollama. Sin red externa y sin coste, a cambio de la
- * calidad y velocidad que dé la máquina del usuario.
+ * Local provider via Ollama. No external network and no cost, in exchange for
+ * the quality and speed the user's machine gives.
  *
- * A diferencia de Claude y Gemini, aquí no hay un catálogo fijo de modelos:
- * se consulta lo que el usuario tenga descargado.
+ * Unlike Claude and Gemini, there's no fixed model catalog here: what the user
+ * has downloaded is queried.
  */
 
 /**
- * Familias con visión. Ollama no expone una capacidad de "vision" fiable en
- * /api/tags, así que se detecta por nombre. Si un modelo con visión no está en
- * la lista, simplemente no se le adjuntan capturas — degrada, no rompe.
+ * Vision families. Ollama doesn't expose a reliable "vision" capability in
+ * /api/tags, so it's detected by name. If a vision model isn't on the list,
+ * captures simply aren't attached to it — it degrades, doesn't break.
  */
 const VISION_HINTS = ['llava', 'bakllava', 'moondream', 'vision', '-vl', 'qwen2.5vl', 'gemma3'];
 
@@ -25,43 +25,43 @@ function looksLikeVisionModel(name: string): boolean {
 }
 
 /**
- * Modelos que razonan antes de responder, y por qué necesitan trato aparte.
+ * Models that reason before answering, and why they need separate handling.
  *
- * Ollama devuelve el razonamiento en un campo **distinto** —`message.thinking`,
- * no `message.content`— y `num_predict` cuenta los dos juntos. Medido contra
- * `qwen3-vl:8b-thinking` con un problema de algoritmos y el prompt real del modo
- * código:
+ * Ollama returns the reasoning in a **different** field —`message.thinking`, not
+ * `message.content`— and `num_predict` counts both together. Measured against
+ * `qwen3-vl:8b-thinking` with an algorithms problem and the real code-mode
+ * prompt:
  *
- * | `num_predict` | razonamiento | respuesta | `done_reason` |
+ * | `num_predict` | reasoning | answer | `done_reason` |
  * |---|---|---|---|
- * | 2200 (el tope de código) | 6.432 car. | **0 car.** | `length` |
- * | 8000 | 23.329 car. | 589 car. | `stop` |
+ * | 2200 (the code cap) | 6,432 chars | **0 chars** | `length` |
+ * | 8000 | 23,329 chars | 589 chars | `stop` |
  *
- * Es decir: con el tope de siempre el modelo agotaba el presupuesto **pensando**
- * y terminaba sin escribir un solo carácter. El stream acababa limpiamente, sin
- * error, así que la app caía en su rama de "el stream terminó sin texto" y
- * mostraba *"El modelo no devolvió texto"* — un mensaje que no señala a ningún
- * sitio. El razonamiento fue de 10 a 50 veces más largo que la respuesta, así
- * que no es cuestión de subir el tope un poco.
+ * That is: with the usual cap the model exhausted the budget **thinking** and
+ * finished without writing a single character. The stream ended cleanly, with no
+ * error, so the app fell into its "the stream ended with no text" branch and
+ * showed *"The model returned no text"* — a message that points nowhere. The
+ * reasoning was 10 to 50 times longer than the answer, so it's not a matter of
+ * raising the cap a little.
  *
- * `think: false` **no** es una salida: se probó contra este mismo modelo y
- * siguió razonando 7.364 caracteres. Hay modelos que sólo saben pensar.
+ * `think: false` is **not** a way out: it was tried against this same model and
+ * it still reasoned 7,364 characters. Some models only know how to think.
  */
 const THINKING_HINTS = ['thinking', 'reason', '-r1', 'qwq'];
 
 /**
- * Cuánto se le presta a un modelo para razonar, aparte de lo que gaste en la
- * respuesta. El peor caso medido fueron 7.591 tokens en total; 8.000 de holgura
- * cubren eso con margen sin volverse un cheque en blanco.
+ * How much a model is lent to reason, apart from what it spends on the answer.
+ * The worst measured case was 7,591 tokens in total; 8,000 of slack cover that
+ * with margin without becoming a blank check.
  */
 const THINKING_BUDGET_TOKENS = 8_000;
 
 /**
- * Modelos que resultaron razonar aunque el nombre no lo dijera.
+ * Models that turned out to reason even though the name didn't say so.
  *
- * Mismo patrón que `EFFORT_UNSUPPORTED` en `claude.ts`: la lista de pistas
- * envejece —mañana sale un modelo que piensa y no se llama "thinking"— así que
- * la primera consulta lo descubre y las siguientes ya salen con presupuesto.
+ * Same pattern as `EFFORT_UNSUPPORTED` in `claude.ts`: the hint list ages
+ * —tomorrow a model that thinks and isn't called "thinking" comes out— so the
+ * first query discovers it and the following ones come out with budget.
  */
 const KNOWN_THINKERS = new Set<string>();
 
@@ -71,11 +71,11 @@ function looksLikeThinkingModel(name: string): boolean {
 }
 
 /**
- * Tokens de salida para este modelo.
+ * Output tokens for this model.
  *
- * Se exporta para poder fijarlo con un test: el fallo que arregla es invisible
- * —una respuesta vacía sin ningún error— y la tentación de "simplificar" esto a
- * `request.maxTokens` seco es exactamente lo que lo devolvería.
+ * It's exported so it can be pinned with a test: the bug it fixes is invisible
+ * —an empty answer with no error— and the temptation to "simplify" this to a
+ * bare `request.maxTokens` is exactly what would bring it back.
  */
 export function budgetFor(model: string, maxTokens: number): number {
   return looksLikeThinkingModel(model) ? maxTokens + THINKING_BUDGET_TOKENS : maxTokens;
@@ -91,15 +91,15 @@ export class OllamaProvider implements LLMProvider {
     baseUrl: string,
     readonly model: string,
     /**
-     * Ventana de contexto en tokens (`num_ctx`).
+     * Context window in tokens (`num_ctx`).
      *
-     * Hay que enviarla explícitamente: Ollama **no usa la del modelo**, aplica
-     * su propio valor por defecto de 2048 tokens y **descarta en silencio** lo
-     * que no quepa, empezando por el principio. Con un system prompt con CV,
-     * la transcripción y ocho turnos de memoria, esos 2048 se agotan enseguida
-     * y el síntoma es que el modelo "olvida" lo que se le acaba de decir —
-     * exactamente el bug que ya se documentó una vez y que aquí no venía del
-     * historial, sino de la ventana.
+     * It has to be sent explicitly: Ollama **doesn't use the model's**, it
+     * applies its own default of 2048 tokens and **silently discards** what
+     * doesn't fit, starting from the front. With a system prompt with CV, the
+     * transcript and eight turns of memory, those 2048 run out fast and the
+     * symptom is the model "forgetting" what it was just told — exactly the bug
+     * already documented once, which here didn't come from the history but from
+     * the window.
      */
     private readonly contextTokens = 8192
   ) {
@@ -128,8 +128,8 @@ export class OllamaProvider implements LLMProvider {
       );
     }
 
-    // El SDK de Ollama no acepta AbortSignal, así que se aborta cerrando el
-    // stream desde fuera con `client.abort()`.
+    // Ollama's SDK doesn't accept an AbortSignal, so it's aborted by closing the
+    // stream from outside with `client.abort()`.
     const onAbort = (): void => this.client.abort();
     signal.addEventListener('abort', onAbort, { once: true });
 
@@ -139,8 +139,8 @@ export class OllamaProvider implements LLMProvider {
         stream: true,
         messages: [
           { role: 'system', content: request.systemPrompt },
-          // Los turnos anteriores van como mensajes reales: sin ellos el modelo
-          // no recuerda nada de lo que él mismo respondió.
+          // The previous turns go as real messages: without them the model
+          // remembers nothing of what it answered itself.
           ...(request.history ?? [])
             .filter((turn) => turn.question.trim() && turn.answer.trim())
             .flatMap((turn) => [
@@ -150,8 +150,8 @@ export class OllamaProvider implements LLMProvider {
           {
             role: 'user',
             content: buildUserTurn(request, false),
-            // Ollama espera las imágenes como base64 en el propio mensaje, y
-            // sólo se adjuntan si el modelo las entiende.
+            // Ollama expects the images as base64 in the message itself, and
+            // they're only attached if the model understands them.
             ...(this.supportsVision && request.images?.length
               ? { images: request.images.map((img) => img.base64) }
               : {}),
@@ -163,7 +163,7 @@ export class OllamaProvider implements LLMProvider {
         },
       });
 
-      /** Si llegó a razonar, y si llegó a escribir. No es lo mismo. */
+      /** Whether it got to reason, and whether it got to write. Not the same. */
       let reasoned = false;
       let emitted = false;
       let doneReason = '';
@@ -175,16 +175,16 @@ export class OllamaProvider implements LLMProvider {
           reasoned = true;
           KNOWN_THINKERS.add(this.model.toLowerCase());
           /*
-           * Latido. El motor cancela la consulta si no ha salido NADA en 45 s
-           * (`FIRST_TOKEN_TIMEOUT_MS`), y un modelo que razona tarda más que eso
-           * en escribir su primer carácter: medido, 62,8 s con este mismo
-           * modelo. Sin esto el arreglo del presupuesto no serviría de nada,
-           * porque la consulta moriría antes de llegar a la respuesta.
+           * Heartbeat. The engine cancels the query if NOTHING has come out in
+           * 45 s (`FIRST_TOKEN_TIMEOUT_MS`), and a reasoning model takes longer
+           * than that to write its first character: measured, 62.8 s with this
+           * same model. Without this the budget fix would be useless, because the
+           * query would die before reaching the answer.
            *
-           * Va vacío a propósito: le dice al motor "sigo vivo" sin pintar el
-           * razonamiento en el overlay. El panel se lee de reojo mientras
-           * alguien te mira; veinte mil caracteres de deliberación enterrarían
-           * justo lo que se quería leer.
+           * It goes empty on purpose: it tells the engine "I'm still alive"
+           * without painting the reasoning in the overlay. The panel is read out
+           * of the corner of your eye while someone looks at you; twenty thousand
+           * characters of deliberation would bury exactly what you wanted to read.
            */
           yield '';
         }
@@ -198,10 +198,9 @@ export class OllamaProvider implements LLMProvider {
       }
 
       /*
-       * Terminar sin texto no es lo mismo según por qué. Si el modelo estuvo
-       * pensando y se quedó sin presupuesto, decirlo es la diferencia entre un
-       * ajuste que se toca y un "no devolvió texto" que no lleva a ninguna
-       * parte.
+       * Ending with no text isn't the same depending on why. If the model was
+       * thinking and ran out of budget, saying so is the difference between a
+       * setting you touch and a "returned no text" that leads nowhere.
        */
       if (!emitted && reasoned && doneReason === 'length') {
         throw new LLMError(
@@ -234,17 +233,17 @@ export class OllamaProvider implements LLMProvider {
 }
 
 /**
- * Sondea el servidor local de Ollama.
+ * Probes the local Ollama server.
  *
- * Distingue tres estados que desde el dashboard se ven muy distintos, y que un
- * simple "lista vacía" confundiría: no instalado / no corriendo, corriendo pero
- * sin modelos, y corriendo con modelos. El tercero es el único usable, y el
- * segundo tiene una solución concreta (`ollama pull`) que conviene decirle al
- * usuario en lugar de dejarlo adivinando.
+ * It tells apart three states that look very different from the dashboard, and
+ * that a simple "empty list" would conflate: not installed / not running,
+ * running but with no models, and running with models. The third is the only
+ * usable one, and the second has a concrete solution (`ollama pull`) worth
+ * telling the user instead of leaving them guessing.
  */
 export async function probeOllama(baseUrl: string): Promise<OllamaStatus> {
-  // Timeout corto: si Ollama no está, queremos saberlo ya y no bloquear la UI
-  // del dashboard esperando el timeout por defecto de fetch.
+  // Short timeout: if Ollama isn't there, we want to know right away and not
+  // block the dashboard UI waiting for fetch's default timeout.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 2_000);
 
@@ -266,8 +265,8 @@ export async function probeOllama(baseUrl: string): Promise<OllamaStatus> {
     return {
       reachable: false,
       models: [],
-      // Solo el hecho: la sugerencia de qué hacer la pone el dashboard, para no
-      // duplicar la instrucción en pantalla.
+      // Just the fact: the suggestion of what to do is set by the dashboard, to
+      // avoid duplicating the instruction on screen.
       error:
         err instanceof Error && err.name === 'AbortError'
           ? m('err.ollamaTimeout')
@@ -281,7 +280,7 @@ export async function probeOllama(baseUrl: string): Promise<OllamaStatus> {
     const models = await new OllamaProvider(baseUrl, '').listModels();
     return { reachable: true, ...(version ? { version } : {}), models };
   } catch (err) {
-    // El servidor está vivo (respondió a /api/version) pero fallo el listado.
+    // The server is alive (it answered /api/version) but the listing failed.
     return {
       reachable: true,
       ...(version ? { version } : {}),

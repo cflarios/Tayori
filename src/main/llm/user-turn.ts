@@ -2,37 +2,37 @@ import { fence } from '../core/untrusted';
 import type { AnswerRequest } from './types';
 
 /**
- * El turno de usuario, igual para los cinco proveedores.
+ * The user turn, the same for all five providers.
  *
- * Estaba copiado en `claude.ts`, `gemini.ts`, `openai.ts`, `deepseek.ts` y
- * `ollama.ts`, con cinco versiones casi idénticas del mismo `<transcripcion>`
- * construido a mano. Mientras sólo era formato, la duplicación se aguantaba;
- * desde que ese sobre es una **frontera de seguridad** deja de aguantarse:
- * una defensa que hay que acordarse de repetir en cinco archivos —y en el sexto
- * el día que se añada un proveedor— es una defensa que se va a olvidar.
+ * It was copied in `claude.ts`, `gemini.ts`, `openai.ts`, `deepseek.ts` and
+ * `ollama.ts`, with five near-identical versions of the same hand-built
+ * `<transcripcion>`. While it was only formatting, the duplication held; since
+ * that envelope became a **security boundary** it no longer holds: a defense you
+ * have to remember to repeat across five files —and the sixth the day a provider
+ * is added— is a defense that's going to be forgotten.
  *
- * De aquí salen todos los sobres, y de `core/untrusted.ts` sale su contenido ya
- * desarmado. Si alguien vuelve a escribir `<transcripcion>` a mano en un
- * proveedor, ha abierto un agujero.
+ * Every envelope comes from here, and its already-dismantled content comes from
+ * `core/untrusted.ts`. If someone writes `<transcripcion>` by hand again in a
+ * provider, they've opened a hole.
  */
 export function buildUserTurn(
   request: AnswerRequest,
   /**
-   * Si ESTE proveedor manda de verdad la captura.
+   * Whether THIS provider actually sends the capture.
    *
-   * No es lo mismo que «hay una captura»: DeepSeek no la manda nunca, y
-   * anunciarle al modelo una imagen que no ha recibido es invitarle a
-   * inventarse el enunciado.
+   * It's not the same as "there is a capture": DeepSeek never sends it, and
+   * announcing to the model an image it hasn't received is inviting it to invent
+   * the prompt.
    */
   sendsImages: boolean
 ): string {
   /*
-   * Intérprete: el turno va en crudo, sin sobres ni instrucción final. El modelo
-   * traduce todo lo que recibe, así que con los sobres se llevaba los nombres de
-   * las etiquetas traducidos a la salida (`<transcripcion>` → `<transcription>`).
-   * Se le manda sólo la última intervención —lo que hay que traducir—; el prompt
-   * del sistema ya le dice qué hacer, y no hay frontera que defender porque
-   * traducir es literal por diseño.
+   * Interpreter: the turn goes in raw, with no envelopes or final instruction.
+   * The model translates everything it receives, so with the envelopes it
+   * carried the tag names translated into the output (`<transcripcion>` →
+   * `<transcription>`). Only the last utterance —what needs translating— is
+   * sent; the system prompt already tells it what to do, and there's no boundary
+   * to defend because translating is literal by design.
    */
   if (request.interpreter) {
     return request.question || request.transcript || '';
@@ -47,11 +47,12 @@ export function buildUserTurn(
   }
 
   /*
-   * La instrucción va al final: es la posición que el modelo atiende con más
-   * fuerza, y además mantiene estable el prefijo cacheable de arriba.
+   * The instruction goes last: it's the position the model attends to most
+   * strongly, and it also keeps the cacheable prefix above stable.
    *
-   * Va **fuera de todo sobre** a propósito. Es lo único de este mensaje que sí
-   * es una orden nuestra, y se distingue de lo de dentro por estar fuera.
+   * It goes **outside every envelope** on purpose. It's the only part of this
+   * message that IS an order from us, and it's told apart from what's inside by
+   * being outside.
    */
   parts.push(
     request.question

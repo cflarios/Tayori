@@ -5,44 +5,43 @@ import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
 /**
- * Proveedor de DeepSeek.
+ * DeepSeek provider.
  *
- * Su API es **compatible con la de OpenAI**, así que se usa el mismo SDK que ya
- * está instalado cambiándole la `baseURL`. No hay dependencia nueva y no hay un
- * cliente HTTP escrito a mano que mantener; lo único que cambia respecto a
- * `openai.ts` es la puerta por la que se entra.
+ * Its API is **OpenAI-compatible**, so the same SDK that's already installed is
+ * used with a different `baseURL`. There's no new dependency and no hand-written
+ * HTTP client to maintain; the only thing that changes from `openai.ts` is the
+ * door you come in through.
  *
- * Eso sí, se entra por **Chat Completions y no por la Responses API**: aquélla
- * es de OpenAI, no del formato compatible. Con ella se pierden dos cosas que
- * allí sí se usan —`store: false` y `reasoning.effort`— y ninguna hace falta
- * aquí: DeepSeek no guarda las respuestas para recuperarlas por API, y el
- * esfuerzo de razonamiento no es un parámetro suyo.
+ * That said, you come in through **Chat Completions and not the Responses API**:
+ * that one is OpenAI's, not the compatible format. With it you lose two things
+ * used over there —`store: false` and `reasoning.effort`— and neither is needed
+ * here: DeepSeek doesn't store the responses to retrieve them by API, and
+ * reasoning effort isn't a parameter of theirs.
  *
- * **Ninguno de sus modelos acepta imágenes.** No es un descuido de esta
- * integración: ni la página de precios ni la referencia de la API mencionan
- * entrada de imagen para ninguno de los dos. Por eso van con
- * `supportsVision: false`, que es lo que hace que el selector del modelo de
- * pantalla los marque «sin visión» y avise antes de que alguien lo descubra a
- * mitad de un examen. Para las acciones de pantalla hay que elegir otro
- * proveedor.
+ * **None of its models accept images.** It's not an oversight of this
+ * integration: neither the pricing page nor the API reference mentions image
+ * input for either of them. That's why they go with `supportsVision: false`,
+ * which is what makes the screen-model selector mark them "no vision" and warn
+ * before someone finds out mid-exam. For the screen actions you have to pick
+ * another provider.
  */
 
-/** La puerta compatible con OpenAI. La otra que ofrecen habla formato Anthropic. */
+/** The OpenAI-compatible door. The other one they offer speaks Anthropic format. */
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 
 /**
- * El catálogo, verificado contra su página de precios y su endpoint de modelos.
+ * The catalog, verified against their pricing page and their models endpoint.
  *
- * **R1 ya no está**, y no es un olvido: el `list models` de DeepSeek devuelve
- * hoy exactamente estos dos ids, y su tabla de precios tampoco lista ni
- * `deepseek-reasoner` ni `deepseek-chat`. La familia V4 los sustituyó. Si una
- * cuenta conserva acceso a alguno, el campo «Otro…» del dashboard sigue
- * permitiendo escribirlo — el catálogo es una sugerencia, no una frontera.
+ * **R1 is gone**, and it's not an oversight: DeepSeek's `list models` returns
+ * exactly these two ids today, and their pricing table doesn't list
+ * `deepseek-reasoner` or `deepseek-chat` either. The V4 family replaced them. If
+ * an account keeps access to one, the dashboard's "Other…" field still allows
+ * typing it — the catalog is a suggestion, not a boundary.
  *
- * Los dos declaran **1M de contexto**, que es muchísimo más de lo que esta app
- * necesita: el prompt con CV, transcripción y ocho turnos de memoria no llega
- * ni de lejos. No cambia nada del diseño, pero explica por qué aquí no hay
- * ningún ajuste de ventana como el de Ollama.
+ * Both declare **1M of context**, which is far more than this app needs: the
+ * prompt with CV, transcript and eight turns of memory doesn't come close. It
+ * changes nothing in the design, but it explains why there's no window setting
+ * here like Ollama's.
  */
 export const DEEPSEEK_MODELS: ModelInfo[] = [
   {
@@ -56,7 +55,7 @@ export const DEEPSEEK_MODELS: ModelInfo[] = [
 
 export class DeepSeekProvider implements LLMProvider {
   readonly id: LLMProviderId = 'deepseek';
-  /** Ver la nota de arriba: ninguno de sus modelos lee imágenes. */
+  /** See the note above: none of its models read images. */
   readonly supportsVision = false;
 
   private client: OpenAI;
@@ -64,7 +63,7 @@ export class DeepSeekProvider implements LLMProvider {
   constructor(
     apiKey: string,
     readonly model: string = 'deepseek-v4-flash',
-    /** Sólo lo usan los tests, para hablar contra un servidor local. */
+    /** Only the tests use it, to talk to a local server. */
     baseURL: string = DEEPSEEK_BASE_URL
   ) {
     this.client = new OpenAI({ apiKey, baseURL });
@@ -76,14 +75,14 @@ export class DeepSeekProvider implements LLMProvider {
 
   async *streamAnswer(request: AnswerRequest, signal: AbortSignal): AsyncIterable<string> {
     /*
-     * Las imágenes se descartan **con aviso en el log** en lugar de mandarse.
+     * Images are discarded **with a log warning** instead of being sent.
      *
-     * Enviarlas a un modelo que no las entiende es la forma más cara de que no
-     * pase nada: se paga el ancho de banda y el modelo contesta como si no
-     * hubiera captura. Para las acciones de pantalla el motor ya falla antes
-     * con un mensaje claro (ver `answer-engine.ts`); esto cubre el otro camino,
-     * el de una pregunta hablada con captura adjunta, donde degradar es
-     * correcto pero callarlo no.
+     * Sending them to a model that doesn't understand them is the most expensive
+     * way for nothing to happen: you pay the bandwidth and the model answers as
+     * if there were no capture. For the screen actions the engine already fails
+     * earlier with a clear message (see `answer-engine.ts`); this covers the
+     * other path, a spoken question with an attached capture, where degrading is
+     * correct but staying quiet about it isn't.
      */
     if (request.images?.length) {
       console.warn(
@@ -99,8 +98,8 @@ export class DeepSeekProvider implements LLMProvider {
           max_tokens: request.maxTokens,
           messages: [
             { role: 'system', content: request.systemPrompt },
-            // Los turnos anteriores como mensajes reales: sin ellos el modelo no
-            // recuerda nada de lo que él mismo respondió.
+            // The previous turns as real messages: without them the model
+            // remembers nothing of what it answered itself.
             ...(request.history ?? [])
               .filter((turn) => turn.question.trim() && turn.answer.trim())
               .flatMap((turn) => [
@@ -119,7 +118,7 @@ export class DeepSeekProvider implements LLMProvider {
         if (text) yield text;
       }
     } catch (err) {
-      // Cancelar es lo esperado cuando llega otra pregunta, no un error.
+      // Cancelling is expected when another question arrives, not an error.
       if (signal.aborted) return;
       throw toLLMError(err, this.id);
     }
@@ -140,11 +139,11 @@ export class DeepSeekProvider implements LLMProvider {
 }
 
 /**
- * Traduce los errores a mensajes accionables.
+ * Translates the errors into actionable messages.
  *
- * Con las clases tipadas del SDK, que funcionan igual contra DeepSeek porque el
- * formato de error también es compatible: lo que se mira es el código HTTP, y
- * ése no depende de quién esté al otro lado.
+ * With the SDK's typed classes, which work the same against DeepSeek because the
+ * error format is compatible too: what's looked at is the HTTP code, and that
+ * doesn't depend on who's on the other side.
  */
 function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   if (err instanceof LLMError) return err;

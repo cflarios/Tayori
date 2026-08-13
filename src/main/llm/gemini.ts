@@ -5,10 +5,10 @@ import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
 /**
- * Proveedor de Gemini.
+ * Gemini provider.
  *
- * Usa la misma API key que el STT de Gemini Live, así que configurando una sola
- * credencial se tiene transcripción y respuestas.
+ * It uses the same API key as the Gemini Live STT, so configuring a single
+ * credential gets you transcription and answers.
  */
 
 export const GEMINI_MODELS: ModelInfo[] = [
@@ -44,8 +44,8 @@ export class GeminiProvider implements LLMProvider {
       const stream = await this.client.models.generateContentStream({
         model: this.model,
         contents: [
-          // Gemini llama "model" al papel del asistente; por lo demás es la
-          // misma idea que en Claude y Ollama: turnos reales, no texto pegado.
+          // Gemini calls the assistant role "model"; otherwise it's the same
+          // idea as in Claude and Ollama: real turns, not glued text.
           ...(request.history ?? [])
             .filter((turn) => turn.question.trim() && turn.answer.trim())
             .flatMap((turn) => [
@@ -89,9 +89,9 @@ export class GeminiProvider implements LLMProvider {
 function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   const message = err instanceof Error ? err.message : String(err);
 
-  // El SDK de Google no expone clases de error tipadas por status, así que hay
-  // que inspeccionar el mensaje. Se acota a los casos que el usuario puede
-  // resolver por su cuenta.
+  // Google's SDK doesn't expose error classes typed by status, so the message
+  // has to be inspected. It's narrowed to the cases the user can resolve on
+  // their own.
   if (/API[_ ]?key|API_KEY_INVALID|unauthenticated/i.test(message)) {
     return new LLMError(m('err.badKeyGoogle'), providerId);
   }

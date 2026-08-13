@@ -5,24 +5,23 @@ import type { LLMProviderId, ModelInfo } from '@shared/types';
 import { LLMError, type AnswerRequest, type LLMProvider } from './types';
 
 /**
- * Proveedor de Claude.
+ * Claude provider.
  *
- * Decisiones específicas de este modelo, verificadas contra la referencia de la
- * API y no de memoria:
+ * Model-specific decisions, verified against the API reference and not from
+ * memory:
  *
- *  - `temperature`, `top_p` y `top_k` NO se envían: en Opus 5 y Sonnet 5 están
- *    eliminados y devuelven 400. El estilo se controla por prompt.
- *  - El thinking está activo por defecto en Opus 5. Para un asistente en tiempo
- *    real la palanca de latencia es `effort: 'low'`, no desactivar el thinking:
- *    desactivarlo tiene dos fallos conocidos (llamadas a herramientas emitidas
- *    como texto plano y etiquetas <thinking> filtradas en la respuesta).
- *    **Pero `effort` es de la generación 5 y no todos los modelos lo aceptan**;
- *    ver `EFFORT_UNSUPPORTED`. Esa distinción faltaba y hacía que Haiku 4.5
- *    fallara con un 400 en cada pregunta.
- *  - `cache_control` en el system prompt: el CV y la descripción del puesto no
- *    cambian durante la entrevista, así que ese prefijo se cachea y las
- *    llamadas siguientes cuestan ~10% en esa parte. Requiere ≥512 tokens en
- *    Opus 5 para que el caché se cree; por debajo simplemente no cachea.
+ *  - `temperature`, `top_p` and `top_k` are NOT sent: on Opus 5 and Sonnet 5
+ *    they're removed and return 400. Style is controlled by prompt.
+ *  - Thinking is on by default on Opus 5. For a real-time assistant the latency
+ *    lever is `effort: 'low'`, not disabling thinking: disabling it has two known
+ *    bugs (tool calls emitted as plain text and <thinking> tags leaked into the
+ *    answer). **But `effort` is a generation-5 thing and not all models accept
+ *    it**; see `EFFORT_UNSUPPORTED`. That distinction was missing and made Haiku
+ *    4.5 fail with a 400 on every question.
+ *  - `cache_control` on the system prompt: the CV and the job description don't
+ *    change during the interview, so that prefix is cached and the following
+ *    calls cost ~10% on that part. It requires ≥512 tokens on Opus 5 for the
+ *    cache to be created; below that it simply doesn't cache.
  */
 
 export const CLAUDE_MODELS: ModelInfo[] = [
@@ -36,25 +35,25 @@ export const CLAUDE_MODELS: ModelInfo[] = [
   },
 ];
 
-/** Nivel de esfuerzo. `low` prioriza latencia, que es lo que pide este caso. */
+/** Effort level. `low` prioritizes latency, which is what this case asks for. */
 type Effort = 'low' | 'medium' | 'high';
 
 /**
- * Modelos que **no** aceptan `output_config.effort`.
+ * Models that do **not** accept `output_config.effort`.
  *
- * `effort` es de la generación Claude 5. Se estaba enviando a todos los
- * modelos, y Haiku 4.5 lo rechaza con un 400 tajante:
+ * `effort` is a Claude-5-generation thing. It was being sent to all models, and
+ * Haiku 4.5 rejects it with a blunt 400:
  *
  *   "This model does not support the effort parameter."
  *
- * El resultado era que Haiku fallaba SIEMPRE por audio y el usuario sólo veía
- * "error 400" sin más. El conjunto arranca con lo que sabemos y se completa
- * solo: si algún modelo futuro también lo rechaza, la primera petición lo
- * aprende y las siguientes ya salen bien.
+ * The result was that Haiku ALWAYS failed on audio and the user only saw "error
+ * 400" with nothing more. The set starts with what we know and completes itself:
+ * if some future model also rejects it, the first request learns it and the
+ * following ones come out fine.
  */
 const EFFORT_UNSUPPORTED = new Set<string>(['claude-haiku-4-5']);
 
-/** Reconoce el 400 concreto de `effort` sin comparar cadenas a ciegas. */
+/** Recognizes the specific `effort` 400 without comparing strings blindly. */
 function isEffortRejected(err: unknown): boolean {
   return (
     err instanceof Anthropic.BadRequestError && /effort parameter/i.test(err.message ?? '')
@@ -80,9 +79,9 @@ export class ClaudeProvider implements LLMProvider {
   }
 
   async *streamAnswer(request: AnswerRequest, signal: AbortSignal): AsyncIterable<string> {
-    // El contenido del turno de usuario: imágenes primero, texto después.
-    // Las imágenes van antes porque el modelo las interpreta mejor cuando la
-    // instrucción viene a continuación y puede referirse a ellas.
+    // The user turn's content: images first, text after. Images go before
+    // because the model interprets them better when the instruction comes next
+    // and can refer to them.
     const content: Anthropic.ContentBlockParam[] = [];
 
     for (const image of request.images ?? []) {
@@ -102,13 +101,13 @@ export class ClaudeProvider implements LLMProvider {
         yield chunk;
       }
     } catch (err) {
-      // Una cancelación es el comportamiento esperado cuando llega una pregunta
-      // nueva, no un error que haya que mostrar.
+      // A cancellation is the expected behavior when a new question arrives, not
+      // an error to show.
       if (signal.aborted) return;
 
-      // Sólo se reintenta si no había salido ni un token: si ya se emitió algo,
-      // repetir duplicaría texto en pantalla. El 400 de `effort` llega antes de
-      // cualquier contenido, así que en la práctica siempre entra aquí.
+      // It's only retried if not a single token had come out: if something was
+      // already emitted, repeating would duplicate text on screen. The `effort`
+      // 400 arrives before any content, so in practice it always enters here.
       if (emitted === 0 && withEffort && isEffortRejected(err)) {
         EFFORT_UNSUPPORTED.add(this.model);
         console.warn(
@@ -121,7 +120,7 @@ export class ClaudeProvider implements LLMProvider {
     }
   }
 
-  /** Una petición concreta. `withEffort` decide si se manda `output_config`. */
+  /** A single request. `withEffort` decides whether `output_config` is sent. */
   private async *run(
     content: Anthropic.ContentBlockParam[],
     request: AnswerRequest,
@@ -132,8 +131,8 @@ export class ClaudeProvider implements LLMProvider {
       {
         model: this.model,
         max_tokens: request.maxTokens,
-        // El system prompt va como bloque con cache_control: es el prefijo
-        // estable de toda la sesión.
+        // The system prompt goes as a block with cache_control: it's the stable
+        // prefix of the whole session.
         system: [
           {
             type: 'text',
@@ -153,8 +152,8 @@ export class ClaudeProvider implements LLMProvider {
       }
     }
 
-    // `refusal` llega como HTTP 200, no como excepción: hay que comprobarlo
-    // explícitamente o el overlay se quedaría en blanco sin explicación.
+    // `refusal` arrives as HTTP 200, not as an exception: it has to be checked
+    // explicitly or the overlay would go blank with no explanation.
     const final = await stream.finalMessage();
     if (final.stop_reason === 'refusal') {
       throw new LLMError(
@@ -179,10 +178,10 @@ export class ClaudeProvider implements LLMProvider {
 }
 
 /**
- * Traduce los errores del SDK a mensajes accionables.
+ * Translates the SDK errors into actionable messages.
  *
- * Las clases tipadas del SDK son la forma correcta de distinguirlos; comparar
- * cadenas del mensaje se rompe en cuanto cambia el texto.
+ * The SDK's typed classes are the right way to tell them apart; comparing
+ * message strings breaks as soon as the text changes.
  */
 function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
   if (err instanceof LLMError) return err;
@@ -209,11 +208,11 @@ function toLLMError(err: unknown, providerId: LLMProviderId): LLMError {
 }
 
 /**
- * Turnos anteriores como mensajes reales.
+ * Previous turns as real messages.
  *
- * Van como `user`/`assistant` alternos y no resumidos dentro del prompt: así el
- * modelo los reconoce como cosas que dijo él. Se saltan los vacíos porque la
- * API rechaza un mensaje sin contenido.
+ * They go as alternating `user`/`assistant` and not summarized inside the
+ * prompt: that way the model recognizes them as things it said. Empty ones are
+ * skipped because the API rejects a message with no content.
  */
 function historyMessages(request: AnswerRequest): Anthropic.MessageParam[] {
   const messages: Anthropic.MessageParam[] = [];
