@@ -4,6 +4,13 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.5.1](https://github.com/cflarios/Tayori/compare/v1.5.0...v1.5.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **overlay:** quita el always-on-top del dashboard, la causa raíz del bloqueo ([51377b5](https://github.com/cflarios/Tayori/commit/51377b53f1cfbdcceab5d7bde20bd7d4705edb17))
+
 ## [1.5.0](https://github.com/cflarios/Tayori/compare/v1.4.0...v1.5.0) (2026-08-13)
 
 
