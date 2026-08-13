@@ -119,4 +119,4 @@ que siguen el formato [Conventional Commits](https://www.conventionalcommits.org
 
 ### Added
 
-- Primera versión funcional de Audio Helper.
+- Primera versión funcional de Tayori.
