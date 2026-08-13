@@ -283,8 +283,11 @@ const api = {
   },
 
   whisper: {
-    getStatus: (): Promise<{ binaryInstalled: boolean; modelInstalled: boolean }> =>
-      ipcRenderer.invoke(IPC.whisperGetStatus),
+    getStatus: (): Promise<{
+      binaryInstalled: boolean;
+      modelInstalled: boolean;
+      installed: string[];
+    }> => ipcRenderer.invoke(IPC.whisperGetStatus),
     install: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.whisperInstall),
     onProgress: (cb: (p: WhisperProgress) => void) =>
       subscribe<WhisperProgress>(IPC.onWhisperProgress, cb),

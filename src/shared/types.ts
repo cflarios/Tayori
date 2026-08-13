@@ -304,7 +304,28 @@ export interface ContextPack {
 }
 
 export type PromptProfileId =
-  'interview' | 'meeting' | 'lecture' | 'support' | 'coding' | 'quiz' | 'custom';
+  'interview' | 'meeting' | 'lecture' | 'support' | 'coding' | 'quiz' | 'interpreter' | 'custom';
+
+/**
+ * Idiomas del modo Intérprete. Se guardan por código; el nombre se resuelve al
+ * idioma de la interfaz para el dashboard y al español para el prompt (que va en
+ * español). El modelo entiende el nombre en cualquier idioma, pero nombrarlos en
+ * el idioma del prompt se lee mejor.
+ */
+export const INTERPRETER_LANGS = [
+  { code: 'es', es: 'español', en: 'Spanish' },
+  { code: 'en', es: 'inglés', en: 'English' },
+  { code: 'fr', es: 'francés', en: 'French' },
+  { code: 'de', es: 'alemán', en: 'German' },
+  { code: 'pt', es: 'portugués', en: 'Portuguese' },
+  { code: 'it', es: 'italiano', en: 'Italian' },
+  { code: 'zh', es: 'chino', en: 'Chinese' },
+  { code: 'ja', es: 'japonés', en: 'Japanese' },
+] as const;
+
+export function interpreterLangName(code: string, ui: 'es' | 'en'): string {
+  return INTERPRETER_LANGS.find((l) => l.code === code)?.[ui] ?? code;
+}
 
 /**
  * Las acciones que resuelven lo que hay en la pantalla.
@@ -338,6 +359,7 @@ export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
   support: ['notes', 'vocabulary'],
   coding: ['notes', 'vocabulary'],
   quiz: ['notes', 'vocabulary'],
+  interpreter: ['vocabulary'],
   custom: ['notes', 'vocabulary'],
 };
 
@@ -485,6 +507,10 @@ export interface Settings {
   uiLanguage: UILang;
 
   promptProfileId: PromptProfileId;
+
+  /** Los dos idiomas del modo Intérprete (códigos de `INTERPRETER_LANGS`). */
+  interpreterLangA: string;
+  interpreterLangB: string;
   customPrompt: string;
   contextPacks: ContextPack[];
 
@@ -792,6 +818,8 @@ export const DEFAULT_SETTINGS: Settings = {
   uiLanguage: 'en',
 
   promptProfileId: 'interview',
+  interpreterLangA: 'es',
+  interpreterLangB: 'en',
   customPrompt: '',
   contextPacks: [],
   // Ninguna skill activa: una instrucción que cambia el tono de todas las

@@ -749,6 +749,99 @@ button.btn--primary:hover:not(:disabled) {
   transition: width 200ms ease-out;
 }
 
+/* ── Model Manager (modelos de Whisper) ── */
+
+.mm__head {
+  margin: 14px 0 10px;
+}
+
+.mm__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mm__desc {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.mm {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mm__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.mm__row:hover {
+  background: var(--surface);
+}
+
+.mm__row--active {
+  background: rgba(96, 165, 250, 0.08);
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+.mm__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mm__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mm__badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.mm__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.mm__act {
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  background: transparent;
+  border: 0;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.mm__act:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.mm__act:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+
 /*
  * Trabajo en curso del que NO se sabe el porcentaje.
  *

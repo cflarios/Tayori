@@ -658,6 +658,9 @@ function ProfileIcon({ id }: { id: Settings['promptProfileId'] }) {
     // Auriculares con micro: soporte.
     support:
       'M3.2 10.4V8a4.8 4.8 0 0 1 9.6 0v2.4M2 9.6h1.6v3.2H2Zm10.4 0H14v3.2h-1.6Zm0 3.2c0 .9-1 1.4-2.2 1.4',
+    // Globo: idiomas, el intérprete.
+    interpreter:
+      'M8 1.8a6.2 6.2 0 1 0 0 12.4A6.2 6.2 0 0 0 8 1.8ZM1.8 8h12.4M8 1.8c1.7 1.7 2.6 3.9 2.6 6.2s-.9 4.5-2.6 6.2M8 1.8C6.3 3.5 5.4 5.7 5.4 8s.9 4.5 2.6 6.2',
   };
   const d = paths[id];
   if (!d) return null;
@@ -686,6 +689,8 @@ const PROFILE_CHIPS = [
   // oral o una certificación que alguien lee en voz alta, y sus reglas ya
   // contemplan la pregunta abierta.
   ['quiz', 'overlay.profileQuiz'],
+  // Traduce en vez de responder; los idiomas se fijan en el dashboard.
+  ['interpreter', 'beh.profInterpreter'],
 ] as const satisfies readonly (readonly [Settings['promptProfileId'], UIKey])[];
 
 function ProfileChips({

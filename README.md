@@ -27,6 +27,8 @@ borrar una conversación o borrarlas todas.
 - **Transcribe en vivo** con OpenAI (`gpt-live-transcribe`), Gemini Live
   (~300 ms) o Whisper local (offline).
 - **Sugiere respuestas** con Claude, Gemini, ChatGPT, DeepSeek u Ollama, en streaming.
+- **Modo intérprete**: habla en un idioma y la app traduce al otro, en los dos
+  sentidos. Ver [Modo intérprete](#modo-intérprete).
 - **Detecta preguntas** dirigidas a ti y responde sin que pulses nada, o solo con
   hotkey si prefieres controlarlo. Con el **clasificador** activado también caza
   las que llegan disfrazadas de afirmación —*«una persona que sepa DevOps tendría
@@ -397,6 +399,29 @@ Para leer una solución larga con comodidad, el sitio es el **espejo en el
 móvil**: pantalla más grande, fuera de la compartida, con el código formateado y
 un botón para copiarlo. Ver [Espejo en el móvil](#espejo-en-el-móvil).
 
+## Modo intérprete
+
+Un perfil que, en vez de sugerir respuestas, **traduce**. Se elige en *dashboard
+→ Comportamiento → Perfil → Intérprete*, y ahí mismo se fijan los **dos idiomas**
+(por ejemplo español ⇄ inglés).
+
+Con él activo, cada intervención se traduce **al otro idioma, en los dos
+sentidos**: lo que digas tú al micrófono sale en el idioma B, y lo que diga la
+otra persona sale en el idioma A. El modelo detecta solo de qué idioma viene cada
+frase. La traducción aparece en «Sugerencia» —y en el móvil, si tienes el espejo
+encendido, para mostrársela a la otra persona—.
+
+Detalles que conviene saber:
+
+- **Traduce todo lo que se dice**, no espera a detectar una pregunta: por eso es
+  un modo aparte. Necesita la **escucha** y el **disparo automático** encendidos,
+  y que escuches **ambas fuentes** para el ida y vuelta.
+- Es de **una traducción a la vez**: si hablas encima de una traducción en curso,
+  la nueva sustituye a la anterior. En una conversación real se hace una pausa
+  para interpretar, así que en la práctica va fino frase a frase.
+- **No funciona con el motor de audio directo de Gemini** (`gemini-audio`), que
+  responde en vez de transcribir. Usa Whisper local, Gemini Live u OpenAI.
+
 ## El modo invisible: qué protege y qué no
 
 Esta es la parte que conviene entender bien antes de confiar en ella.
@@ -625,8 +650,11 @@ con los intercambios que el asistente reenvía en cada consulta. Se pulsa para
 que los olvide, y **no** es lo mismo que «nueva conversación»: la transcripción
 y el historial se quedan como están.
 
-Whisper local descarga el binario oficial de whisper.cpp (7,6 MB) y un modelo
-GGML (74–465 MB según el que elijas) la primera vez que lo activas. No usa un
+Whisper local descarga el binario oficial de whisper.cpp (7,6 MB) y el modelo
+GGML que elijas la primera vez que lo activas. El **Model Manager** del dashboard
+lista toda la familia Whisper —Tiny/Base/Small/Medium en inglés y multilingüe, y
+Large v3 Turbo— más los **Distil** (más rápidos con buena precisión), cada uno
+con su tamaño, velocidad y precisión, y una recomendación según tu RAM. No usa un
 binding nativo de Node a propósito: eso exigiría Visual Studio Build Tools y
 recompilar en cada actualización de Electron.
 

@@ -14,6 +14,7 @@ import { Readable } from 'node:stream';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { m } from '../i18n';
+import { WHISPER_MODELS, whisperModelById } from '@shared/whisper-models';
 
 /**
  * Descarga y verificación de lo que necesita Whisper local: el ejecutable de
@@ -33,16 +34,12 @@ import { m } from '../i18n';
 const WHISPER_VERSION = 'v1.9.1';
 const BINARY_URL = `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_VERSION}/whisper-bin-x64.zip`;
 
-/** Modelos GGML. Tamaños verificados contra Hugging Face. */
-export const WHISPER_MODELS = [
-  { id: 'tiny', label: 'Tiny (74 MB) — el más rápido, menos preciso', sizeMB: 74 },
-  { id: 'base', label: 'Base (141 MB) — equilibrado, recomendado', sizeMB: 141 },
-  { id: 'small', label: 'Small (465 MB) — más preciso, más lento', sizeMB: 465 },
-] as const;
-
-export type WhisperModelId = (typeof WHISPER_MODELS)[number]['id'];
-
+/**
+ * URL de descarga de un modelo: la explícita del catálogo (los Distil) o el
+ * patrón del repo oficial de whisper.cpp para el resto.
+ */
 const modelUrl = (id: string): string =>
+  whisperModelById(id)?.url ??
   `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${id}.bin`;
 
 export interface DownloadProgress {
@@ -140,10 +137,13 @@ export function getModelPath(id: string): string {
 export function getWhisperStatus(modelId: string): {
   binaryInstalled: boolean;
   modelInstalled: boolean;
+  /** Qué modelos del catálogo tienen su .bin en disco, para el Model Manager. */
+  installed: string[];
 } {
   return {
     binaryInstalled: findWhisperBinary() !== null,
     modelInstalled: isModelInstalled(modelId),
+    installed: WHISPER_MODELS.filter((mdl) => isModelInstalled(mdl.id)).map((mdl) => mdl.id),
   };
 }
 

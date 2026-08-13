@@ -733,8 +733,11 @@ class SessionOrchestrator {
     const settings = settingsStore.get();
     if (settings.autoTriggerMode === 'off') return;
 
+    // En modo intérprete se traducen los DOS carriles, así que el filtro de
+    // hablante no aplica: cada intervención, venga de quien venga, se traduce.
+    const interpreting = settings.promptProfileId === 'interpreter';
     const wanted = settings.autoTriggerSpeaker;
-    if (wanted !== 'any' && segment.speaker !== wanted) return;
+    if (!interpreting && wanted !== 'any' && segment.speaker !== wanted) return;
 
     const text = segment.text.trim();
     if (!text) return;
@@ -798,6 +801,13 @@ class SessionOrchestrator {
     const settings = settingsStore.get();
     const full = joinUtterance(parts);
     if (!full) return;
+
+    // El intérprete no detecta preguntas: traduce todo lo que se diga y va
+    // directo al disparo, sin el clasificador ni el descarte.
+    if (settings.promptProfileId === 'interpreter') {
+      this.fire(speaker, full, 'interpreter', parts.length);
+      return;
+    }
 
     const verdict = looksLikeQuestion(full, settings.autoTriggerSensitivity);
 
@@ -865,7 +875,12 @@ class SessionOrchestrator {
     // Red de seguridad contra dobles disparos por caminos distintos (el cierre
     // del motor y el temporizador de silencio pueden coincidir).
     const now = Date.now();
-    if (now - this.lastAutoTrigger < SessionOrchestrator.AUTO_DEBOUNCE_MS) {
+    // El intérprete traduce CADA intervención; el debounce —pensado contra
+    // dobles disparos de la misma pregunta— se comería un ida y vuelta rápido.
+    if (
+      reason !== 'interpreter' &&
+      now - this.lastAutoTrigger < SessionOrchestrator.AUTO_DEBOUNCE_MS
+    ) {
       console.log(`[auto] ignorado por debounce: "${full.slice(0, 60)}"`);
       return;
     }

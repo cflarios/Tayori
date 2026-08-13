@@ -780,6 +780,53 @@ siga. **No se detecta el truncado automáticamente** —el contrato de streaming
 tocar los cinco proveedores—; el botón está disponible en cualquier respuesta de
 código terminada y es el usuario quien ve si se cortó.
 
+### Más modelos de Whisper, y por qué no todos los de la referencia
+
+Se amplió el catálogo de reconocimiento de voz a partir de una referencia de otra
+app. Tres cosas de esa referencia **no entraron**, y conviene saber por qué antes
+de intentar "completarla":
+
+- **Moonshine no es whisper.cpp.** Es un modelo ONNX aparte; el motor local corre
+  el binario de whisper.cpp con modelos GGML, así que Moonshine exigiría **otro
+  runtime entero** (onnxruntime), que es una feature, no "un modelo más".
+- **Los Distil no están en el repo oficial** (`ggerganov/whisper.cpp`) ni en su
+  descargador. Sí existen sus GGML, pero en repos sueltos y con nombres de archivo
+  irregulares (`ggml-medium-32-2.en.bin`), así que llevan **URL explícita
+  verificada contra Hugging Face**: una URL muerta no falla al guardar, falla al
+  descargar. `distil-large-v2` se quedó fuera porque su repo devuelve 404.
+- Las etiquetas **«Apple Silicon»** son de la app de Mac (CoreML); en Windows esos
+  son los Medium normales.
+
+El catálogo se movió a `shared/whisper-models.ts` —dato puro— porque lo necesitan
+los dos lados: el main para descargar y el dashboard para el Model Manager, y el
+renderer no puede importar de `main/`. La recomendación por RAM tiene **sesgo a lo
+rápido**: la transcripción es en vivo, y un modelo lento arruina el caso de uso
+aunque quepa en memoria.
+
+### El modo Intérprete: un perfil que traduce, no que responde
+
+Es un `PromptProfileId` más, pero rompe dos supuestos del resto, y por eso está
+tan aislado:
+
+- **No detecta preguntas: traduce todo.** El disparo automático normal pasa cada
+  intervención por el detector/clasificador; el intérprete lo **salta** y va
+  directo a `fire` con cada frase cerrada. Y salta también el **filtro de
+  hablante** (traduce los dos carriles) y el **debounce** (pensado contra dobles
+  disparos de la misma pregunta, se comería un ida y vuelta rápido).
+- **Su prompt se corta antes del ensamblado normal.** `buildSystemPrompt`
+  devuelve el prompt de traducción y ya: sin perfil, sin contexto y **sin el aviso
+  de inyección** —un intérprete no reporta una orden escondida, la traduce—. Es
+  bidireccional con un solo prompt: nombra los dos idiomas y deja que el modelo
+  detecte de cuál viene cada frase y lo dé en el otro. Por eso `PROFILES` y
+  `RULES` **excluyen** `interpreter` de su `Record`: el `return` temprano estrecha
+  el tipo y no hacen falta entradas muertas.
+
+Dos límites asumidos en v1: es de **una traducción a la vez** (el `AnswerEngine`
+sólo tiene una respuesta en vuelo; hablar encima aborta la anterior), y **no va
+con `gemini-audio`**, que responde en lugar de transcribir. La detección
+automática del idioma la hace el modelo, no el STT, así que un Whisper `.en` no
+sirve para el intérprete: hay que usar uno multilingüe.
+
 ### Dos idiomas: inglés por defecto, español a un clic
 
 Agosto de 2026. La app estaba entera en español y pasa a tener las dos, con

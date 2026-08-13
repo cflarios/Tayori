@@ -10,6 +10,7 @@ import {
   HOTKEY_LABEL,
   normalizeModelId,
   mqttTopics,
+  INTERPRETER_LANGS,
   packsForProfile,
   PROFILE_SLOTS,
   providerIsReady,
@@ -23,6 +24,12 @@ import {
 } from '@shared/accelerator';
 import { translate, UI_LANG_LABEL, UI_LANGS, type UIKey, type UILang } from '@shared/i18n';
 import { skillDescription, skillName } from '@shared/skills';
+import {
+  WHISPER_MODELS,
+  recommendWhisperModel,
+  type ModelAccuracy,
+  type ModelSpeed,
+} from '@shared/whisper-models';
 import { LangProvider, renderMarkup, Tx, useT, useUILang } from '@renderer/i18n';
 import { Icon, type IconName } from './icons';
 import { SetupWizard } from './SetupWizard';
@@ -2673,7 +2680,12 @@ function TranscriptionCard({
   go: (id: SectionId) => void;
 }) {
   const t = useT();
-  const [status, setStatus] = useState({ binaryInstalled: false, modelInstalled: false });
+  const [status, setStatus] = useState({
+    binaryInstalled: false,
+    modelInstalled: false,
+    installed: [] as string[],
+  });
+  const [ram, setRam] = useState<number | null>(null);
   const [progress, setProgress] = useState<WhisperProgress | null>(null);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2684,6 +2696,7 @@ function TranscriptionCard({
 
   useEffect(() => {
     refresh();
+    void window.api.system.getSpecs().then((specs) => setRam(specs.totalMemoryGB));
     return window.api.whisper.onProgress(setProgress);
   }, [refresh, settings.whisperModel]);
 
@@ -2700,7 +2713,13 @@ function TranscriptionCard({
     }
   };
 
-  const ready = status.binaryInstalled && status.modelInstalled;
+  /** Instalar desde una fila: primero se elige (el main descarga el activo). */
+  const installModel = async (id: string): Promise<void> => {
+    await patch({ whisperModel: id });
+    await install();
+  };
+
+  const recommended = ram !== null ? recommendWhisperModel(ram) : null;
   const pct =
     progress && progress.totalBytes > 0
       ? Math.round((progress.receivedBytes / progress.totalBytes) * 100)
@@ -2786,50 +2805,60 @@ function TranscriptionCard({
 
       {settings.sttProviderId === 'whisper-local' && (
         <>
-          <Row
-            icon="cpu"
-            label={t('stt.whisperModel')}
-            desc={
-              settings.language === 'en' || settings.language === 'auto'
+          <div className="mm__head">
+            <div className="mm__title">{t('stt.whisperModel')}</div>
+            <div className="mm__desc">
+              {settings.language === 'en' || settings.language === 'auto'
                 ? t('stt.whisperModelDesc')
-                : t('stt.whisperModelDescNonEn')
-            }
-          >
-            <select
-              value={settings.whisperModel}
-              onChange={(e) => void patch({ whisperModel: e.target.value })}
-            >
-              {WHISPER_MODEL_OPTIONS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {t(m.label)}
-                </option>
-              ))}
-            </select>
-          </Row>
+                : t('stt.whisperModelDescNonEn')}
+              {recommended && (
+                <>
+                  {' · '}
+                  {t('stt.recForPc')}:{' '}
+                  <strong>{WHISPER_MODELS.find((mo) => mo.id === recommended)?.name}</strong>
+                </>
+              )}
+            </div>
+          </div>
 
-          <Row
-            icon="download"
-            label={ready ? t('stt.whisperReady') : t('stt.whisperMissing')}
-            desc={
-              ready
-                ? t('stt.whisperReadyDesc')
-                : t('stt.whisperMissingDesc', {
-                    what: [
-                      !status.binaryInstalled ? t('stt.whisperBinary') : '',
-                      !status.modelInstalled ? t('stt.whisperModelPart') : '',
-                    ]
-                      .filter(Boolean)
-                      .join(t('stt.and')),
-                  })
-            }
-          >
-            {!ready && (
-              <button className="btn" disabled={installing} onClick={() => void install()}>
-                {installing ? t('stt.downloading') : t('stt.download')}
-              </button>
-            )}
-            {ready && <span className="badge badge--ok">{t('stt.installed')}</span>}
-          </Row>
+          <div className="mm">
+            {WHISPER_MODELS.map((mo) => {
+              const isInstalled = status.installed.includes(mo.id);
+              const isActive = settings.whisperModel === mo.id;
+              return (
+                <div key={mo.id} className={`mm__row${isActive ? ' mm__row--active' : ''}`}>
+                  <div className="mm__info">
+                    <div className="mm__name">
+                      {mo.name}
+                      {mo.id === recommended && (
+                        <span className="mm__badge">{t('stt.recommended')}</span>
+                      )}
+                    </div>
+                    <div className="mm__tags">
+                      <span className="mm__tag">{mo.sizeMB} MB</span>
+                      <span className="mm__tag">{t(SPEED_KEY[mo.speed])}</span>
+                      <span className="mm__tag">{t(ACC_KEY[mo.accuracy])}</span>
+                    </div>
+                  </div>
+                  {isInstalled && isActive ? (
+                    <span className="badge badge--ok">{t('stt.inUse')}</span>
+                  ) : isInstalled ? (
+                    <button className="mm__act" onClick={() => void patch({ whisperModel: mo.id })}>
+                      {t('stt.use')}
+                    </button>
+                  ) : (
+                    <button
+                      className="mm__act"
+                      disabled={installing}
+                      onClick={() => void installModel(mo.id)}
+                    >
+                      {installing && isActive ? t('stt.downloading') : t('stt.install')}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {installing && (
             <div className="progress">
@@ -2894,12 +2923,19 @@ const LANGUAGE_LABEL: Record<string, UIKey> = {
   de: 'stt.langDe',
 };
 
-/** Duplicado a propósito: el renderer no puede importar del proceso main. */
-const WHISPER_MODEL_OPTIONS: { id: string; label: UIKey }[] = [
-  { id: 'tiny', label: 'stt.whisperTiny' },
-  { id: 'base', label: 'stt.whisperBase' },
-  { id: 'small', label: 'stt.whisperSmall' },
-];
+const SPEED_KEY: Record<ModelSpeed, UIKey> = {
+  'very-fast': 'mdl.speedVeryFast',
+  fast: 'mdl.speedFast',
+  medium: 'mdl.speedMedium',
+  slow: 'mdl.speedSlow',
+};
+
+const ACC_KEY: Record<ModelAccuracy, UIKey> = {
+  decent: 'mdl.accDecent',
+  good: 'mdl.accGood',
+  high: 'mdl.accHigh',
+  'very-high': 'mdl.accVeryHigh',
+};
 
 // ────────────────────────────── Comportamiento ──────────────────────────────
 
@@ -3023,9 +3059,38 @@ function BehaviourCard({
           <option value="support">{t('beh.profSupport')}</option>
           <option value="coding">{t('beh.profCoding')}</option>
           <option value="quiz">{t('beh.profQuiz')}</option>
+          <option value="interpreter">{t('beh.profInterpreter')}</option>
           <option value="custom">{t('beh.profCustom')}</option>
         </select>
       </Row>
+
+      {settings.promptProfileId === 'interpreter' && (
+        <Row icon="globe" label={t('beh.interpreterLangs')} desc={t('beh.interpreterLangsDesc')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select
+              value={settings.interpreterLangA}
+              onChange={(e) => void patch({ interpreterLangA: e.target.value })}
+            >
+              {INTERPRETER_LANGS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l[settings.uiLanguage]}
+                </option>
+              ))}
+            </select>
+            <span style={{ color: 'var(--text-faint)' }}>⇄</span>
+            <select
+              value={settings.interpreterLangB}
+              onChange={(e) => void patch({ interpreterLangB: e.target.value })}
+            >
+              {INTERPRETER_LANGS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l[settings.uiLanguage]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </Row>
+      )}
 
       {/*
         Se enseña siempre, no sólo con el perfil "Código" puesto: el camino
@@ -3084,6 +3149,7 @@ const PROFILE_LABEL: Record<Settings['promptProfileId'], UIKey> = {
   support: 'beh.profSupport',
   coding: 'overlay.profileCoding',
   quiz: 'overlay.profileQuiz',
+  interpreter: 'beh.profInterpreter',
   custom: 'beh.profCustom',
 };
 
