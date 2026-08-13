@@ -1288,11 +1288,6 @@ function MqttCard({
           </ul>
 
           <p className="card__hint" style={{ marginTop: 14 }}>
-            {t('mq.esp32Pre')} <ExtLink href={TAYORI_ESP32_URL}>TayoriESP32</ExtLink>{' '}
-            {t('mq.esp32Post')}
-          </p>
-
-          <p className="card__hint" style={{ marginTop: 14 }}>
             <Tx k="mq.qos" />
           </p>
 
@@ -1314,6 +1309,18 @@ function MqttCard({
           </div>
         </section>
       )}
+
+      <section className="card">
+        <h2 className="card__title">{t('mq.esp32Title')}</h2>
+        <p className="card__hint">
+          <ExtLink href={TAYORI_ESP32_URL}>TayoriESP32</ExtLink> {t('mq.esp32Post')}
+        </p>
+        <div className="field">
+          <button className="btn" onClick={() => void window.api.system.openExternal(TAYORI_ESP32_URL)}>
+            {t('mq.esp32Open')}
+          </button>
+        </div>
+      </section>
 
       <div className="warn">
         <Tx k="mq.outWarn" /> {t('mq.yourDevice')}
