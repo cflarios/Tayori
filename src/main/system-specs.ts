@@ -16,7 +16,24 @@ import type { SystemSpecs } from '@shared/types';
  * externas del sistema. Inventar una cifra aquí sería peor que no darla, porque
  * la recomendación se apoyaría en un dato falso.
  */
-export async function getSystemSpecs(): Promise<SystemSpecs> {
+/**
+ * Cache de sesión de las specs.
+ *
+ * El hardware no cambia mientras la app está abierta, y `getGPUInfo('complete')`
+ * es **caro**: recopila la info completa de la GPU (cientos de ms). El dashboard
+ * lo pide en cada visita a las secciones de Modelos y Transcripción —que se
+ * remontan al cambiar de pestaña—, así que sin cachear ese coste se pagaba una y
+ * otra vez, y era justo lo que hacía que esas dos pestañas cargaran más lentas
+ * que las demás. Se memoiza la promesa: el coste se paga una sola vez por sesión.
+ */
+let cachedSpecs: Promise<SystemSpecs> | null = null;
+
+export function getSystemSpecs(): Promise<SystemSpecs> {
+  cachedSpecs ??= computeSystemSpecs();
+  return cachedSpecs;
+}
+
+async function computeSystemSpecs(): Promise<SystemSpecs> {
   const cores = cpus();
 
   let gpu: string | undefined;

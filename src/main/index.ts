@@ -553,6 +553,11 @@ if (!app.requestSingleInstanceLock()) {
     sessionOrchestrator.bind();
     registerIpcHandlers();
 
+    // Calienta la cache de specs (GPU incluida) en segundo plano: así la primera
+    // visita a Modelos o Transcripción ya la encuentra lista en vez de esperar a
+    // `getGPUInfo`. No bloquea el arranque —es fire-and-forget— ni el overlay.
+    void getSystemSpecs();
+
     settingsStore.on('change', (settings: Settings) => {
       broadcast(IPC.onSettings, settings);
     });
