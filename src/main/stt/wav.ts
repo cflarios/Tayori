@@ -1,9 +1,9 @@
 /**
- * Cabecera WAV para PCM16 mono.
+ * WAV header for mono PCM16.
  *
- * Vive aparte porque lo necesitan dos motores por motivos distintos:
- * `whisper-cli` y `whisper-server` leen archivos o multipart, y Gemini quiere
- * el audio como `inlineData` con un mime reconocible. Ninguno acepta PCM crudo.
+ * It lives apart because two engines need it for different reasons:
+ * `whisper-cli` and `whisper-server` read files or multipart, and Gemini wants
+ * the audio as `inlineData` with a recognizable mime. Neither accepts raw PCM.
  */
 export function toWav(pcm: Int16Array, sampleRate: number): Buffer {
   const dataBytes = pcm.length * 2;
@@ -13,13 +13,13 @@ export function toWav(pcm: Int16Array, sampleRate: number): Buffer {
   header.writeUInt32LE(36 + dataBytes, 4);
   header.write('WAVE', 8);
   header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16); // tamaño del bloque fmt
+  header.writeUInt32LE(16, 16); // fmt block size
   header.writeUInt16LE(1, 20); // PCM
   header.writeUInt16LE(1, 22); // mono
   header.writeUInt32LE(sampleRate, 24);
   header.writeUInt32LE(sampleRate * 2, 28); // byte rate
   header.writeUInt16LE(2, 32); // block align
-  header.writeUInt16LE(16, 34); // bits por muestra
+  header.writeUInt16LE(16, 34); // bits per sample
   header.write('data', 36);
   header.writeUInt32LE(dataBytes, 40);
 
