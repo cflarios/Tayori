@@ -195,6 +195,15 @@ export const IPC = {
   onWhisperProgress: 'event:whisper-progress',
   /** Se empezó una conversación nueva: los renderers deben limpiar su estado. */
   onConversationReset: 'event:conversation-reset',
+  /**
+   * El overlay debe re-sincronizar su seguimiento del ratón.
+   *
+   * `useChromeMouse` cachea localmente si está ignorando el ratón y sólo avisa al
+   * main en los cambios. Cuando otra ventana (el dashboard) roba el foco y se
+   * cierra, el reenvío de `mousemove` se interrumpe y el caché queda
+   * desincronizado del estado real; sin este aviso el overlay se queda inclicable.
+   */
+  onOverlayResync: 'event:overlay-resync',
   /** Fallo del motor de transcripción. La captura sigue viva; hay que enseñarlo. */
   onSTTError: 'event:stt-error',
   /**

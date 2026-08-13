@@ -92,6 +92,12 @@ const api = {
     setMouseIgnore: (ignore: boolean): void => ipcRenderer.send(IPC.overlayMouseIgnore, ignore),
 
     /**
+     * El main pide re-sincronizar el seguimiento del ratón (tras cerrarse el
+     * dashboard, que interrumpe el reenvío de mousemove). Ver `useChromeMouse`.
+     */
+    onResync: (cb: () => void): (() => void) => subscribe<void>(IPC.onOverlayResync, cb),
+
+    /**
      * Vuelve el overlay enfocable para poder escribir en él. Se envía con
      * `invoke` y no con `send` porque el renderer necesita saber que ya se
      * aplicó antes de enfocar el textarea.

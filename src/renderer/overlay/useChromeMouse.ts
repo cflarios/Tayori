@@ -38,12 +38,31 @@ export function useChromeMouse(): void {
     // el ratón sobre la videollamada.
     const onMouseLeave = (): void => apply(true);
 
+    /*
+     * Re-sincroniza tras cerrarse el dashboard. El problema: mientras el
+     * dashboard tiene el foco, Windows deja de reenviar `mousemove` al overlay, y
+     * al cerrarlo el main re-arma el `setIgnoreMouseEvents`. Pero este caché local
+     * (`ignoring`) no se entera, así que puede quedar apuntando a un estado que ya
+     * no coincide con el del main; el `apply()` de arriba haría entonces
+     * early-return y el hover no volvería a hacer clicable la barra.
+     *
+     * La cura es forzar un estado conocido: se pone `ignoring = true` sin el
+     * atajo, y se manda el `setMouseIgnore(true)` —que en el main re-aplica el
+     * reenvío—, de modo que el siguiente `mousemove` vuelva a evaluar desde cero.
+     */
+    const onResync = (): void => {
+      ignoring = true;
+      window.api.window.setMouseIgnore(true);
+    };
+
     window.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseleave', onMouseLeave);
+    const offResync = window.api.window.onResync(onResync);
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseleave', onMouseLeave);
+      offResync();
       // Restaurar al desmontar, o el overlay se quedaría capturando clics.
       window.api.window.setMouseIgnore(true);
     };

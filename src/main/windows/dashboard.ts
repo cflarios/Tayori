@@ -1,6 +1,7 @@
 import { BrowserWindow, shell } from 'electron';
+import { IPC } from '@shared/ipc';
 import { settingsStore } from '../config/store';
-import { setClickThrough, setStealthContentOnly } from './stealth';
+import { setStealthContentOnly } from './stealth';
 import { getOverlay, isOverlayInteractive } from './overlay';
 import { loadRenderer, preloadPath } from './resolve';
 
@@ -75,21 +76,27 @@ export function openDashboard(): BrowserWindow {
   dashboard.on('closed', () => {
     dashboard = null;
     /*
-     * Re-aplica los clics atravesables del overlay al cerrar el dashboard.
+     * Desbloquea el overlay tras cerrar el dashboard.
      *
-     * El overlay ignora el ratón con `{ forward: true }`, y son esos eventos de
-     * movimiento reenviados los que le permiten detectar el hover sobre su barra
-     * y volverse clicable. Cuando el dashboard roba el foco y luego se cierra,
-     * Windows deja de reenviar esos `mousemove` al overlay, y como nada los
-     * restablece el hover deja de dispararse: el overlay queda inclicable —ni el
-     * menú `⋯` responde—. Volver a llamar a `setIgnoreMouseEvents` rearma el
-     * reenvío. En modo escritura manda `setOverlayInteractive`, así que ahí no se
-     * toca.
+     * Mientras el dashboard tiene el foco, Windows deja de reenviar los
+     * `mousemove` al overlay (que los necesita para detectar el hover sobre su
+     * barra y volverse clicable). Al cerrarse hay que rearmarlo, y son DOS cosas:
+     *
+     *  1. `webContents.send(onOverlayResync)`: el renderer resetea su caché de
+     *     ignore —que pudo quedar desincronizado— y re-manda el estado, lo que en
+     *     el main re-aplica `setIgnoreMouseEvents(..., { forward: true })`.
+     *  2. `setAlwaysOnTop`: reasegura que el overlay vuelve al frente, por si el
+     *     dashboard (también topmost) le robó la posición.
+     *
+     * Con un `setTimeout(0)`: al dispararse `closed` Windows aún no ha reasignado
+     * el foreground, y rearmar el reenvío demasiado pronto no prende.
      */
-    const overlay = getOverlay();
-    if (overlay && !isOverlayInteractive()) {
-      setClickThrough(overlay, settingsStore.get().clickThrough);
-    }
+    setTimeout(() => {
+      const overlay = getOverlay();
+      if (!overlay || isOverlayInteractive()) return;
+      overlay.setAlwaysOnTop(true, 'screen-saver');
+      overlay.webContents.send(IPC.onOverlayResync);
+    }, 60);
   });
 
   /*
