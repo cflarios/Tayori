@@ -42,13 +42,13 @@ import { looksLikeQuestion } from './question-detector';
 import { getAudioWorker } from '../windows/audio-worker';
 
 /**
- * La "pregunta" del modo código.
+ * The "question" for code mode.
  *
- * Va como pregunta y no dentro del system prompt porque el prefijo de sistema es
- * lo que se cachea entre llamadas (ver `claude.ts`) y debe quedarse estable. El
- * texto es explícito sobre qué mirar: la captura llega con la pantalla entera,
- * navegador y editor incluidos, y sin esta línea el modelo a veces comenta la
- * interfaz en lugar de resolver el ejercicio.
+ * It goes as a question and not inside the system prompt because the system
+ * prefix is what's cached between calls (see `claude.ts`) and must stay stable.
+ * The text is explicit about what to look at: the capture arrives with the whole
+ * screen, browser and editor included, and without this line the model
+ * sometimes comments on the interface instead of solving the exercise.
  */
 const SOLVE_INSTRUCTION: Record<ScreenTask, string> = {
   code:
@@ -64,13 +64,12 @@ const SOLVE_INSTRUCTION: Record<ScreenTask, string> = {
 };
 
 /**
- * La "pregunta" de la captura por trozos.
+ * The "question" for chunk capture.
  *
- * A diferencia de `SOLVE_INSTRUCTION.code`, aquí no llega una sola captura sino
- * VARIAS: fragmentos consecutivos del mismo enunciado, tal como el entrevistador
- * lo fue revelando con el scroll de su pantalla compartida. El modelo tiene que
- * coserlos antes de resolver. Se resuelve con el perfil `coding` de siempre;
- * sólo cambia esta instrucción.
+ * Unlike `SOLVE_INSTRUCTION.code`, here it's not a single capture but SEVERAL:
+ * consecutive fragments of the same prompt, as the interviewer revealed it by
+ * scrolling their shared screen. The model has to stitch them before solving.
+ * It's solved with the usual `coding` profile; only this instruction changes.
  */
 const SCROLL_SOLVE_INSTRUCTION =
   'Las imágenes adjuntas son fragmentos CONSECUTIVOS de una misma pantalla, en ' +
@@ -81,15 +80,14 @@ const SCROLL_SOLVE_INSTRUCTION =
   'resuelve con lo que haya. Después resuelve el problema de programación como en ' +
   'el modo código.';
 
-/** Qué se registra en el log por cada acción de pantalla. */
+/** What's logged for each screen action. */
 const TASK_LABEL: Record<ScreenTask, string> = { code: 'código', quiz: 'test' };
 
 /**
- * Une captura de audio, transcripción y (desde la fase 4) generación de
- * respuestas.
+ * Joins audio capture, transcription and (since phase 4) answer generation.
  *
- * Es el único sitio que conoce a la vez el pipeline de audio y el motor de STT;
- * ni el controlador de captura ni los providers se conocen entre sí.
+ * It's the only place that knows both the audio pipeline and the STT engine at
+ * once; neither the capture controller nor the providers know each other.
  */
 class SessionOrchestrator {
   private stt: STTProvider | null = null;
@@ -97,23 +95,23 @@ class SessionOrchestrator {
   readonly answers = new AnswerEngine(this.transcript);
 
   /**
-   * Temporizador por hablante para cerrar segmentos que el motor dejó abiertos.
-   * Gemini no siempre marca `finished` cuando alguien simplemente se calla, y
-   * un segmento eternamente abierto impediría detectar el fin de la pregunta.
+   * Per-speaker timer to close segments the engine left open. Gemini doesn't
+   * always mark `finished` when someone simply goes quiet, and an eternally open
+   * segment would prevent detecting the end of the question.
    */
   private silenceTimers = new Map<Speaker, NodeJS.Timeout>();
   private static readonly SILENCE_MS = 900;
 
-  /** Momento del último auto-disparo, para el debounce. */
+  /** Time of the last auto-trigger, for the debounce. */
   private lastAutoTrigger = 0;
   private static readonly AUTO_DEBOUNCE_MS = 2_500;
 
   /**
-   * Fragmentos cerrados que todavía pueden ser parte de la misma pregunta.
+   * Closed fragments that can still be part of the same question.
    *
-   * El VAD cierra el turno tras 700 ms de silencio, y una persona que titubea
-   * hace pausas más largas que eso a mitad de frase: "entonces… eh… lo que
-   * quería preguntarte es… ¿cómo lo harías?". Eso llega como tres segmentos.
+   * The VAD closes the turn after 700 ms of silence, and someone who hesitates
+   * pauses longer than that mid-sentence: "entonces… eh… lo que quería
+   * preguntarte es… ¿cómo lo harías?". That arrives as three segments.
    */
   private pendingTrigger = new Map<
     Speaker,
@@ -121,60 +119,60 @@ class SessionOrchestrator {
   >();
 
   /**
-   * Cuánto se espera, tras cerrarse un turno, por si la frase continúa.
+   * How long to wait, after a turn closes, in case the sentence continues.
    *
-   * Se suma a los 700 ms que el VAD ya exigió, así que en total hacen falta
-   * ~1,6 s de silencio para dar la intervención por terminada. Una pausa de
-   * duda rara vez llega ahí; el final de una pregunta, casi siempre.
+   * It adds to the 700 ms the VAD already required, so in total ~1.6 s of
+   * silence is needed to consider the utterance finished. A pause of doubt
+   * rarely reaches there; the end of a question, almost always.
    */
   private static readonly AUTO_SETTLE_MS = 900;
 
-  /** Tope para quien encadena sin parar: se responde a lo que haya. */
+  /** Cap for whoever chains nonstop: whatever there is gets answered. */
   private static readonly AUTO_MAX_ACCUMULATE_MS = 15_000;
 
   /**
-   * Conversación en curso. Se crea perezosamente al primer contenido: arrancar
-   * la app y no decir nada no debe dejar una conversación vacía en el historial.
+   * Conversation in progress. Created lazily on the first content: launching the
+   * app and saying nothing must not leave an empty conversation in the history.
    */
   private conversation: Conversation | null = null;
-  /** Ids de respuestas ya archivadas: `answer` se emite en cada actualización. */
+  /** Ids of already-archived answers: `answer` is emitted on every update. */
   private recordedAnswers = new Set<string>();
   private saveTimer: NodeJS.Timeout | null = null;
-  /** Volcado diferido: un turno largo dispara muchos cambios seguidos. */
+  /** Deferred write: a long turn fires many changes in a row. */
   private static readonly SAVE_DEBOUNCE_MS = 800;
 
   /**
-   * Vigilancia del recorrido audio → transcripción → respuesta.
+   * Watching the audio → transcription → answer path.
    *
-   * Cada escalón puede pararse en silencio y desde fuera los tres se ven igual:
-   * "la app dejó de responder". Estas marcas son lo que permite decir en cuál
-   * se paró sin tener que reproducirlo a ciegas.
+   * Each step can stop silently and from the outside all three look the same:
+   * "the app stopped responding". These marks are what let us say which one
+   * stopped without having to reproduce it blind.
    */
   private lastChunkAt = 0;
   private lastSegmentAt = 0;
   private watchdog: NodeJS.Timeout | null = null;
   private static readonly WATCHDOG_MS = 15_000;
-  /** Sin transcripción durante este tiempo, habiendo audio, es un atasco. */
+  /** No transcription for this long, with audio coming in, is a stall. */
   private static readonly STALL_MS = 30_000;
 
-  /** Último estado difundido por respuesta, para registrar sólo los cambios. */
+  /** Last state broadcast per answer, to log only the changes. */
   private answerStage = new Map<string, string>();
 
   /**
-   * Captura por trozos: fragmentos acumulados de una pantalla que se revela con
-   * scroll, para reconstruir un enunciado que no cabe en una sola captura.
+   * Chunk capture: accumulated fragments of a screen revealed by scrolling, to
+   * reconstruct a prompt that doesn't fit in a single capture.
    */
   private captureStack: ImageAttachment[] = [];
-  /** Huella del último frame apilado, para deduplicar en modo automático. */
+  /** Hash of the last stacked frame, to deduplicate in automatic mode. */
   private lastFrameHash: bigint | null = null;
-  /** Bucle del modo automático; `null` cuando no está grabando. */
+  /** Automatic-mode loop; `null` when not recording. */
   private autoCaptureTimer: NodeJS.Timeout | null = null;
   private static readonly SCROLL_MAX_FRAMES = 15;
   private static readonly SCROLL_INTERVAL_MS = 2_500;
-  /** Distancia de Hamming por debajo de la cual dos frames son el mismo trozo. */
+  /** Hamming distance below which two frames are the same chunk. */
   private static readonly SCROLL_DEDUP_THRESHOLD = 5;
 
-  /** Conecta el flujo de audio al STT. Llamar una vez al arrancar la app. */
+  /** Connects the audio stream to the STT. Call once when the app starts. */
   bind(): void {
     audioCapture.on('chunk', (speaker: Speaker, pcm: Buffer) => {
       this.lastChunkAt = Date.now();
@@ -190,17 +188,17 @@ class SessionOrchestrator {
       this.broadcast(IPC.onAnswer, answer);
       this.recordAnswer(answer);
       this.logAnswerStage(answer);
-      // La memoria sólo cambia al cerrarse un turno con texto, así que se
-      // difunde ahí y no en cada tick del streaming.
+      // Memory only changes when a turn closes with text, so it's broadcast
+      // there and not on every streaming tick.
       if (answer.status === 'done') this.broadcast(IPC.onMemory, this.answers.memory);
     });
   }
 
   /**
-   * Registra el ciclo de vida de cada respuesta, una línea por cambio de estado.
+   * Logs the lifecycle of each answer, one line per state change.
    *
-   * La duración es lo importante: distingue "el modelo no arrancó" de "el modelo
-   * tardó 40 segundos", que producen la misma pantalla en blanco.
+   * The duration is what matters: it tells "the model didn't start" apart from
+   * "the model took 40 seconds", which produce the same blank screen.
    */
   private logAnswerStage(answer: Answer): void {
     if (this.answerStage.get(answer.id) === answer.status) return;
@@ -213,8 +211,8 @@ class SessionOrchestrator {
           `(${answer.trigger}): "${answer.question.slice(0, 60)}"`
       );
     } else if (answer.status === 'streaming') {
-      // Sólo la primera vez que se pasa a streaming: es el tiempo hasta el
-      // primer token, que es lo que de verdad se percibe como latencia.
+      // Only the first time it goes to streaming: it's the time to the first
+      // token, which is what's actually perceived as latency.
       console.log(`[answer] ${answer.id.slice(0, 8)} primer texto tras ${took}ms`);
     } else if (answer.status === 'done') {
       console.log(
@@ -226,18 +224,18 @@ class SessionOrchestrator {
       console.log(`[answer] ${answer.id.slice(0, 8)} abortada tras ${took}ms`);
     }
 
-    // El mapa no puede crecer para siempre en una sesión larga.
+    // The map can't grow forever in a long session.
     if (this.answerStage.size > 50) {
       for (const key of [...this.answerStage.keys()].slice(0, 25)) this.answerStage.delete(key);
     }
   }
 
   /**
-   * Avisa cuando llega audio pero no sale transcripción.
+   * Warns when audio comes in but no transcription comes out.
    *
-   * Es la comprobación que faltaba: sin ella, un motor muerto y una sala en
-   * silencio producen exactamente el mismo overlay, con el punto verde de
-   * "Escuchando" encendido en los dos casos.
+   * It's the check that was missing: without it, a dead engine and a silent room
+   * produce exactly the same overlay, with the green "Listening" dot on in both
+   * cases.
    */
   private startWatchdog(): void {
     this.stopWatchdog();
@@ -245,12 +243,12 @@ class SessionOrchestrator {
       const now = Date.now();
       const silentFor = now - this.lastSegmentAt;
 
-      // Apagado por inactividad: si nadie ha hablado en los minutos configurados,
-      // se deja de escuchar sola. Va antes que las comprobaciones de audio porque
-      // se decide por SILENCIO, no por si entran chunks: una reunión que terminó
-      // deja de mandar voz aunque el micrófono siga abierto. `audioCapture.stop()`
-      // emite el estado `idle`, que dispara `stopTranscription` y para este mismo
-      // watchdog, así que no vuelve a saltar.
+      // Idle shutoff: if no one has spoken in the configured minutes, it stops
+      // listening on its own. It goes before the audio checks because it's
+      // decided by SILENCE, not by whether chunks come in: a meeting that ended
+      // stops sending voice even if the mic stays open. `audioCapture.stop()`
+      // emits the `idle` state, which fires `stopTranscription` and stops this
+      // very watchdog, so it doesn't fire again.
       if (idleShutoffDue(settingsStore.get(), silentFor)) {
         console.log(
           `[idle] ${Math.round(silentFor / 60_000)} min sin voz; se deja de escuchar.`
@@ -285,15 +283,15 @@ class SessionOrchestrator {
     }
   }
 
-  // ── Historial ──
+  // ── History ──
 
   /**
-   * Cierra la conversación actual y empieza otra en limpio.
+   * Closes the current conversation and starts a fresh one.
    *
-   * Limpia también el `TranscriptBuffer` y aborta la respuesta en vuelo: el
-   * sentido de "nueva conversación" es que lo anterior deje de contaminar el
-   * contexto que se manda al modelo, y dejar el buffer con la charla vieja lo
-   * haría inútil.
+   * It also clears the `TranscriptBuffer` and aborts the in-flight answer: the
+   * point of "new conversation" is that the previous stuff stops contaminating
+   * the context sent to the model, and leaving the buffer with the old chat
+   * would make it useless.
    */
   newConversation(): void {
     this.answers.abort();
@@ -308,7 +306,7 @@ class SessionOrchestrator {
     this.broadcast(IPC.onMemory, this.answers.memory);
   }
 
-  /** Vuelca ya lo pendiente. Se llama al cerrar y al cambiar de conversación. */
+  /** Flushes what's pending now. Called on close and on switching conversation. */
   flush(): void {
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
@@ -320,9 +318,9 @@ class SessionOrchestrator {
   }
 
   /**
-   * La conversación sólo existe si el historial está activo. Devolver `null`
-   * con el interruptor apagado es lo que garantiza que no se escriba nada:
-   * el resto del código no tiene que acordarse de comprobarlo.
+   * The conversation only exists if history is on. Returning `null` with the
+   * switch off is what guarantees nothing is written: the rest of the code
+   * doesn't have to remember to check it.
    */
   private ensureConversation(seedTitle?: string): Conversation | null {
     if (!settingsStore.get().historyEnabled) return null;
@@ -330,8 +328,8 @@ class SessionOrchestrator {
     if (!this.conversation) {
       this.conversation = {
         id: randomUUID(),
-        // Sin nada aprovechable se queda vacío: el rótulo lo pone el
-        // dashboard, que es el único que sabe en qué idioma se está mirando.
+        // With nothing usable it stays empty: the label is set by the
+        // dashboard, the only one that knows which language is being looked at.
         title: seedTitle ? conversationTitle(seedTitle) : '',
         startedAt: Date.now(),
         profileId: settingsStore.get().promptProfileId,
@@ -339,8 +337,8 @@ class SessionOrchestrator {
         turns: [],
       };
     } else if (!this.conversation.title && seedTitle) {
-      // El título se fija con el primer contenido útil, venga de la voz o del
-      // teclado; hasta entonces la conversación existe pero no tiene nombre.
+      // The title is set with the first useful content, whether from voice or
+      // keyboard; until then the conversation exists but has no name.
       this.conversation.title = conversationTitle(seedTitle);
     }
     return this.conversation;
@@ -356,12 +354,12 @@ class SessionOrchestrator {
   }
 
   /**
-   * Archiva una respuesta cuando llega a un estado terminal.
+   * Archives an answer when it reaches a terminal state.
    *
-   * `answer` se emite en CADA actualización del streaming, así que sin el set de
-   * ids ya archivados el mismo turno entraría decenas de veces. Las abortadas no
-   * se guardan: una respuesta que se cortó porque llegó otra pregunta es ruido,
-   * no historial.
+   * `answer` is emitted on EVERY streaming update, so without the set of
+   * already-archived ids the same turn would enter dozens of times. Aborted ones
+   * aren't saved: an answer cut off because another question arrived is noise,
+   * not history.
    */
   private recordAnswer(answer: Answer): void {
     if (answer.status !== 'done' && answer.status !== 'error') return;
@@ -384,23 +382,24 @@ class SessionOrchestrator {
     this.scheduleSave();
   }
 
-  // ── API que consumen los hotkeys y el IPC ──
+  // ── API consumed by the hotkeys and the IPC ──
 
-  /** Responde usando la última intervención cerrada relevante, si la hay. */
+  /** Answers using the last relevant closed utterance, if there is one. */
   ask(trigger: AnswerTrigger): Promise<void> {
     const lastQuestion = this.lastRelevantSegment();
     return this.answers.ask(trigger, lastQuestion?.text.trim() || undefined);
   }
 
   /**
-   * Qué intervención se toma como "la pregunta" con el hotkey manual.
+   * Which utterance is taken as "the question" with the manual hotkey.
    *
-   * Se prefiere el hablante configurado para el auto-disparo. Sólo se cae a
-   * otro si ése **ni siquiera se está escuchando** (disparo en `them` con
-   * `audioSources: 'mic'`, por ejemplo): ahí `lastFrom` devolvería siempre null
-   * y el hotkey mandaría la pregunta vacía. Si sí se escucha pero todavía no ha
-   * dicho nada, no hay fallback: mandar la última línea de otro como si fuera la
-   * pregunta es peor que dejar que el modelo la deduzca del transcript.
+   * The speaker configured for auto-trigger is preferred. It only falls back to
+   * another if that one **isn't even being listened to** (trigger on `them` with
+   * `audioSources: 'mic'`, for example): there `lastFrom` would always return
+   * null and the hotkey would send an empty question. If it is heard but hasn't
+   * said anything yet, there's no fallback: sending someone else's last line as
+   * if it were the question is worse than letting the model infer it from the
+   * transcript.
    */
   private lastRelevantSegment(): TranscriptSegment | null {
     const settings = settingsStore.get();
@@ -416,17 +415,17 @@ class SessionOrchestrator {
   }
 
   /**
-   * Responde a un texto escrito a mano en el overlay.
+   * Answers text typed by hand in the overlay.
    *
-   * Es la única vía que admite el prefijo `/skill`, y no por casualidad: es la
-   * única en la que hay alguien tecleando. Un `/humanizar` dicho en voz alta
-   * llegaría por el reconocedor como "humanizar" o como "barra humanizar",
-   * según el motor, así que reconocerlo ahí sería adivinar.
+   * It's the only path that accepts the `/skill` prefix, and not by chance: it's
+   * the only one where someone is typing. A `/humanizar` said out loud would
+   * arrive from the recognizer as "humanizar" or as "barra humanizar", depending
+   * on the engine, so recognizing it there would be guessing.
    *
-   * Se resuelve contra la lista real de skills: lo que no casa con ninguna se
-   * queda como texto. Sin esa comprobación, escribir «/etc está lleno de
-   * configuración» perdería la primera palabra y el modelo respondería a otra
-   * pregunta sin que nada lo dijera.
+   * It's resolved against the real skill list: whatever matches none stays as
+   * text. Without that check, typing "/etc está lleno de configuración" would
+   * lose the first word and the model would answer a different question with
+   * nothing to say so.
    */
   askWithText(text: string): Promise<void> {
     const { skillId, text: question } = parseSkillInvocation(text, listSkills());
@@ -434,29 +433,29 @@ class SessionOrchestrator {
   }
 
   /**
-   * Captura la pantalla y resuelve lo que haya en ella: un ejercicio de
-   * programación o una pregunta de test.
+   * Captures the screen and solves whatever is on it: a programming exercise or
+   * a quiz question.
    *
-   * No pasa por `ask('hotkey')` a propósito, por dos razones:
+   * It doesn't go through `ask('hotkey')` on purpose, for two reasons:
    *
-   *  - **La pregunta no está en el audio.** El enunciado está en la pantalla, y
-   *    coger la última intervención como pregunta metería una frase suelta de la
-   *    llamada ("vale, dime cuando lo tengas") compitiendo con el enunciado.
-   *  - **Funciona con la escucha parada.** Es el caso normal: alguien con un
-   *    LeetCode o un formulario delante y sin ninguna llamada abierta. La
-   *    transcripción se envía igual si existe, porque a veces la aclaración
-   *    importante se dijo en voz alta, pero no hace falta que exista.
+   *  - **The question isn't in the audio.** The prompt is on the screen, and
+   *    taking the last utterance as the question would put a stray sentence from
+   *    the call ("vale, dime cuando lo tengas") competing with the prompt.
+   *  - **It works with listening stopped.** That's the normal case: someone with
+   *    a LeetCode or a form in front of them and no call open. The transcript is
+   *    sent anyway if it exists, because sometimes the important clarification
+   *    was said out loud, but it doesn't have to exist.
    *
-   * Las dos tareas comparten todo el camino y se separan sólo en el prompt: lo
-   * que cambia entre resolver un algoritmo y marcar la opción correcta es cómo
-   * se responde, no cómo se llega hasta ahí.
+   * The two tasks share the whole path and split only in the prompt: what
+   * changes between solving an algorithm and marking the right option is how it's
+   * answered, not how you get there.
    */
   async solveOnScreen(task: ScreenTask = 'code'): Promise<void> {
     const image = await captureScreen({ forCode: true });
 
     if (!image) {
-      // Sin captura no hay enunciado: aquí no vale el "responde igual" del
-      // hotkey normal, porque el modelo no tendría absolutamente nada que leer.
+      // With no capture there's no prompt: the normal hotkey's "answer anyway"
+      // doesn't apply here, because the model would have absolutely nothing to read.
       console.error(
         `[${task}] no se pudo capturar la pantalla; no hay ningún ${TASK_LABEL[task]} que resolver.`
       );
@@ -471,8 +470,8 @@ class SessionOrchestrator {
   }
 
   /**
-   * El atajo de "captura por trozos". En modo manual apila un frame; en modo
-   * automático arranca o para el bucle de captura. Ver `Settings.scrollCaptureMode`.
+   * The "chunk capture" shortcut. In manual mode it stacks a frame; in automatic
+   * mode it starts or stops the capture loop. See `Settings.scrollCaptureMode`.
    */
   onCaptureHotkey(): void {
     if (settingsStore.get().scrollCaptureMode === 'auto') {
@@ -492,7 +491,7 @@ class SessionOrchestrator {
       () => void this.addFrame(),
       SessionOrchestrator.SCROLL_INTERVAL_MS
     );
-    // El primer frame ya, sin esperar el primer intervalo.
+    // The first frame right away, without waiting for the first interval.
     void this.addFrame();
     this.emitScrollState();
   }
@@ -504,10 +503,10 @@ class SessionOrchestrator {
     }
   }
 
-  /** Captura un frame y lo apila. En automático deduplica los casi idénticos. */
+  /** Captures a frame and stacks it. In automatic mode it dedups near-identical ones. */
   private async addFrame(): Promise<void> {
     if (this.captureStack.length >= SessionOrchestrator.SCROLL_MAX_FRAMES) {
-      // Pila llena: parar el bucle si grababa y avisar una sola vez.
+      // Stack full: stop the loop if it was recording and warn just once.
       if (this.autoCaptureTimer) {
         this.clearAutoTimer();
         this.broadcast(IPC.onNotice, m('notice.scrollFull'));
@@ -522,14 +521,14 @@ class SessionOrchestrator {
       return;
     }
 
-    // Dedup sólo en automático: en manual el usuario elige el trozo a propósito.
+    // Dedup only in automatic: in manual the user picks the chunk on purpose.
     const auto = settingsStore.get().scrollCaptureMode === 'auto';
     if (
       auto &&
       this.lastFrameHash !== null &&
       hamming(frame.hash, this.lastFrameHash) <= SessionOrchestrator.SCROLL_DEDUP_THRESHOLD
     ) {
-      return; // el scroll no se ha movido: es el mismo trozo
+      return; // the scroll hasn't moved: it's the same chunk
     }
 
     this.captureStack.push(frame.image);
@@ -537,7 +536,7 @@ class SessionOrchestrator {
     this.emitScrollState();
   }
 
-  /** Reconstruye y resuelve la pila de trozos. La vacía antes de preguntar. */
+  /** Reconstructs and solves the chunk stack. Empties it before asking. */
   async solveCaptureStack(): Promise<void> {
     this.clearAutoTimer();
     if (this.captureStack.length === 0) {
@@ -552,14 +551,14 @@ class SessionOrchestrator {
     this.lastFrameHash = null;
 
     for (const image of frames) this.answers.attachImage(image);
-    // El último trozo sirve de miniatura mientras llega la respuesta.
+    // The last chunk serves as a thumbnail while the answer arrives.
     if (last) this.broadcast(IPC.onScreenshot, last);
     this.emitScrollState();
 
     await this.answers.ask('code', SCROLL_SOLVE_INSTRUCTION);
   }
 
-  /** Vacía la pila sin resolver (botón ✕ del chip, o nueva conversación). */
+  /** Empties the stack without solving (chip's ✕ button, or new conversation). */
   clearCaptureStack(): void {
     this.clearAutoTimer();
     this.captureStack = [];
@@ -576,13 +575,13 @@ class SessionOrchestrator {
   }
 
   /**
-   * Olvida la memoria del asistente sin tocar la conversación.
+   * Forgets the assistant's memory without touching the conversation.
    *
-   * Va aparte de `newConversation` porque son cosas distintas: aquélla corta con
-   * todo —transcripción, historial en disco, respuesta en vuelo—, y esto sólo
-   * vacía lo que se reenvía al modelo en cada consulta. Es lo que hace falta
-   * cuando la ventana de contexto se llena a mitad de una sesión que se quiere
-   * conservar.
+   * It's separate from `newConversation` because they're different things: that
+   * one cuts with everything —transcript, on-disk history, in-flight answer—,
+   * and this only empties what's resent to the model on each query. It's what's
+   * needed when the context window fills up mid-session in a session you want to
+   * keep.
    */
   forgetContext(): { turns: number; max: number } {
     this.answers.forgetContext();
@@ -604,14 +603,14 @@ class SessionOrchestrator {
     const settings = settingsStore.get();
     try {
       /*
-       * El contexto se pasa como función y no como valor: el motor de audio
-       * directo lo consulta en cada turno, y para entonces el perfil, la skill
-       * o la memoria pueden haber cambiado.
+       * The context is passed as a function and not as a value: the direct-audio
+       * engine queries it on every turn, and by then the profile, the skill or
+       * the memory may have changed.
        *
-       * La skill entra también aquí. Con `gemini-audio` la respuesta la escribe
-       * el motor de transcripción, así que si esto se quedara fuera habría un
-       * motor en el que encender una skill no haría nada — y desde la pantalla
-       * los dos casos se ven idénticos.
+       * The skill comes in here too. With `gemini-audio` the answer is written
+       * by the transcription engine, so if this were left out there'd be an
+       * engine where turning on a skill did nothing — and from the screen the two
+       * cases look identical.
        */
       const provider = createSTTProvider(settings, () => {
         const current = settingsStore.get();
@@ -623,8 +622,9 @@ class SessionOrchestrator {
 
       provider.events.on('segment', (event: TranscriptEvent) => this.onSegment(event));
 
-      // Cuando el motor responde por su cuenta, el detector de preguntas sobra:
-      // quien decide si algo merecía respuesta es el modelo que oyó el audio.
+      // When the engine answers on its own, the question detector is redundant:
+      // the one deciding if something deserved an answer is the model that heard
+      // the audio.
       if (provider.answersDirectly) {
         provider.events.on('answer', (event: DirectAnswerEvent) => {
           this.answers.present(event.question, event.answer, 'gemini', event.model);
@@ -632,10 +632,10 @@ class SessionOrchestrator {
       }
       provider.events.on('error', (err: Error) => {
         console.error('[stt]', err.message);
-        // Un error de STT no detiene la captura: el audio sigue llegando y la
-        // reconexión puede recuperar la sesión. Pero SÍ se enseña: antes sólo
-        // iba a `console.error`, así que una sesión que fallaba carril a carril
-        // se veía igual que una sala en silencio.
+        // An STT error doesn't stop capture: audio keeps coming and the
+        // reconnection can recover the session. But it IS shown: it used to go
+        // only to `console.error`, so a session failing lane by lane looked just
+        // like a silent room.
         this.broadcast(IPC.onSTTError, err.message);
       });
 
@@ -656,10 +656,10 @@ class SessionOrchestrator {
           `${settings.autoTriggerSensitivity}`
       );
 
-      // Aviso explícito de una combinación que no da ningún síntoma: el audio
-      // llega, se transcribe, y el auto-disparo descarta todos los segmentos
-      // porque el hablante que debería dispararlo ni siquiera se escucha. Sin
-      // esta línea, desde fuera se ve igual que "el modelo no responde".
+      // Explicit warning about a combination that gives no symptom: audio comes
+      // in, gets transcribed, and auto-trigger discards every segment because
+      // the speaker that should fire it isn't even being listened to. Without
+      // this line, from the outside it looks just like "the model doesn't answer".
       if (!provider.answersDirectly && autoTriggerIsInert(settings)) {
         console.warn(
           `[auto] inerte: se dispara con "${settings.autoTriggerSpeaker}" pero ` +
@@ -687,8 +687,8 @@ class SessionOrchestrator {
     for (const timer of this.silenceTimers.values()) clearTimeout(timer);
     this.silenceTimers.clear();
 
-    // Parar de escuchar es el momento natural para consolidar: si la app se
-    // cierra después, lo pendiente del debounce ya está en disco.
+    // Stopping listening is the natural moment to consolidate: if the app closes
+    // afterwards, what's pending from the debounce is already on disk.
     this.flush();
 
     const provider = this.stt;
@@ -716,14 +716,14 @@ class SessionOrchestrator {
   }
 
   /**
-   * Guarda un segmento cerrado en la conversación.
+   * Saves a closed segment into the conversation.
    *
-   * Va aparte de `onFinalSegment` porque ese método sale antes por razones del
-   * auto-disparo (hablante que no toca, modo apagado) y un segmento debe
-   * archivarse igual: el historial no depende de que la respuesta se dispare.
-   * Se guarda una copia porque el `TranscriptBuffer` recicla los objetos de los
-   * parciales, y se comprueba el id porque un segmento puede cerrarse tanto por
-   * el motor como por el temporizador de silencio.
+   * It's separate from `onFinalSegment` because that method returns early for
+   * auto-trigger reasons (wrong speaker, mode off) and a segment should be
+   * archived anyway: the history doesn't depend on the answer firing. A copy is
+   * saved because the `TranscriptBuffer` recycles the partials' objects, and the
+   * id is checked because a segment can be closed both by the engine and by the
+   * silence timer.
    */
   private archiveSegment(segment: TranscriptSegment): void {
     if (!segment.text.trim()) return;
@@ -738,20 +738,21 @@ class SessionOrchestrator {
   }
 
   /**
-   * Auto-disparo. Sólo se evalúan intervenciones cerradas del hablante elegido;
-   * el default es el interlocutor porque responder a lo que dice el propio
-   * usuario no tiene sentido en una entrevista.
+   * Auto-trigger. Only closed utterances from the chosen speaker are evaluated;
+   * the default is the other party because answering what the user themselves
+   * says makes no sense in an interview.
    */
   private onFinalSegment(segment: TranscriptSegment): void {
-    // Con audio directo la respuesta ya vino con la transcripción; disparar
-    // aquí generaría una segunda, esta vez leyendo el texto en lugar de oírlo.
+    // With direct audio the answer already came with the transcription; firing
+    // here would generate a second one, this time reading the text instead of
+    // hearing it.
     if (this.stt?.answersDirectly) return;
 
     const settings = settingsStore.get();
     if (settings.autoTriggerMode === 'off') return;
 
-    // En modo intérprete se traducen los DOS carriles, así que el filtro de
-    // hablante no aplica: cada intervención, venga de quien venga, se traduce.
+    // In interpreter mode BOTH lanes are translated, so the speaker filter
+    // doesn't apply: every utterance, whoever it comes from, is translated.
     const interpreting = settings.promptProfileId === 'interpreter';
     const wanted = settings.autoTriggerSpeaker;
     if (!interpreting && wanted !== 'any' && segment.speaker !== wanted) return;
@@ -760,22 +761,22 @@ class SessionOrchestrator {
     if (!text) return;
 
     /*
-     * NO se evalúa aquí, y ese es el arreglo.
+     * It is NOT evaluated here, and that's the fix.
      *
-     * Antes se disparaba con el primer fragmento y se silenciaban 2,5 s los
-     * siguientes. El comentario decía "una pregunta larga puede cerrarse en
-     * varios segmentos", que es cierto, pero la conclusión era la contraria de
-     * la que tocaba: respondía al titubeo y descartaba la pregunta.
+     * Before, it fired on the first fragment and silenced the next ones for
+     * 2.5 s. The comment said "a long question can close across several
+     * segments", which is true, but the conclusion was the opposite of the right
+     * one: it answered the hesitation and discarded the question.
      *
-     * Ahora se acumula y se decide cuando la persona termina de hablar de
-     * verdad. Cada fragmento nuevo reinicia la espera.
+     * Now it accumulates and decides when the person really finishes talking.
+     * Each new fragment resets the wait.
      */
     const pending = this.pendingTrigger.get(segment.speaker);
     if (pending) {
       clearTimeout(pending.timer);
       pending.parts.push(text);
-      // Un tope para quien encadena sin pausas: en algún momento hay que
-      // contestar a lo que haya en lugar de esperar indefinidamente.
+      // A cap for whoever chains with no pauses: at some point you have to
+      // answer whatever there is instead of waiting indefinitely.
       if (Date.now() - pending.startedAt >= SessionOrchestrator.AUTO_MAX_ACCUMULATE_MS) {
         this.pendingTrigger.delete(segment.speaker);
         this.evaluateTrigger(segment.speaker, pending.parts);
@@ -792,7 +793,7 @@ class SessionOrchestrator {
     });
   }
 
-  /** Descarta lo acumulado sin responderlo. Al parar o al cambiar de tema. */
+  /** Discards what's accumulated without answering it. On stop or topic change. */
   private clearPendingTriggers(): void {
     for (const pending of this.pendingTrigger.values()) clearTimeout(pending.timer);
     this.pendingTrigger.clear();
@@ -808,19 +809,19 @@ class SessionOrchestrator {
   }
 
   /**
-   * Decide sobre la intervención COMPLETA, ya unida.
+   * Decides on the COMPLETE utterance, already joined.
    *
-   * Juzgar el conjunto en vez de cada trozo también mejora la detección: un
-   * "entonces… eh…" suelto no tiene ningún marcador de pregunta, pero unido a
-   * lo que viene detrás sí lo tiene.
+   * Judging the whole instead of each chunk also improves detection: a stray
+   * "entonces… eh…" has no question marker, but joined to what comes after it
+   * does.
    */
   private evaluateTrigger(speaker: Speaker, parts: string[]): void {
     const settings = settingsStore.get();
     const full = joinUtterance(parts);
     if (!full) return;
 
-    // El intérprete no detecta preguntas: traduce todo lo que se diga y va
-    // directo al disparo, sin el clasificador ni el descarte.
+    // The interpreter doesn't detect questions: it translates everything said
+    // and goes straight to firing, without the classifier or the discard.
     if (settings.promptProfileId === 'interpreter') {
       this.fire(speaker, full, 'interpreter', parts.length);
       return;
@@ -829,17 +830,16 @@ class SessionOrchestrator {
     const verdict = looksLikeQuestion(full, settings.autoTriggerSensitivity);
 
     /*
-     * Segundo escalón: lo que la heurística no supo decidir se le pregunta al
-     * modelo.
+     * Second step: what the heuristic couldn't decide is asked to the model.
      *
-     * Sólo escala los descartes "sin marcadores", que son los ambiguos de
-     * verdad. Una muletilla o una frase de dos palabras siguen descartándose
-     * gratis — pagar una consulta para que confirme que "vale, perfecto" no es
-     * una pregunta sería tirar el dinero.
+     * It only escalates the "no markers" discards, which are the genuinely
+     * ambiguous ones. A filler or a two-word phrase is still discarded for free
+     * — paying for a query to confirm that "vale, perfecto" isn't a question
+     * would be throwing money away.
      *
-     * Va por una rama aparte y asíncrona porque no puede retrasar al camino
-     * normal: quien tenga el modo en `heuristic` no espera ni un milisegundo de
-     * más por código que no usa.
+     * It goes through a separate, async branch because it can't delay the normal
+     * path: whoever has the mode on `heuristic` doesn't wait a single extra
+     * millisecond for code they don't use.
      */
     if (
       !verdict.isQuestion &&
@@ -851,12 +851,12 @@ class SessionOrchestrator {
     }
 
     if (!verdict.isQuestion) {
-      // Se registra el descarte: es la única forma de saber por qué la app "no
-      // responde" sin ponerse a adivinar. Una prueba real gastó cinco frases
-      // seguidas para descubrir que el detector las estaba tirando en silencio.
+      // The discard is logged: it's the only way to know why the app "doesn't
+      // answer" without guessing. A real test spent five sentences in a row to
+      // find out the detector was dropping them silently.
       console.log(`[auto] descartado (${verdict.reason}): "${full.slice(0, 80)}"`);
-      // Y además se enseña. El log sirve para depurar; el overlay, para que
-      // quien está hablando entienda por qué no ha pasado nada.
+      // And it's also shown. The log is for debugging; the overlay, so whoever's
+      // speaking understands why nothing happened.
       this.broadcast(IPC.onAutoSkip, { text: full, reason: verdict.reason });
       return;
     }
@@ -865,10 +865,11 @@ class SessionOrchestrator {
   }
 
   /**
-   * Le pregunta al modelo y dispara si dice que sí.
+   * Asks the model and fires if it says yes.
    *
-   * El descarte se anuncia **después** de la consulta, no antes: enseñar "no era
-   * una pregunta" y responderla dos segundos más tarde sería peor que callarse.
+   * The discard is announced **after** the query, not before: showing "it wasn't
+   * a question" and answering it two seconds later would be worse than staying
+   * quiet.
    */
   private async classifyAndMaybeAsk(
     speaker: Speaker,
@@ -887,13 +888,13 @@ class SessionOrchestrator {
     this.fire(speaker, full, verdict.reason, 1);
   }
 
-  /** El disparo en sí, común a los dos escalones. */
+  /** The firing itself, common to both steps. */
   private fire(speaker: Speaker, full: string, reason: string, partCount: number): void {
-    // Red de seguridad contra dobles disparos por caminos distintos (el cierre
-    // del motor y el temporizador de silencio pueden coincidir).
+    // Safety net against double fires from different paths (the engine's close
+    // and the silence timer can coincide).
     const now = Date.now();
-    // El intérprete traduce CADA intervención; el debounce —pensado contra
-    // dobles disparos de la misma pregunta— se comería un ida y vuelta rápido.
+    // The interpreter translates EVERY utterance; the debounce —meant against
+    // double fires of the same question— would eat a quick back-and-forth.
     if (
       reason !== 'interpreter' &&
       now - this.lastAutoTrigger < SessionOrchestrator.AUTO_DEBOUNCE_MS
@@ -938,23 +939,23 @@ class SessionOrchestrator {
         win.webContents.send(channel, payload);
       }
     }
-    // Mismo enganche que en `index.ts`: el espejo del teléfono recibe lo que
-    // reciben las ventanas y decide él qué le sirve. Por aquí pasan las
-    // respuestas, que son la razón de que el espejo exista.
+    // Same hook as in `index.ts`: the phone mirror receives what the windows
+    // receive and decides for itself what's useful. The answers pass through
+    // here, which are the reason the mirror exists.
     phoneBridge.publish(channel, payload);
-    // Y al broker, que filtra por su cuenta: sólo le interesan las respuestas
-    // terminadas. Ver `bridge/mqtt.ts`.
+    // And to the broker, which filters on its own: it only cares about finished
+    // answers. See `bridge/mqtt.ts`.
     mqttBridge.publish(channel, payload);
   }
 }
 
 /**
- * Une fragmentos de una misma intervención en una frase legible.
+ * Joins fragments of a single utterance into a readable sentence.
  *
- * Los trozos vienen del reconocedor ya puntuados, así que pegarlos con un
- * espacio produce cosas como "Entonces. ¿Cómo lo harías?" — correcto. Lo que
- * hay que evitar es la puntuación duplicada y los trozos que acaban en coma,
- * donde un punto de más rompería la frase.
+ * The chunks come from the recognizer already punctuated, so gluing them with a
+ * space produces things like "Entonces. ¿Cómo lo harías?" — correct. What has to
+ * be avoided is duplicated punctuation and chunks that end in a comma, where an
+ * extra period would break the sentence.
  */
 function joinUtterance(parts: string[]): string {
   return parts
@@ -966,28 +967,28 @@ function joinUtterance(parts: string[]): string {
 }
 
 /**
- * Extrae términos de los context packs para sesgar el reconocedor.
+ * Extracts terms from the context packs to bias the recognizer.
  *
- * Un CV y una descripción de puesto están llenos de nombres propios, siglas y
- * tecnologías: justo lo que un ASR generalista transcribe mal. Nos quedamos con
- * los tokens capitalizados o en mayúsculas, que es donde están esos términos.
+ * A CV and a job description are full of proper nouns, acronyms and
+ * technologies: exactly what a generalist ASR transcribes badly. We keep the
+ * capitalized or uppercase tokens, which is where those terms are.
  */
 function collectVocabulary(packs: ContextPack[], profile: PromptProfileId): string[] {
   const terms = new Set<string>();
   const active = packsForProfile(packs, profile);
 
   /*
-   * Lo declarado va PRIMERO y entero.
+   * The declared terms go FIRST and whole.
    *
-   * Antes todo el vocabulario se adivinaba con una regex de palabras
-   * capitalizadas sobre el texto de los packs. Eso saca "Python" y "AWS", sí,
-   * pero también cada palabra que abre una frase, y se pierde justo lo que más
-   * falla: el apellido del entrevistador, el nombre del producto interno, una
-   * sigla que no va en mayúsculas. Con un pack de tipo `vocabulary` esos
-   * términos se escriben a mano y llegan tal cual.
+   * Before, all the vocabulary was guessed with a regex of capitalized words
+   * over the packs' text. That pulls out "Python" and "AWS", yes, but also every
+   * word that opens a sentence, and it loses exactly what fails most: the
+   * interviewer's surname, the internal product name, an acronym that isn't
+   * uppercase. With a `vocabulary`-kind pack those terms are written by hand and
+   * arrive as-is.
    *
-   * Importa más que antes porque este vocabulario ya no sólo va a Gemini Live:
-   * también alimenta el `--prompt` de Whisper.
+   * It matters more than before because this vocabulary no longer goes only to
+   * Gemini Live: it also feeds Whisper's `--prompt`.
    */
   for (const pack of active) {
     if (pack.kind !== 'vocabulary') continue;
@@ -997,8 +998,8 @@ function collectVocabulary(packs: ContextPack[], profile: PromptProfileId): stri
     }
   }
 
-  // Del resto se sigue infiriendo: un CV pegado trae decenas de tecnologías que
-  // nadie va a copiar a mano a una lista.
+  // The rest is still inferred: a pasted CV brings dozens of technologies no one
+  // is going to copy by hand into a list.
   for (const pack of active) {
     if (pack.kind === 'vocabulary') continue;
     const matches = pack.content.match(/\b[A-Z][A-Za-z0-9+#.]{1,20}\b/g) ?? [];
@@ -1007,9 +1008,9 @@ function collectVocabulary(packs: ContextPack[], profile: PromptProfileId): stri
     }
   }
 
-  // La API acota el vocabulario personalizado; mandar cientos de términos lo
-  // empeora en lugar de mejorarlo, así que nos quedamos con los primeros. Los
-  // declarados van delante, así que son los que sobreviven al recorte.
+  // The API caps custom vocabulary; sending hundreds of terms makes it worse
+  // rather than better, so we keep the first ones. The declared ones go up
+  // front, so they're the ones that survive the trim.
   return [...terms].slice(0, 100);
 }
 
