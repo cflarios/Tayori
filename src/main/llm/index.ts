@@ -12,17 +12,17 @@ export { LLMError } from './types';
 export type { AnswerRequest, LLMProvider } from './types';
 
 /**
- * Construye el proveedor de respuestas según los settings.
+ * Builds the answer provider from the settings.
  *
- * Añadir Groq o cualquier otro es: un archivo que implemente `LLMProvider` más
- * un `case` aquí. Nada más del **sistema** cambia — pero sí hay tres pantallas
- * que deciden "¿está configurado esto?" con una condición propia que el `never`
- * de abajo no cubre; están enumeradas en CONTEXT.md §4.
+ * Adding Groq or any other is: a file that implements `LLMProvider` plus a
+ * `case` here. Nothing else in the **system** changes — but there are three
+ * screens that decide "is this configured?" with their own condition that the
+ * `never` below doesn't cover; they're listed in CONTEXT.md §4.
  *
- * @param forScreen Usa el proveedor de las acciones de pantalla (código y
- *        test), que puede ser distinto del de conversar: lo hablado necesita
- *        latencia y lo de la pantalla necesita vista. Con `screenProviderId` en
- *        `same` —el valor por defecto— las dos ramas dan exactamente lo mismo.
+ * @param forScreen Uses the provider for the screen actions (code and quiz),
+ *        which may differ from the conversing one: speech needs latency and the
+ *        screen needs vision. With `screenProviderId` set to `same` —the default
+ *        value— the two branches give exactly the same thing.
  */
 export function createLLMProvider(settings: Settings, forScreen = false): LLMProvider {
   const target = forScreen
@@ -68,7 +68,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       return new OllamaProvider(settings.ollamaBaseUrl, model, settings.ollamaContextTokens);
 
     default: {
-      // Añadir un id al tipo sin manejarlo aquí rompe el build.
+      // Adding an id to the type without handling it here breaks the build.
       const exhaustive: never = target.providerId;
       throw new LLMError(m('err.unknownProvider', { id: String(exhaustive) }), 'claude');
     }
@@ -76,12 +76,11 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
 }
 
 /**
- * Modelos de un proveedor sin necesidad de credenciales.
+ * A provider's models without needing credentials.
  *
- * El dashboard necesita poblar el selector antes de que el usuario haya
- * configurado la key, así que los proveedores de nube devuelven su catálogo
- * estático. Ollama sí consulta la red, porque su lista depende de lo que haya
- * descargado.
+ * The dashboard needs to populate the selector before the user has configured
+ * the key, so the cloud providers return their static catalog. Ollama does hit
+ * the network, because its list depends on what's been downloaded.
  */
 export async function listModelsFor(
   providerId: LLMProviderId,

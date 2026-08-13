@@ -12,19 +12,19 @@ export type { STTProvider, STTStartOptions, TranscriptEvent, DirectAnswerEvent }
 export type { AudioAnswerContext } from './gemini-audio';
 
 /**
- * Construye el motor de transcripción según los settings.
+ * Builds the transcription engine from the settings.
  *
- * Añadir un motor nuevo (Deepgram, Soniox) es añadir un `case` aquí y un
- * archivo que implemente `STTProvider`; el orquestador no cambia.
+ * Adding a new engine (Deepgram, Soniox) is adding a `case` here and a file
+ * that implements `STTProvider`; the orchestrator doesn't change.
  */
 /**
- * Prueba de verdad el motor de transcripción configurado.
+ * Actually tests the configured transcription engine.
  *
- * "De verdad" es la parte importante: con Gemini Live abre una sesión y
- * negocia el modelo; con Whisper local ejecuta el binario sobre un WAV
- * generado al vuelo. Comprobar sólo que existe el archivo o que hay una key no
- * habría detectado ni el stub `main.exe` ni un modelo Live no habilitado en la
- * cuenta, que son justo los dos fallos que se han dado.
+ * "Actually" is the important part: with Gemini Live it opens a session and
+ * negotiates the model; with Whisper local it runs the binary over a WAV
+ * generated on the fly. Just checking that the file exists or that there's a
+ * key wouldn't have caught the `main.exe` stub or a Live model not enabled on
+ * the account, which are exactly the two failures that have happened.
  */
 export async function testSTTConnection(
   settings: Settings
@@ -66,7 +66,7 @@ export async function testSTTConnection(
 
 export function createSTTProvider(
   settings: Settings,
-  /** Sólo lo usa el motor de audio directo, que compone la consulta él mismo. */
+  /** Only the direct-audio engine uses it; it composes the query itself. */
   answerContext?: () => AudioAnswerContext
 ): STTProvider {
   switch (settings.sttProviderId) {
@@ -84,8 +84,8 @@ export function createSTTProvider(
         throw new Error(m('err.sttNoKeyGoogleAudio'));
       }
       if (!answerContext) {
-        // Sin contexto no hay ni prompt ni memoria: mejor fallar aquí que
-        // responder con el system prompt vacío y no entender por qué.
+        // With no context there's no prompt or memory: better to fail here than
+        // answer with an empty system prompt and not understand why.
         throw new Error(m('err.sttNoContext'));
       }
       return new GeminiAudioSTT(
@@ -107,11 +107,11 @@ export function createSTTProvider(
     }
 
     case 'whisper-local':
-      // `create` lanza con un mensaje que indica qué falta descargar y dónde.
+      // `create` throws with a message saying what's missing to download and where.
       return WhisperLocalSTT.create(settings.whisperModel);
 
     default: {
-      // Si se añade un id al tipo y no se maneja aquí, TypeScript falla el build.
+      // If an id is added to the type and not handled here, TypeScript fails the build.
       const exhaustive: never = settings.sttProviderId;
       throw new Error(m('err.sttUnknown', { id: String(exhaustive) }));
     }
