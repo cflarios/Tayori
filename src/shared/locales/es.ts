@@ -96,6 +96,7 @@ export const es: Record<UIKey, string> = {
   'overlay.copied': 'Copiado',
   'overlay.copyFailed': 'No se pudo',
   'overlay.copy': 'Copiar',
+  'overlay.copyAnswer': 'Copiar la respuesta',
 
   'overlay.readingScreen': 'Leyendo la pantalla…',
   'overlay.thinking': 'Pensando…',

@@ -112,6 +112,7 @@ export const en = {
   'overlay.copied': 'Copied',
   'overlay.copyFailed': "Couldn't copy",
   'overlay.copy': 'Copy',
+  'overlay.copyAnswer': 'Copy the answer',
 
   'overlay.readingScreen': 'Reading the screen…',
   'overlay.thinking': 'Thinking…',

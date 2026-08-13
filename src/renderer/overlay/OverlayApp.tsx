@@ -1325,6 +1325,47 @@ function Teleprompter({ text }: { text: string }) {
   );
 }
 
+/**
+ * Copia el texto completo de la respuesta al portapapeles.
+ *
+ * Como el copiar de un bloque de código, pasa por el main (`clipboard.write`):
+ * `navigator.clipboard` exige foco y el overlay es `focusable: false`, así que
+ * fallaría siempre. Da un «Copiado» breve como confirmación.
+ */
+function CopyAnswerButton({ text }: { text: string }) {
+  const t = useT();
+  const [copied, setCopied] = useState<'no' | 'sí' | 'falló'>('no');
+
+  useEffect(() => {
+    if (copied === 'no') return;
+    const timer = setTimeout(() => setCopied('no'), 1_200);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copy = (): void => {
+    window.api.clipboard
+      .write(text)
+      .then(() => setCopied('sí'))
+      .catch(() => setCopied('falló'));
+  };
+
+  return (
+    <button
+      type="button"
+      className="section__copy"
+      data-interactive
+      title={t('overlay.copyAnswer')}
+      onClick={copy}
+    >
+      {copied === 'sí'
+        ? t('overlay.copied')
+        : copied === 'falló'
+          ? t('overlay.copyFailed')
+          : t('overlay.copy')}
+    </button>
+  );
+}
+
 /** El cuerpo de una respuesta: texto, salvo lo que venga entre vallas. */
 function AnswerBody({ text }: { text: string }) {
   const blocks = parseAnswerBlocks(text);
@@ -1895,6 +1936,12 @@ export function OverlayApp() {
               )}
               <MemoryChip turns={memory.turns} max={memory.max} />
               <ScrollChip state={scroll} />
+              {/* Copiar la respuesta entera. Aparece cuando ya está terminada (con
+                  la generación en curso está el botón «Parar»), para cualquier tipo
+                  de respuesta, no solo código. */}
+              {answer && answer.status === 'done' && answer.text.trim() && (
+                <CopyAnswerButton text={answer.text} />
+              )}
               {/* Parar una generación ya existía en el IPC pero no tenía botón: sólo
               se cancelaba preguntando otra cosa, que es una forma cara de decir
               "para". */}
