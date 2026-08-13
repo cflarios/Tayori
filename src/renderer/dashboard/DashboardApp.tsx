@@ -575,6 +575,10 @@ export function DashboardApp() {
   if (!settings.onboardingDone || wizard) {
     return (
       <div className="shell">
+        {/* Mismo marco de "detectable" que el resto del dashboard: el asistente
+            también está protegido de la captura a nivel de ventana, pero sin el
+            marco parecía quedar fuera del switch de sigilo. */}
+        {!settings.stealthEnabled && <div className="detectable-frame" aria-hidden="true" />}
         <TitleBar />
         <SetupWizard
           settings={settings}

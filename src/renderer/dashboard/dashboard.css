@@ -1816,7 +1816,20 @@ kbd {
   flex: 1;
   overflow-y: auto;
   padding: 22px 32px 40px;
-  max-width: 760px;
+}
+
+/*
+ * El asistente vive en una columna centrada, no pegada a la izquierda: la
+ * ventana del dashboard es ancha (980 px y redimensionable) y con el contenido a
+ * la izquierda quedaba medio panel vacío a la derecha. Cabecera, navegación y
+ * cuerpo comparten el mismo ancho y centrado para que todo se alinee.
+ */
+.wiz__head,
+.wiz__nav,
+.wiz__body {
+  width: 100%;
+  max-width: 920px;
+  margin-inline: auto;
 }
 
 .wiz__welcome {
