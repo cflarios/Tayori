@@ -3,6 +3,7 @@ import type { WhisperProgress } from '@shared/ipc';
 import {
   activeHotkeys,
   adviseLocalModels,
+  applyModelPreset,
   autoTriggerIsInert,
   clampFontScale,
   DEFAULT_HOTKEYS,
@@ -12,6 +13,7 @@ import {
   mqttTopics,
   INTERPRETER_LANGS,
   packsForProfile,
+  presetFromSettings,
   PROFILE_SLOTS,
   providerIsReady,
   screenModelFor,
@@ -27,6 +29,7 @@ import { skillDescription, skillName } from '@shared/skills';
 import {
   WHISPER_MODELS,
   recommendWhisperModel,
+  sortByFavorite,
   type ModelAccuracy,
   type ModelSpeed,
 } from '@shared/whisper-models';
@@ -42,6 +45,7 @@ import type {
   HotkeyMap,
   LLMProviderId,
   ModelInfo,
+  ModelPreset,
   MqttStatus,
   OllamaStatus,
   PhoneMirrorStatus,
@@ -49,6 +53,7 @@ import type {
   SecretsPresence,
   Settings,
   Skill,
+  STTProviderId,
   SystemSpecs,
   ContextKind,
 } from '@shared/types';
@@ -663,6 +668,7 @@ export function DashboardApp() {
                       saveSecret={saveSecret}
                       clearSecret={clearSecret}
                     />
+                    <ModelPresetsCard settings={settings} patch={patch} />
                     <ModelCard settings={settings} patch={patch} />
                     {/* Justo detrás del modelo de respuestas: se lee como "y para la
                     pantalla, esto otro", que es la decisión que hay que tomar. */}
@@ -2434,6 +2440,110 @@ function ModelPicker({
   );
 }
 
+/** Nombre del motor de transcripción, como clave. El `Record` exhaustivo obliga
+ *  a dar etiqueta a cada motor nuevo que se añada a `STTProviderId`. */
+const STT_LABEL: Record<STTProviderId, UIKey> = {
+  'openai-live': 'stt.openaiLive',
+  'openai-transcribe': 'stt.openaiTranscribe',
+  'gemini-live': 'stt.geminiLive',
+  'gemini-audio': 'stt.geminiAudio',
+  'whisper-local': 'stt.whisperLocal',
+};
+
+/** Nombres de proveedor de respuestas: nombres propios, no se traducen. */
+const LLM_LABEL: Record<LLMProviderId, string> = {
+  claude: 'Claude',
+  gemini: 'Gemini',
+  openai: 'ChatGPT',
+  deepseek: 'DeepSeek',
+  ollama: 'Ollama',
+};
+
+/**
+ * Mini-perfiles de modelos: presets con nombre que fijan de un clic qué motores
+ * y modelos usar para un caso (entrevista, reunión, intérprete…).
+ *
+ * No sustituye al perfil de prompt: lo **incluye** como un campo más. Cambiar de
+ * perfil de prompt sigue decidiendo la forma de la respuesta; aplicar un preset
+ * además pone los modelos. Ver `applyModelPreset` en `shared/types.ts`.
+ */
+function ModelPresetsCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
+  const presets = settings.modelPresets;
+
+  const write = (next: ModelPreset[]): void => void patch({ modelPresets: next });
+
+  const saveCurrent = (): void => {
+    write([
+      ...presets,
+      {
+        id: crypto.randomUUID(),
+        // Nombre por defecto: el perfil de prompt actual. Es editable en el acto.
+        name: t(PROFILE_LABEL[settings.promptProfileId]),
+        ...presetFromSettings(settings),
+      },
+    ]);
+  };
+
+  const rename = (id: string, name: string): void =>
+    write(presets.map((p) => (p.id === id ? { ...p, name } : p)));
+
+  const remove = (id: string): void => write(presets.filter((p) => p.id !== id));
+
+  const apply = (preset: ModelPreset): void => void patch(applyModelPreset(settings, preset));
+
+  return (
+    <section className="card">
+      <h2 className="card__title">{t('presets.title')}</h2>
+      <p className="card__hint">{t('presets.hint')}</p>
+
+      {presets.length === 0 ? (
+        <p className="preset__empty">{t('presets.empty')}</p>
+      ) : (
+        <div className="preset__list">
+          {presets.map((p) => (
+            <div key={p.id} className="preset__row">
+              <input
+                className="preset__name"
+                value={p.name}
+                aria-label={t('presets.nameLabel')}
+                onChange={(e) => rename(p.id, e.target.value)}
+              />
+              <div className="preset__tags">
+                <span className="preset__tag">{t(STT_LABEL[p.sttProviderId])}</span>
+                <span className="preset__tag">
+                  {LLM_LABEL[p.llmProviderId]}
+                  {p.llmModel ? ` · ${p.llmModel}` : ''}
+                </span>
+                <span className="preset__tag">{t(PROFILE_LABEL[p.promptProfileId])}</span>
+              </div>
+              <div className="preset__acts">
+                <button className="btn btn--small" onClick={() => apply(p)}>
+                  {t('presets.apply')}
+                </button>
+                <button
+                  className="preset__del"
+                  aria-label={t('presets.delete')}
+                  title={t('presets.delete')}
+                  onClick={() => remove(p.id)}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="field">
+        <button className="btn" onClick={saveCurrent}>
+          {t('presets.saveCurrent')}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
   const provider = settings.llmProviderId;
@@ -2719,6 +2829,12 @@ function TranscriptionCard({
     await install();
   };
 
+  /** Añade o quita un modelo de los favoritos, devolviendo la lista nueva. */
+  const toggleFavorite = (id: string): string[] =>
+    settings.favoriteLocalModels.includes(id)
+      ? settings.favoriteLocalModels.filter((m) => m !== id)
+      : [...settings.favoriteLocalModels, id];
+
   const recommended = ram !== null ? recommendWhisperModel(ram) : null;
   const pct =
     progress && progress.totalBytes > 0
@@ -2822,11 +2938,22 @@ function TranscriptionCard({
           </div>
 
           <div className="mm">
-            {WHISPER_MODELS.map((mo) => {
+            {sortByFavorite(WHISPER_MODELS, settings.favoriteLocalModels).map((mo) => {
               const isInstalled = status.installed.includes(mo.id);
               const isActive = settings.whisperModel === mo.id;
+              const isFavorite = settings.favoriteLocalModels.includes(mo.id);
               return (
                 <div key={mo.id} className={`mm__row${isActive ? ' mm__row--active' : ''}`}>
+                  <button
+                    type="button"
+                    className={`mm__fav${isFavorite ? ' mm__fav--on' : ''}`}
+                    aria-pressed={isFavorite}
+                    title={t(isFavorite ? 'stt.unfavorite' : 'stt.favorite')}
+                    aria-label={t(isFavorite ? 'stt.unfavorite' : 'stt.favorite')}
+                    onClick={() => void patch({ favoriteLocalModels: toggleFavorite(mo.id) })}
+                  >
+                    <Icon name={isFavorite ? 'starFilled' : 'star'} size={15} />
+                  </button>
                   <div className="mm__info">
                     <div className="mm__name">
                       {mo.name}

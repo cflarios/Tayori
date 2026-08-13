@@ -258,6 +258,16 @@ const PATHS = {
       <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
     </>
   ),
+  /* La estrella de favoritos: contorno cuando no lo es, y la misma silueta
+     rellena con `fill` cuando sí, igual que `contrast`. */
+  star: <path d="M12 3l2.7 5.5 6 .9-4.35 4.25 1.03 6L12 16.9 6.62 19.7l1.03-6L3.3 9.4l6-.9z" />,
+  starFilled: (
+    <path
+      d="M12 3l2.7 5.5 6 .9-4.35 4.25 1.03 6L12 16.9 6.62 19.7l1.03-6L3.3 9.4l6-.9z"
+      fill="currentColor"
+      stroke="none"
+    />
+  ),
 } satisfies Record<string, React.ReactNode>;
 
 export type IconName = keyof typeof PATHS;

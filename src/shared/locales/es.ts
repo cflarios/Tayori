@@ -160,6 +160,15 @@ export const es: Record<UIKey, string> = {
   'mqtt.passwordPlaceholder': 'Pega la contraseña del broker',
 
   // ───────────────────── Ajustes · modelo ─────────────────────
+  'presets.title': 'Perfiles de modelos',
+  'presets.hint':
+    'Guarda un conjunto de modelos para un caso (entrevista, reunión, intérprete…) y cámbialo de un clic. Un perfil fija el motor y modelo de transcripción, el proveedor y modelo de respuestas, el modelo de pantalla y el perfil de prompt — nada más.',
+  'presets.empty': 'Aún no hay perfiles. Configura tus modelos abajo y guárdalos aquí.',
+  'presets.saveCurrent': 'Guardar la configuración actual como perfil',
+  'presets.apply': 'Aplicar',
+  'presets.delete': 'Borrar perfil',
+  'presets.nameLabel': 'Nombre del perfil',
+
   'model.title': 'Modelo de respuestas',
   'model.hint': 'Quién genera las sugerencias que ves en el overlay.',
   'model.provider': 'Proveedor',
@@ -275,6 +284,8 @@ export const es: Record<UIKey, string> = {
   'stt.use': 'Usar',
   'stt.inUse': 'En uso',
   'stt.recommended': 'Recomendado',
+  'stt.favorite': 'Marcar como favorito',
+  'stt.unfavorite': 'Quitar de favoritos',
   'stt.recForPc': 'Recomendado para tu equipo',
   'stt.downloading': 'Descargando…',
   'stt.installed': 'instalado',

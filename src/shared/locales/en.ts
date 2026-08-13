@@ -177,6 +177,15 @@ export const en = {
   'mqtt.passwordPlaceholder': 'Paste the broker password',
 
   // ───────────────────── Ajustes · modelo ─────────────────────
+  'presets.title': 'Model presets',
+  'presets.hint':
+    'Save a set of models for a use case (interview, meeting, interpreter…) and switch to it in one click. A preset sets the transcription engine and model, the answering provider and model, the screen model and the prompt profile — nothing else.',
+  'presets.empty': 'No presets yet. Set up your models below, then save them here.',
+  'presets.saveCurrent': 'Save current setup as a preset',
+  'presets.apply': 'Apply',
+  'presets.delete': 'Delete preset',
+  'presets.nameLabel': 'Preset name',
+
   'model.title': 'Answering model',
   'model.hint': 'Who writes the suggestions you see in the overlay.',
   'model.provider': 'Provider',
@@ -291,6 +300,8 @@ export const en = {
   'stt.use': 'Use',
   'stt.inUse': 'In use',
   'stt.recommended': 'Recommended',
+  'stt.favorite': 'Mark as favorite',
+  'stt.unfavorite': 'Remove from favorites',
   'stt.recForPc': 'Recommended for your PC',
   'stt.downloading': 'Downloading…',
   'stt.installed': 'installed',

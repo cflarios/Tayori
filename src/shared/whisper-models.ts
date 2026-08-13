@@ -81,6 +81,23 @@ export function whisperModelById(id: string): WhisperModelInfo | undefined {
 }
 
 /**
+ * Reordena un catálogo de modelos locales poniendo los favoritos primero.
+ *
+ * Estable: dentro de cada grupo (favoritos y resto) se conserva el orden del
+ * catálogo, que ya viene ordenado de más ligero a más pesado. Es genérica sobre
+ * cualquier lista con `id`, para no atarla al catálogo de Whisper.
+ */
+export function sortByFavorite<T extends { id: string }>(
+  models: readonly T[],
+  favorites: readonly string[]
+): T[] {
+  const fav = new Set(favorites);
+  const favored = models.filter((m) => fav.has(m.id));
+  const rest = models.filter((m) => !fav.has(m.id));
+  return [...favored, ...rest];
+}
+
+/**
  * Recomienda un modelo según la RAM, con sesgo hacia lo rápido: la transcripción
  * es en vivo y un modelo lento arruina el caso de uso aunque quepa en memoria.
  * Se prefiere multilingüe porque no se sabe en qué idioma hablará el usuario.

@@ -307,6 +307,27 @@ export type PromptProfileId =
   'interview' | 'meeting' | 'lecture' | 'support' | 'coding' | 'quiz' | 'interpreter' | 'custom';
 
 /**
+ * Un mini-perfil de modelos: la combinación de motores y modelos para un caso.
+ *
+ * Guarda **sólo** motores+modelos y el perfil de prompt, no toda la sesión: no
+ * toca idioma, fuentes de audio, sensibilidad ni skill, que son ajustes que se
+ * quieren estables entre casos. `llmModel` es el modelo del proveedor de
+ * respuestas del preset; al aplicarlo sólo se pisa ese, respetando el resto del
+ * `Record<LLMProviderId, string>` de `Settings.llmModels`.
+ */
+export interface ModelPreset {
+  id: string;
+  name: string;
+  sttProviderId: STTProviderId;
+  whisperModel: string;
+  llmProviderId: LLMProviderId;
+  llmModel: string;
+  screenProviderId: LLMProviderId | 'same';
+  screenModel: string;
+  promptProfileId: PromptProfileId;
+}
+
+/**
  * Idiomas del modo Intérprete. Se guardan por código; el nombre se resuelve al
  * idioma de la interfaz para el dashboard y al español para el prompt (que va en
  * español). El modelo entiende el nombre en cualquier idioma, pero nombrarlos en
@@ -483,6 +504,17 @@ export interface Settings {
   language: string;
   whisperModel: string;
 
+  /**
+   * Modelos de transcripción local marcados como favoritos, por id.
+   *
+   * Pura conveniencia del Model Manager: una estrella los sube arriba del listado
+   * para no rebuscar el que sueles usar entre toda la familia de Whisper. No
+   * cambia cuál está activo —eso lo dice `whisperModel`—, solo el orden en que se
+   * pintan. Es una lista y no un `Set` porque tiene que cruzar el IPC y sobrevivir
+   * a `settings.json`.
+   */
+  favoriteLocalModels: string[];
+
   /** Qué se escucha: micrófono, salida del sistema, o ambas. */
   audioSources: AudioSourceMode;
 
@@ -507,6 +539,16 @@ export interface Settings {
   uiLanguage: UILang;
 
   promptProfileId: PromptProfileId;
+
+  /**
+   * Mini-perfiles de modelos: presets con nombre que fijan de un clic qué
+   * motores y modelos usar para un caso (entrevista, reunión, intérprete…).
+   *
+   * Es una entidad aparte y NO se activa al cambiar `promptProfileId`: ese
+   * sigue decidiendo la **forma** de la respuesta, y un preset guarda además
+   * **qué modelos** tener cargados. Se aplica a mano con `applyModelPreset`.
+   */
+  modelPresets: ModelPreset[];
 
   /** Los dos idiomas del modo Intérprete (códigos de `INTERPRETER_LANGS`). */
   interpreterLangA: string;
@@ -805,6 +847,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sttProviderId: 'gemini-live',
   language: 'auto',
   whisperModel: 'base',
+  // Sin favoritos de fábrica: la estrella la pone quien tiene un modelo preferido.
+  favoriteLocalModels: [],
   audioSources: 'both',
 
   autoTriggerMode: 'heuristic',
@@ -818,6 +862,8 @@ export const DEFAULT_SETTINGS: Settings = {
   uiLanguage: 'en',
 
   promptProfileId: 'interview',
+  // Sin presets de fábrica: los crea el usuario a partir de su configuración.
+  modelPresets: [],
   interpreterLangA: 'es',
   interpreterLangB: 'en',
   customPrompt: '',
@@ -880,6 +926,43 @@ export function screenModelFor(settings: Settings): {
     // que fallar por un campo vacío que el usuario no sabe que existe.
     model: settings.screenModel || settings.llmModels[settings.screenProviderId],
     inherited: false,
+  };
+}
+
+/**
+ * El patch que aplica un mini-perfil de modelos.
+ *
+ * Devuelve sólo los campos que el preset gobierna. Lo delicado es `llmModels`:
+ * es un `Record` por proveedor, así que se **fusiona** en lugar de sustituirse
+ * —pisar el modelo del proveedor del preset y conservar el resto—, para no
+ * perder el modelo que el usuario eligió en los otros proveedores.
+ */
+export function applyModelPreset(current: Settings, preset: ModelPreset): Partial<Settings> {
+  return {
+    sttProviderId: preset.sttProviderId,
+    whisperModel: preset.whisperModel,
+    llmProviderId: preset.llmProviderId,
+    llmModels: { ...current.llmModels, [preset.llmProviderId]: preset.llmModel },
+    screenProviderId: preset.screenProviderId,
+    screenModel: preset.screenModel,
+    promptProfileId: preset.promptProfileId,
+  };
+}
+
+/**
+ * Captura la configuración actual como preset, sin id ni nombre (los pone quien
+ * lo guarda). Es la inversa de `applyModelPreset`: lo que un preset fija es lo
+ * que de aquí se lee.
+ */
+export function presetFromSettings(settings: Settings): Omit<ModelPreset, 'id' | 'name'> {
+  return {
+    sttProviderId: settings.sttProviderId,
+    whisperModel: settings.whisperModel,
+    llmProviderId: settings.llmProviderId,
+    llmModel: settings.llmModels[settings.llmProviderId],
+    screenProviderId: settings.screenProviderId,
+    screenModel: settings.screenModel,
+    promptProfileId: settings.promptProfileId,
   };
 }
 
