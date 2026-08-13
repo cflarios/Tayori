@@ -83,6 +83,21 @@ body {
   color: var(--text-dim);
 }
 
+/*
+ * Aviso de que el dashboard ES visible en la captura ahora mismo (sigilo
+ * apagado): un marco discontinuo rojo pegado al borde de la ventana. La ventana
+ * tiene las API keys, el CV y el historial, así que su visibilidad importa tanto
+ * como la del overlay. `fixed` sobre el viewport y `pointer-events: none`.
+ */
+.detectable-frame {
+  position: fixed;
+  inset: 3px;
+  border: 2px dashed #ef4444;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
 /* ── Estructura: barra lateral + panel ── */
 
 /*

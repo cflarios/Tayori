@@ -25,6 +25,21 @@ body {
   user-select: none;
 }
 
+/*
+ * Aviso de que el overlay ES visible en la captura ahora mismo (sigilo apagado):
+ * un marco discontinuo rojo pegado al borde de la ventana, imposible de pasar por
+ * alto. Va `fixed` sobre el viewport —que en el overlay coincide con el panel— y
+ * con `pointer-events: none` para no estorbar a los clics atravesables.
+ */
+.detectable-frame {
+  position: fixed;
+  inset: 3px;
+  border: 2px dashed #ef4444;
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 60;
+}
+
 .panel {
   /*
    * Escala del texto de contenido. La fija el ajuste `overlayFontScale` como

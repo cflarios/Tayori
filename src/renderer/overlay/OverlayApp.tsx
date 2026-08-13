@@ -1758,6 +1758,12 @@ export function OverlayApp() {
           ['--font-scale' as string]: clampFontScale(settings?.overlayFontScale ?? 1),
         }}
       >
+        {/* Marco discontinuo rojo cuando el sigilo está apagado: el overlay SÍ
+            sale en la captura ahora mismo, y el borde lo grita en el propio borde
+            de la ventana, no sólo con el «VISIBLE» de la barra. */}
+        {settings && !settings.stealthEnabled && (
+          <div className="detectable-frame" aria-hidden="true" />
+        )}
         <StatusBar
           status={status}
           levels={levels}

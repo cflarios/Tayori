@@ -616,6 +616,10 @@ export function DashboardApp() {
 
   return (
     <div className="shell">
+      {/* Marco discontinuo rojo cuando el sigilo está apagado: el dashboard —con
+          las API keys, el CV y el historial— también sale en la captura ahora
+          mismo, así que lo avisa en el propio borde de la ventana. */}
+      {!settings.stealthEnabled && <div className="detectable-frame" aria-hidden="true" />}
       <TitleBar />
       <LangProvider lang={settings.uiLanguage}>
         <div className="app">
