@@ -1,6 +1,6 @@
 # CONTEXT.md — por qué el código es así
 
-Este documento no explica **cómo usar** la app (eso es el [README](README.md)),
+Este documento no explica **cómo usar** la app (eso es [USAGE.md](USAGE.md)),
 ni **dónde vive cada cosa** (eso es [ARCHITECTURE.md](ARCHITECTURE.md)), ni
 **qué hace** cada archivo (eso lo dicen los comentarios). Registra el
 **razonamiento**: qué se verificó, qué se descartó y por qué, y qué salió mal al
@@ -8,11 +8,12 @@ probarlo. Sin esto, la próxima persona que toque el proyecto —incluido tu yo 
 dentro de tres meses— vuelve a tomar las mismas decisiones desde cero, o peor,
 las revierte sin saber qué las motivó.
 
-**Los tres documentos, y cuándo abrir cada uno:**
+**Los cuatro documentos, y cuándo abrir cada uno:**
 
 | | Responde a | Ábrelo cuando |
 |---|---|---|
-| [README.md](README.md) | Qué hace y cómo se usa | Quieres ejecutarlo |
+| [README.md](README.md) | Qué es, de un vistazo | Acabas de llegar |
+| [USAGE.md](USAGE.md) | Cómo se usa cada función | Quieres ejecutarlo |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Qué es y cómo circulan los datos | Vas a tocar código y no sabes dónde |
 | CONTEXT.md | Por qué está así | Algo te parece raro y vas a "arreglarlo" |
 

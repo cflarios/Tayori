@@ -1,0 +1,87 @@
+<svg width="860" height="480" viewBox="0 0 860 480" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', system-ui, -apple-system, Roboto, sans-serif">
+  <defs>
+    <linearGradient id="backdrop" x1="0" y1="0" x2="860" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#232a45"/>
+      <stop offset="1" stop-color="#14161f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.28" r="0.55">
+      <stop offset="0" stop-color="#4c8dff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#4c8dff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accentText" x1="250" y1="0" x2="360" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#c4b5fd"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="16" stdDeviation="26" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Backdrop -->
+  <rect x="0" y="0" width="860" height="480" rx="22" fill="url(#backdrop)"/>
+  <rect x="0" y="0" width="860" height="480" rx="22" fill="url(#glow)"/>
+
+  <!-- Overlay panel -->
+  <g filter="url(#cardShadow)">
+    <rect x="230" y="44" width="400" height="344" rx="16" fill="#111317" stroke="#ffffff" stroke-opacity="0.09"/>
+  </g>
+
+  <!-- ── Status bar ── -->
+  <circle cx="262" cy="70" r="7.5" fill="#34d399" fill-opacity="0.16"/>
+  <circle cx="262" cy="70" r="4" fill="#34d399"/>
+  <text x="276" y="74.5" fill="#6ee7b7" font-size="12.5" font-weight="600">Listening</text>
+
+  <!-- Source segmented control -->
+  <rect x="494" y="60" width="94" height="22" rx="8" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text x="504" y="75" fill="#9aa0a6" font-size="10.5">Them</text>
+  <rect x="543" y="62.5" width="43" height="17" rx="6" fill="#4c8dff" fill-opacity="0.18"/>
+  <text x="551" y="75" fill="#cdddff" font-size="10.5">You</text>
+  <text x="600" y="76" fill="#9aa0a6" font-size="15" font-weight="700">⋯</text>
+
+  <line x1="250" y1="92" x2="610" y2="92" stroke="#ffffff" stroke-opacity="0.06"/>
+
+  <!-- ── Transcript ── -->
+  <rect x="250" y="104" width="42" height="17" rx="4" fill="#fbbf24" fill-opacity="0.14"/>
+  <text x="257" y="116" fill="#fbbf24" font-size="10" font-weight="600">Them</text>
+  <text x="300" y="116.5" fill="#d2d5d9" font-size="13">“How would you handle a 10× traffic</text>
+  <text x="250" y="137" fill="#d2d5d9" font-size="13">spike at checkout?”</text>
+
+  <!-- ── Suggestion header ── -->
+  <text x="250" y="172" fill="url(#accentText)" font-size="11" font-weight="700" letter-spacing="1.2">✦ SUGGESTION</text>
+  <text x="360" y="172" fill="#7c8288" font-size="10.5">‹ 2/5 ›</text>
+
+  <!-- Bullets -->
+  <circle cx="253" cy="196" r="2" fill="#4c8dff"/>
+  <text x="266" y="200" fill="#e6e5f2" font-size="13">Numbers first: current RPS and expected peak.</text>
+
+  <circle cx="253" cy="224" r="2" fill="#4c8dff"/>
+  <text x="266" y="228" fill="#e6e5f2" font-size="13">Read-through cache + queue the writes.</text>
+
+  <circle cx="253" cy="252" r="2" fill="#4c8dff"/>
+  <text x="266" y="256" fill="#e6e5f2" font-size="13">Horizontal autoscaling with cost caps.</text>
+
+  <circle cx="253" cy="280" r="2" fill="#4c8dff"/>
+  <text x="266" y="284" fill="#e6e5f2" font-size="13">Feature flag to degrade gracefully.</text>
+
+  <!-- ── Profile chips ── -->
+  <line x1="250" y1="308" x2="610" y2="308" stroke="#ffffff" stroke-opacity="0.06"/>
+
+  <rect x="250" y="320" width="72" height="24" rx="12" fill="#4c8dff" fill-opacity="0.14" stroke="#4c8dff" stroke-opacity="0.3"/>
+  <text x="262" y="336" fill="#a8c7ff" font-size="11" font-weight="600">Interview</text>
+
+  <rect x="330" y="320" width="66" height="24" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text x="343" y="336" fill="#9aa0a6" font-size="11">Meeting</text>
+
+  <rect x="404" y="320" width="58" height="24" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text x="416" y="336" fill="#9aa0a6" font-size="11">Coding</text>
+
+  <rect x="470" y="320" width="82" height="24" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text x="482" y="336" fill="#9aa0a6" font-size="11">Interpreter</text>
+
+  <!-- ── Floating "hidden" chip ── -->
+  <g filter="url(#cardShadow)">
+    <rect x="318" y="410" width="224" height="30" rx="15" fill="#16181d" stroke="#ffffff" stroke-opacity="0.1"/>
+  </g>
+  <text x="336" y="429.5" fill="#67e8f9" font-size="12">◐</text>
+  <text x="356" y="429.5" fill="#c8ccd0" font-size="11.5">Hidden while sharing your screen</text>
+</svg>

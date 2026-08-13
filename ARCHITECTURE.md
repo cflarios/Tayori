@@ -5,7 +5,7 @@ cuando alguien habla?".
 
 No explica **por qué** las decisiones son las que son —eso está en
 [CONTEXT.md](CONTEXT.md), y es lectura obligatoria antes de cambiar algo que
-parezca raro— ni **cómo se usa** la app, que está en el [README](README.md).
+parezca raro— ni **cómo se usa** la app, que está en [USAGE.md](USAGE.md).
 
 ---
 
