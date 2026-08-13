@@ -69,7 +69,7 @@ the same on every push.
 
 Adding a transcription engine, an answer provider, a prompt profile or a skill
 is a small, well-defined change — see
-[ARCHITECTURE.md §8](ARCHITECTURE.md#8-cómo-añadir-cosas). The factories use
+[ARCHITECTURE.md §8](ARCHITECTURE.md#8-how-to-add-things). The factories use
 exhaustive `switch`/`Record` types, so adding an id without handling it breaks
 the build instead of failing at runtime.
 

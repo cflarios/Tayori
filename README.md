@@ -115,7 +115,7 @@ npm run build:win   # NSIS installer + portable
 ```
 
 Adding a provider, an STT engine, a profile or a skill is a small, well-defined
-change — see [ARCHITECTURE.md §8](ARCHITECTURE.md#8-cómo-añadir-cosas). CI runs
+change — see [ARCHITECTURE.md §8](ARCHITECTURE.md#8-how-to-add-things). CI runs
 typecheck, lint and tests on every push; releases are handled by Release Please
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
