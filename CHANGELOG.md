@@ -4,6 +4,18 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.6.0](https://github.com/cflarios/Tayori/compare/v1.5.1...v1.6.0) (2026-08-13)
+
+
+### Features
+
+* **overlay:** botón de copiar para cualquier respuesta, no solo código ([b840f2e](https://github.com/cflarios/Tayori/commit/b840f2ec3bb86299c93887b891876b68a2208cd2))
+
+
+### Bug Fixes
+
+* **interpreter:** la traducción salía envuelta en etiquetas XML traducidas ([dff5d05](https://github.com/cflarios/Tayori/commit/dff5d05cefa26a6a589ebf8704f0314ee98d9d70))
+
 ## [1.5.1](https://github.com/cflarios/Tayori/compare/v1.5.0...v1.5.1) (2026-08-13)
 
 
