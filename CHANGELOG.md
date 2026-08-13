@@ -4,6 +4,25 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.5.0](https://github.com/cflarios/Tayori/compare/v1.4.0...v1.5.0) (2026-08-13)
+
+
+### Features
+
+* **brand:** el fantasmita de Tayori en el dashboard y como icono del .exe ([8a4dc8e](https://github.com/cflarios/Tayori/commit/8a4dc8edccf45555c8da73627a9cb0263910c9f6))
+* **brand:** el fantasmita también en el asistente de primer arranque ([68e9e1b](https://github.com/cflarios/Tayori/commit/68e9e1b6ad78b081cb8ce384bc876fe3713adac1))
+* modo idle (apagado por inactividad) y botón de comprobar actualizaciones ([d485c4f](https://github.com/cflarios/Tayori/commit/d485c4fe27bcfa406893a77584a3dc35ba13d7ef))
+* **stealth:** excluye también el dashboard de la captura de pantalla ([05175b1](https://github.com/cflarios/Tayori/commit/05175b1d24566999a8ea2fdbf20a7e95f3315cbc))
+* **ui:** dashboard persistente como el overlay y marco "detectable" por fuera ([9ace8ae](https://github.com/cflarios/Tayori/commit/9ace8aedb5b09d4ae61ace8b2140676f7c098154))
+* **ui:** marco discontinuo rojo cuando el sigilo está apagado (overlay y dashboard) ([f345dd3](https://github.com/cflarios/Tayori/commit/f345dd31f4340af0ab9f501038ec578f21bde3f7))
+
+
+### Bug Fixes
+
+* **overlay:** desbloquea el overlay tras abrir y cerrar el dashboard ([e4f5329](https://github.com/cflarios/Tayori/commit/e4f53299377321de17f5959b752f08caa4713aeb))
+* **overlay:** resync real del ratón al cerrar el dashboard (el fix anterior no bastaba) ([fed7996](https://github.com/cflarios/Tayori/commit/fed799661a29030bfc915c70e4f3bd8de1982341))
+* **wizard:** columna centrada y marco de "detectable" en el asistente ([8d15824](https://github.com/cflarios/Tayori/commit/8d15824cfab6ad9222abe4b65af44c70e62fac09))
+
 ## [1.4.0](https://github.com/cflarios/Tayori/compare/v1.3.0...v1.4.0) (2026-08-13)
 
 
