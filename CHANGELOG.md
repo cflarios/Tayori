@@ -4,6 +4,25 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo.
 El contenido de cada versión se genera automáticamente a partir de los commits
 que siguen el formato [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.4.0](https://github.com/cflarios/Tayori/compare/v1.3.0...v1.4.0) (2026-08-13)
+
+
+### Features
+
+* **dashboard:** mini-perfiles de modelos y estrella de favoritos locales ([407fe5b](https://github.com/cflarios/Tayori/commit/407fe5bcdfd144207d4df047de70f7199366220d))
+* **dashboard:** referencia los proyectos hermanos TayoriESP32 y tayori-web ([1415023](https://github.com/cflarios/Tayori/commit/1415023a359bb3d90b17d061d962b9a453309a0b))
+* más modelos de Whisper y modo intérprete ([dd20737](https://github.com/cflarios/Tayori/commit/dd20737815e599c4c17bff10b4ecabfd6ef5f309))
+
+
+### Bug Fixes
+
+* **dashboard:** la mención a TayoriESP32 ahora siempre se ve en la tab MQTT ([bbdc649](https://github.com/cflarios/Tayori/commit/bbdc64968908710e29bf3792cd512d7fa04b64b2))
+
+
+### Performance Improvements
+
+* **dashboard:** cachea las specs del sistema para acelerar Modelos y Transcripción ([e4f3275](https://github.com/cflarios/Tayori/commit/e4f3275035d072aa8ccf40f4a8877d628ba54bf1))
+
 ## [1.3.0](https://github.com/cflarios/Tayori/compare/v1.2.0...v1.3.0) (2026-08-12)
 
 
