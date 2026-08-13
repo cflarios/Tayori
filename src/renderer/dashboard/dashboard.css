@@ -1819,6 +1819,34 @@ kbd {
   max-width: 760px;
 }
 
+.wiz__welcome {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 18px;
+}
+
+.wiz__mascot {
+  width: 76px;
+  height: 76px;
+  animation: mascot-float 4s ease-in-out infinite;
+}
+
+@keyframes mascot-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiz__mascot {
+    animation: none;
+  }
+}
+
 .wiz__lead {
   font-size: 14px;
   line-height: 1.6;

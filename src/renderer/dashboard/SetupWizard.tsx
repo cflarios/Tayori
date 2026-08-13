@@ -9,6 +9,7 @@ import {
 } from '@shared/types';
 import type { WhisperProgress } from '@shared/ipc';
 import { Icon } from './icons';
+import { Mascot } from '@renderer/Mascot';
 import { Tx, useT } from '@renderer/i18n';
 import type { UIKey } from '@shared/i18n';
 
@@ -208,6 +209,9 @@ function Welcome({ specs, onPick }: { specs: SystemSpecs | null; onPick: (path: 
 
   return (
     <>
+      <div className="wiz__welcome">
+        <Mascot className="wiz__mascot" autoBlink />
+      </div>
       <p className="wiz__lead">{t('wiz.lead')}</p>
 
       <div className="specs">

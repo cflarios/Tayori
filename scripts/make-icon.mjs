@@ -16,6 +16,7 @@
  * los empaqueta. Se renderiza a cada tamaño en vez de escalar uno grande para que
  * el icono pequeño (16/32) salga nítido.
  */
+import { Buffer } from 'node:buffer';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
