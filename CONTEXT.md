@@ -2088,6 +2088,66 @@ instalado (`node_modules/@google/genai/dist/genai.d.ts`), que es la fuente
 autoritativa. `GEMINI_LIVE_MODELS` está ordenado por preferencia: si el primero
 da 404 o permission denied, probar el siguiente.
 
+### Mini-perfiles de modelos, y por qué no son el perfil de prompt
+
+Un `ModelPreset` guarda de un clic qué **motores y modelos** usar para un caso
+(entrevista, reunión, intérprete…): motor y modelo de transcripción, proveedor y
+modelo de respuestas, modelo de pantalla y perfil de prompt. La tentación es
+fusionarlo con `promptProfileId`, que ya se llama «perfil» y ya tiene esos
+nombres; son cosas distintas y juntarlas rompe las dos. `promptProfileId` decide
+la **forma** de la respuesta (cuatro viñetas, bloque de código); un `ModelPreset`
+decide **qué modelos** están cargados y **incluye** un `promptProfileId` como un
+campo más. Cambiar de perfil de prompt no aplica un preset: mezclarlos haría que
+elegir «modo código» te cambiara el modelo a tu espalda.
+
+Lo delicado de `applyModelPreset` es `llmModels`, que es un `Record` por
+proveedor: se **fusiona** para pisar sólo el modelo del proveedor del preset y no
+perder el que elegiste en los otros. Tiene test —ése es justo el bug silencioso:
+aplicar un preset de Ollama y quedarte sin el modelo de Claude—.
+
+### La estrella de favoritos sólo ordena, no cambia nada
+
+Una estrella en el Model Manager sube arriba los modelos locales marcados
+(`favoriteLocalModels`), para no rebuscar el que sueles usar. Es pura
+conveniencia: **no** cambia cuál está activo —eso lo dice `whisperModel`—, sólo el
+orden. `sortByFavorite` es genérico sobre `{ id }` y estable (dentro de favoritos
+y resto se conserva el orden del catálogo, que ya va de más ligero a más pesado).
+
+### La cache de specs, o por qué dos pestañas cargaban lentas
+
+`getSystemSpecs()` llama a `app.getGPUInfo('complete')`, que es caro (cientos de
+ms). El dashboard lo pedía en **cada visita** a Modelos y Transcripción —que se
+remontan al cambiar de pestaña—, así que esas dos cargaban notablemente más lentas
+que las demás. El hardware no cambia en una sesión, así que se **memoiza** la
+promesa (se paga una vez) y se **calienta** al arrancar la app, para que hasta la
+primera visita la encuentre lista. Ver `system-specs.ts`.
+
+### El fantasmita: la mascota y el icono del `.exe`
+
+La mascota (`renderer/Mascot.tsx`) es el mismo SVG que la web —`tayori-web`—,
+copiado en vez de compartir un paquete: son dos proyectos y es un archivo
+autocontenido. Los ids de gradiente van por `useId` para que dos mascotas en la
+misma página no colisionen sus `url(#...)`.
+
+El icono del `.exe` (`build/icon.ico`, multi-tamaño 256→16) se genera desde
+`build/icon.svg` con `scripts/make-icon.mjs`, y **las dependencias del generador
+(`@resvg/resvg-js`, `png-to-ico`) NO viven en el proyecto**: se instalan al vuelo,
+se genera el `.ico` —que se commitea como asset—, y se quitan. Es un asset que sólo
+cambia cuando cambia la mascota; cargar dos deps nativas permanentes por eso no
+compensa. El script documenta cómo regenerarlo.
+
+### El marco rojo de «detectable»
+
+Cuando el sigilo está apagado —la app SÍ sale en la captura— aparece un marco
+discontinuo rojo en el borde de la ventana, en el overlay, el dashboard y el
+asistente. Es el mismo estado que el «VISIBLE» de la barra del overlay, pero
+imposible de pasar por alto. Va **por fuera** del contenido: éste se aparta con un
+hueco del mismo color de fondo (`--bg` coincide con el `backgroundColor` de la
+ventana), así que sólo se ve la línea roja flotando, no encima del contenido. El
+asistente es un render aparte, así que hubo que ponérselo también o parecía quedar
+fuera del interruptor —aunque la protección de captura, al ser de ventana, ya lo
+cubría—.
+
 ---
 
 ## 5. Desviaciones del plan aprobado, y por qué
@@ -2322,6 +2382,53 @@ mensajes que Electron reenvía con `forward: true` hacia una ventana con
 overlay *renderiza* y que el stealth funciona, pero **la interacción con el
 ratón sobre el overlay hay que probarla a mano**. Si un click sintético falla,
 la hipótesis por defecto debe ser el arnés de pruebas, no el código.
+
+### El overlay se bloqueaba tras el dashboard, y la persistencia era la causa
+
+Un arco de tres intentos que conviene dejar escrito entero, porque la tentación
+en cada paso era la equivocada.
+
+**El síntoma:** tras abrir y cerrar el dashboard, el overlay quedaba inclicable
+—ni el menú `⋯` respondía—; peor cuanto más se usaba el dashboard, y peor en el
+`.exe` que en `dev`.
+
+**El mecanismo** tiene dos capas, y las dos importan:
+
+- *El reenvío de ratón se rompe.* El overlay ignora el ratón con
+  `{ forward: true }` y son esos `mousemove` reenviados los que le dejan detectar
+  el hover sobre su barra. Cuando otra ventana enfocable toma el foco, Windows deja
+  de reenviárselos.
+- *El caché del renderer se desincroniza.* `useChromeMouse` cachea localmente si
+  está ignorando y **sólo avisa al main en los cambios**. Si el main cambia el
+  estado por su cuenta (un «arreglo» que re-aplica `setIgnoreMouseEvents`), el
+  caché queda apuntando a otro valor y el siguiente hover hace early-return: no
+  reactiva nada. Los dos primeros intentos —re-aplicar desde el main— fallaban por
+  esto, o incluso lo empeoraban.
+
+**La cura real de la desincronización** es que el main pida al renderer un
+`onOverlayResync`: el renderer resetea su caché a un estado conocido y re-manda el
+estado, lo que re-aplica el reenvío. Eso quedó como red de seguridad.
+
+**Pero la causa raíz era otra:** se había hecho el dashboard `always-on-top`
+(nivel `screen-saver`) para que persistiera al pulsar otra app. Eso dejaba **dos
+ventanas topmost al mismo nivel peleándose por el foco**, y cada pelea rompía el
+reenvío del overlay —de ahí que se acumulara con el uso—. Persistencia y overlay
+estable son incompatibles: una ventana enfocable que se queda delante al pulsar
+fuera **tiene** que ser topmost, y en Windows dos topmost se ordenan por foco. Se
+quitó el `always-on-top`: con una sola ventana topmost —el overlay— no hay pelea.
+El coste, asumido a conciencia, es que el dashboard se va detrás como cualquier
+ventana normal (se recupera con el engranaje). **Si alguien propone volver a hacer
+el dashboard persistente, esto es lo que rompe.**
+
+### El intérprete traducía las etiquetas del sobre
+
+`buildUserTurn` envuelve el turno de usuario en `<transcripcion>`/`<pregunta>` —la
+frontera anti-inyección—, pero el intérprete **traduce todo lo que recibe**, así
+que se llevaba los nombres de las etiquetas traducidos a la salida
+(`<transcripcion>` → `<transcription>`) y la traducción salía envuelta en XML. Lo
+destapó el botón de copiar, que da el texto en crudo. Se arregló con
+`AnswerRequest.interpreter`: en ese modo el turno va sin sobres ni instrucción
+—sólo la frase—, sin perder ninguna defensa porque traducir es literal por diseño.
 
 ---
 
