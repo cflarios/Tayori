@@ -34,6 +34,10 @@ borrar una conversación o borrarlas todas.
   las que llegan disfrazadas de afirmación —*«una persona que sepa DevOps tendría
   que saber de seguridad»*—, que ninguna lista de palabras puede detectar; cuesta
   una consulta extra por cada intervención dudosa.
+- **Se apaga sola por inactividad** (opcional): si nadie habla durante los
+  minutos que elijas, deja de escuchar. Para la reunión que terminó y el
+  asistente se quedó escuchando una sala vacía. Se activa en *dashboard →
+  Comportamiento*; apagado por defecto.
 - **Adjunta capturas de pantalla** como contexto visual para preguntas sobre
   código o diagramas en pantalla.
 - **Resuelve el código que tengas delante**: `Ctrl+Alt+C` lee la pantalla —un
@@ -772,6 +776,11 @@ conversación, sea cual sea.
 Dashboard → **Acerca de** resume qué es la app, qué versión tienes, la licencia
 y qué hace con lo que oye. El número de versión está ahí a propósito: es el
 primer dato que hace falta para saber si un fallo que ves sigue existiendo.
+
+Ahí mismo hay un botón **Comprobar actualizaciones**: consulta en GitHub si hay
+una versión más nueva y, si la hay, muestra las novedades y un botón para
+**descargar** el nuevo portable (la descarga la hace tu navegador). No se descarga
+ni instala nada solo, y sólo comprueba cuando lo pulsas.
 
 Autor: **@cflarios**. MIT, sin monetización.
 

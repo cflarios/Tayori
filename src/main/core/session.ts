@@ -5,6 +5,7 @@ import { parseSkillInvocation } from '@shared/skills';
 import {
   autoTriggerIsInert,
   conversationTitle,
+  idleShutoffDue,
   packsForProfile,
   speakersFor,
   type Answer,
@@ -242,8 +243,24 @@ class SessionOrchestrator {
     this.stopWatchdog();
     this.watchdog = setInterval(() => {
       const now = Date.now();
-      const audioFresh = now - this.lastChunkAt < SessionOrchestrator.WATCHDOG_MS;
       const silentFor = now - this.lastSegmentAt;
+
+      // Apagado por inactividad: si nadie ha hablado en los minutos configurados,
+      // se deja de escuchar sola. Va antes que las comprobaciones de audio porque
+      // se decide por SILENCIO, no por si entran chunks: una reunión que terminó
+      // deja de mandar voz aunque el micrófono siga abierto. `audioCapture.stop()`
+      // emite el estado `idle`, que dispara `stopTranscription` y para este mismo
+      // watchdog, así que no vuelve a saltar.
+      if (idleShutoffDue(settingsStore.get(), silentFor)) {
+        console.log(
+          `[idle] ${Math.round(silentFor / 60_000)} min sin voz; se deja de escuchar.`
+        );
+        this.broadcast(IPC.onNotice, m('notice.idleStop'));
+        void audioCapture.stop();
+        return;
+      }
+
+      const audioFresh = now - this.lastChunkAt < SessionOrchestrator.WATCHDOG_MS;
 
       if (!audioFresh) {
         console.warn(

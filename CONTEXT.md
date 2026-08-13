@@ -1021,6 +1021,47 @@ README y en cada sección que abre una salida— y la repetición es deliberada:
 lo que alguien necesita saber antes de dejar esto escuchando una entrevista, y
 no se puede depender de que haya leído el README.
 
+### Comprobar actualizaciones sin electron-updater
+
+El botón de «Comprobar actualizaciones» **no** usa el auto-update estándar de
+Electron, y la razón es la forma de distribución, no la pereza:
+
+- La app se entrega como **`.exe` portable sin firmar**, y los releases sólo
+  adjuntan el portable. electron-updater está pensado para el **instalador NSIS**:
+  necesita `latest.yml` publicado en cada release y una app *instalada* que se
+  reemplace a sí misma. Un portable no puede auto-instalarse, así que meterlo
+  exigiría cambiar el artefacto que se distribuye (la gente instalaría en vez de
+  usar portable), tocar `release.yml` para publicar `latest.yml` + el NSIS, y
+  añadir la dependencia. Es un cambio de producto por una comodidad.
+- Sin firma, además, cada actualización dispararía SmartScreen igual que la
+  descarga inicial, así que el auto-update «silencioso» no lo sería.
+
+Lo que hace en su lugar es lo justo: `main/update.ts` consulta la **API pública de
+releases de GitHub** (bajo demanda, sólo al pulsar el botón, así el límite de
+60 req/h sin token sobra), compara con `app.getVersion()` y, si hay una nueva,
+enseña las notas y un botón que abre la descarga **en el navegador**. Que descargue
+el navegador y no la app es la misma cautela con la que Ollama se instala por
+winget: la app no baja y ejecuta un binario por su cuenta. La comparación de
+versiones es `isNewerVersion` en `shared/`, con test — comparar tags como cadenas
+haría que `1.10.0` saliera anterior a `1.9.0`.
+
+### El apagado por inactividad se enganchó al watchdog que ya existía
+
+El modo idle —dejar de escuchar si nadie habla en X minutos— **no** montó un timer
+nuevo: el orquestador ya tenía un watchdog en intervalo (cada 15 s, sólo mientras
+escucha) que vigilaba audio mudo, y ya calculaba `now - lastSegmentAt`. La feature
+es una condición más ahí: si `idleShutoffDue(settings, silentFor)`, se llama a
+`audioCapture.stop()` y se avisa por el overlay. Dos decisiones:
+
+- **Actividad = sólo voz** (`lastSegmentAt`, que se actualiza en cada segmento),
+  no que el usuario pida algo a mano. El caso que resuelve es la reunión terminada
+  con el asistente escuchando una sala vacía, no a alguien leyendo en silencio.
+- **Dos ajustes, no un `0 = off`.** `idleShutoffEnabled` + `idleShutoffMinutes`
+  conservan los minutos elegidos al apagar y volver a encender, y `idleShutoffDue`
+  descarta un `minutes <= 0` (un `settings.json` a mano con un cero apagaría la
+  escucha nada más empezar). Apagado por defecto: dejar de escuchar sola es una
+  decisión, no un valor de fábrica.
+
 ### Tres cosas de UX que sólo se ven en una máquina limpia
 
 Salieron de probar la app en un ordenador donde no había nada configurado, que

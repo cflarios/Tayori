@@ -339,6 +339,11 @@ export const en = {
   'beh.inertWarn':
     'The auto-trigger is waiting for **{wanted}**, but «What it listens to» only opens {heard}: **no automatic answer will ever fire**. Change one of the two things, or use Ctrl+Enter to ask by hand.',
   'beh.changeSources': 'Change what it listens to',
+  'beh.idle': 'Stop listening when idle',
+  'beh.idleDesc':
+    'If no one speaks for a while, the app stops listening on its own. Handy for the meeting that ended while the assistant kept listening to an empty room. Off by default.',
+  'beh.idleMinutes': 'Idle timeout (minutes)',
+  'beh.idleMinutesDesc': 'Minutes of silence before it stops. Only speech counts as activity.',
   'beh.window': 'Voice window',
   'beh.windowDesc':
     'Seconds of TRANSCRIPT that go with every question. It does not affect the assistant’s memory: its own previous answers are always sent. Below 30 s you lose the thread of what the other person said.',
@@ -498,6 +503,14 @@ export const en = {
   'about.licenseDesc': 'Open source, no monetisation.',
   'about.web': 'Website',
   'about.webDesc': 'The Tayori landing page.',
+  'about.updateTitle': 'Updates',
+  'about.updateHint': 'Check GitHub for a newer version. Nothing is downloaded automatically.',
+  'about.checkUpdate': 'Check for updates',
+  'about.checking': 'Checking…',
+  'about.upToDate': "You're up to date (v{version}).",
+  'about.updateAvailable': 'A new version is available: **v{latest}** (you have v{current}).',
+  'about.download': 'Download',
+  'about.viewRelease': 'View release',
   'about.dataTitle': 'What it does with what it hears',
   'about.dataHint':
     'This is what is worth being clear about before leaving it listening to something important.',
@@ -1055,6 +1068,7 @@ export const en = {
   'err.captureUnknown': 'Unknown failure while starting the capture.',
   'notice.nowThem': 'I now answer what the other person says.',
   'notice.nowMe': 'I now answer what you say.',
+  'notice.idleStop': 'Listening stopped after inactivity.',
 
   /*
    * ───────────────────── La guía de modelos ─────────────────────

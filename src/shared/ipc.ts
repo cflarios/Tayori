@@ -100,6 +100,8 @@ export const IPC = {
 
   /** Versión y autoría, para la sección «Acerca de». */
   appGetInfo: 'app:get-info',
+  /** Consulta a GitHub si hay una versión más nueva. Bajo demanda. */
+  appCheckUpdate: 'app:check-update',
 
   /**
    * Las skills que hay ahora mismo en disco.

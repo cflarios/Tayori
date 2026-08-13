@@ -323,6 +323,11 @@ export const es: Record<UIKey, string> = {
   'beh.inertWarn':
     'El auto-disparo espera a **{wanted}**, pero «Qué se escucha» solo abre {heard}: **nunca se disparará ninguna respuesta automática**. Cambia una de las dos cosas, o usa Ctrl+Enter para preguntar a mano.',
   'beh.changeSources': 'Cambiar qué se escucha',
+  'beh.idle': 'Dejar de escuchar por inactividad',
+  'beh.idleDesc':
+    'Si nadie habla durante un rato, la app deja de escuchar sola. Útil para la reunión que terminó y el asistente se quedó escuchando una sala vacía. Apagado por defecto.',
+  'beh.idleMinutes': 'Tiempo de inactividad (minutos)',
+  'beh.idleMinutesDesc': 'Minutos de silencio antes de apagarse. Solo la voz cuenta como actividad.',
   'beh.window': 'Ventana de voz',
   'beh.windowDesc':
     'Segundos de TRANSCRIPCIÓN que acompañan a cada pregunta. No afecta a la memoria del asistente: sus propias respuestas anteriores se envían siempre. Por debajo de 30 s se pierde el hilo de lo que dijo el interlocutor.',
@@ -482,6 +487,14 @@ export const es: Record<UIKey, string> = {
   'about.licenseDesc': 'Código abierto, sin monetización.',
   'about.web': 'Web',
   'about.webDesc': 'La landing page de Tayori.',
+  'about.updateTitle': 'Actualizaciones',
+  'about.updateHint': 'Comprueba en GitHub si hay una versión más nueva. No se descarga nada solo.',
+  'about.checkUpdate': 'Comprobar actualizaciones',
+  'about.checking': 'Comprobando…',
+  'about.upToDate': 'Estás al día (v{version}).',
+  'about.updateAvailable': 'Hay una versión nueva: **v{latest}** (tienes v{current}).',
+  'about.download': 'Descargar',
+  'about.viewRelease': 'Ver release',
   'about.dataTitle': 'Qué hace con lo que oye',
   'about.dataHint': 'Es lo que conviene tener claro antes de dejarlo escuchando algo importante.',
   'about.audio':
@@ -1034,6 +1047,7 @@ export const es: Record<UIKey, string> = {
   'err.captureUnknown': 'Fallo desconocido al iniciar la captura.',
   'notice.nowThem': 'Ahora respondo a lo que diga el interlocutor.',
   'notice.nowMe': 'Ahora respondo a lo que digas tú.',
+  'notice.idleStop': 'Escucha detenida por inactividad.',
 
   /*
    * ───────────────────── La guía de modelos ─────────────────────

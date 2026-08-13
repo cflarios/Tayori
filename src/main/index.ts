@@ -51,6 +51,7 @@ import { testSTTConnection } from './stt';
 import { whisperServer } from './stt/whisper-server';
 import { initLogging, logLocation, readLogTail } from './logging';
 import { getSystemSpecs } from './system-specs';
+import { checkForUpdate } from './update';
 import { mqttBridge } from './bridge/mqtt';
 import { phoneBridge } from './bridge/phone';
 import { installOllama, ollamaInstalled, pullModel, wingetAvailable } from './setup/ollama-install';
@@ -376,6 +377,8 @@ function registerIpcHandlers(): void {
     version: app.getVersion(),
     author: '@cflarios',
   }));
+
+  ipcMain.handle(IPC.appCheckUpdate, () => checkForUpdate());
 
   // ── Ollama ──
   ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));

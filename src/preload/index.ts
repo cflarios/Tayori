@@ -26,6 +26,7 @@ import type {
   Skill,
   SystemSpecs,
   TranscriptSegment,
+  UpdateInfo,
 } from '@shared/types';
 
 /**
@@ -265,6 +266,8 @@ const api = {
 
   app: {
     getInfo: (): Promise<{ version: string; author: string }> => ipcRenderer.invoke(IPC.appGetInfo),
+    checkUpdate: (): Promise<UpdateInfo | { error: string }> =>
+      ipcRenderer.invoke(IPC.appCheckUpdate),
   },
 
   /**

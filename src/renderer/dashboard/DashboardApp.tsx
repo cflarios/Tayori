@@ -56,6 +56,7 @@ import type {
   STTProviderId,
   SystemSpecs,
   ContextKind,
+  UpdateInfo,
 } from '@shared/types';
 
 /** Proyectos hermanos que nacen de éste. */
@@ -1522,10 +1523,22 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
 function AboutCard() {
   const t = useT();
   const [info, setInfo] = useState<{ version: string; author: string } | null>(null);
+  const [update, setUpdate] = useState<UpdateInfo | { error: string } | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     void window.api.app.getInfo().then(setInfo);
   }, []);
+
+  const checkUpdate = async (): Promise<void> => {
+    setChecking(true);
+    setUpdate(null);
+    try {
+      setUpdate(await window.api.app.checkUpdate());
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <>
@@ -1547,6 +1560,50 @@ function AboutCard() {
         <Row icon="globe" label={t('about.web')} desc={t('about.webDesc')}>
           <ExtLink href={TAYORI_WEB_URL}>tayori-web.cflarios.workers.dev</ExtLink>
         </Row>
+      </section>
+
+      <section className="card">
+        <h2 className="card__title">{t('about.updateTitle')}</h2>
+        <p className="card__hint">{t('about.updateHint')}</p>
+
+        <div className="field">
+          <button className="btn" disabled={checking} onClick={() => void checkUpdate()}>
+            {checking ? t('about.checking') : t('about.checkUpdate')}
+          </button>
+        </div>
+
+        {update && 'error' in update && <div className="warn">{update.error}</div>}
+
+        {update && !('error' in update) && !update.isNewer && (
+          <div className="diag diag--ok">
+            <Tx k="about.upToDate" vars={{ version: update.current }} />
+          </div>
+        )}
+
+        {update && !('error' in update) && update.isNewer && (
+          <div className="diag diag--ok">
+            <p>
+              <Tx k="about.updateAvailable" vars={{ latest: update.latest, current: update.current }} />
+            </p>
+            {update.notes && <pre className="update__notes">{update.notes}</pre>}
+            <div className="field">
+              {update.downloadUrl && (
+                <button
+                  className="btn"
+                  onClick={() => void window.api.system.openExternal(update.downloadUrl)}
+                >
+                  {t('about.download')}
+                </button>
+              )}
+              <button
+                className="btn btn--ghost"
+                onClick={() => void window.api.system.openExternal(update.releaseUrl)}
+              >
+                {t('about.viewRelease')}
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="card">
@@ -3196,6 +3253,29 @@ function BehaviourCard({
             </div>
           )}
         </>
+      )}
+
+      <Row icon="power" label={t('beh.idle')} desc={t('beh.idleDesc')}>
+        <Switch
+          on={settings.idleShutoffEnabled}
+          onChange={(v) => void patch({ idleShutoffEnabled: v })}
+        />
+      </Row>
+
+      {settings.idleShutoffEnabled && (
+        <Row icon="clock" label={t('beh.idleMinutes')} desc={t('beh.idleMinutesDesc')}>
+          <input
+            type="number"
+            min={1}
+            max={240}
+            step={1}
+            style={{ width: 90, flex: 'none' }}
+            value={settings.idleShutoffMinutes}
+            onChange={(e) =>
+              void patch({ idleShutoffMinutes: Math.max(1, Number(e.target.value) || 10) })
+            }
+          />
+        </Row>
       )}
 
       <Row icon="clock" label={t('beh.window')} desc={t('beh.windowDesc')}>

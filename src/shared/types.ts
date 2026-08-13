@@ -529,6 +529,19 @@ export interface Settings {
   transcriptWindowSize: number;
 
   /**
+   * Apagado por inactividad: si nadie habla durante `idleShutoffMinutes`, la app
+   * deja de escuchar sola.
+   *
+   * "Actividad" es **sólo voz transcribible** (un segmento nuevo), no que el
+   * usuario pida una respuesta a mano: el caso que esto resuelve es la reunión
+   * que terminó y el asistente quedó escuchando una sala vacía. Apagado por
+   * defecto. Son dos campos —y no un `0 = off`— para conservar los minutos
+   * elegidos al apagar y volver a encender el interruptor.
+   */
+  idleShutoffEnabled: boolean;
+  idleShutoffMinutes: number;
+
+  /**
    * Idioma de la INTERFAZ.
    *
    * No confundir con `language`, que es el del reconocedor de voz y va en
@@ -755,6 +768,23 @@ export function autoTriggerIsInert(
 }
 
 /**
+ * `true` si toca apagar la escucha por inactividad: está activado y se lleva más
+ * de `idleShutoffMinutes` sin voz transcribible (`silentMs`).
+ *
+ * Pura y en `shared/` para poder fijarla con un test: el orquestador la llama
+ * desde su watchdog. `minutes > 0` protege de un JSON editado a mano con un cero,
+ * que si no apagaría la escucha en el acto.
+ */
+export function idleShutoffDue(
+  settings: Pick<Settings, 'idleShutoffEnabled' | 'idleShutoffMinutes'>,
+  silentMs: number
+): boolean {
+  if (!settings.idleShutoffEnabled) return false;
+  if (settings.idleShutoffMinutes <= 0) return false;
+  return silentMs >= settings.idleShutoffMinutes * 60_000;
+}
+
+/**
  * Ajusta el patch para que cambiar de fuente no deje el disparo mudo.
  *
  * Elegir "Ellos" significa una cosa: quiero oír al interlocutor y que me
@@ -856,6 +886,10 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTriggerSensitivity: 'balanced',
   manualContextSeconds: 30,
   transcriptWindowSize: 40,
+  // Apagado: dejar de escuchar sola es un comportamiento que se elige, no un
+  // valor de fábrica. Los 10 minutos se conservan para cuando se encienda.
+  idleShutoffEnabled: false,
+  idleShutoffMinutes: 10,
 
   // Inglés por defecto. El primer arranque lo ajusta al idioma del sistema si
   // resulta ser español; a partir de ahí manda lo que el usuario elija.
@@ -1185,6 +1219,47 @@ export interface PhoneMirrorStatus {
  */
 export function normalizeModelId(raw: string): string {
   return raw.replace(/\s+/g, '').trim();
+}
+
+/**
+ * Resultado de comprobar si hay una versión nueva en GitHub.
+ *
+ * Cruza el IPC (lo pide el dashboard, lo resuelve el main consultando la API de
+ * releases), así que vive aquí. `downloadUrl` puede venir vacío si el release no
+ * trae el `.exe` portable; la UI cae entonces a "Ver release".
+ */
+export interface UpdateInfo {
+  current: string;
+  latest: string;
+  isNewer: boolean;
+  /** Notas del release (Markdown crudo), para enseñar un resumen. */
+  notes: string;
+  releaseUrl: string;
+  downloadUrl: string;
+}
+
+/**
+ * `true` si `latest` es una versión posterior a `current` (semver simple).
+ *
+ * Compara major.minor.patch numéricamente, tolera la `v` inicial de los tags, y
+ * cualquier sufijo (`-beta`) se ignora cayendo a la base. Pura para poder fijarla
+ * con un test: la comparación de cadenas ("1.10.0" < "1.9.0" alfabéticamente) es
+ * justo el fallo que esto evita.
+ */
+export function isNewerVersion(latest: string, current: string): boolean {
+  const parse = (v: string): number[] =>
+    v
+      .replace(/^v/i, '')
+      .split('.')
+      .map((n) => parseInt(n, 10) || 0);
+  const a = parse(latest);
+  const b = parse(current);
+  for (let i = 0; i < 3; i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x !== y) return x > y;
+  }
+  return false;
 }
 
 /**
