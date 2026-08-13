@@ -44,8 +44,31 @@ function registerWindow(win: BrowserWindow): void {
 /** Estado deseado por ventana; `setContentProtection` no tiene getter en Electron. */
 const stealthState = new WeakMap<BrowserWindow, boolean>();
 
+/**
+ * Ventanas que sólo deben **excluirse de la captura**, sin el resto del trato de
+ * overlay (always-on-top a nivel screen-saver, todos los workspaces). Es el
+ * dashboard: se ve y se usa como una ventana normal —puedes alt-tabear a ella,
+ * no flota sobre la videollamada— pero DWM la omite del buffer de captura igual
+ * que al overlay. Sigue el mismo interruptor de sigilo (`setStealthForAll`).
+ */
+const contentOnly = new WeakSet<BrowserWindow>();
+
 export function isStealthOn(win: BrowserWindow): boolean {
   return stealthState.get(win) ?? false;
+}
+
+/**
+ * Excluye una ventana de la captura SIN el comportamiento de overlay. Para el
+ * dashboard: mismo `WDA_EXCLUDEFROMCAPTURE` y mismos re-aplicados en
+ * show/restore/focus, pero no toca la posición ni la barra de tareas. Llamar
+ * antes del primer `show`, o aparece un frame en la captura.
+ */
+export function setStealthContentOnly(win: BrowserWindow, enabled: boolean): void {
+  if (win.isDestroyed()) return;
+  registerWindow(win);
+  contentOnly.add(win);
+  stealthState.set(win, enabled);
+  win.setContentProtection(enabled);
 }
 
 export function applyStealth(win: BrowserWindow): void {
@@ -82,6 +105,13 @@ export function removeStealth(win: BrowserWindow): void {
 }
 
 export function setStealth(win: BrowserWindow, enabled: boolean): void {
+  // El dashboard sólo alterna la protección de captura; el resto del trato de
+  // overlay (always-on-top, workspaces) no le corresponde. Así el interruptor
+  // de sigilo del dashboard lo apaga y enciende sin volverlo una ventana flotante.
+  if (contentOnly.has(win)) {
+    setStealthContentOnly(win, enabled);
+    return;
+  }
   if (enabled) applyStealth(win);
   else removeStealth(win);
 }

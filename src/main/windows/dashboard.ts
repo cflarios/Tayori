@@ -1,4 +1,6 @@
 import { BrowserWindow, shell } from 'electron';
+import { settingsStore } from '../config/store';
+import { setStealthContentOnly } from './stealth';
 import { loadRenderer, preloadPath } from './resolve';
 
 let dashboard: BrowserWindow | null = null;
@@ -54,7 +56,16 @@ export function openDashboard(): BrowserWindow {
     },
   });
 
-  dashboard.once('ready-to-show', () => dashboard?.show());
+  dashboard.once('ready-to-show', () => {
+    const win = dashboard;
+    if (!win) return;
+    // Antes del primer `show`, o el dashboard aparecería un frame en la captura.
+    // `content-only`: se excluye de la captura como el overlay, pero sigue siendo
+    // una ventana normal (no flota sobre la videollamada). Sigue el interruptor
+    // de sigilo, así que el modo demo lo vuelve visible igual que al overlay.
+    setStealthContentOnly(win, settingsStore.get().stealthEnabled);
+    win.show();
+  });
   dashboard.on('closed', () => {
     dashboard = null;
   });

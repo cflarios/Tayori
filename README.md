@@ -438,6 +438,12 @@ construir el buffer de captura, así que **no aparece** en:
 - Grabadores como OBS con "Display Capture".
 - La herramienta de recorte de Windows y las capturas de la propia app.
 
+Se aplica **al overlay y a la ventana de configuración**: el dashboard tiene tus
+API keys, tu CV y el historial, así que tampoco debe salir en la grabación. El
+interruptor de sigilo las controla a las dos; la diferencia es que el dashboard
+sigue siendo una ventana normal (no flota sobre la videollamada, puedes alt-tabear
+a ella), sólo que queda fuera de la captura.
+
 **No te protege de:**
 
 - Una **cámara** apuntando a tu pantalla.

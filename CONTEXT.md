@@ -162,6 +162,19 @@ volver a tocar el README y este apartado en el mismo commit.
   (electron/electron#29085, corregido a medias en #45868 pero inconsistente
   entre builds). **No quitar ese hook**: es la causa número uno de fugas en este
   tipo de app.
+- **El dashboard también se excluye de la captura, pero en modo `content-only`.**
+  Era una fuga: el overlay no salía en la grabación y la ventana de configuración
+  —donde están las API keys, el CV, el historial— sí. Ahora el dashboard llama a
+  `setStealthContentOnly` (en `windows/stealth.ts`) antes de su primer `show`, así
+  que DWM lo omite igual que al overlay. Es **`content-only`** a propósito:
+  `applyStealth` (el del overlay) empaqueta la protección de captura CON
+  `setAlwaysOnTop('screen-saver')` y `setVisibleOnAllWorkspaces`, que son
+  comportamiento de overlay —flotar sobre la videollamada—; el dashboard es una
+  ventana normal que abres para configurar y a la que quieres poder alt-tabear, así
+  que se le da sólo el `WDA_EXCLUDEFROMCAPTURE` y los re-aplicados, no la posición.
+  Sigue el mismo interruptor de sigilo: `setStealthForAll` enruta las ventanas
+  `content-only` por el camino ligero, así que el modo demo las vuelve visibles a
+  las dos por igual.
 
 ### Los controles del overlay y el candado de los clics atravesables
 
