@@ -2,37 +2,37 @@ import { randomUUID } from 'node:crypto';
 import type { Speaker, TranscriptSegment } from '@shared/types';
 
 /**
- * Ventana rodante de la conversación.
+ * Rolling window of the conversation.
  *
- * Los motores de STT emiten resultados parciales que se van revisando antes de
- * cerrarse. El buffer los consolida: mientras un hablante tiene un segmento
- * abierto, cada parcial REEMPLAZA el texto en lugar de añadir una línea nueva.
- * Sin esto el transcript se llenaría de versiones intermedias de la misma
- * frase y el contexto que mandamos al LLM sería basura repetida.
+ * STT engines emit partial results that get revised before they close. The
+ * buffer consolidates them: while a speaker has an open segment, each partial
+ * REPLACES the text instead of adding a new line. Without this the transcript
+ * would fill with intermediate versions of the same sentence and the context we
+ * send the LLM would be repeated garbage.
  */
 export class TranscriptBuffer {
   private segments: TranscriptSegment[] = [];
-  /** Segmento abierto por hablante (aún no finalizado). */
+  /** Open segment per speaker (not yet finalized). */
   private open = new Map<Speaker, TranscriptSegment>();
 
   constructor(private maxSegments = 40) {}
 
   /**
-   * Incorpora un resultado del STT y devuelve el segmento resultante, que es lo
-   * que se difunde al overlay.
+   * Takes in an STT result and returns the resulting segment, which is what
+   * gets broadcast to the overlay.
    *
-   * Los proveedores difieren en si los parciales son acumulativos (el texto
-   * completo hasta ahora) o incrementales (sólo lo nuevo). Gemini Live envía
-   * fragmentos incrementales, así que concatenamos.
+   * Providers differ on whether partials are cumulative (the whole text so far)
+   * or incremental (only what's new). Gemini Live sends incremental fragments,
+   * so we concatenate.
    */
   ingest(
     speaker: Speaker,
     text: string,
     isFinal: boolean,
     /**
-     * `true` si `text` ya es el turno entero. Ver `TranscriptEvent.cumulative`:
-     * concatenarlo escribiría la frase dos veces, que es un fallo que se vio en
-     * pantalla con la API en tiempo real de OpenAI.
+     * `true` if `text` is already the whole turn. See
+     * `TranscriptEvent.cumulative`: concatenating it would write the sentence
+     * twice, a bug that showed on screen with OpenAI's real-time API.
      */
     cumulative = false
   ): TranscriptSegment {
@@ -65,11 +65,11 @@ export class TranscriptBuffer {
   }
 
   /**
-   * Cierra a la fuerza el segmento abierto de un hablante.
+   * Force-closes a speaker's open segment.
    *
-   * Necesario porque algunos motores nunca marcan `finished` si el hablante se
-   * queda callado sin más: sin esto el segmento quedaría abierto para siempre y
-   * el detector de preguntas nunca se dispararía.
+   * Needed because some engines never mark `finished` if the speaker just goes
+   * quiet: without this the segment would stay open forever and the question
+   * detector would never fire.
    */
   finalizeOpen(speaker: Speaker): TranscriptSegment | null {
     const segment = this.open.get(speaker);
@@ -83,29 +83,29 @@ export class TranscriptBuffer {
   private trim(): void {
     if (this.segments.length <= this.maxSegments) return;
     const removed = this.segments.splice(0, this.segments.length - this.maxSegments);
-    // Si se descarta un segmento que seguía abierto, hay que soltar la
-    // referencia o `ingest` seguiría escribiendo en un objeto ya olvidado.
+    // If a segment that was still open gets discarded, the reference has to be
+    // released or `ingest` would keep writing to an already-forgotten object.
     for (const segment of removed) {
       const open = this.open.get(segment.speaker);
       if (open && open.id === segment.id) this.open.delete(segment.speaker);
     }
   }
 
-  /** Todos los segmentos, del más antiguo al más reciente. */
+  /** All segments, oldest to newest. */
   all(): readonly TranscriptSegment[] {
     return this.segments;
   }
 
-  /** Segmentos que empezaron dentro de los últimos `seconds`. */
+  /** Segments that started within the last `seconds`. */
   recent(seconds: number): TranscriptSegment[] {
     const cutoff = Date.now() - seconds * 1000;
     return this.segments.filter((s) => s.startedAt >= cutoff);
   }
 
   /**
-   * Transcript formateado para inyectar en el prompt del LLM.
-   * Las etiquetas son explícitas porque el modelo necesita saber a quién
-   * responder: confundir los papeles produce respuestas inútiles.
+   * Transcript formatted for injecting into the LLM prompt.
+   * The tags are explicit because the model needs to know who to answer:
+   * confusing the roles produces useless answers.
    */
   format(segments: readonly TranscriptSegment[] = this.segments): string {
     return segments
@@ -114,7 +114,7 @@ export class TranscriptBuffer {
       .join('\n');
   }
 
-  /** Última intervención cerrada del interlocutor: la pregunta a responder. */
+  /** The other party's last closed utterance: the question to answer. */
   lastFrom(speaker: Speaker): TranscriptSegment | null {
     for (let i = this.segments.length - 1; i >= 0; i--) {
       const segment = this.segments[i];
@@ -130,11 +130,12 @@ export class TranscriptBuffer {
 }
 
 /**
- * Une dos fragmentos de transcripción respetando los espacios.
+ * Joins two transcript fragments while respecting the spaces.
  *
- * Los motores mandan trozos que a veces ya traen espacio inicial y a veces no,
- * y también signos de puntuación que deben pegarse a la palabra anterior. Sin
- * esta normalización el texto sale con espacios dobles o palabras pegadas.
+ * The engines send chunks that sometimes already carry a leading space and
+ * sometimes don't, and also punctuation that should stick to the previous word.
+ * Without this normalization the text comes out with double spaces or run-on
+ * words.
  */
 function joinFragments(left: string, right: string): string {
   if (!left) return right.trimStart();

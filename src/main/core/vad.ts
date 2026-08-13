@@ -1,34 +1,35 @@
 /**
- * Segmentador de habla por energía.
+ * Energy-based speech segmenter.
  *
- * Whisper no transcribe en streaming: hay que darle trozos completos. Este VAD
- * decide dónde cortar, detectando cuándo alguien empieza y deja de hablar.
+ * Whisper doesn't transcribe in streaming: it has to be given complete chunks.
+ * This VAD decides where to cut, detecting when someone starts and stops
+ * speaking.
  *
- * Es un detector por energía RMS con suelo de ruido adaptativo, no Silero. La
- * alternativa (`@ricky0123/vad-web` + `onnxruntime-node`) es más precisa
- * rechazando ruido que no es voz, pero arrastra un módulo nativo que habría que
- * recompilar contra el ABI de Electron. Para lo único que necesitamos aquí
- * —saber dónde termina un turno— la energía basta, y el propio Whisper filtra
- * después lo que no sea habla.
+ * It's an RMS-energy detector with an adaptive noise floor, not Silero. The
+ * alternative (`@ricky0123/vad-web` + `onnxruntime-node`) is more accurate at
+ * rejecting non-voice noise, but drags in a native module that would have to be
+ * recompiled against Electron's ABI. For the only thing we need here —knowing
+ * where a turn ends— energy is enough, and Whisper itself filters out what isn't
+ * speech afterwards.
  */
 
 export interface VADOptions {
   sampleRate: number;
-  /** Silencio necesario para cerrar una intervención. */
+  /** Silence required to close an utterance. */
   silenceMs?: number;
-  /** Audio que se conserva antes del inicio detectado, para no cortar sílabas. */
+  /** Audio kept before the detected start, so as not to clip syllables. */
   prefixPaddingMs?: number;
-  /** Duración mínima para considerar que hubo habla y no un golpe. */
+  /** Minimum duration to consider it was speech and not a thump. */
   minSpeechMs?: number;
-  /** Corte forzado: sin esto, alguien que habla sin pausas nunca se transcribiría. */
+  /** Forced cut: without it, someone talking with no pauses would never be transcribed. */
   maxUtteranceMs?: number;
 }
 
-/** Un turno de habla cerrado, listo para transcribir. */
+/** A closed speech turn, ready to transcribe. */
 export interface Utterance {
   pcm: Int16Array;
   durationMs: number;
-  /** `true` si se cortó por longitud máxima en lugar de por silencio. */
+  /** `true` if it was cut by max length instead of by silence. */
   forced: boolean;
 }
 
@@ -41,29 +42,29 @@ export class EnergyVAD {
   private readonly minSpeechFrames: number;
   private readonly maxFrames: number;
 
-  /** Frames anteriores al habla, para el padding inicial. */
+  /** Frames before speech, for the initial padding. */
   private preRoll: Int16Array[] = [];
-  /** Frames del turno en curso. */
+  /** Frames of the current turn. */
   private active: Int16Array[] = [];
   private speaking = false;
   private silenceRun = 0;
   private speechFrames = 0;
-  /** Resto de muestras que no completó un frame. */
+  /** Leftover samples that didn't complete a frame. */
   private carry: Int16Array = new Int16Array(0);
 
   /**
-   * Suelo de ruido estimado. Arranca alto a propósito y baja: empezar bajo
-   * haría que el ruido ambiente se tomara por voz durante los primeros segundos.
+   * Estimated noise floor. It starts high on purpose and drops: starting low
+   * would make ambient noise be taken for voice during the first few seconds.
    */
   private noiseFloor = 0.02;
 
-  /** Frames seguidos clasificados como habla. Ver el rescate del enganche. */
+  /** Consecutive frames classified as speech. See the latch rescue. */
   private speechRun = 0;
 
   /**
-   * A partir de aquí se deja de creer que sea habla de verdad. 30 s: largo para
-   * que un monólogo normal no lo toque, corto para que el enganche se corrija
-   * dentro de la misma conversación y no al día siguiente.
+   * Past this point we stop believing it's real speech. 30 s: long enough that
+   * a normal monologue doesn't hit it, short enough that the latch corrects
+   * itself within the same conversation and not the next day.
    */
   private static readonly LATCH_FRAMES = Math.round(30_000 / FRAME_MS);
 
@@ -77,14 +78,14 @@ export class EnergyVAD {
   }
 
   /**
-   * Alimenta PCM y devuelve los turnos que se hayan cerrado.
+   * Feeds PCM and returns the turns that have closed.
    *
-   * Devuelve un array porque un push grande puede cerrar más de uno.
+   * Returns an array because a large push can close more than one.
    */
   push(pcm: Int16Array): Utterance[] {
     const closed: Utterance[] = [];
 
-    // Une el resto anterior con lo nuevo y procesa por frames completos.
+    // Join the previous leftover with the new data and process by full frames.
     const joined = new Int16Array(this.carry.length + pcm.length);
     joined.set(this.carry, 0);
     joined.set(pcm, this.carry.length);
@@ -104,31 +105,30 @@ export class EnergyVAD {
 
   private processFrame(frame: Int16Array): Utterance | null {
     const energy = rms(frame);
-    // Umbral relativo al ruido: un margen fijo fallaría entre un micro de
-    // portátil y uno de diadema, que difieren en un orden de magnitud.
+    // Threshold relative to the noise: a fixed margin would fail between a
+    // laptop mic and a headset one, which differ by an order of magnitude.
     const isSpeech = energy > this.noiseFloor * 2.5 && energy > 0.006;
 
     if (!isSpeech) {
-      // El suelo sólo se actualiza en silencio, o la propia voz lo arrastraría
-      // hacia arriba hasta dejar de detectarse.
+      // The floor is only updated during silence, or the voice itself would
+      // drag it up until it stops being detected.
       this.noiseFloor = this.noiseFloor * 0.95 + energy * 0.05;
       this.speechRun = 0;
     } else {
       this.speechRun += 1;
       /*
-       * Rescate del enganche.
+       * Latch rescue.
        *
-       * Actualizar el suelo SÓLO en silencio tiene un fallo que se manifiesta
-       * después de un rato: si el ruido de fondo sube por encima de 2,5× el
-       * suelo aprendido —el ventilador acelerando porque Whisper y el LLM están
-       * comiendo CPU, o el AGC del micrófono subiendo ganancia— cada frame pasa
-       * a contar como habla. Entonces el suelo ya no vuelve a actualizarse
-       * nunca, porque sólo se actualizaba en silencio, y el VAD se queda
-       * enganchado: todo sale por corte forzado a 20 s y la transcripción se
-       * vuelve inservible. Visto desde fuera: "deja de responder".
+       * Updating the floor ONLY during silence has a bug that shows up after a
+       * while: if the background noise rises above 2.5× the learned floor —the
+       * fan spinning up because Whisper and the LLM are eating CPU, or the mic's
+       * AGC raising gain— every frame starts counting as speech. Then the floor
+       * never updates again, because it only updated during silence, and the VAD
+       * stays latched: everything comes out as a forced 20 s cut and the
+       * transcript becomes useless. From the outside: "it stops responding".
        *
-       * Nadie habla sin parar `LATCH_FRAMES` seguidos. Superado eso, lo que
-       * estamos midiendo es ruido, así que se deja que el suelo lo aprenda.
+       * Nobody talks nonstop for `LATCH_FRAMES` in a row. Past that, what we're
+       * measuring is noise, so we let the floor learn it.
        */
       if (this.speechRun > EnergyVAD.LATCH_FRAMES) {
         this.noiseFloor = this.noiseFloor * 0.98 + energy * 0.02;
@@ -140,8 +140,8 @@ export class EnergyVAD {
         this.speaking = true;
         this.speechFrames = 1;
         this.silenceRun = 0;
-        // El pre-roll evita comerse la primera sílaba, que es justo la que
-        // desambigua muchas preguntas.
+        // The pre-roll avoids eating the first syllable, which is exactly the
+        // one that disambiguates many questions.
         this.active = [...this.preRoll, copy(frame)];
         this.preRoll = [];
       } else {
@@ -174,16 +174,17 @@ export class EnergyVAD {
     this.silenceRun = 0;
     this.speechFrames = 0;
 
-    // Un golpe en la mesa supera el umbral un instante; sin este filtro se
-    // mandaría a Whisper y devolvería basura o alucinaciones.
+    // A thump on the desk clears the threshold for an instant; without this
+    // filter it would be sent to Whisper and come back as garbage or
+    // hallucinations.
     if (speechFrames < this.minSpeechFrames) return null;
 
     return { pcm: concat(frames), durationMs: frames.length * FRAME_MS, forced };
   }
 
   /**
-   * Cierra el turno en curso, si supera el mínimo. Se usa al parar la captura
-   * para no perder la última frase.
+   * Closes the current turn, if it clears the minimum. Used when stopping
+   * capture so the last sentence isn't lost.
    */
   flush(): Utterance | null {
     if (!this.speaking) return null;
@@ -201,13 +202,13 @@ export class EnergyVAD {
     this.noiseFloor = 0.02;
   }
 
-  /** Suelo de ruido actual. Sólo para diagnóstico. */
+  /** Current noise floor. For diagnostics only. */
   get currentNoiseFloor(): number {
     return this.noiseFloor;
   }
 }
 
-/** Energía RMS normalizada a [0,1]. */
+/** RMS energy normalized to [0,1]. */
 function rms(frame: Int16Array): number {
   let sum = 0;
   for (let i = 0; i < frame.length; i++) {
