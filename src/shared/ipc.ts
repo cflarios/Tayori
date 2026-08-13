@@ -133,6 +133,8 @@ export const IPC = {
 
   /** RAM, CPU y GPU de la máquina, para recomendar un modelo local. */
   systemGetSpecs: 'system:get-specs',
+  /** Abre una URL http(s) en el navegador del sistema, nunca dentro de la app. */
+  systemOpenExternal: 'system:open-external',
 
   /**
    * Genera la guía de modelos y la abre en el navegador.

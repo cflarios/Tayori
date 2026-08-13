@@ -58,6 +58,30 @@ import type {
   ContextKind,
 } from '@shared/types';
 
+/** Proyectos hermanos que nacen de éste. */
+const TAYORI_WEB_URL = 'https://tayori-web.cflarios.workers.dev/';
+const TAYORI_ESP32_URL = 'https://github.com/cflarios/TayoriESP32';
+
+/**
+ * Enlace a un sitio externo. Se abre en el navegador del sistema, nunca dentro
+ * del dashboard: el `onClick` lo delega en `openExternal`, y por si acaso el main
+ * deniega toda navegación fuera de la app (ver `windows/dashboard.ts`).
+ */
+function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      className="extlink"
+      onClick={(e) => {
+        e.preventDefault();
+        void window.api.system.openExternal(href);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -1264,6 +1288,11 @@ function MqttCard({
           </ul>
 
           <p className="card__hint" style={{ marginTop: 14 }}>
+            {t('mq.esp32Pre')} <ExtLink href={TAYORI_ESP32_URL}>TayoriESP32</ExtLink>{' '}
+            {t('mq.esp32Post')}
+          </p>
+
+          <p className="card__hint" style={{ marginTop: 14 }}>
             <Tx k="mq.qos" />
           </p>
 
@@ -1507,6 +1536,9 @@ function AboutCard() {
         </Row>
         <Row icon="check" label={t('about.license')} desc={t('about.licenseDesc')}>
           <code className="aboutval">MIT</code>
+        </Row>
+        <Row icon="globe" label={t('about.web')} desc={t('about.webDesc')}>
+          <ExtLink href={TAYORI_WEB_URL}>tayori-web.cflarios.workers.dev</ExtLink>
         </Row>
       </section>
 

@@ -300,6 +300,9 @@ const api = {
   /** RAM, CPU y GPU: lo que necesita la guía de modelos locales. */
   system: {
     getSpecs: (): Promise<SystemSpecs> => ipcRenderer.invoke(IPC.systemGetSpecs),
+    /** Abre una URL http(s) en el navegador del sistema. */
+    openExternal: (url: string): Promise<void> =>
+      ipcRenderer.invoke(IPC.systemOpenExternal, url),
   },
 
   /** La guía completa de modelos, generada y abierta en el navegador. */

@@ -2251,6 +2251,17 @@ kbd {
   user-select: text;
 }
 
+/* Enlace a un sitio externo (se abre en el navegador del sistema). */
+.extlink {
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.extlink:hover {
+  text-decoration: underline;
+}
+
 .about {
   display: flex;
   flex-direction: column;

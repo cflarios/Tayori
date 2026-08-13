@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, shell } from 'electron';
 import { loadRenderer, preloadPath } from './resolve';
 
 let dashboard: BrowserWindow | null = null;
@@ -57,6 +57,34 @@ export function openDashboard(): BrowserWindow {
   dashboard.once('ready-to-show', () => dashboard?.show());
   dashboard.on('closed', () => {
     dashboard = null;
+  });
+
+  /*
+   * El dashboard es una SPA: navegar fuera de ella la rompe. Cualquier enlace a
+   * un sitio externo se abre en el navegador del sistema y **nunca** dentro de la
+   * ventana. Cubre las dos vías —clic normal (`will-navigate`) y target=_blank o
+   * middle-click (`setWindowOpenHandler`)— y sólo deja pasar http(s), así que un
+   * `file://` inesperado no abre nada.
+   */
+  const openExternally = (url: string): void => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
+  };
+  dashboard.webContents.setWindowOpenHandler(({ url }) => {
+    openExternally(url);
+    return { action: 'deny' };
+  });
+  dashboard.webContents.on('will-navigate', (event, url) => {
+    // Sólo se intercepta lo que va a OTRO origen. Una navegación al mismo origen
+    // es la propia app (incluido el recargado de HMR en `dev`, servido por
+    // localhost), y bloquearla rompería el servidor de desarrollo.
+    try {
+      const current = dashboard?.webContents.getURL() ?? '';
+      if (new URL(url).origin === new URL(current).origin) return;
+    } catch {
+      return; // URL o página actual sin origen parseable: no tocar.
+    }
+    event.preventDefault();
+    openExternally(url);
   });
 
   loadRenderer(dashboard, 'dashboard');

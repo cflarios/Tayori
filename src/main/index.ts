@@ -383,6 +383,15 @@ function registerIpcHandlers(): void {
   // ── Máquina ──
   ipcMain.handle(IPC.systemGetSpecs, () => getSystemSpecs());
 
+  // Abre un enlace externo en el navegador del sistema. Se valida el esquema —
+  // sólo http(s)— para que esto no pueda convertirse en un `file://` o un
+  // `javascript:` si algún día la URL dejara de ser una constante del código.
+  ipcMain.handle(IPC.systemOpenExternal, (_e, url: unknown) => {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+      void shell.openExternal(url);
+    }
+  });
+
   /*
    * La guía de modelos, como documento.
    *

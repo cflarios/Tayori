@@ -480,6 +480,8 @@ export const es: Record<UIKey, string> = {
   'about.author': 'Autor',
   'about.license': 'Licencia',
   'about.licenseDesc': 'Código abierto, sin monetización.',
+  'about.web': 'Web',
+  'about.webDesc': 'La landing page de Tayori.',
   'about.dataTitle': 'Qué hace con lo que oye',
   'about.dataHint': 'Es lo que conviene tener claro antes de dejarlo escuchando algo importante.',
   'about.audio':
@@ -530,6 +532,9 @@ export const es: Record<UIKey, string> = {
   'mq.user': 'Usuario',
   'mq.userDesc': 'Déjalo vacío si tu broker acepta conexiones anónimas.',
   'mq.subscribeTitle': 'A qué se suscribe tu dispositivo',
+  'mq.esp32Pre': '¿Quieres un consumidor listo para usar?',
+  'mq.esp32Post':
+    'es una librería Arduino/ESP32 que se suscribe a estos temas y reacciona con hardware (LEDs, semáforo, OLED).',
   'mq.qos':
     'Se publican con QoS 1 y **sin retener**: un mensaje retenido se entrega al suscribirse, así que una placa que arranca por la mañana ejecutaría la respuesta de ayer.',
   'mq.published': 'publicado',

@@ -496,6 +496,8 @@ export const en = {
   'about.author': 'Author',
   'about.license': 'License',
   'about.licenseDesc': 'Open source, no monetisation.',
+  'about.web': 'Website',
+  'about.webDesc': 'The Tayori landing page.',
   'about.dataTitle': 'What it does with what it hears',
   'about.dataHint':
     'This is what is worth being clear about before leaving it listening to something important.',
@@ -548,6 +550,9 @@ export const en = {
   'mq.user': 'User',
   'mq.userDesc': 'Leave it empty if your broker accepts anonymous connections.',
   'mq.subscribeTitle': 'What your device subscribes to',
+  'mq.esp32Pre': 'Want a ready-made consumer?',
+  'mq.esp32Post':
+    'is an Arduino/ESP32 library that subscribes to these topics and reacts with hardware (LEDs, a traffic light, an OLED).',
   'mq.qos':
     'They are published with QoS 1 and **without retaining**: a retained message is delivered on subscribe, so a board booting up in the morning would act on yesterday’s answer.',
   'mq.published': 'published',
