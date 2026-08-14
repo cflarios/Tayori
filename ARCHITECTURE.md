@@ -394,7 +394,7 @@ The orchestrator doesn't change.
 
 What the compiler **won't** warn you about, and you have to check by hand, is in
 the ChatGPT list in
-[CONTEXT.md](CONTEXT.md#lo-que-costó-añadir-chatgpt-y-no-era-el-proveedor): the
+[CONTEXT.md](CONTEXT.md#what-it-cost-to-add-chatgpt-and-it-wasnt-the-provider): the
 three screens that decide "is it configured?" with their own condition.
 
 **A new skill:** no code to touch. A folder in

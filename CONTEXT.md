@@ -1,2599 +1,2609 @@
-# CONTEXT.md — por qué el código es así
+# CONTEXT.md — why the code is the way it is
 
-Este documento no explica **cómo usar** la app (eso es [USAGE.md](USAGE.md)),
-ni **dónde vive cada cosa** (eso es [ARCHITECTURE.md](ARCHITECTURE.md)), ni
-**qué hace** cada archivo (eso lo dicen los comentarios). Registra el
-**razonamiento**: qué se verificó, qué se descartó y por qué, y qué salió mal al
-probarlo. Sin esto, la próxima persona que toque el proyecto —incluido tu yo de
-dentro de tres meses— vuelve a tomar las mismas decisiones desde cero, o peor,
-las revierte sin saber qué las motivó.
+This document doesn't explain **how to use** the app (that's [USAGE.md](USAGE.md)),
+nor **where each thing lives** (that's [ARCHITECTURE.md](ARCHITECTURE.md)), nor
+**what** each file does (the comments say that). It records the **reasoning**:
+what was verified, what was dropped and why, and what went wrong when testing it.
+Without this, the next person to touch the project —including you three months
+from now— makes the same decisions again from scratch, or worse, reverts them
+without knowing what motivated them.
 
-**Los cuatro documentos, y cuándo abrir cada uno:**
+**The four documents, and when to open each one:**
 
-| | Responde a | Ábrelo cuando |
+| | Answers | Open it when |
 |---|---|---|
-| [README.md](README.md) | Qué es, de un vistazo | Acabas de llegar |
-| [USAGE.md](USAGE.md) | Cómo se usa cada función | Quieres ejecutarlo |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Qué es y cómo circulan los datos | Vas a tocar código y no sabes dónde |
-| CONTEXT.md | Por qué está así | Algo te parece raro y vas a "arreglarlo" |
+| [README.md](README.md) | What it is, at a glance | You just landed |
+| [USAGE.md](USAGE.md) | How to use each feature | You want to run it |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | What it is and how data flows | You're going to touch code and don't know where |
+| CONTEXT.md | Why it's like this | Something looks odd and you're about to "fix" it |
 
-Ese último caso es el importante. Buena parte de lo que hay aquí documenta cosas
-que **parecen** errores y no lo son.
+That last case is the important one. Much of what's here documents things that
+**look** like bugs and aren't.
 
-Escrito al final de la sesión de construcción inicial (26 de julio de 2026,
-commits `8093c25`..`baa4e29`) y actualizado en la primera ronda de ajustes.
+Written at the end of the initial build session (26 July 2026, commits
+`8093c25`..`baa4e29`) and updated in the first round of adjustments.
 
 ---
 
-## 1. Hechos del entorno, ya verificados
+## 1. Environment facts, already verified
 
-Están comprobados en la máquina real. **No hay que re-derivarlos**, y varios
-son la razón directa de decisiones posteriores.
+They're checked on the real machine. **No need to re-derive them**, and several
+are the direct reason for later decisions.
 
-| Hecho | Valor | Por qué importa |
+| Fact | Value | Why it matters |
 |---|---|---|
-| Windows build | `10.0.26200` | Muy por encima de 22000, así que `WDA_EXCLUDEFROMCAPTURE` da exclusión **total** de la captura. Los bugs conocidos de "rectángulo negro en lugar de invisible" afectan a builds ≤ 22000 y **no aplican aquí**. |
-| Node / npm / git | 24.18.0 / 11.16.0 / 2.52.0 | npm 11 **bloquea los install scripts** por defecto (ver §3). |
-| Rust / cargo | **ausente** | Por eso Electron y no Tauri. |
-| MSVC / `cl.exe` / `vswhere` | **ausentes** | Ningún módulo nativo de Node es viable sin pedir ~5 GB de Visual Studio Build Tools. Esta es la razón de dos desviaciones del plan (ver §5). |
-| Python | 3.13.11 | Presente, pero irrelevante sin MSVC: `node-gyp` necesita ambos. |
-| Ruta del proyecto | dentro de **OneDrive**, con **espacios** | Rompe `electron-builder` con `EPERM` y obliga a evitar `shell: true` al pasar argumentos. |
+| Windows build | `10.0.26200` | Well above 22000, so `WDA_EXCLUDEFROMCAPTURE` gives **total** exclusion from capture. The known "black rectangle instead of invisible" bugs affect builds ≤ 22000 and **don't apply here**. |
+| Node / npm / git | 24.18.0 / 11.16.0 / 2.52.0 | npm 11 **blocks install scripts** by default (see §3). |
+| Rust / cargo | **absent** | Hence Electron and not Tauri. |
+| MSVC / `cl.exe` / `vswhere` | **absent** | No native Node module is viable without asking for ~5 GB of Visual Studio Build Tools. This is the reason for two deviations from the plan (see §5). |
+| Python | 3.13.11 | Present, but irrelevant without MSVC: `node-gyp` needs both. |
+| Project path | inside **OneDrive**, with **spaces** | Breaks `electron-builder` with `EPERM` and forces avoiding `shell: true` when passing arguments. |
 
 ---
 
-## 2. Por qué Electron y no Tauri
+## 2. Why Electron and not Tauri
 
-El plan lo decidió con el usuario, pero conviene registrar el criterio: Tauri da
-un binario de ~10 MB frente a ~98 MB, pero **no hay Rust instalado**, y sobre
-todo el loopback de audio y la invisibilidad habría que implementarlos a mano en
-Rust. Electron trae `setContentProtection`, `desktopCapturer` y captura de audio
-loopback nativa (desde la 31; sin paquetes de terceros desde la 39) funcionando
-de fábrica. Para un proyecto personal, ese trabajo ahorrado vale los 88 MB.
-
----
-
-## 3. Matriz de versiones: por qué está clavada
-
-Las versiones **no** son arbitrarias ni "las últimas". Cada una está fijada por
-una restricción concreta que se descubrió al instalar. Si actualizas una, lee
-esto antes.
-
-- **`vite` en 7.3.6, no 8.** `electron-vite@5` declara `vite: ^5 || ^6 || ^7`.
-  Vite 8 rompe la instalación.
-- **`@vitejs/plugin-react` en 5.2.0, no 6.** La 6 exige `vite: ^8`. La 5.2.0 es
-  la más nueva que todavía acepta Vite 7.
-- **`typescript` en 6.0.3, no 7.** `typescript-eslint@8.65` declara
-  `typescript: >=4.8.4 <6.1.0`. TypeScript 7 (el port a Go) queda fuera.
-- **`@eslint/js` en 10.0.1**, que no sigue el número de versión de `eslint`
-  (10.8.0). Son paquetes con versionado independiente.
-- **TypeScript 6 deprecó `baseUrl`.** Los `paths` de los tsconfig necesitan
-  prefijo `./` explícito, o `tsc` falla con TS5090.
-- **`eslint-plugin-react-hooks@7`**: el flat config está en
-  `configs.flat['recommended-latest']`. `configs['recommended-latest']` sigue
-  siendo el formato eslintrc antiguo y ESLint 10 lo rechaza.
-- **`electron-store` está fuera del proyecto a propósito.** Desde la v10 es
-  ESM-only (`"type": "module"`), y el proceso main se empaqueta como CommonJS.
-  Se escribió un store propio de ~80 líneas en `src/main/config/store.ts`; lo
-  que necesitábamos era trivial y no justificaba pelear con el interop.
-- **El binario de Electron hay que instalarlo a mano tras `npm install`.** npm 11
-  bloquea los install scripts, y el postinstall de Electron es el que descarga el
-  binario. Si `node_modules/electron/dist/electron.exe` no existe:
-  `node node_modules/electron/install.js`. Se eligió ejecutar **solo ese** script
-  en lugar de aprobar todos en bloque. `esbuild` no lo necesita: su binario llega
-  por optional dependencies.
-
-**Main es CommonJS, no ESM.** El motivo original fue la compatibilidad con
-módulos nativos (whisper, onnxruntime). Ese motivo **desapareció** cuando whisper
-pasó a ser un binario externo (§5), así que hoy CJS se mantiene solo por
-simplicidad de interop. Si algún día conviene migrar a ESM, ya no hay nada que lo
-bloquee salvo revisar los `require` implícitos del bundle.
+The plan decided it with the user, but it's worth recording the reasoning: Tauri
+gives a ~10 MB binary versus ~98 MB, but **there's no Rust installed**, and above
+all the audio loopback and the invisibility would have to be implemented by hand
+in Rust. Electron brings `setContentProtection`, `desktopCapturer` and native
+loopback audio capture (since 31; without third-party packages since 39) working
+out of the box. For a personal project, that saved work is worth the 88 MB.
 
 ---
 
-## 4. Decisiones de arquitectura y su razón
-
-### La app escucha, no graba — matizado en julio de 2026
-
-La versión original **no persistía nada**, y este apartado avisaba de que añadir
-un historial rompería esa promesa y obligaría a actualizar el README y las
-consideraciones legales *a la vez*. Eso es exactamente lo que pasó: el usuario
-pidió un historial de conversaciones que se guarde, eligiendo explícitamente
-incluir la transcripción y no sólo las respuestas.
-
-Dónde queda la línea ahora, que es lo que hay que saber para no volver a moverla
-sin darse cuenta:
-
-- **El audio sigue sin tocar el disco. Nunca.** Los chunks del worklet van al
-  motor y se descartan. No hay archivos de audio ni temporales — la única
-  excepción es el WAV que Whisper local necesita para invocar `whisper-cli`, que
-  se borra en el `finally` de cada invocación y vive en un `mkdtemp` que se
-  destruye al parar. Esta parte **no se negocia**: es lo que separa la app de una
-  grabadora.
-- **El texto sí se guarda**, si `settings.historyEnabled` está activo: respuestas
-  y transcripción completa, un JSON por conversación en
-  `userData/conversations`. Ver `main/config/history.ts`.
-- **Es un interruptor, no una constante.** Apagarlo devuelve el comportamiento
-  antiguo por completo: `ensureConversation()` devuelve `null` y no se crea ni la
-  carpeta. Esa forma —que el punto de entrada devuelva `null` en lugar de repartir
-  comprobaciones por todo el orquestador— es lo que hace que no se pueda colar
-  una escritura por olvido.
-
-**Y la tercera es MQTT.** Publica las respuestas terminadas en un broker para
-que las recoja otra cosa —el caso que lo motivó es un ESP32 suscrito al tema que
-reacciona a las respuestas de un test—. Es la salida **más lejos** de las tres:
-el espejo del móvil no sale de tu red por construcción, pero un broker puede
-estar en internet, así que esto puede sacar el texto de tus respuestas de la
-máquina y de la red. Apagado por defecto, con la advertencia en la propia
-sección, y **sólo respuestas**: la transcripción no se publica, por lo mismo de
-siempre.
-
-**Agosto de 2026: el espejo del móvil es la segunda salida**, y se anota aquí
-por la regla del final de este apartado. Sirve las **respuestas** —no la
-transcripción— por HTTP a la red local del usuario. No toca el disco y no sale
-de su red, pero mientras está encendido existe una copia del texto fuera de la
-ventana protegida, así que cuenta como salida y el README lo dice en
-«Consideraciones legales». La transcripción se dejó fuera **a propósito**: es lo
-que dijo la otra persona, y duplicarla en un segundo dispositivo por comodidad
-no lo había pedido nadie. Si algún día se añade, se vuelve a tocar el README y
-este apartado en el mismo commit.
-
-El cambio legal **no es cosmético**: en varias jurisdicciones un registro escrito
-de una conversación cuenta igual que una grabación a efectos de consentimiento.
-Por eso el README ya no dice "no graba nada" a secas, y «Consideraciones legales»
-separa ahora tres cosas que antes iban juntas: grabación, a dónde va el audio, y
-las políticas de la empresa en la que estés.
-
-**La regla de antes sigue en pie, sólo se movió el listón:** si alguien añade
-exportación, sincronización o cualquier salida nueva de estos datos, hay que
-volver a tocar el README y este apartado en el mismo commit.
-
-### Ventanas
-
-- **Tres entradas de renderer** (overlay, dashboard, audio-worker).
-- **El audio worker es una ventana oculta aparte**, no parte del overlay, por
-  tres razones: `getUserMedia`/`getDisplayMedia` solo existen en un renderer;
-  aislarlo evita que el pipeline de audio se detenga cuando el usuario oculta el
-  overlay; y `backgroundThrottling: false` es imprescindible o Chromium
-  estrangula los timers de una ventana sin foco y el audio llega a tirones.
-- **`focusable: false` en el overlay.** Esto no es cosmético: robar el foco de
-  Teams/Meet es lo que **de verdad** delata al asistente, más que la ventana en
-  sí. Se muestra con `showInactive()`, nunca `show()`.
-- **Re-aplicar `setContentProtection(true)` en `show`/`restore`/`focus`.**
-  Electron pierde el flag al ocultar y volver a mostrar
-  (electron/electron#29085, corregido a medias en #45868 pero inconsistente
-  entre builds). **No quitar ese hook**: es la causa número uno de fugas en este
-  tipo de app.
-- **El dashboard también se excluye de la captura, pero en modo `content-only`.**
-  Era una fuga: el overlay no salía en la grabación y la ventana de configuración
-  —donde están las API keys, el CV, el historial— sí. Ahora el dashboard llama a
-  `setStealthContentOnly` (en `windows/stealth.ts`) antes de su primer `show`, así
-  que DWM lo omite igual que al overlay. Es **`content-only`** a propósito:
-  `applyStealth` (el del overlay) empaqueta la protección de captura CON
-  `setAlwaysOnTop('screen-saver')` y `setVisibleOnAllWorkspaces`, que son
-  comportamiento de overlay —flotar sobre la videollamada—; el dashboard es una
-  ventana normal que abres para configurar y a la que quieres poder alt-tabear, así
-  que se le da sólo el `WDA_EXCLUDEFROMCAPTURE` y los re-aplicados, no la posición.
-  Sigue el mismo interruptor de sigilo: `setStealthForAll` enruta las ventanas
-  `content-only` por el camino ligero, así que el modo demo las vuelve visibles a
-  las dos por igual.
-
-### Los controles del overlay y el candado de los clics atravesables
-
-Hay una contradicción de fondo entre dos requisitos, y la solución no es obvia:
-el overlay debe **dejar pasar los clics** durante una llamada, y a la vez tener
-**botones pulsables** (engranaje, cerrar) y una zona de arrastre.
-
-`setIgnoreMouseEvents(true, { forward: true })` hace que la ventana ignore los
-clics *pero siga recibiendo los eventos de movimiento*. Eso es exactamente lo
-que se explota: el renderer escucha `mousemove`, mira con `elementFromPoint` si
-el cursor está sobre algo marcado con `data-interactive`, y pide al main que
-deje de ignorar el ratón sólo durante ese rato (`useChromeMouse`).
-
-Dos detalles que parecen de más y no lo son:
-
-- Se escucha también `mouseleave` del documento. Si el cursor sale rápido por un
-  borde puede no llegar un último `mousemove` sobre zona no interactiva, y la
-  ventana se quedaría capturando clics encima de la videollamada.
-- El arrastre es **manual** (`startOverlayDrag` sigue el cursor desde el main con
-  `setPosition`), no `-webkit-app-region: drag`. Esa propiedad no funciona con
-  `focusable: false`, y renunciar a `focusable: false` no es opción. El
-  seguimiento va por intervalo y no por los `mousemove` del renderer porque al
-  arrastrar rápido el cursor se sale de la ventana.
-
-### Las dos pestañas: escucha y escritura
-
-El panel de entrada tiene dos pestañas. **Escucha** es la transcripción de
-siempre; **Escritura** es un textarea que llama a `askWithText`. La respuesta se
-pinta en «Sugerencia» en los dos casos: cambia de dónde sale la pregunta, no
-dónde aparece la respuesta.
-
-Escribir exige que la ventana sea enfocable, así que la pestaña de escritura es
-**la única situación en la que el overlay toma el foco**. Es aceptable porque la
-pide el usuario explícitamente, pero tiene tres consecuencias que van juntas y no
-se pueden separar:
-
-- **Revertir no es opcional.** El efecto de `OverlayApp` llama a
-  `setInteractive(false)` al cambiar de pestaña y al desmontar, y
-  `toggleOverlayVisibility` lo fuerza antes de ocultar. Una ventana que se queda
-  enfocable acaba robando el foco de la videollamada, que es exactamente lo que
-  la app existe para evitar.
-- **La guarda vive en el main, no en React.** `setOverlayMouseIgnore` sale antes
-  si `isOverlayInteractive()`. Sin ella los dos mecanismos se pelean: basta mover
-  el cursor sobre una zona no interactiva para que el hover de `useChromeMouse`
-  devuelva los clics atravesables a mitad de una frase y el botón de enviar deje
-  de responder. Se puso ahí y no en el orden de los efectos de React porque ese
-  orden es demasiado frágil para sostener una invariante.
-- **Envía `Enter`, no `Ctrl+Enter`.** `Ctrl+Enter` es un hotkey **global**: lo
-  intercepta el main y nunca llega al textarea. Si algún día se quiere que
-  `Ctrl+Enter` envíe el borrador, hay que desregistrar el acelerador al entrar en
-  la pestaña y volver a registrarlo al salir; no basta con un `onKeyDown`.
-
-El aviso de que el overlay toma el foco está **en la propia pestaña**, no sólo
-aquí: es una excepción a la promesa central del producto y callarla sería el tipo
-de verdad a medias que el README se esfuerza en no contar.
-
-### Qué salió a la superficie del overlay, y por qué
-
-El overlay pasó de tres controles a unos cuantos más. El criterio para decidir
-qué sube del dashboard al overlay es uno solo: **¿lo necesitarías a mitad de una
-llamada?** El dashboard hay que abrirlo con el engranaje y roba el foco, así que
-todo lo que esté allí es, en la práctica, inalcanzable mientras hablas.
-
-- **Chips de perfil.** `promptProfileId` ya existía; sólo estaba en un
-  desplegable del dashboard. Cambiar de registro es justo lo que quieres poder
-  hacer sin parar. `custom` no es un chip porque se edita con un textarea.
-- **Acciones rápidas** (Sigue / Más corto / Seguimiento / Resumen). Son prompts
-  enlatados que van por `askWithText`, la misma vía que la pestaña de escritura:
-  **no hay un camino nuevo hacia el LLM**. Sólo aparecen si hay una respuesta
-  sobre la que actuar; "amplía tu última respuesta" sin respuesta previa le pide
-  al modelo que amplíe el vacío.
-- **Tamaño S/M/L/XL.** Cuatro presets y no redimensionado libre: la ventana es
-  `frameless`, no hay bordes que arrastrar, y montar asas propias por un ajuste
-  que se toca dos veces no compensa. `setOverlaySize` **reancla al borde
-  derecho**: el overlay vive arriba a la derecha y crecer hacia fuera lo sacaría
-  de la pantalla.
-- **Marcas de tiempo relativas**, no la hora del reloj. Al repasar lo que importa
-  es "hace cuánto se dijo esto"; una hora absoluta obliga a restar mentalmente.
-- **Nueva conversación.** Aborta la respuesta en vuelo, vuelca la conversación,
-  limpia el `TranscriptBuffer` **y** emite `onConversationReset`. Lo último no es
-  opcional: el overlay tiene su propia copia de los segmentos en estado de React
-  y sin el evento seguiría enseñando la conversación anterior.
-- **El interruptor de escucha.** Es el control más usado de la app y vivía sólo
-  en el dashboard y en `Ctrl+Shift+M`. Fallaba el propio criterio de esta lista:
-  para empezar a escuchar había que abrir la ventana que roba el foco. Ahora el
-  indicador **es** el mando —el punto verde ya estaba ahí, sólo que no se podía
-  pulsar—, porque dos elementos separados para "qué pasa" y "cámbialo" cuestan
-  sitio en una barra que va justa. El estado de error también se pulsa: reintenta.
-- **Las dos fuentes de audio, como interruptores.** Sustituyen a los medidores de
-  sólo lectura y responden a dos preguntas distintas que antes estaban repartidas
-  entre el overlay y el dashboard: *qué se supone que se escucha* (el chip
-  encendido) y *qué está entrando de verdad* (la barra moviéndose). El tercer
-  estado es el que no existía en ninguna parte y es el importante: **configurado
-  pero sin abrirse** — chip en ámbar. Un micrófono que el sistema no concedió
-  producía exactamente la misma pantalla que una sala en silencio.
-  Apagar la última fuente activa no se ignora en silencio: se explica que para
-  no escuchar nada está el botón de escucha. Un control que no hace nada al
-  pulsarlo es indistinguible de uno roto.
-- **Con qué modelo se está respondiendo**, junto al título "Sugerencia". Al leer
-  una respuesta floja lo primero que se quiere saber es con qué salió, y con tres
-  proveedores configurables es fácil creer que estás en uno y estar en otro.
-- **Parar la generación.** `ask.abort` existía en el IPC desde el principio y no
-  tenía ningún botón: la única forma de cortar una respuesta era preguntar otra
-  cosa, que es una manera cara de decir "para".
-- **Historial de respuestas, con flechas.** Una respuesta la borraba la
-  siguiente y sólo se recuperaba abriendo el dashboard. El overlay guarda las
-  últimas 20 y las navega. Dos detalles que no son evidentes: la lista se
-  actualiza **por id**, porque `answer` se emite en cada tick del streaming y si
-  no se acumularían decenas de copias de la misma; y mientras se mira una
-  antigua **desaparecen las acciones rápidas**, porque esos prompts dicen "tu
-  última respuesta" y la última para el modelo es la suya, no la que hay en
-  pantalla — ofrecerlas ahí prometería actuar sobre lo que se lee y actuaría
-  sobre otra cosa.
-- **Escala de texto sólo para el contenido.** Los cuatro presets agrandan la
-  ventana, no la letra, así que en un 4K el panel crecía y el texto seguía
-  minúsculo. `--font-scale` multiplica respuesta, código y transcripción; la
-  barra y los chips se quedan fijos, porque unos controles al 180 % dejarían el
-  panel sin sitio para lo que se quería leer.
-- **Modo compacto.** Pliega lo que sirve para *preparar* o *comprobar* —perfiles,
-  transcripción, pie de atajos— y deja lo que sirve para *leer*. La barra no se
-  toca: desde ahí se despliega otra vez, y esconder el botón que devuelve lo
-  escondido sería una trampa; además parar la escucha tiene que estar siempre a
-  mano.
-- **La barra envuelve, no recorta.** Al meter escucha y fuentes ya no cabía todo
-  a tamaño S: medido, 407 px de contenido en 354 disponibles, y con el aviso
-  "VISIBLE" y el idioma forzado, 496. Lo que se salía del recorte era el grupo de
-  botones, la X incluida. Los botones van agrupados y la barra tiene
-  `flex-wrap`, así que el coste se paga en alto —que es lo que sobra— y nunca en
-  controles inalcanzables. A tamaño S se esconde además el nombre de la fuente:
-  el icono ya distingue micrófono de altavoz. El ancho de la ventana **es** el
-  viewport, así que una media query equivale a "qué preset está puesto".
-
-### El espejo del móvil: sacar la respuesta de la pantalla compartida
-
-El overlay resuelve "que no se vea en la grabación". Hay un caso que **no puede**
-resolver por construcción: compartir la pantalla entera, donde lo que está en tu
-monitor está al otro lado por definición. Tampoco cubre una cámara, ni un
-segundo monitor que alguien mire. La única salida es que la respuesta no esté en
-esa pantalla, y para eso hace falta otro dispositivo.
-
-**Server-Sent Events, no WebSocket.** El flujo va en una sola dirección, y eso
-cambia el cálculo entero:
-
-- Node no trae servidor de WebSocket; SSE es `res.write()` sobre el mismo `http`
-  que ya sirve la página. **Cero dependencias nuevas** por el transporte.
-- `EventSource` **reconecta solo**. En un móvil la conexión se cae cada vez que
-  se bloquea la pantalla, así que ese bucle hay que tenerlo sí o sí — con
-  WebSocket habría que escribirlo, y es justo donde salen los fallos raros.
-- Que el teléfono **no pueda mandar nada** es una propiedad, no una carencia.
-
-**Los dos interruptores están separados a propósito.** Encender el espejo y
-abrirlo a la red local son dos decisiones distintas, y la segunda es la que
-tiene alcance: con `phoneMirrorLan` apagado sólo escucha en `127.0.0.1`. Los dos
-empiezan apagados; publicar el texto de tus respuestas no es un valor de fábrica.
-
-**El token cambia en cada arranque** y por eso caduca solo un enlace guardado en
-el móvil, sin que nadie tenga que acordarse de revocarlo. Se compara con
-`timingSafeEqual`, que es barato y evita tener que justificar un `===` sobre un
-secreto más adelante.
-
-Tres cosas que salieron **ejecutándolo**, no leyéndolo:
-
-- **`socket.connect()` de UDP es asíncrono.** La primera versión de
-  `routedAddress()` leía `socket.address()` justo después y lanzaba `EBADF`, así
-  que devolvía `null` **siempre**: seguía habiendo enlace —caía a la heurística
-  de rangos— y el fallo era invisible. Es el patrón de este proyecto entero: lo
-  que no falla ruidosamente hay que ir a comprobarlo.
-- **Preguntar a la tabla de rutas en lugar de adivinar por prefijo.** La máquina
-  de pruebas tenía cuatro IPv4: `192.168.1.4` (la buena) y `192.168.121.1`,
-  `192.168.52.1` y `172.22.128.1` de adaptadores virtuales. Por prefijo son
-  indistinguibles, así que ordenar por rangos acertaba **por casualidad**, según
-  cómo enumerara el sistema. Un `connect()` de UDP a una dirección pública no
-  manda ni un byte: sólo hace que el sistema elija ruta y fije el extremo local,
-  que es exactamente el dato que se busca. La heurística de rangos se queda como
-  plan B para cuando no hay ruta por defecto.
-- **`server.close()` no cierra las conexiones SSE**, que son keep-alive: sin
-  terminarlas a mano el puerto se queda tomado y el proceso no muere. Y el
-  cierre es **asíncrono**, así que una petición del mismo tick todavía entra —
-  lo que de verdad cierra la puerta es que el token se borra de forma síncrona.
-  El test lo dice así en lugar de afirmar que la conexión se rechaza: escrito de
-  la otra forma pasaba por suerte, según lo rápido que fuera la máquina.
-
-**El QR viaja como matriz de módulos, no como imagen.** El dashboard lo dibuja
-con `<rect>`: nada que añadir a la CSP, nítido a cualquier tamaño, y el margen
-obligatorio de cuatro módulos es aritmética del `viewBox` en vez de un borde CSS
-que alguien pueda quitar sin saber para qué estaba.
-
-**Aquí sí se añadió una dependencia** (`qrcode-generator`, sin dependencias
-propias), y conviene decir por qué no contradice lo de `electron-store` ni lo
-del renderizador de Markdown. Aquellos se descartaron porque **lo que hacía
-falta era trivial**: ochenta líneas de store, un partidor de vallas. Un
-codificador de QR no lo es —Reed-Solomon, selección de máscara, bits de
-formato— y sobre todo **su fallo no se ve**: un QR mal generado se dibuja
-perfecto y no lo lee ninguna cámara. Escribirlo a mano habría cambiado 30 KB por
-un error que sólo aparece con un teléfono delante.
-
-### MQTT: publicar hacia fuera, y dónde acaba nuestra parte
-
-No es una función de la app para la app: es una salida hacia **otra cosa**. El
-caso que la motivó es un ESP32 suscrito al tema que recibe las respuestas de un
-test y hace lo que su dueño programó. Nuestra responsabilidad termina en el
-`publish`; lo que pase al otro lado es de quien montó el dispositivo, y la
-sección lo dice con esas palabras.
-
-Cuatro decisiones que no son obvias:
-
-- **Sólo respuestas terminadas.** `answer` se emite en **cada tick del
-  streaming**, así que publicar todo lo que pasa por el enganche llenaría el
-  broker de decenas de mensajes por respuesta, cada uno un prefijo del
-  siguiente. Un microcontrolador no quiere ver crecer una frase: quiere la
-  frase. Hay test, y es el que más falta hacía — un mock del cliente habría
-  pasado igual publicando cuarenta veces.
-- **Ni errores ni abortadas.** Una placa que actúa sobre la respuesta de un test
-  no puede distinguir "esto es un error" de "esto es la respuesta" si le llegan
-  por el mismo tema. Mandar un fallo por ahí es pedirle que actúe sobre basura.
-- **Dos temas, y no es indecisión.** `<base>` lleva el JSON completo para quien
-  quiera contexto; `<base>/text` lleva **sólo el texto**, que es lo que una placa
-  puede usar sin meter un parser de JSON en 320 KB de RAM. `mqttTopics()` vive en
-  `shared/` para que la pantalla no pueda decir un tema mientras el broker recibe
-  otro; y recorta la barra final porque `a//text` es un tema legal y **distinto**
-  en MQTT, así que el suscriptor no lo vería.
-- **QoS 1 y sin retener.** QoS 1 porque perder la respuesta es el fallo que
-  importa: ya se pagó la consulta y hay alguien esperando a que su cacharro
-  reaccione. Sin retener porque un mensaje retenido se entrega al suscribirse,
-  así que una placa que arranca por la mañana ejecutaría la respuesta de ayer.
-
-**La contraseña del broker va cifrada con DPAPI**, en el mismo almacén que las
-API keys. La regla del proyecto sobre credenciales no distingue entre las caras
-y las baratas: un broker de casa parece inofensivo hasta que esa contraseña abre
-otra cosa.
-
-**El broker de los tests es real** (`aedes`, en proceso, en un puerto efímero).
-Lo que hay que comprobar no es que llamemos a `publish`, es qué recibe el
-suscrito: con el cliente simulado, publicar en el tema equivocado o con el
-payload equivocado pasaría el test igual.
-
-### El dashboard dejó de ser una columna
-
-Nació como una columna de tarjetas y creció hasta **doce**, de los primeros
-pasos al registro de diagnóstico. Con cuatro funcionaba; con doce, encontrar un
-ajuste era acordarse de a qué altura del scroll estaba, y hubo que inventar un
-`scrollToCard()` para que la guía de primeros pasos pudiera llevarte a una
-tarjeta — señal de que la navegación ya no la daba la propia página.
-
-Ahora hay una barra lateral con nueve secciones y sólo se monta la que estás
-viendo. Lo que hay que saber para no deshacerlo por partes:
-
-- **La cabecera del panel es la que titula.** Las tarjetas que son únicas en su
-  sección ya no llevan `card__title` ni `card__hint`: el texto se movió a
-  `SECTIONS[id].hint`. Volver a ponérselo diría lo mismo dos veces en la misma
-  pantalla. Las secciones con varias tarjetas —General, Audio, Modelos— sí las
-  conservan, porque ahí el título distingue una tarjeta de la siguiente.
-- **Los avisos suben a la barra lateral** como un punto ámbar, y son
-  exactamente los que ya existían dentro de las tarjetas: proveedor sin
-  configurar, atajo rechazado por Windows, auto-disparo inerte, modo invisible
-  apagado. No hay ninguna comprobación nueva; lo nuevo es que **se ven sin
-  entrar**. Un panel por secciones esconde los problemas por diseño, y el caso
-  que lo obligaba es el auto-disparo inerte, cuyo único síntoma es el silencio.
-- **El interruptor de escucha vive en la cabecera**, no sólo en su tarjeta. Es
-  el mismo razonamiento que llevó el indicador del overlay a ser el mando: quien
-  mira si está escuchando es porque quiere que escuche.
-- **«Qué se escucha» se fue de Transcripción a Audio.** Estaba donde se
-  implementa y no donde se busca. El precio de moverlo es que su aviso más caro
-  se explica en Comportamiento, así que en los dos sitios hay un salto (`Jump`)
-  en lugar del texto repetido: partir el dashboard en secciones separa ajustes
-  que se explican el uno al otro, y eso hay que pagarlo explícitamente.
-- **La sección se recuerda en `localStorage`.** El dashboard se abre y se cierra
-  muchas veces seguidas afinando lo mismo, y volver siempre a «General» obliga a
-  repetir el clic. El `try/catch` no es ceremonia: un almacenamiento que falla no
-  puede impedir que se abran los ajustes.
-
-**Los iconos se dibujan a mano** en `icons.tsx`, y no es masoquismo: la CSP del
-dashboard es `default-src 'self'`, así que nada puede venir de un CDN, y meter
-un paquete de iconos en una ventana que se abre para cambiar dos ajustes no sale
-a cuenta. Es la misma razón por la que el overlay no tiene un renderizador de
-Markdown.
-
-### Lo que el dashboard tenía guardado y no enseñaba
-
-Tres ajustes existían en `Settings`, el código los aplicaba, y **no había ninguna
-forma de tocarlos** salvo editar `settings.json` a mano. No es lo mismo que un
-ajuste que falta: el que está a medias parece implementado hasta que alguien lo
-busca.
-
-- **`overlayOpacity` y `overlayFontScale`.** El overlay ya los leía. El segundo
-  ni siquiera existía como ajuste, y su ausencia se notaba en pantallas grandes.
-- **`HotkeyMap`.** Los diez atajos eran configurables por diseño y sólo por
-  JSON. Y hay que cambiarlos: un acelerador **global** se lo quita a la
-  aplicación que tenga el foco, así que cualquier valor por defecto choca con el
-  editor, el juego o la distribución de teclado de alguien.
-
-Sobre el campo de atajos, dos decisiones:
-
-- **Se captura la pulsación, no se escribe el texto.** El formato es de Electron
-  (`Control+Shift+S`) y nadie tiene por qué conocerlo; y un acelerador mal
-  escrito no da error, sólo un atajo que no se registra.
-- **Se exige al menos un modificador.** No es purismo: un atajo global sin
-  modificador secuestra esa tecla en **todo el sistema**. Ligar `S` a "capturar
-  pantalla" haría imposible escribir la letra ese en cualquier aplicación
-  mientras el asistente estuviera abierto. Está en `acceleratorFromEvent` y tiene
-  test.
-
-Y dos avisos que antes no existían, los dos sobre fallos mudos:
-`registerHotkeys` **ya devolvía** los aceleradores rechazados y nadie recogía la
-lista —sólo salía por el log, que en el `.exe` no mira nadie—, y dos acciones con
-el mismo atajo no dan error: `globalShortcut` registra la primera y devuelve
-`false` para la segunda, dejando una acción muerta sin decirlo.
-
-### El asistente de configuración sustituyó a la lista de tareas
-
-La tarjeta de «Primeros pasos» era una **lista de tareas**: decía qué faltaba y
-te mandaba a la sección a hacerlo tú. Eso funciona si ya sabes qué es un
-proveedor, una API key y un modelo con visión. Para quien abre la app por
-primera vez, el primer paso —«local o nube»— exige saber cuánta RAM tiene y si
-su GPU sirve, y nadie tiene por qué saber eso para probar una app.
-
-El asistente **hace** los pasos en lugar de enumerarlos: mide el equipo,
-recomienda un camino con el motivo a la vista, instala Ollama si hace falta,
-descarga los dos modelos que le pegan a esa máquina y deja resuelta la
-transcripción. Reemplaza a la tarjeta en lugar de convivir con ella: hacían el
-mismo trabajo y mantener las dos era garantizar que se contradijeran.
-
-**Se instala con winget, no descargando el `.exe`.** Bajar un ejecutable y
-lanzarlo es la forma exacta de una cadena de suministro comprometida, y desde
-fuera es indistinguible de que la app haga algo turbio. Con winget no tocamos
-ningún binario: resuelve el paquete firmado y el aviso de elevación lo pinta
-Windows con su propia cara. Cuando winget no está **no hay plan B automático, y
-es deliberado**: se abre ollama.com y lo instala la persona. Una app que insiste
-en instalar software cuando el camino limpio no existe es justo lo que no
-queremos ser.
-
-Dos detalles que costaron una decisión:
-
-- **Instalar no es estar listo.** El instalador vuelve antes de que el servidor
-  acepte conexiones, así que el paso siguiente —descargar el modelo— fallaría
-  con un "no se pudo conectar" que parece un fallo de la instalación. Por eso se
-  sondea `probeOllama` hasta 90 s antes de dar el paso por bueno.
-- **El paso de la voz existe porque es el que se olvida.** Quien pega una clave
-  de Claude y cierra se queda con la app **muda**: el motor por defecto es Gemini
-  Live, que necesita una clave de Google que esa persona no tiene. El síntoma es
-  el peor posible —escucha encendida, medidores moviéndose y ni una palabra— así
-  que el asistente elige un motor que de verdad pueda funcionar con lo que hay.
-
-**No se prometen tamaños de descarga.** Los GB de cada modelo no se pueden
-consultar antes de empezar, así que se dice "varios GB" y el número real aparece
-en cuanto arranca. Es la misma regla que con los precios de la guía: mejor un
-hueco reconocido que una cifra inventada.
-
-### «Configurada» no era lo mismo que «sirve»
-
-Lo destapó el asistente, y es el tipo de fallo que este documento existe para
-registrar: la pantalla decía **«ya tienes una clave»** y dos segundos después la
-prueba de conexión contestaba **«falta la API key»**. Las dos cosas salían del
-mismo archivo.
-
-`getPresence()` sólo comprobaba que el campo existiera en `secrets.json`;
-`getSecret()` era quien lo descifraba. Un ciphertext escrito por otro perfil de
-Windows o por otra instalación **sigue ahí, ocupando su sitio**, y falla al
-abrirse. Resultado: dashboard en verde y todas las respuestas fallando, que es
-exactamente el estado en el que nadie sospecha de la clave porque la app acaba
-de decir que está bien.
-
-Ahora la presencia se responde intentando descifrar. Cuesta dos cadenas cortas y
-convierte una media verdad en un dato. Tiene test —`secrets-presence.test.ts`—
-porque el fallo es invisible: la versión rota pasa cualquier prueba que no
-distinga "hay bytes" de "se puede leer".
-
-### La guía de primeros pasos
-
-El overlay ya avisaba de que faltaba un proveedor, pero eso cubre **uno de
-cuatro** pasos y no dice cuáles son los otros tres. Los dos que se saltaba la
-gente son justo los que más se notan luego:
-
-- **Probar la conexión.** Una clave mal pegada no da ningún síntoma hasta la
-  primera pregunta, y entonces el fallo parece de la app.
-- **Pegar el CV.** Sin él las respuestas salen correctas pero genéricas, porque
-  el modelo tiene prohibido inventarse experiencia. Es la diferencia entre que la
-  app sirva y que parezca que no vale para nada.
-
-Se marca sola, desaparece al completarse y se puede ocultar a mano — pero el
-botón para recuperarla se queda al final del dashboard: esconder algo no debería
-ser irreversible.
-
-### Discreción en Windows: barra de tareas y nombre del proceso
-
-Dos cosas distintas que el usuario pidió, con alcances muy distintos:
-
-- **Barra de tareas:** ni el overlay ni el dashboard aparecen. El overlay ya la
-  evitaba; se añadió `skipTaskbar: true` al dashboard y un `setSkipTaskbar(true)`
-  re-afirmado tras `showInactive()` en el overlay, por un gotcha de Electron en
-  ventanas `transparent`+`frameless`. El **título de ventana** del dashboard
-  (BrowserWindow `title` y el `<title>` del HTML — este último gana tras cargar la
-  página, así que hay que cambiar los dos) se filtra por Alt+Tab y la sección
-  "Aplicaciones" del Administrador. Llevó un tiempo un nombre neutro; hoy lleva la
-  marca real —ver el punto siguiente—.
-
-- **Nombre del proceso y de la ventana: la marca real, no un disfraz.** Al
-  principio se puso `Audio Helper` en `electron-builder.yml` (`productName` +
-  `executableName` + `nsis.shortcutName`) y como título de ventana, para que un
-  vistazo casual no dijera "Tayori". Se revirtió a propósito (agosto de 2026): el
-  usuario prefirió la marca real, con el argumento de que **el sigilo que importa
-  no depende de este nombre**. Lo que de verdad esconde la app es
-  `setContentProtection` (invisible al compartir pantalla); el nombre del proceso
-  siempre fue **cosmético** —un software de proctoring que enumere procesos lo
-  detecta se llame como se llame—, así que el disfraz sólo compraba que no cantara
-  de un vistazo, y no compensaba la incoherencia de que el `.exe` descargable se
-  llamara distinto que la app. Ahora todo es `Tayori`. Es reversible sin romper
-  nada: **no toca la frontera de datos** (ver el aviso de abajo).
-
-**Se descartó explícitamente el ocultamiento tipo rootkit** (driver de kernel
-que intercepte `NtQuerySystemInformation`, o hooking de `taskmgr.exe`): es
-indistinguible de malware, lo marca el antivirus, exige driver firmado o
-test-signing, y puede provocar BSOD con PatchGuard. No es la herramienta
-correcta para un asistente personal, y cruza a territorio de rootkit. Si alguien
-lo propone a futuro, la respuesta es no.
-
-**Restricción crítica que hay que preservar:** NO cambiar el campo `name` de
-`package.json` (`interview-helper`). `app.getPath('userData')` deriva de
-`app.name`, que Electron toma de ese campo — no del `productName` del
-empaquetado. Se ancló además con `app.setName('interview-helper')` al inicio de
-`main/index.ts`, antes de cualquier `getPath('userData')`. Si esto se rompe, la
-app deja de encontrar los settings y la API key cifrada con DPAPI: quedan
-huérfanos en la carpeta vieja. Verificar siempre que userData sigue siendo
-`%APPDATA%\interview-helper` tras tocar el empaquetado.
-
-### El rebranding a Tayori paró donde empiezan los datos
-
-El proyecto pasó a llamarse **Tayori**, y el cambio se detuvo a propósito en la
-frontera de arriba. Tres capas, tres criterios:
-
-| Capa | Qué pasó | Por qué |
+## 3. The version matrix: why it's pinned
+
+The versions are **not** arbitrary nor "the latest". Each one is pinned by a
+concrete constraint discovered at install time. If you update one, read this
+first.
+
+- **`vite` at 7.3.6, not 8.** `electron-vite@5` declares `vite: ^5 || ^6 || ^7`.
+  Vite 8 breaks the install.
+- **`@vitejs/plugin-react` at 5.2.0, not 6.** 6 requires `vite: ^8`. 5.2.0 is the
+  newest that still accepts Vite 7.
+- **`typescript` at 6.0.3, not 7.** `typescript-eslint@8.65` declares
+  `typescript: >=4.8.4 <6.1.0`. TypeScript 7 (the Go port) is out.
+- **`@eslint/js` at 10.0.1**, which doesn't follow `eslint`'s version number
+  (10.8.0). They're independently versioned packages.
+- **TypeScript 6 deprecated `baseUrl`.** The tsconfig `paths` need an explicit
+  `./` prefix, or `tsc` fails with TS5090.
+- **`eslint-plugin-react-hooks@7`**: the flat config is in
+  `configs.flat['recommended-latest']`. `configs['recommended-latest']` is still
+  the old eslintrc format and ESLint 10 rejects it.
+- **`electron-store` is out of the project on purpose.** Since v10 it's ESM-only
+  (`"type": "module"`), and the main process is bundled as CommonJS. A ~80-line
+  store of our own was written in `src/main/config/store.ts`; what we needed was
+  trivial and didn't justify fighting the interop.
+- **The Electron binary has to be installed by hand after `npm install`.** npm 11
+  blocks install scripts, and Electron's postinstall is what downloads the
+  binary. If `node_modules/electron/dist/electron.exe` doesn't exist:
+  `node node_modules/electron/install.js`. Running **only that** script was
+  chosen instead of approving all of them in bulk. `esbuild` doesn't need it: its
+  binary arrives via optional dependencies.
+
+**Main is CommonJS, not ESM.** The original reason was compatibility with native
+modules (whisper, onnxruntime). That reason **disappeared** when whisper became
+an external binary (§5), so today CJS stays only for interop simplicity. If some
+day it's worth migrating to ESM, there's nothing blocking it anymore except
+reviewing the bundle's implicit `require`s.
+
+---
+
+## 4. Architecture decisions and their reasoning
+
+### The app listens, it doesn't record — qualified in July 2026
+
+The original version **persisted nothing**, and this section warned that adding
+a history would break that promise and force updating the README and the legal
+considerations *at the same time*. That's exactly what happened: the user asked
+for a conversation history that gets saved, explicitly choosing to include the
+transcript and not just the answers.
+
+Where the line stands now, which is what you need to know so as not to move it
+again by accident:
+
+- **The audio still doesn't touch the disk. Ever.** The worklet's chunks go to
+  the engine and are discarded. There are no audio or temporary files — the only
+  exception is the WAV that Whisper local needs to invoke `whisper-cli`, which is
+  deleted in the `finally` of each invocation and lives in an `mkdtemp` that's
+  destroyed on stop. This part is **non-negotiable**: it's what separates the app
+  from a recorder.
+- **The text is saved**, if `settings.historyEnabled` is on: answers and the full
+  transcript, one JSON per conversation in `userData/conversations`. See
+  `main/config/history.ts`.
+- **It's a switch, not a constant.** Turning it off restores the old behavior
+  completely: `ensureConversation()` returns `null` and not even the folder is
+  created. That shape —the entry point returning `null` instead of scattering
+  checks throughout the orchestrator— is what makes it impossible for a write to
+  slip in by oversight.
+
+**And the third one is MQTT.** It publishes finished answers to a broker for
+something else to pick up —the case that motivated it is an ESP32 subscribed to
+the topic that reacts to the answers of a quiz—. It's the **farthest** output of
+the three: the phone mirror doesn't leave your network by construction, but a
+broker can be on the internet, so this can take the text of your answers off the
+machine and off the network. Off by default, with the warning in the section
+itself, and **answers only**: the transcript isn't published, for the usual
+reason.
+
+**August 2026: the phone mirror is the second output**, and it's noted here by
+the rule at the end of this section. It serves the **answers** —not the
+transcript— over HTTP to the user's local network. It doesn't touch the disk and
+doesn't leave their network, but while it's on there's a copy of the text
+outside the protected window, so it counts as an output and the README says so
+under «Legal considerations». The transcript was left out **on purpose**: it's
+what the other person said, and duplicating it onto a second device for
+convenience was something nobody had asked for. If some day it's added, the
+README and this section get touched again in the same commit.
+
+The legal change **isn't cosmetic**: in several jurisdictions a written record of
+a conversation counts the same as a recording for consent purposes. That's why
+the README no longer says "records nothing" flat out, and «Legal considerations»
+now separates three things that used to go together: recording, where the audio
+goes, and the policies of whatever company you're at.
+
+**The earlier rule still stands, only the bar moved:** if someone adds export,
+sync or any new output of this data, the README and this section have to be
+touched again in the same commit.
+
+### Windows
+
+- **Three renderer entries** (overlay, dashboard, audio-worker).
+- **The audio worker is a separate hidden window**, not part of the overlay, for
+  three reasons: `getUserMedia`/`getDisplayMedia` only exist in a renderer;
+  isolating it keeps the audio pipeline from stopping when the user hides the
+  overlay; and `backgroundThrottling: false` is essential or Chromium throttles
+  the timers of an unfocused window and the audio arrives in stutters.
+- **`focusable: false` on the overlay.** This isn't cosmetic: stealing the focus
+  from Teams/Meet is what **really** gives the assistant away, more than the
+  window itself. It's shown with `showInactive()`, never `show()`.
+- **Re-apply `setContentProtection(true)` on `show`/`restore`/`focus`.** Electron
+  loses the flag on hiding and showing again (electron/electron#29085, half-fixed
+  in #45868 but inconsistent between builds). **Don't remove that hook**: it's the
+  number-one cause of leaks in this kind of app.
+- **The dashboard is also excluded from capture, but in `content-only` mode.** It
+  was a leak: the overlay didn't show in the recording and the settings window
+  —where the API keys, the CV, the history are— did. Now the dashboard calls
+  `setStealthContentOnly` (in `windows/stealth.ts`) before its first `show`, so
+  DWM omits it just like the overlay. It's **`content-only`** on purpose:
+  `applyStealth` (the overlay's) bundles the capture protection WITH
+  `setAlwaysOnTop('screen-saver')` and `setVisibleOnAllWorkspaces`, which are
+  overlay behavior —floating over the video call—; the dashboard is a normal
+  window you open to configure and want to be able to alt-tab to, so it gets only
+  the `WDA_EXCLUDEFROMCAPTURE` and the re-applies, not the positioning. It
+  follows the same stealth switch: `setStealthForAll` routes the `content-only`
+  windows down the light path, so demo mode makes both visible alike.
+
+### The overlay controls and the click-through lock
+
+There's a fundamental contradiction between two requirements, and the solution
+isn't obvious: the overlay must **let clicks through** during a call, and at the
+same time have **pressable buttons** (gear, close) and a drag zone.
+
+`setIgnoreMouseEvents(true, { forward: true })` makes the window ignore clicks
+*but still receive movement events*. That's exactly what's exploited: the
+renderer listens to `mousemove`, checks with `elementFromPoint` whether the
+cursor is over something marked `data-interactive`, and asks the main process to
+stop ignoring the mouse only for that stretch (`useChromeMouse`).
+
+Two details that look superfluous and aren't:
+
+- The document's `mouseleave` is also listened to. If the cursor exits quickly
+  past an edge, a last `mousemove` over a non-interactive zone may not arrive,
+  and the window would be left capturing clicks on top of the video call.
+- The drag is **manual** (`startOverlayDrag` follows the cursor from the main
+  process with `setPosition`), not `-webkit-app-region: drag`. That property
+  doesn't work with `focusable: false`, and giving up `focusable: false` isn't an
+  option. The tracking runs on an interval and not on the renderer's `mousemove`
+  because when dragging fast the cursor leaves the window.
+
+### The two tabs: listen and write
+
+The input panel has two tabs. **Listen** is the usual transcription; **Write**
+is a textarea that calls `askWithText`. The answer is painted in «Suggestion» in
+both cases: what changes is where the question comes from, not where the answer
+appears.
+
+Writing requires the window to be focusable, so the write tab is **the only
+situation in which the overlay takes the focus**. It's acceptable because the
+user asks for it explicitly, but it has three consequences that go together and
+can't be separated:
+
+- **Reverting isn't optional.** `OverlayApp`'s effect calls
+  `setInteractive(false)` on switching tabs and on unmount, and
+  `toggleOverlayVisibility` forces it before hiding. A window that stays
+  focusable ends up stealing the video call's focus, which is exactly what the
+  app exists to avoid.
+- **The guard lives in the main process, not in React.** `setOverlayMouseIgnore`
+  returns early if `isOverlayInteractive()`. Without it the two mechanisms fight:
+  it's enough to move the cursor over a non-interactive zone for
+  `useChromeMouse`'s hover to hand click-through back mid-sentence and the send
+  button to stop responding. It was placed there and not in the order of React's
+  effects because that order is too fragile to hold an invariant.
+- **It sends `Enter`, not `Ctrl+Enter`.** `Ctrl+Enter` is a **global** hotkey:
+  the main process intercepts it and it never reaches the textarea. If some day
+  you want `Ctrl+Enter` to send the draft, you have to unregister the accelerator
+  on entering the tab and re-register it on leaving; an `onKeyDown` isn't enough.
+
+The warning that the overlay takes the focus is **on the tab itself**, not just
+here: it's an exception to the product's central promise and staying quiet about
+it would be the kind of half-truth the README works hard not to tell.
+
+### What surfaced onto the overlay, and why
+
+The overlay went from three controls to a good few more. The criterion for
+deciding what rises from the dashboard to the overlay is a single one: **would
+you need it mid-call?** The dashboard has to be opened with the gear and steals
+the focus, so everything in it is, in practice, unreachable while you talk.
+
+- **Profile chips.** `promptProfileId` already existed; it was only in a
+  dashboard dropdown. Switching register is exactly what you want to be able to
+  do without stopping. `custom` isn't a chip because it's edited with a textarea.
+- **Quick actions** (Continue / Shorter / Follow-up / Summary). They're canned
+  prompts that go through `askWithText`, the same route as the write tab:
+  **there's no new path to the LLM**. They only appear if there's an answer to
+  act on; "expand your last answer" with no previous answer asks the model to
+  expand the void.
+- **Size S/M/L/XL.** Four presets and no free resizing: the window is
+  `frameless`, there are no edges to drag, and building handles of your own for a
+  setting touched twice isn't worth it. `setOverlaySize` **re-anchors to the
+  right edge**: the overlay lives at the top right and growing outward would take
+  it off screen.
+- **Relative timestamps**, not the clock time. When reviewing, what matters is
+  "how long ago this was said"; an absolute time forces you to subtract in your
+  head.
+- **New conversation.** It aborts the in-flight answer, flushes the conversation,
+  clears the `TranscriptBuffer` **and** emits `onConversationReset`. That last
+  one isn't optional: the overlay has its own copy of the segments in React state
+  and without the event it would keep showing the previous conversation.
+- **The listen switch.** It's the app's most-used control and lived only in the
+  dashboard and on `Ctrl+Shift+M`. It failed this very list's criterion: to start
+  listening you had to open the window that steals the focus. Now the indicator
+  **is** the control —the green dot was already there, just not pressable—,
+  because two separate elements for "what's happening" and "change it" cost room
+  in a bar that runs tight. The error state is also pressable: it retries.
+- **The two audio sources, as switches.** They replace the read-only meters and
+  answer two distinct questions that used to be split between the overlay and the
+  dashboard: *what's supposed to be heard* (the lit chip) and *what's actually
+  coming in* (the moving bar). The third state is the one that existed nowhere
+  and is the important one: **configured but not opened** — amber chip. A
+  microphone the system didn't grant produced exactly the same screen as a silent
+  room. Turning off the last active source isn't silently ignored: it's explained
+  that to hear nothing there's the listen button. A control that does nothing
+  when pressed is indistinguishable from a broken one.
+- **Which model is answering**, next to the "Suggestion" title. When reading a
+  weak answer the first thing you want to know is which one it came out of, and
+  with three configurable providers it's easy to believe you're on one and be on
+  another.
+- **Stop the generation.** `ask.abort` existed in the IPC from the start and had
+  no button: the only way to cut off an answer was to ask something else, which
+  is an expensive way to say "stop".
+- **Answer history, with arrows.** An answer was erased by the next one and only
+  recovered by opening the dashboard. The overlay keeps the last 20 and navigates
+  them. Two details that aren't obvious: the list updates **by id**, because
+  `answer` is emitted on every streaming tick and otherwise dozens of copies of
+  the same one would pile up; and while looking at an old one **the quick actions
+  disappear**, because those prompts say "your last answer" and the last for the
+  model is its own, not the one on screen — offering them there would promise to
+  act on what's read and would act on something else.
+- **Text scale for the content only.** The four presets enlarge the window, not
+  the text, so on a 4K the panel grew and the text stayed tiny. `--font-scale`
+  multiplies answer, code and transcript; the bar and the chips stay fixed,
+  because controls at 180% would leave the panel no room for what you came to
+  read.
+- **Compact mode.** It folds away what serves to *prepare* or *check* —profiles,
+  transcript, shortcut footer— and leaves what serves to *read*. The bar isn't
+  touched: it's from there that you expand again, and hiding the button that
+  brings back what's hidden would be a trap; besides, stopping listening has to
+  always be at hand.
+- **The bar wraps, it doesn't clip.** With listen and sources added, at size S it
+  no longer all fit: measured, 407 px of content in 354 available, and with the
+  "VISIBLE" warning and the forced language, 496. What overflowed the clip was
+  the button group, the X included. The buttons are grouped and the bar has
+  `flex-wrap`, so the cost is paid in height —which is what there's spare of— and
+  never in unreachable controls. At size S the source name is also hidden: the
+  icon already tells microphone from speaker apart. The window's width **is** the
+  viewport, so a media query is equivalent to "which preset is set".
+
+### The phone mirror: getting the answer off the shared screen
+
+The overlay solves "don't let it show in the recording". There's a case it
+**can't** solve by construction: sharing the whole screen, where what's on your
+monitor is on the other side by definition. It also doesn't cover a camera, nor
+a second monitor someone is looking at. The only way out is for the answer not to
+be on that screen, and for that you need another device.
+
+**Server-Sent Events, not WebSocket.** The stream goes in a single direction, and
+that changes the whole calculation:
+
+- Node doesn't ship a WebSocket server; SSE is `res.write()` over the same `http`
+  that already serves the page. **Zero new dependencies** for the transport.
+- `EventSource` **reconnects on its own**. On a phone the connection drops every
+  time the screen locks, so you have to have that loop no matter what — with
+  WebSocket you'd have to write it, and that's exactly where the odd failures
+  show up.
+- The phone **not being able to send anything** is a property, not a shortcoming.
+
+**The two switches are separate on purpose.** Turning the mirror on and opening
+it to the local network are two distinct decisions, and the second is the one
+with reach: with `phoneMirrorLan` off it only listens on `127.0.0.1`. Both start
+off; publishing the text of your answers is not a factory default.
+
+**The token changes on each startup** and that's why a link saved on the phone
+expires by itself, without anyone having to remember to revoke it. It's compared
+with `timingSafeEqual`, which is cheap and avoids having to justify a `===` over
+a secret later on.
+
+Three things that came out of **running it**, not reading it:
+
+- **UDP's `socket.connect()` is async.** The first version of `routedAddress()`
+  read `socket.address()` right after and threw `EBADF`, so it returned `null`
+  **always**: there was still a link —it fell back to the range heuristic— and
+  the failure was invisible. It's the pattern of this whole project: what doesn't
+  fail loudly you have to go and check.
+- **Ask the routing table instead of guessing by prefix.** The test machine had
+  four IPv4s: `192.168.1.4` (the good one) and `192.168.121.1`, `192.168.52.1`
+  and `172.22.128.1` from virtual adapters. By prefix they're indistinguishable,
+  so ordering by ranges got it right **by chance**, depending on how the system
+  enumerated them. A UDP `connect()` to a public address doesn't send a single
+  byte: it just makes the system choose a route and fix the local endpoint, which
+  is exactly the datum you're after. The range heuristic stays as plan B for when
+  there's no default route.
+- **`server.close()` doesn't close the SSE connections**, which are keep-alive:
+  without ending them by hand the port stays taken and the process doesn't die.
+  And the close is **async**, so a request from the same tick still gets in —
+  what really shuts the door is that the token is deleted synchronously. The test
+  says it that way instead of asserting that the connection is rejected: written
+  the other way it passed by luck, depending on how fast the machine was.
+
+**The QR travels as a matrix of modules, not as an image.** The dashboard draws
+it with `<rect>`: nothing to add to the CSP, sharp at any size, and the
+mandatory four-module margin is arithmetic of the `viewBox` instead of a CSS
+border someone could remove without knowing what it was for.
+
+**Here a dependency *was* added** (`qrcode-generator`, with no dependencies of
+its own), and it's worth saying why it doesn't contradict the `electron-store` or
+the Markdown-renderer decisions. Those were dropped because **what was needed was
+trivial**: eighty lines of store, a fence splitter. A QR encoder isn't
+—Reed-Solomon, mask selection, format bits— and above all **its failure doesn't
+show**: a badly generated QR is drawn perfect and no camera reads it. Writing it
+by hand would have traded 30 KB for a bug that only appears with a phone in front
+of you.
+
+### MQTT: publishing outward, and where our part ends
+
+It's not a feature of the app for the app: it's an output toward **something
+else**. The case that motivated it is an ESP32 subscribed to the topic that
+receives a quiz's answers and does what its owner programmed. Our responsibility
+ends at the `publish`; whatever happens on the other side belongs to whoever
+built the device, and the section says so in those words.
+
+Four decisions that aren't obvious:
+
+- **Finished answers only.** `answer` is emitted on **every streaming tick**, so
+  publishing everything that passes through the hook would fill the broker with
+  dozens of messages per answer, each one a prefix of the next. A microcontroller
+  doesn't want to watch a sentence grow: it wants the sentence. There's a test,
+  and it was the one most needed — a mock of the client would have passed just as
+  well publishing forty times.
+- **Neither errors nor aborted ones.** A board that acts on a quiz's answer can't
+  tell "this is an error" from "this is the answer" if they arrive over the same
+  topic. Sending a failure there is asking it to act on garbage.
+- **Two topics, and it's not indecision.** `<base>` carries the full JSON for
+  whoever wants context; `<base>/text` carries **only the text**, which is what a
+  board can use without putting a JSON parser into 320 KB of RAM. `mqttTopics()`
+  lives in `shared/` so the screen can't say one topic while the broker receives
+  another; and it trims the trailing slash because `a//text` is a legal and
+  **different** topic in MQTT, so the subscriber wouldn't see it.
+- **QoS 1 and not retained.** QoS 1 because losing the answer is the failure that
+  matters: the query has already been paid for and there's someone waiting for
+  their gadget to react. Not retained because a retained message is delivered on
+  subscription, so a board that boots in the morning would run yesterday's answer.
+
+**The broker password is encrypted with DPAPI**, in the same store as the API
+keys. The project's rule on credentials doesn't distinguish the expensive ones
+from the cheap ones: a home broker looks harmless until that password opens
+something else.
+
+**The tests' broker is real** (`aedes`, in-process, on an ephemeral port). What
+has to be checked isn't that we call `publish`, it's what the subscriber
+receives: with a mocked client, publishing to the wrong topic or with the wrong
+payload would pass the test just the same.
+
+### The dashboard stopped being a column
+
+It was born as a column of cards and grew to **twelve**, from first steps to the
+diagnostic log. With four it worked; with twelve, finding a setting was
+remembering what scroll height it was at, and a `scrollToCard()` had to be
+invented so the first-steps guide could take you to a card — a sign that the
+navigation was no longer provided by the page itself.
+
+Now there's a sidebar with nine sections and only the one you're viewing is
+mounted. What you need to know so as not to undo it piecemeal:
+
+- **The panel header is what titles it.** Cards that are unique in their section
+  no longer carry `card__title` or `card__hint`: the text moved to
+  `SECTIONS[id].hint`. Putting it back would say the same thing twice on the same
+  screen. Sections with several cards —General, Audio, Models— do keep them,
+  because there the title distinguishes one card from the next.
+- **The warnings rise to the sidebar** as an amber dot, and they're exactly the
+  ones that already existed inside the cards: unconfigured provider, shortcut
+  rejected by Windows, inert auto-trigger, invisible mode off. There's no new
+  check; what's new is that **they're visible without going in**. A sectioned
+  panel hides the problems by design, and the case that forced it is the inert
+  auto-trigger, whose only symptom is silence.
+- **The listen switch lives in the header**, not just in its card. It's the same
+  reasoning that made the overlay's indicator the control: whoever checks whether
+  it's listening is because they want it to listen.
+- **«What's being listened to» moved from Transcription to Audio.** It was where
+  it's implemented and not where it's looked for. The price of moving it is that
+  its most expensive warning is explained under Behavior, so in both places
+  there's a jump (`Jump`) instead of the repeated text: splitting the dashboard
+  into sections separates settings that explain each other, and that has to be
+  paid for explicitly.
+- **The section is remembered in `localStorage`.** The dashboard is opened and
+  closed many times in a row tuning the same thing, and always returning to
+  «General» forces repeating the click. The `try/catch` isn't ceremony: a storage
+  that fails can't prevent the settings from opening.
+
+**The icons are drawn by hand** in `icons.tsx`, and it's not masochism: the
+dashboard's CSP is `default-src 'self'`, so nothing can come from a CDN, and
+putting an icon package into a window that opens to change two settings doesn't
+pay off. It's the same reason the overlay has no Markdown renderer.
+
+### What the dashboard had saved and didn't show
+
+Three settings existed in `Settings`, the code applied them, and **there was no
+way to touch them** except editing `settings.json` by hand. It's not the same as
+a missing setting: the half-finished one looks implemented until someone looks
+for it.
+
+- **`overlayOpacity` and `overlayFontScale`.** The overlay already read them. The
+  second didn't even exist as a setting, and its absence was noticeable on large
+  screens.
+- **`HotkeyMap`.** The ten shortcuts were configurable by design and only via
+  JSON. And you have to change them: a **global** accelerator takes it away from
+  whatever application has the focus, so any default clashes with someone's
+  editor, game or keyboard layout.
+
+On the shortcut field, two decisions:
+
+- **The keystroke is captured, the text isn't typed.** The format is Electron's
+  (`Control+Shift+S`) and nobody should have to know it; and a badly written
+  accelerator gives no error, just a shortcut that doesn't register.
+- **At least one modifier is required.** It's not purism: a global shortcut with
+  no modifier hijacks that key across **the whole system**. Binding `S` to
+  "capture screen" would make it impossible to type the letter S in any
+  application while the assistant was open. It's in `acceleratorFromEvent` and has
+  a test.
+
+And two warnings that didn't exist before, both about silent failures:
+`registerHotkeys` **already returned** the rejected accelerators and nobody
+picked up the list —it only came out in the log, which nobody looks at in the
+`.exe`—, and two actions with the same shortcut give no error: `globalShortcut`
+registers the first and returns `false` for the second, leaving a dead action
+without saying so.
+
+### The setup wizard replaced the task list
+
+The «First steps» card was a **task list**: it said what was missing and sent you
+to the section to do it yourself. That works if you already know what a provider,
+an API key and a vision-capable model are. For someone opening the app for the
+first time, the first step —«local or cloud»— demands knowing how much RAM they
+have and whether their GPU is up to it, and nobody should have to know that to
+try out an app.
+
+The wizard **does** the steps instead of listing them: it measures the machine,
+recommends a path with the reason in plain sight, installs Ollama if needed,
+downloads the two models that fit that machine and settles the transcription. It
+replaces the card instead of coexisting with it: they did the same job and
+keeping both was guaranteeing they'd contradict each other.
+
+**It installs with winget, not by downloading the `.exe`.** Downloading an
+executable and launching it is the exact shape of a compromised supply chain, and
+from the outside it's indistinguishable from the app doing something shady. With
+winget we don't touch any binary: it resolves the signed package and the
+elevation prompt is painted by Windows with its own face. When winget isn't there
+**there's no automatic plan B, and it's deliberate**: ollama.com is opened and
+the person installs it. An app that insists on installing software when the clean
+path doesn't exist is exactly what we don't want to be.
+
+Two details that cost a decision:
+
+- **Installing isn't being ready.** The installer returns before the server
+  accepts connections, so the next step —downloading the model— would fail with a
+  "couldn't connect" that looks like an install failure. That's why `probeOllama`
+  is polled for up to 90 s before calling the step good.
+- **The voice step exists because it's the one that gets forgotten.** Whoever
+  pastes a Claude key and closes is left with the app **mute**: the default
+  engine is Gemini Live, which needs a Google key that person doesn't have. The
+  symptom is the worst possible one —listening on, meters moving and not a word—
+  so the wizard picks an engine that can actually work with what's there.
+
+**Download sizes aren't promised.** The GB of each model can't be looked up
+before starting, so it says "several GB" and the real number appears as soon as
+it starts. It's the same rule as with the guide's prices: better an
+acknowledged gap than an invented figure.
+
+### «Configured» wasn't the same as «works»
+
+The wizard exposed it, and it's the kind of failure this document exists to
+record: the screen said **«you already have a key»** and two seconds later the
+connection test replied **«the API key is missing»**. Both came out of the same
+file.
+
+`getPresence()` only checked that the field existed in `secrets.json`;
+`getSecret()` was the one that decrypted it. A ciphertext written by another
+Windows profile or by another installation **is still there, taking up its
+place**, and fails to open. Result: dashboard green and every answer failing,
+which is exactly the state in which nobody suspects the key because the app just
+said it was fine.
+
+Now presence is answered by attempting to decrypt. It costs two short strings and
+turns a half-truth into a fact. It has a test —`secrets-presence.test.ts`—
+because the failure is invisible: the broken version passes any test that doesn't
+distinguish "there are bytes" from "it can be read".
+
+### The first-steps guide
+
+The overlay already warned that a provider was missing, but that covers **one of
+four** steps and doesn't say which the other three are. The two people skipped
+are exactly the ones that show up most later:
+
+- **Test the connection.** A badly pasted key gives no symptom until the first
+  question, and then the failure looks like the app's.
+- **Paste the CV.** Without it the answers come out correct but generic, because
+  the model is forbidden from inventing experience. It's the difference between
+  the app being useful and looking worthless.
+
+It marks itself, disappears on completion and can be hidden by hand — but the
+button to bring it back stays at the end of the dashboard: hiding something
+shouldn't be irreversible.
+
+### Discretion on Windows: taskbar and process name
+
+Two distinct things the user asked for, with very different reach:
+
+- **Taskbar:** neither the overlay nor the dashboard appear. The overlay already
+  avoided it; `skipTaskbar: true` was added to the dashboard and a
+  `setSkipTaskbar(true)` re-asserted after `showInactive()` on the overlay,
+  because of an Electron gotcha in `transparent`+`frameless` windows. The
+  dashboard's **window title** (BrowserWindow `title` and the HTML `<title>` —
+  this last one wins after the page loads, so you have to change both) leaks
+  through Alt+Tab and the "Apps" section of Task Manager. It carried a neutral
+  name for a while; today it carries the real brand —see the next point—.
+
+- **Process and window name: the real brand, not a disguise.** At first
+  `Audio Helper` was set in `electron-builder.yml` (`productName` +
+  `executableName` + `nsis.shortcutName`) and as the window title, so a casual
+  glance wouldn't say "Tayori". It was reverted on purpose (August 2026): the
+  user preferred the real brand, on the argument that **the stealth that matters
+  doesn't depend on this name**. What really hides the app is
+  `setContentProtection` (invisible when sharing the screen); the process name
+  was always **cosmetic** —proctoring software that enumerates processes detects
+  it whatever it's called—, so the disguise only bought that it wouldn't stand
+  out at a glance, and it didn't offset the inconsistency of the downloadable
+  `.exe` being named differently from the app. Now everything is `Tayori`. It's
+  reversible without breaking anything: **it doesn't touch the data boundary**
+  (see the notice below).
+
+**Rootkit-style hiding was explicitly dropped** (a kernel driver intercepting
+`NtQuerySystemInformation`, or hooking `taskmgr.exe`): it's indistinguishable
+from malware, antivirus flags it, it requires a signed driver or test-signing,
+and it can cause a BSOD with PatchGuard. It's not the right tool for a personal
+assistant, and it crosses into rootkit territory. If someone proposes it in the
+future, the answer is no.
+
+**Critical constraint to preserve:** do NOT change the `name` field in
+`package.json` (`interview-helper`). `app.getPath('userData')` derives from
+`app.name`, which Electron takes from that field — not from the packaging's
+`productName`. It's also anchored with `app.setName('interview-helper')` at the
+start of `main/index.ts`, before any `getPath('userData')`. If this breaks, the
+app stops finding the settings and the DPAPI-encrypted API key: they're orphaned
+in the old folder. Always verify that userData is still
+`%APPDATA%\interview-helper` after touching the packaging.
+
+### The Tayori rebranding stopped where the data begins
+
+The project was renamed **Tayori**, and the change stopped on purpose at the
+boundary above. Three layers, three criteria:
+
+| Layer | What happened | Why |
 |---|---|---|
-| Marca visible (UI, docs, guía de modelos, cliente MQTT, tema por defecto) | Renombrada | Es lo que el usuario lee: es *el* rebranding |
-| `package.json` `name` y `app.setName('interview-helper')` | **Intactos** | Son la ruta de `%APPDATA%`. Renombrarlos deja los settings y las claves cifradas en la carpeta vieja, **sin ningún error**: la app arranca como recién instalada |
-| `appId` (`com.interviewhelper.app`) | **Intacto** | Identifica la instalación para NSIS; cambiarlo orfanaría las instalaciones existentes |
-| `productName`, `executableName`, `shortcutName`, título de ventana | Renombrados a `Tayori` (agosto 2026) | Empezaron neutros (`Audio Helper`) por discreción; se pasaron a la marca real. Es cosmético y no toca la ruta de datos (`app.name` no sale de aquí) |
+| Visible brand (UI, docs, model guide, MQTT client, default theme) | Renamed | It's what the user reads: it's *the* rebranding |
+| `package.json` `name` and `app.setName('interview-helper')` | **Intact** | They are the `%APPDATA%` path. Renaming them leaves the settings and the encrypted keys in the old folder, **with no error**: the app boots as if freshly installed |
+| `appId` (`com.interviewhelper.app`) | **Intact** | It identifies the installation for NSIS; changing it would orphan existing installations |
+| `productName`, `executableName`, `shortcutName`, window title | Renamed to `Tayori` (August 2026) | They started neutral (`Audio Helper`) for discretion; they were moved to the real brand. It's cosmetic and doesn't touch the data path (`app.name` doesn't come from here) |
 
-La primera vez, el rebranding paró en `productName`/`executableName` a propósito:
-el `electron-builder.yml` documentaba que la marca visible vivía en la UI y que
-esa capa era un disfraz de discreción. Después se decidió quitar el disfraz —ver
-«Nombre del proceso y de la ventana» arriba—, así que hoy esa capa también dice
-`Tayori`. **Lo que no se movió** es la frontera de datos: `package.json` `name`,
-`app.setName('interview-helper')` y `appId` siguen exactamente igual, que es lo
-único cuyo cambio rompería algo.
+The first time, the rebranding stopped at `productName`/`executableName` on
+purpose: `electron-builder.yml` documented that the visible brand lived in the UI
+and that this layer was a discretion disguise. Later it was decided to remove the
+disguise —see «Process and window name» above—, so today this layer also says
+`Tayori`. **What didn't move** is the data boundary: `package.json` `name`,
+`app.setName('interview-helper')` and `appId` remain exactly the same, which is
+the only thing whose change would break something.
 
-**`release-please-config.json` conserva `package-name: interview-helper`.** Es
-cosmético —afecta al título del changelog—, pero la publicación costó tres
-intentos por trampas silenciosas (ver §12) y no se toca a cambio de nada.
+**`release-please-config.json` keeps `package-name: interview-helper`.** It's
+cosmetic —it affects the changelog title—, but publishing cost three attempts
+due to silent traps (see §12) and it isn't touched for anything.
 
-### El dashboard se abre sólo desde el engranaje
+### The dashboard opens only from the gear
 
-Decisión explícita del usuario. No hay apertura automática en el primer
-arranque, y **no hay atajo de teclado** (se quitó `openDashboard` del
-`HotkeyMap`). Consecuencias que hay que preservar juntas:
+Explicit decision by the user. There's no automatic opening on first launch, and
+**there's no keyboard shortcut** (`openDashboard` was removed from the
+`HotkeyMap`). Consequences that have to be preserved together:
 
-- El overlay muestra un aviso de configuración cuando el proveedor activo no
-  tiene credencial, porque si no un usuario nuevo se queda sin pista alguna.
-  Ollama cuenta como configurado sin credencial.
-- Abrir una segunda instancia **recupera el overlay** en lugar de abrir el
-  dashboard: es la vía de escape si se ocultó con `Ctrl+Shift+H` y no se
-  recuerda el atajo.
+- The overlay shows a setup warning when the active provider has no credential,
+  because otherwise a new user is left with no clue at all. Ollama counts as
+  configured without a credential.
+- Opening a second instance **recovers the overlay** instead of opening the
+  dashboard: it's the escape route if it was hidden with `Ctrl+Shift+H` and the
+  shortcut isn't remembered.
 
-### Qué se escucha es configurable
+### What's being listened to is configurable
 
-`Settings.audioSources` (`both` | `system` | `mic`) llega hasta dos sitios:
-`capture.ts` (qué streams se abren; con `system` ni siquiera se pide permiso de
-micrófono) y `STTStartOptions.speakers` (qué lanes crea el motor). Lo segundo
-importa porque Gemini Live abre **una sesión WebSocket por hablante**: crear la
-del micrófono cuando no se está escuchando gastaría una conexión vacía.
+`Settings.audioSources` (`both` | `system` | `mic`) reaches two places:
+`capture.ts` (which streams are opened; with `system` microphone permission isn't
+even requested) and `STTStartOptions.speakers` (which lanes the engine creates).
+The second matters because Gemini Live opens **one WebSocket session per
+speaker**: creating the microphone's when you're not listening would waste an
+empty connection.
 
-Matiz que la UI dice explícitamente porque es la confusión natural: **el
-auto-disparo nunca reaccionó a tu propia voz** — `onFinalSegment` sólo evalúa
-segmentos de `them`. Este ajuste decide qué entra en el *contexto* que se manda
-al modelo, no cuándo se dispara. Escuchar el micrófono suele ser útil (el modelo
-sabe qué has respondido ya y no te sugiere repetirlo); `system` existe para
-quien prefiera que sus respuestas no salgan de la máquina en absoluto.
+A nuance the UI states explicitly because it's the natural confusion: **the
+auto-trigger never reacted to your own voice** — `onFinalSegment` only evaluates
+`them` segments. This setting decides what enters the *context* sent to the
+model, not when it triggers. Listening to the microphone is usually useful (the
+model knows what you've already answered and doesn't suggest repeating it);
+`system` exists for
+whoever prefers that their answers not leave the machine at all.
 
 ### Audio
 
-- **Filtro antialiasing antes de decimar.** La primera versión remuestreaba
-  48 kHz → 16 kHz con interpolación lineal y nada más, razonando que "el
-  aliasing por encima de 8 kHz no afecta a la inteligibilidad". **Ese
-  razonamiento estaba del revés y fue un bug real**: lo que hay por encima de
-  8 kHz no desaparece al decimar, se **pliega** hacia abajo y aterriza dentro de
-  la banda de la voz. Las sibilantes (s, f, z, ch) viven ahí, así que acababan
-  superpuestas sobre las vocales. El efecto perverso es que **vocalizar mejor lo
-  empeora**, porque mete más energía en la banda que se va a plegar. Se detectó
-  porque la transcripción era mediocre con los DOS motores a la vez, que es lo
-  que señaló que el fallo estaba aguas arriba de ambos.
-  Ahora va un Butterworth de **8º orden** a 7 kHz. El orden no es celo: con 4º
-  un tono de 12 kHz salía a -23 dB, audible de sobra para un reconocedor; con 8º
-  baja de -40 dB. `pcm-worklet.test.ts` ejecuta el worklet real en un sandbox y
-  fija ambos números.
-- **Ni un `push` dentro de `process()`.** Corre en el hilo de audio, con deadline
-  de tiempo real. La versión anterior usaba arrays JS con `push` por muestra y
-  `slice`/`splice` en cada llamada (~cada 2,7 ms): basura para el GC en el peor
-  sitio posible, y con Whisper y el LLM comiéndose la CPU se traduce en bloques
-  perdidos. Todo el estado son `Float32Array` con índices y `copyWithin`.
-- **Dos streams independientes** (mic = `me`, loopback = `them`) en lugar de
-  diarización. El hablante se deduce del origen: más simple y exacto.
-- **`echoCancellation` y `noiseSuppression` desactivados en el micrófono.** Con
-  la cancelación activa, el mic borraría parte del audio del otro lado, que ya
-  capturamos por separado.
-- **Ningún carril se conecta a `context.destination`**: reproduciría el audio
-  capturado y crearía realimentación con el loopback.
-- **El worklet acumula ~100 ms por mensaje.** `process()` se llama cada 128
-  frames (~2,9 ms): emitir en cada llamada serían ~344 mensajes IPC por segundo
-  **y por stream**.
-- **El worklet se compila desde un Blob URL**, no como archivo, para no depender
-  del nombre con hash que Vite da a los assets en producción. Eso obliga a
-  permitir `blob:` en `script-src` del audio-worker (ver §6).
+- **Antialiasing filter before decimating.** The first version resampled
+  48 kHz → 16 kHz with linear interpolation and nothing else, reasoning that "the
+  aliasing above 8 kHz doesn't affect intelligibility". **That reasoning was
+  backwards and it was a real bug**: what's above 8 kHz doesn't disappear on
+  decimation, it **folds** back down and lands inside the voice band. The
+  sibilants (s, f, z, sh) live there, so they ended up superimposed on the
+  vowels. The perverse effect is that **enunciating better makes it worse**,
+  because it puts more energy into the band that's going to fold. It was detected
+  because the transcription was mediocre with BOTH engines at once, which is what
+  pointed to the failure being upstream of both.
+  Now there's an **8th-order** Butterworth at 7 kHz. The order isn't zeal: with
+  4th a 12 kHz tone came out at -23 dB, plenty audible for a recognizer; with 8th
+  it drops below -40 dB. `pcm-worklet.test.ts` runs the real worklet in a sandbox
+  and pins both numbers.
+- **Not a single `push` inside `process()`.** It runs on the audio thread, with a
+  real-time deadline. The previous version used JS arrays with a `push` per
+  sample and `slice`/`splice` on every call (~every 2.7 ms): garbage for the GC
+  in the worst possible place, and with Whisper and the LLM eating the CPU it
+  translates into lost blocks. All the state is `Float32Array` with indices and
+  `copyWithin`.
+- **Two independent streams** (mic = `me`, loopback = `them`) instead of
+  diarization. The speaker is deduced from the source: simpler and exact.
+- **`echoCancellation` and `noiseSuppression` disabled on the microphone.** With
+  cancellation on, the mic would erase part of the other side's audio, which we
+  already capture separately.
+- **No lane connects to `context.destination`**: it would play back the captured
+  audio and create feedback with the loopback.
+- **The worklet accumulates ~100 ms per message.** `process()` is called every
+  128 frames (~2.9 ms): emitting on every call would be ~344 IPC messages per
+  second **and per stream**.
+- **The worklet is compiled from a Blob URL**, not as a file, so as not to depend
+  on the hashed name Vite gives assets in production. That forces allowing
+  `blob:` in the audio-worker's `script-src` (see §6).
 
-### DeepSeek: compatible con OpenAI, y ciego
+### DeepSeek: OpenAI-compatible, and blind
 
-Quinto proveedor, agosto de 2026. Dos cosas lo hacen distinto de los otros
-cuatro, y las dos condicionan dónde se le deja aparecer.
+Fifth provider, August 2026. Two things make it different from the other four,
+and both condition where it's allowed to appear.
 
-**Su API es compatible con la de OpenAI**, así que se usa el mismo SDK que ya
-estaba instalado cambiándole la `baseURL`. Cero dependencias nuevas y ningún
-cliente HTTP a mano. Pero se entra por **Chat Completions y no por la Responses
-API**: aquélla es de OpenAI, no del formato compatible. Se pierden `store:false`
-y `reasoning.effort`, y ninguno hace falta — DeepSeek no guarda las respuestas
-para recuperarlas por API, y el esfuerzo no es un parámetro suyo.
+**Its API is compatible with OpenAI's**, so the same SDK that was already
+installed is used by changing its `baseURL`. Zero new dependencies and no HTTP
+client by hand. But you enter through **Chat Completions and not the Responses
+API**: that one is OpenAI's, not the compatible format's. You lose `store:false`
+and `reasoning.effort`, and neither is needed — DeepSeek doesn't store the
+answers to retrieve them via API, and effort isn't a parameter of theirs.
 
-**Ninguno de sus modelos lee imágenes.** Ni la página de precios ni la
-referencia de la API mencionan entrada de imagen para ninguno de los dos. Eso no
-lo convierte en peor proveedor, lo convierte en un proveedor **para conversar**,
-y el diseño lo refleja en tres sitios:
+**None of its models read images.** Neither the pricing page nor the API
+reference mentions image input for either of the two. That doesn't make it a
+worse provider, it makes it a provider **for conversing**, and the design
+reflects it in three places:
 
-- `supportsVision: false` en el catálogo, que es lo que hace que el selector lo
-  marque «sin visión».
-- **No aparece en el desplegable del modelo de pantalla.** Esa tarjeta existe
-  para elegir el modelo que tiene que leer la captura; ofrecer ahí el único que
-  no puede es ofrecer la opción que garantiza que los dos botones fallen.
-- El proveedor **descarta la captura con un aviso en el log** en lugar de
-  mandarla, y **no le dice al modelo que hay una imagen**. Decírselo sin
-  mandarla es invitarle a inventarse lo que hay en ella.
+- `supportsVision: false` in the catalog, which is what makes the selector mark
+  it «no vision».
+- **It doesn't appear in the screen-model dropdown.** That card exists to choose
+  the model that has to read the capture; offering there the only one that can't
+  is offering the option that guarantees both buttons fail.
+- The provider **discards the capture with a log warning** instead of sending it,
+  and **doesn't tell the model there's an image**. Telling it without sending it
+  is inviting it to invent what's in it.
 
-**El catálogo son dos ids, y R1 no está.** El usuario pidió «V4 Pro, V4 Flash y
-R1», y R1 ya no existe: el `list models` de DeepSeek devuelve hoy exactamente
-`deepseek-v4-flash` y `deepseek-v4-pro`, y su tabla de precios tampoco lista ni
-`deepseek-reasoner` ni `deepseek-chat`. La familia V4 los sustituyó. Quien
-conserve acceso a alguno lo escribe en «Otro…».
+**The catalog is two ids, and R1 isn't there.** The user asked for «V4 Pro,
+V4 Flash and R1», and R1 no longer exists: DeepSeek's `list models` returns today
+exactly `deepseek-v4-flash` and `deepseek-v4-pro`, and its pricing table doesn't
+list `deepseek-reasoner` or `deepseek-chat` either. The V4 family replaced them.
+Whoever still has access to one writes it in «Other…».
 
-Los precios sí se reproducen en la guía porque se pudieron verificar: 0,28 $ por
-millón en Flash y 0,87 $ en Pro, entrada y salida. Es entre tres y diez veces
-más barato que cualquier otra cosa de la tabla, y eso cambia la receta de «todo
-nube, lo más barato que funciona» — con la advertencia de que el modelo de
-pantalla tiene que ser otro.
+The prices are reproduced in the guide because they could be verified: $0.28 per
+million on Flash and $0.87 on Pro, input and output. It's between three and ten
+times cheaper than anything else in the table, and that changes the recipe of
+«all cloud, the cheapest that works» — with the caveat that the screen model has
+to be a different one.
 
-### Captura por trozos: coser un enunciado que se revela con scroll
+### Chunk capture: stitching together a prompt revealed by scrolling
 
-El caso lo trajo un usuario real: un entrevistador compartió su pantalla con la
-prueba técnica —para que no se pudiera copiar y pegar— y la fue revelando con
-scroll, así que nunca se veía entera. Los botones de pantalla no sirvieron: cada
-uno captura **un** frame y resuelve, y aquí el enunciado está repartido en el
-tiempo.
+The case was brought by a real user: an interviewer shared their screen with the
+technical test —so it couldn't be copy-pasted— and revealed it by scrolling, so
+it was never seen whole. The screen buttons were no help: each captures **one**
+frame and solves, and here the prompt is spread out over time.
 
-**Lo caro ya estaba hecho, y por eso la feature es pequeña.** El pipeline
-multi-imagen existía entero desde el modo código: `AnswerEngine.pendingImages`
-es un array, `attachImage` **apila** en vez de reemplazar, y los cuatro
-proveedores con visión ya recorren `request.images` preservando el orden.
-Mandar varios frames en una consulta funcionaba sin tocar ni un proveedor. Lo
-único que faltaba era **acumular en el tiempo**, y para el bucle del modo
-automático se copió el patrón que ya existía en el audio (`armSettleTimer`).
+**The expensive part was already done, and that's why the feature is small.** The
+multi-image pipeline existed in full since code mode: `AnswerEngine.pendingImages`
+is an array, `attachImage` **stacks** instead of replacing, and the four vision
+providers already iterate over `request.images` preserving the order. Sending
+several frames in one query worked without touching a single provider. The only
+thing missing was **accumulating over time**, and for the automatic-mode loop the
+pattern that already existed in the audio (`armSettleTimer`) was copied.
 
-Tres decisiones que no son obvias:
+Three decisions that aren't obvious:
 
-- **Manual por defecto, no automático.** Lo pidió el usuario y es lo correcto:
-  quien mira el scroll sabe cuándo hay un trozo nuevo, y una pulsación por trozo
-  no gasta tokens en frames que no aportan. El automático existe para manos
-  libres, pero deduplica —`aHash` perceptual en `capture/frame-hash.ts`,
-  distancia de Hamming— porque si no llenaría la pila de copias cada vez que el
-  scroll se detiene. El dedup **sólo** actúa en automático: en manual el usuario
-  ya eligió el trozo a propósito.
-- **No se sube la resolución de captura, se guía.** El tile de una pantalla
-  compartida suele ser pequeño, y la captura se reduce a 1600 px como siempre.
-  Se valoró capturar a más px sólo en este modo; se descartó por coste de tokens
-  y porque el arreglo de verdad está en el uso: fijar el contenido compartido a
-  pantalla completa. El aviso lo dice en el ajuste y en el chip, en vez de pagar
-  cada frame más caro para tapar un encuadre que el usuario controla.
-- **Se resuelve como código, no como un `ScreenTask` nuevo.** El enunciado que
-  motiva esto es una prueba de programación, así que reutiliza el perfil
-  `coding`; sólo cambia la instrucción (`SCROLL_SOLVE_INSTRUCTION`), que le dice
-  al modelo que las imágenes son fragmentos consecutivos con solape y que
-  reconstruya antes de resolver. Añadir un `ScreenTask` habría rozado los
-  `switch` exhaustivos de media app para no ganar nada.
+- **Manual by default, not automatic.** The user asked for it and it's correct:
+  whoever watches the scroll knows when there's a new chunk, and one keypress per
+  chunk doesn't spend tokens on frames that add nothing. The automatic exists for
+  hands-free, but it deduplicates —perceptual `aHash` in `capture/frame-hash.ts`,
+  Hamming distance— because otherwise it would fill the stack with copies every
+  time the scroll stops. The dedup acts **only** in automatic: in manual the user
+  already chose the chunk on purpose.
+- **The capture resolution isn't raised, it's guided.** The tile of a shared
+  screen is usually small, and the capture is reduced to 1600 px as always.
+  Capturing at more px only in this mode was considered; it was dropped for token
+  cost and because the real fix is in the usage: pin the shared content to full
+  screen. The notice says so in the setting and in the chip, instead of paying
+  more for each frame to cover a framing the user controls.
+- **It's solved as code, not as a new `ScreenTask`.** The prompt that motivates
+  this is a programming test, so it reuses the `coding` profile; only the
+  instruction changes (`SCROLL_SOLVE_INSTRUCTION`), which tells the model that the
+  images are consecutive fragments with overlap and to reconstruct before solving.
+  Adding a `ScreenTask` would have brushed up against half the app's exhaustive
+  `switch`es for no gain.
 
-### Soluciones largas: leer en el móvil y «Continuar»
+### Long solutions: reading on the phone and «Continue»
 
-Continuación del caso anterior: una prueba técnica genera una solución larga
-—código más explicación— que **no cabe en el overlay pequeño**. Dos frentes, y
-la decisión fue atacar los dos.
+A continuation of the previous case: a technical test generates a long solution
+—code plus explanation— that **doesn't fit in the small overlay**. Two fronts,
+and the decision was to attack both.
 
-**El sitio para leer una solución larga es el móvil, no el overlay.** El overlay
-es pequeño a propósito —se lee de reojo, no tapa el editor— y agrandarlo choca
-con eso. El espejo del móvil ya existía y ya sacaba las respuestas fuera de la
-pantalla compartida a un dispositivo más grande; sólo le faltaba ser un buen
-**lector**. Se le dio formato (negrita, código en línea, math) reutilizando el
-mismo `answer-format` que el overlay —movido a `shared/` para no duplicarlo—, y
-un botón de **copiar** por bloque de código, que es lo que convierte «lo leo» en
-«me lo llevo al editor». El parseo se hace en el main y viaja ya troceado, así el
-script del móvil no reimplementa el parser y todo se sigue pintando con
-`textContent`.
+**The place to read a long solution is the phone, not the overlay.** The overlay
+is small on purpose —it's read out of the corner of your eye, it doesn't cover
+the editor— and enlarging it clashes with that. The phone mirror already existed
+and already took the answers off the shared screen to a bigger device; it just
+needed to be a good **reader**. It was given formatting (bold, inline code, math)
+reusing the same `answer-format` as the overlay —moved to `shared/` so as not to
+duplicate it—, and a **copy** button per code block, which is what turns «I read
+it» into «I take it to the editor». The parsing is done in the main process and
+travels already chunked, so the phone script doesn't reimplement the parser and
+everything is still painted with `textContent`.
 
-**El copiar del móvil no puede usar `navigator.clipboard`.** El teléfono se
-conecta por **http** a la LAN, que es un contexto no seguro, y ahí
-`navigator.clipboard` no existe. El respaldo es el viejo `execCommand('copy')`
-sobre un `textarea` oculto, que sí funciona sin https. Sin ese respaldo el botón
-no haría nada justo en el caso normal.
+**The phone's copy can't use `navigator.clipboard`.** The phone connects over
+**http** to the LAN, which is an insecure context, and there `navigator.clipboard`
+doesn't exist. The fallback is the old `execCommand('copy')` on a hidden
+`textarea`, which does work without https. Without that fallback the button would
+do nothing precisely in the normal case.
 
-**El móvil sigue sin poder mandar nada**, así que «Continuar» **no** se dispara
-desde él —sería romper la propiedad de que el SSE es de una sola dirección—: se
-pulsa en el overlay y el móvil ve crecer la respuesta.
+**The phone still can't send anything**, so «Continue» is **not** triggered from
+it —that would break the property that the SSE is one-directional—: it's pressed
+in the overlay and the phone watches the answer grow.
 
-**«Continuar» añade a la misma respuesta, y por eso el tope no se sube sin
-límite.** Se subió el del modo código (de 2200 a 4096) para que la mayoría quepa
-de una vez, pero subirlo hasta «lo que sea» invita a divagar y encarece cada
-consulta. Para lo que aún no quepa, `continueAnswer` reabre la misma respuesta
-(mismo id) y deja que `consume` pegue la continuación al final. El truco de por
-qué es tan pequeño: `remember` ya guardó el parcial como el último turno del
-asistente, así que el modelo ya lo tiene en su memoria y sólo hay que pedirle que
-siga. **No se detecta el truncado automáticamente** —el contrato de streaming
-(`llm/types.ts`) sólo emite strings, no el `stop_reason`, y sacarlo obligaría a
-tocar los cinco proveedores—; el botón está disponible en cualquier respuesta de
-código terminada y es el usuario quien ve si se cortó.
+**«Continue» appends to the same answer, and that's why the cap isn't raised
+without limit.** Code mode's was raised (from 2200 to 4096) so most fit in one
+go, but raising it to «whatever» invites rambling and makes each query more
+expensive. For what still doesn't fit, `continueAnswer` reopens the same answer
+(same id) and lets `consume` glue the continuation onto the end. The trick behind
+why it's so small: `remember` already saved the partial as the assistant's last
+turn, so the model already has it in its memory and all you have to ask is to
+keep going. **Truncation isn't detected automatically** —the streaming contract
+(`llm/types.ts`) only emits strings, not the `stop_reason`, and getting it out
+would force touching all five providers—; the button is available on any finished
+code answer and it's the user who sees whether it got cut off.
 
-### Más modelos de Whisper, y por qué no todos los de la referencia
+### More Whisper models, and why not all of the reference's
 
-Se amplió el catálogo de reconocimiento de voz a partir de una referencia de otra
-app. Tres cosas de esa referencia **no entraron**, y conviene saber por qué antes
-de intentar "completarla":
+The speech-recognition catalog was expanded from another app's reference. Three
+things from that reference **didn't make it in**, and it's worth knowing why
+before trying to "complete it":
 
-- **Moonshine no es whisper.cpp.** Es un modelo ONNX aparte; el motor local corre
-  el binario de whisper.cpp con modelos GGML, así que Moonshine exigiría **otro
-  runtime entero** (onnxruntime), que es una feature, no "un modelo más".
-- **Los Distil no están en el repo oficial** (`ggerganov/whisper.cpp`) ni en su
-  descargador. Sí existen sus GGML, pero en repos sueltos y con nombres de archivo
-  irregulares (`ggml-medium-32-2.en.bin`), así que llevan **URL explícita
-  verificada contra Hugging Face**: una URL muerta no falla al guardar, falla al
-  descargar. `distil-large-v2` se quedó fuera porque su repo devuelve 404.
-- Las etiquetas **«Apple Silicon»** son de la app de Mac (CoreML); en Windows esos
-  son los Medium normales.
+- **Moonshine isn't whisper.cpp.** It's a separate ONNX model; the local engine
+  runs the whisper.cpp binary with GGML models, so Moonshine would require
+  **a whole other runtime** (onnxruntime), which is a feature, not "one more
+  model".
+- **The Distil ones aren't in the official repo** (`ggerganov/whisper.cpp`) nor in
+  its downloader. Their GGMLs do exist, but in loose repos and with irregular file
+  names (`ggml-medium-32-2.en.bin`), so they carry an **explicit URL verified
+  against Hugging Face**: a dead URL doesn't fail on save, it fails on download.
+  `distil-large-v2` was left out because its repo returns 404.
+- The **«Apple Silicon»** labels are from the Mac app (CoreML); on Windows those
+  are the normal Mediums.
 
-El catálogo se movió a `shared/whisper-models.ts` —dato puro— porque lo necesitan
-los dos lados: el main para descargar y el dashboard para el Model Manager, y el
-renderer no puede importar de `main/`. La recomendación por RAM tiene **sesgo a lo
-rápido**: la transcripción es en vivo, y un modelo lento arruina el caso de uso
-aunque quepa en memoria.
+The catalog was moved to `shared/whisper-models.ts` —pure data— because both sides
+need it: the main process to download and the dashboard for the Model Manager,
+and the renderer can't import from `main/`. The by-RAM recommendation has a
+**bias toward the fast**: transcription is live, and a slow model ruins the use
+case even if it fits in memory.
 
-### El modo Intérprete: un perfil que traduce, no que responde
+### Interpreter mode: a profile that translates, not one that answers
 
-Es un `PromptProfileId` más, pero rompe dos supuestos del resto, y por eso está
-tan aislado:
+It's one more `PromptProfileId`, but it breaks two of the rest's assumptions, and
+that's why it's so isolated:
 
-- **No detecta preguntas: traduce todo.** El disparo automático normal pasa cada
-  intervención por el detector/clasificador; el intérprete lo **salta** y va
-  directo a `fire` con cada frase cerrada. Y salta también el **filtro de
-  hablante** (traduce los dos carriles) y el **debounce** (pensado contra dobles
-  disparos de la misma pregunta, se comería un ida y vuelta rápido).
-- **Su prompt se corta antes del ensamblado normal.** `buildSystemPrompt`
-  devuelve el prompt de traducción y ya: sin perfil, sin contexto y **sin el aviso
-  de inyección** —un intérprete no reporta una orden escondida, la traduce—. Es
-  bidireccional con un solo prompt: nombra los dos idiomas y deja que el modelo
-  detecte de cuál viene cada frase y lo dé en el otro. Por eso `PROFILES` y
-  `RULES` **excluyen** `interpreter` de su `Record`: el `return` temprano estrecha
-  el tipo y no hacen falta entradas muertas.
-- **El turno de usuario también va sin sobres.** No basta con quitar el aviso de
-  inyección del *system prompt*: `buildUserTurn` envuelve la transcripción y la
-  pregunta en `<transcripcion>`/`<pregunta>` (la frontera de seguridad del resto
-  de perfiles), y el intérprete, que traduce TODO lo que recibe, **traducía los
-  nombres de las etiquetas** —`<transcripcion>` → `<transcription>`, `<pregunta>` →
-  `<question>`— y los colaba en la salida. Salía la traducción envuelta en XML
-  traducido. Con `AnswerRequest.interpreter` el turno va **en crudo** —sólo la
-  última frase, sin sobres ni instrucción final—, y no se pierde ninguna defensa
-  porque traducir es literal por diseño. El contexto para desambiguar lo aporta el
-  `history`, que viaja como mensajes de verdad.
+- **It doesn't detect questions: it translates everything.** The normal
+  auto-trigger runs each utterance through the detector/classifier; the
+  interpreter **skips** it and goes straight to `fire` with every closed
+  sentence. And it also skips the **speaker filter** (it translates both lanes)
+  and the **debounce** (designed against double-triggers of the same question, it
+  would eat a quick back-and-forth).
+- **Its prompt is cut off before the normal assembly.** `buildSystemPrompt`
+  returns the translation prompt and that's it: no profile, no context and **no
+  injection notice** —an interpreter doesn't report a hidden order, it translates
+  it—. It's bidirectional with a single prompt: it names the two languages and
+  lets the model detect which one each sentence comes from and render it in the
+  other. That's why `PROFILES` and `RULES` **exclude** `interpreter` from their
+  `Record`: the early `return` narrows the type and dead entries aren't needed.
+- **The user turn also goes without envelopes.** Removing the injection notice
+  from the *system prompt* isn't enough: `buildUserTurn` wraps the transcript and
+  the question in `<transcripcion>`/`<pregunta>` (the rest of the profiles'
+  security boundary), and the interpreter, which translates EVERYTHING it
+  receives, **translated the tag names** —`<transcripcion>` → `<transcription>`,
+  `<pregunta>` → `<question>`— and slipped them into the output. Out came the
+  translation wrapped in translated XML. With `AnswerRequest.interpreter` the turn
+  goes **raw** —only the last sentence, no envelopes and no final instruction—,
+  and no defense is lost because translating is literal by design. The context to
+  disambiguate is supplied by the `history`, which travels as real messages.
 
-Dos límites asumidos en v1: es de **una traducción a la vez** (el `AnswerEngine`
-sólo tiene una respuesta en vuelo; hablar encima aborta la anterior), y **no va
-con `gemini-audio`**, que responde en lugar de transcribir. La detección
-automática del idioma la hace el modelo, no el STT, así que un Whisper `.en` no
-sirve para el intérprete: hay que usar uno multilingüe.
+Two limits accepted in v1: it's **one translation at a time** (the `AnswerEngine`
+only has one answer in flight; talking over it aborts the previous one), and it
+**doesn't work with `gemini-audio`**, which answers instead of transcribing. The
+automatic language detection is done by the model, not the STT, so a Whisper
+`.en` is no good for the interpreter: you have to use a multilingual one.
 
-### Dos idiomas: inglés por defecto, español a un clic
+### Two languages: English by default, Spanish one click away
 
-Agosto de 2026. La app estaba entera en español y pasa a tener las dos, con
-**inglés por defecto**.
+August 2026. The app was entirely in Spanish and moves to having both, with
+**English by default**.
 
-**Los diccionarios son módulos de TypeScript y no `.json`**, y ésa es la única
-decisión de fondo. Se empezó con las dos versiones incrustadas en el código
-—`t('Listen', 'Escuchar')`— y se cambió a tablas aparte a media migración,
-porque con la cantidad de prosa que tiene este proyecto los componentes se
-volvían ilegibles. Al mudarlas, JSON era lo obvio y aun así se descartó:
+**The dictionaries are TypeScript modules and not `.json`**, and that's the only
+fundamental decision. It started with both versions embedded in the code
+—`t('Listen', 'Escuchar')`— and was changed to separate tables mid-migration,
+because with the amount of prose this project has the components became
+unreadable. When moving them, JSON was the obvious choice and was still dropped:
 
-> `es.ts` se declara como `Record<UIKey, string>`, así que **una traducción que
-> falte no compila**. Con JSON caería al idioma de reserva y el fallo sólo se
-> vería cuando alguien se encontrase una frase en inglés en mitad de una
-> pantalla en español.
+> `es.ts` is declared as `Record<UIKey, string>`, so **a missing translation
+> doesn't compile**. With JSON it would fall back to the fallback language and
+> the failure would only show when someone came across an English sentence in the
+> middle of a Spanish screen.
 
-Todo lo demás es idéntico a tener dos JSON —componentes limpios, traducciones
-juntas, cobertura de un vistazo— y encima no hay que tocar `resolveJsonModule`
-ni la configuración de dos bundlers.
+Everything else is identical to having two JSONs —clean components, translations
+together, coverage at a glance— and on top of that there's no need to touch
+`resolveJsonModule` or the configuration of two bundlers.
 
-Lo que el tipo **no** puede comprobar tiene test: que los huecos `{…}` coincidan
-entre idiomas (un `{turnos}` donde el inglés dice `{turns}` sale literal en
-pantalla) y que no se hayan copiado líneas sin traducir.
+What the type **can't** check has a test: that the `{…}` slots match between
+languages (a `{turnos}` where the English says `{turns}` comes out literal on
+screen) and that no lines were copied over untranslated.
 
-**Los prompts se quedan en español, y es deliberado.** Se valoró traducirlos:
+**The prompts stay in Spanish, and it's deliberate.** Translating them was
+considered:
 
-- No son texto de interfaz. **Nadie los lee**: los lee el modelo.
-- Ya llevan una regla explícita y con test de que la respuesta va en el idioma
-  de la conversación, **no** en el de las instrucciones — precisamente porque
-  eso falló una vez y se arregló midiéndolo.
-- Cada decisión de esos prompts está documentada en este archivo y validada
-  contra el texto español que hay. Traducirlos es tocar la parte más afinada de
-  la app, con doce tests atados a frases concretas, a cambio de nada que el
-  usuario vea.
+- They aren't interface text. **Nobody reads them**: the model reads them.
+- They already carry an explicit and tested rule that the answer goes in the
+  conversation's language, **not** the instructions' language — precisely because
+  that failed once and was fixed by measuring it.
+- Every decision in those prompts is documented in this file and validated
+  against the Spanish text that's there. Translating them is touching the most
+  finely-tuned part of the app, with twelve tests tied to concrete phrases, in
+  exchange for nothing the user sees.
 
-Las dos marcas que **sí** lee el usuario —`DUDA:` y `NO SE VE:`— ya se traducen
-solas: el propio prompt manda escribirlas en el idioma del test.
+The two markers the user **does** read —`DUDA:` and `NO SE VE:`— already
+translate themselves: the prompt itself orders them written in the quiz's
+language.
 
-**`uiLanguage` y `language` son dos ajustes distintos**, y confundirlos sería el
-fallo evidente: uno es el idioma de la interfaz y el otro el del reconocedor de
-voz. Alguien con la app en inglés entrevistándose en español es un caso normal,
-no una rareza.
+**`uiLanguage` and `language` are two distinct settings**, and confusing them
+would be the obvious failure: one is the interface language and the other the
+speech recognizer's. Someone with the app in English interviewing in Spanish is a
+normal case, not an oddity.
 
-El primer arranque **sigue al idioma del sistema** si resulta ser español, y a
-partir de ahí manda lo que el usuario elija. La comprobación mira
-`stored.uiLanguage` y no el valor ya resuelto, para que poner inglés a propósito
-en un Windows en español no se deshaga en el arranque siguiente.
+The first launch **follows the system language** if it turns out to be Spanish,
+and from then on whatever the user chooses rules. The check looks at
+`stored.uiLanguage` and not the already-resolved value, so setting English on
+purpose on a Spanish Windows isn't undone on the next launch.
 
-### La traducción: qué se tradujo y qué no
+### The translation: what was translated and what wasn't
 
-La app está en los dos idiomas —con una segunda pasada que hizo falta, más
-abajo—. Lo que **no** se tradujo, y por qué:
+The app is in both languages —with a second pass that was needed, further down—.
+What was **not** translated, and why:
 
-| Qué | Por qué se queda en español |
+| What | Why it stays in Spanish |
 |---|---|
-| Los prompts (`core/prompt.ts`) | No son interfaz: los lee el modelo. Ya llevan una regla con test de que la respuesta va en el idioma de la **conversación**, y cada decisión suya está validada contra el texto que hay |
-| `CONTEXT_KIND_LABEL` | Rotula los bloques que se le mandan al modelo. Su gemelo de interfaz es `CONTEXT_KIND_KEY` |
-| Los nombres de modelo | «Claude Sonnet 5» es un nombre propio. Lo que **sí** se traduce es el cualificador, que va aparte en `ModelInfo.note` |
-| Los comentarios y estos documentos | Son para quien toca el código |
+| The prompts (`core/prompt.ts`) | They aren't interface: the model reads them. They already carry a tested rule that the answer goes in the **conversation's** language, and every decision in them is validated against the text that's there |
+| `CONTEXT_KIND_LABEL` | It labels the blocks sent to the model. Its interface twin is `CONTEXT_KIND_KEY` |
+| The model names | «Claude Sonnet 5» is a proper name. What **is** translated is the qualifier, which goes separately in `ModelInfo.note` |
+| The comments and these documents | They're for whoever touches the code |
 
-**Los cualificadores merecen una nota** porque el arreglo no fue traducir, fue
-**separar**: el `label` decía «Claude Sonnet 5 (rápido)», con el nombre propio y
-el adjetivo pegados. Media etiqueta en español dentro de un desplegable en
-inglés es de lo que más canta, porque se ve sin abrir nada. Ahora el nombre vive
-en `label` y el adjetivo en `note`, que es una clave.
+**The qualifiers deserve a note** because the fix wasn't to translate, it was to
+**separate**: the `label` said «Claude Sonnet 5 (rápido)», with the proper name
+and the adjective stuck together. Half a label in Spanish inside an English
+dropdown is one of the things that stands out most, because it's visible without
+opening anything. Now the name lives in `label` and the adjective in `note`,
+which is a key.
 
-**Tres patrones se repitieron en toda la migración**, y son los que hay que
-buscar al traducir cualquier cosa nueva:
+**Three patterns recurred throughout the migration**, and they're the ones to
+look for when translating anything new:
 
-- **Plurales cosidos a mano.** `respuesta${n === 1 ? '' : 's'}` sólo funciona en
-  español. Aparecieron seis, entre el historial, el espejo, MQTT y Ollama.
-- **Frases construidas por concatenación.** «Falta el ejecutable **y** el
-  modelo» unía trozos con un `' y '` en medio; el orden y la conjunción cambian
-  entre idiomas. Se resuelven con un hueco y una clave para el separador.
-- **Un `<strong>` partiendo la frase** para resaltar un dato interpolado. Eso
-  fija dónde va el énfasis; con `**negrita**` dentro de la clave, cada idioma lo
-  pone donde le toca.
+- **Hand-stitched plurals.** `respuesta${n === 1 ? '' : 's'}` only works in
+  Spanish. Six appeared, across the history, the mirror, MQTT and Ollama.
+- **Phrases built by concatenation.** «The executable **and** the model are
+  missing» joined pieces with a `' y '` in the middle; the order and the
+  conjunction change between languages. They're solved with a slot and a key for
+  the separator.
+- **A `<strong>` splitting the sentence** to highlight an interpolated datum.
+  That fixes where the emphasis goes; with `**bold**` inside the key, each
+  language puts it where it belongs.
 
-Y una cosa que estuvo a punto de colarse: al pasar `AUDIO_SOURCE_HINT` a claves,
-apuntarlo a los textos del overlay parecía correcto —mismos tres modos— y decía
-**otra cosa**. Los del overlay dicen *qué es* cada fuente; los del dashboard
-explican *por qué* elegirla. Una tabla de traducciones invita a reutilizar por
-la forma de la clave en lugar de por lo que dice el texto.
+And one thing that nearly slipped through: when moving `AUDIO_SOURCE_HINT` to
+keys, pointing it at the overlay's texts looked correct —same three modes— and it
+said **something else**. The overlay's say *what* each source is; the dashboard's
+explain *why* to pick it. A translation table invites reuse by the shape of the
+key instead of by what the text says.
 
-### Lo que la sección de arriba daba por terminado y no lo estaba
+### What the section above took for finished and wasn't
 
-Agosto de 2026, segunda pasada. La app **no** estaba entera: quedaban un botón
-de «En pausa», una barra lateral que decía «Ajustes», la tarjeta de modelos
-locales completa y la guía de modelos entera. Todo se veía abriendo el dashboard
-en inglés y bajando; nada de eso lo detectaba el compilador, porque una cadena
-suelta dentro de un JSX es código perfectamente válido.
+August 2026, second pass. The app was **not** complete: there remained a
+«Paused» button, a sidebar that said «Settings», the whole local-models card and
+the entire model guide. All of it was visible by opening the dashboard in English
+and scrolling down; none of it was caught by the compiler, because a loose string
+inside a JSX is perfectly valid code.
 
-**El tipo sólo protege lo que ya pasa por la tabla.** `Record<UIKey, string>`
-garantiza que ninguna clave se quede sin traducir, y no dice absolutamente nada
-de los textos que nunca llegaron a ser claves. Ésa es la mitad del problema que
-esta migración no cubre, y la única forma de encontrarla resultó ser mirar cada
-archivo — un grep de acentos deja fuera «Ajustes», «Actualizar registro» y
-cualquier frase sin una sola tilde.
+**The type only protects what already goes through the table.**
+`Record<UIKey, string>` guarantees that no key is left untranslated, and says
+absolutely nothing about the texts that never became keys. That's the half of the
+problem this migration doesn't cover, and the only way to find it turned out to
+be looking at each file — a grep for accents leaves out «Ajustes», «Actualizar
+registro» and any phrase without a single accent mark.
 
-Cuatro cosas que salieron de esta pasada y no eran traducir:
+Four things that came out of this pass and weren't translating:
 
-- **Había claves escritas y sin usar.** `nav.footer`, `hk.rejectedOne`,
-  `about.what`, `local.forChat` y seis más existían en las dos tablas mientras
-  el componente seguía con su literal al lado. Traducir y **enchufar** son dos
-  trabajos, y el segundo no deja rastro si se olvida.
-- **Un `t()` que faltaba pintaba la clave.** `ContextSlot` enseñaba
-  `ctx.cvHint` literalmente debajo del hueco del CV, en los dos idiomas.
-- **Un dato guardado no puede llevar un idioma dentro.** El título de una
-  conversación sin nombre se escribía en disco como «Conversación sin título» y
-  se comparaba contra esa cadena para saber si ya tenía nombre. Ahora se guarda
-  **vacío** y el rótulo lo pone el dashboard: el que sabe en qué idioma está
-  mirando alguien es quien pinta, nunca quien persiste.
-- **`m()` podía reventar construyendo un error.** Lee los ajustes en cada
-  llamada, y si `app` no está disponible la excepción sustituía a la causa real:
-  el «se quedó sin presupuesto razonando» de OpenAI salía como un
-  `Cannot read properties of undefined`. Ahora cae al idioma por defecto. Una
-  función que traduce mensajes de error no puede ser una fuente de errores.
+- **There were keys written and unused.** `nav.footer`, `hk.rejectedOne`,
+  `about.what`, `local.forChat` and six more existed in both tables while the
+  component still had its literal next to it. Translating and **wiring up** are
+  two jobs, and the second leaves no trace if forgotten.
+- **A missing `t()` painted the key.** `ContextSlot` showed `ctx.cvHint`
+  literally below the CV slot, in both languages.
+- **Saved data can't carry a language inside it.** The title of an unnamed
+  conversation was written to disk as «Conversación sin título» and compared
+  against that string to know whether it already had a name. Now it's saved
+  **empty** and the label is put by the dashboard: whoever knows which language
+  someone is looking at is the one who paints, never the one who persists.
+- **`m()` could blow up building an error.** It reads the settings on every call,
+  and if `app` isn't available the exception replaced the real cause: OpenAI's
+  «it ran out of budget reasoning» came out as a
+  `Cannot read properties of undefined`. Now it falls back to the default
+  language. A function that translates error messages can't be a source of
+  errors.
 
-**La guía de modelos también entró**, con sus ~95 claves de prosa. Se valoró
-darle un diccionario propio dentro de `model-guide.ts` —es un documento, no una
-pantalla— y se descartó: dos mecanismos de traducción son dos formas distintas
-de olvidarse de una clave, y en la tabla común hereda gratis el test de que los
-huecos `{…}` coinciden entre idiomas. `renderModelGuide` pasa a recibir el
-idioma, y sus notas de modelo y precios son claves como cualquier otra.
+**The model guide also went in**, with its ~95 prose keys. Giving it a dictionary
+of its own inside `model-guide.ts` —it's a document, not a screen— was considered
+and dropped: two translation mechanisms are two distinct ways to forget a key,
+and in the common table it inherits for free the test that the `{…}` slots match
+between languages. `renderModelGuide` now takes the language, and its model notes
+and prices are keys like any other.
 
-**Y la página del teléfono dejó de ser «sin interpolación».** Lo era a propósito
-—ningún dato del usuario tocaba el marcado— y ahora recibe una cosa: su
-diccionario, como JSON con los `<` escapados y leído desde el script con
-`textContent`. Se escapa aunque el texto sea nuestro, porque la excepción «esto
-lo escribimos nosotros» sobrevive exactamente hasta la primera clave con
-marcado dentro.
+**And the phone page stopped being «without interpolation».** It was so on purpose
+—no user data touched the markup— and now it receives one thing: its dictionary,
+as JSON with the `<` escaped and read from the script with `textContent`. It's
+escaped even though the text is ours, because the «we wrote this ourselves»
+exception survives exactly until the first key with markup inside it.
 
-### El asistente, repasado con alguien delante
+### The wizard, reviewed with someone in front of you
 
-Segunda pasada sobre el wizard, con la app abierta y anotando. Cinco cosas, y el
-hilo común es el mismo: **el asistente sabía cosas que no decía**.
+Second pass over the wizard, with the app open and taking notes. Five things, and
+the common thread is the same: **the wizard knew things it didn't say**.
 
-- **No se podía retroceder desde todos los pasos ni saltar ninguno.** Cada paso
-  traía su «Atrás» y ninguno traía «Siguiente», así que para pasar de largo un
-  paso que no aplicaba —ya tengo la clave, ya tengo los modelos— había que
-  ejecutarlo igualmente. Ahora la navegación vive en la barra de progreso, junto
-  a los puntos, porque es de la misma naturaleza que ellos: dice dónde estás y
-  te deja moverte. Los botones de cada paso siguen siendo su **acción**.
-- **Si los modelos recomendados ya estaban, los descargaba otra vez.** `ollama
-  pull` sobre algo ya descargado no rompe nada, pero tarda comprobando el
-  manifest y deja mirando una barra por trabajo que no hace falta. Ahora se
-  detecta, se dice «ya descargado» junto a cada uno, y el botón pasa a «Usar
-  estos modelos». La comparación tolera la etiqueta implícita —Ollama lista
-  `llama3.2:latest` para lo que se bajó como `llama3.2`— porque una comparación
-  exacta mandaría a repetir varios gigas que ya están.
-- **El paso de la voz ofrecía las cinco opciones a todo el mundo**, contradiciendo
-  la decisión que se acababa de tomar dos pantallas antes: quien eligió «en mi
-  equipo» para que no salga nada tenía que volver a esquivar los motores de
-  nube, y quien eligió la nube veía una descarga de 150 MB. Ahora se ofrece lo
-  que encaja con el camino, y en la nube **OpenAI va primero y recomendado**:
-  es el modelo que su propio fabricante señala para audio en directo, que es
-  literalmente lo que hace esta app.
-- **El botón de probar estaba lejos de las claves**, y probaba **el proveedor
-  activo**: para saber si la clave de DeepSeek valía había que cambiarse a
-  DeepSeek, probar y volver. La pregunta que uno se hace al pegar una clave es
-  «¿ésta sirve?», y se responde donde se pega. `llmTestConnection` acepta ahora
-  un `providerId` para poder preguntar por uno que no es el activo.
-- **Y Ollama entra en esa misma tarjeta aunque no tenga clave.** Fue la duda del
-  repaso y se resolvió así porque la tarjeta no va de claves, va de «¿está esto
-  listo para responder?». Ollama entra en esa pregunta igual que los demás; lo
-  único que cambia es que su respuesta depende de que el servidor esté vivo y no
-  de una credencial. Por eso no tiene campo de texto —no hay nada que pegar— y
-  sí tiene el mismo botón.
+- **You couldn't go back from every step nor skip any.** Each step brought its
+  own «Back» and none brought «Next», so to pass by a step that didn't apply —I
+  already have the key, I already have the models— you had to run it anyway. Now
+  the navigation lives in the progress bar, next to the dots, because it's of the
+  same nature as them: it says where you are and lets you move. Each step's
+  buttons are still its **action**.
+- **If the recommended models were already there, it downloaded them again.**
+  `ollama pull` on something already downloaded breaks nothing, but it's slow
+  checking the manifest and leaves you watching a bar for work that isn't needed.
+  Now it's detected, «already downloaded» is said next to each one, and the button
+  becomes «Use these models». The comparison tolerates the implicit tag —Ollama
+  lists `llama3.2:latest` for what was pulled as `llama3.2`— because an exact
+  comparison would send you to repeat several gigs that are already there.
+- **The voice step offered all five options to everyone**, contradicting the
+  decision just made two screens earlier: whoever chose «on my machine» so nothing
+  leaves had to dodge the cloud engines again, and whoever chose the cloud saw a
+  150 MB download. Now what fits the path is offered, and in the cloud **OpenAI
+  goes first and recommended**: it's the model its own maker points to for live
+  audio, which is literally what this app does.
+- **The test button was far from the keys**, and it tested **the active
+  provider**: to know whether the DeepSeek key was good you had to switch to
+  DeepSeek, test and come back. The question you ask yourself when pasting a key
+  is «does this one work?», and it's answered where you paste it.
+  `llmTestConnection` now accepts a `providerId` so it can ask about one that
+  isn't the active one.
+- **And Ollama enters that same card even without a key.** It was the review's
+  doubt and it was resolved this way because the card isn't about keys, it's about
+  «is this ready to answer?». Ollama enters that question like the rest; the only
+  thing that changes is that its answer depends on the server being alive and not
+  on a credential. That's why it has no text field —there's nothing to paste— and
+  does have the same button.
 
-La misma detección de «ya está descargado» se aplicó a la tarjeta de modelos
-locales del dashboard, que seguía ofreciendo copiar un `ollama pull` de algo que
-ya estaba en la máquina.
+The same «already downloaded» detection was applied to the dashboard's
+local-models card, which still offered to copy an `ollama pull` of something
+already on the machine.
 
-### La versión, a la vista
+### The version, in plain sight
 
-Media hora se fue investigando un fallo que **ya estaba arreglado**, porque
-nadie sabía qué build corría en la máquina donde se vio. Un número a la vista lo
-habría dicho en dos segundos.
+Half an hour went into investigating a bug that was **already fixed**, because
+nobody knew which build was running on the machine where it was seen. A number in
+plain sight would have said so in two seconds.
 
-De ahí la sección «Acerca de»: qué es la app, la versión, el autor y la licencia,
-más un resumen de qué hace con lo que oye. Ese resumen se repite —está en el
-README y en cada sección que abre una salida— y la repetición es deliberada: es
-lo que alguien necesita saber antes de dejar esto escuchando una entrevista, y
-no se puede depender de que haya leído el README.
+Hence the «About» section: what the app is, the version, the author and the
+license, plus a summary of what it does with what it hears. That summary repeats
+—it's in the README and in every section that opens an output— and the repetition
+is deliberate: it's what someone needs to know before leaving this listening to
+an interview, and you can't rely on their having read the README.
 
-### Comprobar actualizaciones sin electron-updater
+### Checking for updates without electron-updater
 
-El botón de «Comprobar actualizaciones» **no** usa el auto-update estándar de
-Electron, y la razón es la forma de distribución, no la pereza:
+The «Check for updates» button does **not** use Electron's standard auto-update,
+and the reason is the distribution shape, not laziness:
 
-- La app se entrega como **`.exe` portable sin firmar**, y los releases sólo
-  adjuntan el portable. electron-updater está pensado para el **instalador NSIS**:
-  necesita `latest.yml` publicado en cada release y una app *instalada* que se
-  reemplace a sí misma. Un portable no puede auto-instalarse, así que meterlo
-  exigiría cambiar el artefacto que se distribuye (la gente instalaría en vez de
-  usar portable), tocar `release.yml` para publicar `latest.yml` + el NSIS, y
-  añadir la dependencia. Es un cambio de producto por una comodidad.
-- Sin firma, además, cada actualización dispararía SmartScreen igual que la
-  descarga inicial, así que el auto-update «silencioso» no lo sería.
+- The app is delivered as an **unsigned portable `.exe`**, and the releases only
+  attach the portable. electron-updater is designed for the **NSIS installer**:
+  it needs `latest.yml` published in each release and an *installed* app that
+  replaces itself. A portable can't self-install, so bringing it in would require
+  changing the distributed artifact (people would install instead of using
+  portable), touching `release.yml` to publish `latest.yml` + the NSIS, and
+  adding the dependency. It's a product change for a convenience.
+- Unsigned, moreover, each update would trigger SmartScreen just like the initial
+  download, so the «silent» auto-update wouldn't be silent.
 
-Lo que hace en su lugar es lo justo: `main/update.ts` consulta la **API pública de
-releases de GitHub** (bajo demanda, sólo al pulsar el botón, así el límite de
-60 req/h sin token sobra), compara con `app.getVersion()` y, si hay una nueva,
-enseña las notas y un botón que abre la descarga **en el navegador**. Que descargue
-el navegador y no la app es la misma cautela con la que Ollama se instala por
-winget: la app no baja y ejecuta un binario por su cuenta. La comparación de
-versiones es `isNewerVersion` en `shared/`, con test — comparar tags como cadenas
-haría que `1.10.0` saliera anterior a `1.9.0`.
+What it does instead is just enough: `main/update.ts` queries GitHub's **public
+releases API** (on demand, only on pressing the button, so the 60 req/h limit
+without a token is plenty), compares with `app.getVersion()` and, if there's a
+new one, shows the notes and a button that opens the download **in the browser**.
+Having the browser download it and not the app is the same caution with which
+Ollama is installed via winget: the app doesn't download and run a binary on its
+own. The version comparison is `isNewerVersion` in `shared/`, with a test —
+comparing tags as strings would make `1.10.0` come out earlier than `1.9.0`.
 
-### El apagado por inactividad se enganchó al watchdog que ya existía
+### The idle shutoff hooked into the watchdog that already existed
 
-El modo idle —dejar de escuchar si nadie habla en X minutos— **no** montó un timer
-nuevo: el orquestador ya tenía un watchdog en intervalo (cada 15 s, sólo mientras
-escucha) que vigilaba audio mudo, y ya calculaba `now - lastSegmentAt`. La feature
-es una condición más ahí: si `idleShutoffDue(settings, silentFor)`, se llama a
-`audioCapture.stop()` y se avisa por el overlay. Dos decisiones:
+The idle mode —stop listening if nobody talks for X minutes— did **not** set up a
+new timer: the orchestrator already had a watchdog on an interval (every 15 s,
+only while listening) that watched for silent audio, and already computed
+`now - lastSegmentAt`. The feature is one more condition there: if
+`idleShutoffDue(settings, silentFor)`, `audioCapture.stop()` is called and it's
+announced via the overlay. Two decisions:
 
-- **Actividad = sólo voz** (`lastSegmentAt`, que se actualiza en cada segmento),
-  no que el usuario pida algo a mano. El caso que resuelve es la reunión terminada
-  con el asistente escuchando una sala vacía, no a alguien leyendo en silencio.
-- **Dos ajustes, no un `0 = off`.** `idleShutoffEnabled` + `idleShutoffMinutes`
-  conservan los minutos elegidos al apagar y volver a encender, y `idleShutoffDue`
-  descarta un `minutes <= 0` (un `settings.json` a mano con un cero apagaría la
-  escucha nada más empezar). Apagado por defecto: dejar de escuchar sola es una
-  decisión, no un valor de fábrica.
+- **Activity = voice only** (`lastSegmentAt`, which is updated on every segment),
+  not the user asking for something by hand. The case it solves is the meeting
+  that's over with the assistant listening to an empty room, not someone reading
+  in silence.
+- **Two settings, not a `0 = off`.** `idleShutoffEnabled` + `idleShutoffMinutes`
+  preserve the chosen minutes when turning off and on again, and `idleShutoffDue`
+  discards a `minutes <= 0` (a hand-edited `settings.json` with a zero would turn
+  off listening right at the start). Off by default: stopping listening on its own
+  is a decision, not a factory value.
 
-### Tres cosas de UX que sólo se ven en una máquina limpia
+### Three UX things that only show on a clean machine
 
-Salieron de probar la app en un ordenador donde no había nada configurado, que
-es el escenario que quien la desarrolla nunca reproduce.
+They came out of testing the app on a computer where nothing was configured,
+which is the scenario whoever develops it never reproduces.
 
-**«No lo tienes instalado» era mentira la mitad de las veces.** El asistente
-decidía con `probeOllama`, que pregunta si el **servidor** contesta — no si
-Ollama está instalado. Quien lo instalaba y volvía con el servicio parado se
-encontraba otra vez el botón de instalar, y volver a instalar por encima no
-arregla nada. Ahora son dos preguntas distintas: `ollamaInstalled()` lanza
-`ollama --version` (si el ejecutable no está, `spawn` falla con ENOENT y ya está
-respondido) y la pantalla de «instalado pero parado» dice lo único que hay que
-hacer, que es abrirlo una vez.
+**«You don't have it installed» was a lie half the time.** The wizard decided
+with `probeOllama`, which asks whether the **server** answers — not whether
+Ollama is installed. Whoever installed it and came back with the service stopped
+found the install button again, and reinstalling over the top fixes nothing. Now
+they're two distinct questions: `ollamaInstalled()` launches `ollama --version`
+(if the executable isn't there, `spawn` fails with ENOENT and it's already
+answered) and the «installed but stopped» screen says the only thing to do, which
+is open it once.
 
-**La instalación no enseñaba ningún avance**, y es la parte que tarda minutos.
-Lo curioso es que el main **ya emitía los mensajes** —«Instalando con winget…»,
-«Esperando a que arranque el servidor…»— y nadie los pintaba: el bloque de
-progreso vivía dentro de la rama de «Ollama ya está listo», donde durante la
-instalación no se entra. Es el mismo patrón que `registerHotkeys` devolviendo
-los aceleradores rechazados que nadie recogía: el dato existía y no llegaba a la
-pantalla.
+**The install showed no progress**, and it's the part that takes minutes. The odd
+thing is that the main process **already emitted the messages** —«Installing with
+winget…», «Waiting for the server to start…»— and nobody painted them: the
+progress block lived inside the «Ollama is ready» branch, which isn't entered
+during the install. It's the same pattern as `registerHotkeys` returning the
+rejected accelerators that nobody picked up: the datum existed and didn't reach
+the screen.
 
-Y como **winget no informa del porcentaje**, la barra no puede fingir uno: se
-pinta un fragmento que la recorre. Una barra parada al 0% durante tres minutos
-se lee como «esto se ha colgado», que fue exactamente lo que pasó.
+And since **winget doesn't report the percentage**, the bar can't fake one: a
+fragment that runs across it is drawn. A bar stopped at 0% for three minutes reads
+as «this has hung», which is exactly what happened.
 
-**El aviso de «falta configurar la IA» que no se iba ya estaba arreglado** en
-otro commit —la difusión de `onSecrets`—, pero se probó con una build anterior.
-Se anota porque la conclusión importa: un fallo reportado dos veces no siempre
-es un fallo que siga ahí, y comprobar la versión antes de "arreglarlo" otra vez
-cuesta menos que el arreglo.
+**The «AI needs configuring» warning that wouldn't go away was already fixed** in
+another commit —the `onSecrets` broadcast—, but it was tested with an earlier
+build. It's noted because the conclusion matters: a bug reported twice isn't
+always a bug that's still there, and checking the version before "fixing it" again
+costs less than the fix.
 
-### El «DUDA:» que se puso en todas las líneas
+### The «DUDA:» that got put on every line
 
-Probado con un modelo local pequeño, el modo test contestaba **todas** las
-preguntas con `DUDA:` delante. Y estaba pedido: la regla decía «si dudas en una,
-empieza ESA línea por DUDA:» sin decir en ningún sitio que fuera la excepción.
+Tested with a small local model, quiz mode answered **every** question with
+`DUDA:` (doubt) in front. And it was asked for: the rule said «if you doubt on
+one, start THAT line with DUDA:» without saying anywhere that it was the
+exception.
 
-Es la misma lección que ya está escrita dos veces en este archivo —**antes de
-culpar al modelo, leer lo que se le pidió**— y el mismo matiz sobre los modelos
-pequeños: cumplen mal los topes y se curan en salud, así que lo que en un modelo
-grande es un matiz, en uno pequeño hay que decirlo como una prohibición.
+It's the same lesson already written twice in this file —**before blaming the
+model, read what it was asked**— and the same nuance about small models: they
+meet the caps poorly and play it safe, so what in a large model is a nuance, in a
+small one has to be said as a prohibition.
 
-Ahora la regla dice tres cosas donde antes decía una: que la marca es la
-excepción y no el formato, que marcarlo todo **no informa de nada** —quien lee
-la usa para decidir en cuáles arriesga, y en todas las líneas da lo mismo que no
-estuviera— y que detrás siempre va la mejor opción igualmente.
+Now the rule says three things where before it said one: that the marker is the
+exception and not the format, that marking everything **informs of nothing**
+—whoever reads uses it to decide which ones to risk, and on every line it may as
+well not be there— and that the best option always follows anyway.
 
-### Los dos motores de OpenAI, y el que se descartó
+### OpenAI's two engines, and the one that was dropped
 
-Agosto de 2026. La petición fue «OpenAI tiene modelos de transcripción, y creo
-que usaremos `gpt-live-transcribe` por defecto para reuniones». Los dos nombres
-que se propusieron **existen los dos**, verificados contra la referencia de
-OpenAI y contra los tipos del SDK instalado — pero sólo uno encaja aquí, y el
-motivo de que el otro no encaje es una decisión que este proyecto tomó el primer
-día.
+August 2026. The request was «OpenAI has transcription models, and I think we'll
+use `gpt-live-transcribe` by default for meetings». The two names proposed
+**both exist**, verified against OpenAI's reference and against the installed
+SDK's types — but only one fits here, and the reason the other doesn't fit is a
+decision this project made on day one.
 
-| Modelo | Para qué es | Aquí |
+| Model | What it's for | Here |
 |---|---|---|
-| `gpt-live-transcribe` | Audio **en directo**: micrófonos, llamadas, streams | El motor `openai-live`, y el defecto sensato para reuniones |
-| `gpt-transcribe` | Voz **grabada** | El motor `openai-transcribe`: un VAD produce exactamente eso, trozos ya cerrados |
-| `gpt-4o-transcribe-diarize` | Separar hablantes | **Descartado**, ver abajo |
+| `gpt-live-transcribe` | **Live** audio: microphones, calls, streams | The `openai-live` engine, and the sensible default for meetings |
+| `gpt-transcribe` | **Recorded** voice | The `openai-transcribe` engine: a VAD produces exactly that, already-closed chunks |
+| `gpt-4o-transcribe-diarize` | Separating speakers | **Dropped**, see below |
 
-**Por qué no la diarización.** Esta app **ya sabe quién habla**: el micrófono es
-«yo» y el loopback del sistema son «ellos», y ese reparto está tomado a
-conciencia desde el principio porque el origen del stream es más exacto que
-cualquier diarización. Un modelo que adivina hablantes no aporta nada a un dato
-que ya es exacto. Encima **no admite `prompt`**, así que costaría el sesgo de
-vocabulario, que es la palanca de calidad más barata que hay aquí. Lo único que
-aportaría de verdad es distinguir a varias personas **dentro** de «ellos» —una
-reunión de cuatro donde ahora todo cae bajo la misma etiqueta— y eso es una
-**función distinta**, no una mejora de la transcripción. Si algún día se quiere,
-se diseña como tal.
+**Why not diarization.** This app **already knows who's speaking**: the
+microphone is «me» and the system loopback is «them», and that split is taken
+deliberately from the start because the stream's source is more exact than any
+diarization. A model that guesses speakers adds nothing to a datum that's already
+exact. On top of that **it doesn't accept `prompt`**, so it would cost the
+vocabulary bias, which is the cheapest quality lever there is here. The only thing
+it would really add is distinguishing several people **within** «them» —a meeting
+of four where now everything falls under the same label— and that's a **distinct
+feature**, not an improvement to the transcription. If it's ever wanted, it's
+designed as such.
 
-**Y por qué dos motores y no uno.** Es la misma pareja que ya existe con Gemini,
-y responde a la pregunta de siempre: qué duele más, la latencia o los errores.
+**And why two engines and not one.** It's the same pair that already exists with
+Gemini, and it answers the usual question: which hurts more, latency or errors.
 
-| | Latencia | Qué manda | Parciales |
+| | Latency | What rules | Partials |
 |---|---|---|---|
-| `openai-live` | ~300 ms | Streaming continuo | Sí |
-| `openai-transcribe` | ~1 s por turno | El turno entero de una vez | No |
+| `openai-live` | ~300 ms | Continuous streaming | Yes |
+| `openai-transcribe` | ~1 s per turn | The whole turn at once | No |
 
-El segundo **oye la frase completa antes de decidir**, así que acierta más en
-nombres propios y en finales de palabra. El primero empieza a escribir antes.
-Ninguno es «el bueno».
+The second **hears the full sentence before deciding**, so it's more accurate on
+proper names and word endings. The first starts writing sooner. Neither is «the
+good one».
 
-#### La restricción que condicionó el diseño: 24 kHz
+#### The constraint that shaped the design: 24 kHz
 
-La API en tiempo real de OpenAI **sólo acepta PCM a 24000 Hz**. No es una
-lectura entre líneas: los tipos del SDK lo dicen con esas palabras
-—`rate?: 24000`, *"Only a 24kHz sample rate is supported"*— y todo el pipeline
-de esta app está normalizado a **16 kHz** porque es lo que quieren Whisper y
-Gemini Live.
+OpenAI's real-time API **only accepts PCM at 24000 Hz**. It's not a reading
+between the lines: the SDK's types say so in those words —`rate?: 24000`, *"Only
+a 24kHz sample rate is supported"*— and this app's whole pipeline is normalized to
+**16 kHz** because that's what Whisper and Gemini Live want.
 
-Subir el worklet a 24 kHz para contentar a un motor habría empeorado a los otros
-tres, así que la conversión vive contenida en `stt/resample.ts`, y ahí hay dos
-cosas que conviene no «simplificar»:
+Raising the worklet to 24 kHz to please one engine would have made the other
+three worse, so the conversion lives contained in `stt/resample.ts`, and there
+are two things there worth not «simplifying»:
 
-- **Aquí la interpolación lineal SÍ basta**, al revés que en el worklet. Aquel
-  caso era decimar 48 → 16 kHz, donde lo que hay por encima de la nueva Nyquist
-  **se pliega** dentro de la banda de la voz — por eso hubo que meter un
-  Butterworth de 8º orden. Al subir de frecuencia no se pliega nada: aparecen
-  **imágenes** por encima de 8 kHz, y la interpolación lineal ya las atenúa. Un
-  reconocedor de voz vive por debajo de esos 8 kHz. Subir de frecuencia no
-  inventa detalle; sólo hace que el audio entre por la puerta.
-- **El estado entre bloques no es opcional.** El audio llega en trozos de
-  ~100 ms, diez por segundo y por hablante. Un remuestreador sin memoria empieza
-  cada bloque desde cero y deja una discontinuidad en cada unión: diez
-  chasquidos por segundo que el reconocedor oye como consonantes que nadie dijo.
-  La transcripción sale peor y **no hay nada en el log que lo insinúe**. Tiene
-  test —una rampa partida en dos bloques que debe seguir siendo monótona— y la
-  fase se lleva en enteros porque un `float` acumulando 2/3 deriva en minutos.
+- **Here linear interpolation IS enough**, unlike in the worklet. That case was
+  decimating 48 → 16 kHz, where what's above the new Nyquist **folds** into the
+  voice band — that's why an 8th-order Butterworth had to be put in. When raising
+  the frequency nothing folds: **images** appear above 8 kHz, and linear
+  interpolation already attenuates them. A speech recognizer lives below those
+  8 kHz. Raising the frequency doesn't invent detail; it just gets the audio
+  through the door.
+- **The state between blocks isn't optional.** The audio arrives in ~100 ms
+  chunks, ten per second and per speaker. A stateless resampler starts each block
+  from zero and leaves a discontinuity at every join: ten clicks per second that
+  the recognizer hears as consonants nobody said. The transcription comes out
+  worse and **there's nothing in the log to hint at it**. It has a test —a ramp
+  split across two blocks that must stay monotonic— and the phase is kept in
+  integers because a `float` accumulating 2/3 drifts over minutes.
 
-#### Dos fallos que sólo salieron ejecutándolo, y los dos eran del protocolo
+#### Two failures that only came out of running it, and both were the protocol's
 
-Se escribió contra la referencia y aun así falló al primer intento. Merece la
-pena registrar los dos porque las lecciones son distintas.
+It was written against the reference and still failed on the first attempt. It's
+worth recording both because the lessons are distinct.
 
-**El primero fue ruidoso: `turn_detection`.** La primera versión mandaba
-`{ type: 'semantic_vad' }` razonando que el servidor corta mejor por final de
-idea que por silencio. La API contestó *"Turn detection is not supported for
-this transcription model"* y la sesión no arrancó. Lo peor no es el error, es
-que **la documentación mostraba `turn_detection: null` y no se copió**: se
-sustituyó por algo que parecía mejor. La regla que ya estaba escrita para los
-model IDs de Gemini vale igual aquí — lo que dice la referencia se copia, no se
-mejora.
+**The first was loud: `turn_detection`.** The first version sent
+`{ type: 'semantic_vad' }` reasoning that the server cuts better by end-of-idea
+than by silence. The API replied *"Turn detection is not supported for this
+transcription model"* and the session didn't start. The worst part isn't the
+error, it's that **the documentation showed `turn_detection: null` and it wasn't
+copied**: it was replaced with something that looked better. The rule already
+written for Gemini's model IDs holds just as well here — what the reference says
+gets copied, not improved.
 
-**El segundo no habría dado ningún error, y ése es el importante.** Con
-`turn_detection` apagado, **el turno lo cierra el cliente**: hay que mandar
-`input_audio_buffer.commit`. El modelo emite los parciales solo, así que sin el
-commit la transcripción **se ve en pantalla y todo parece funcionar** — pero no
-llega nunca un segmento final, y el auto-disparo sólo evalúa finales. El
-resultado habría sido una app que transcribe de maravilla y no responde jamás,
-sin una sola línea en el log. Se cierra con el `EnergyVAD` de siempre, el mismo
-de whisper-local y con los mismos 700 ms, para que «cuándo termina una frase»
-siga decidiéndose en un solo sitio.
+**The second would have given no error, and that's the important one.** With
+`turn_detection` off, **the client closes the turn**: you have to send
+`input_audio_buffer.commit`. The model emits the partials on its own, so without
+the commit the transcription **shows on screen and everything seems to work** —
+but a final segment never arrives, and the auto-trigger only evaluates finals.
+The result would have been an app that transcribes beautifully and never answers,
+without a single line in the log. It's closed with the usual `EnergyVAD`, the
+same as whisper-local and with the same 700 ms, so «when a sentence ends» keeps
+being decided in a single place.
 
-De ahí que el motor tenga tests contra un **WebSocket de verdad**, y no contra
-un cliente simulado: los dos fallos vivían en lo que se manda por el cable, que
-es justo lo que un mock da por bueno. Es la misma decisión que con el broker de
-MQTT.
+Hence the engine has tests against a **real WebSocket**, and not against a mocked
+client: both failures lived in what's sent over the wire, which is exactly what a
+mock takes for granted. It's the same decision as with the MQTT broker.
 
-**Y de ahí también `PROMPT_UNSUPPORTED`.** Qué parámetros acepta cada modelo de
-transcripción no se puede saber desde aquí —la documentación habla de "keyword
-hints" sin dar el nombre del campo— y equivocarse **tumba la sesión entera** en
-lugar de degradar. Si el `prompt` se rechaza, se apunta el modelo y se reconecta
-sin sesgo: se pierde precisión en los nombres propios, que es mucho mejor que
-perder la transcripción. Mismo patrón que `EFFORT_UNSUPPORTED` en `claude.ts`,
-por tercera vez en este proyecto.
+**And hence `PROMPT_UNSUPPORTED` too.** Which parameters each transcription model
+accepts can't be known from here —the documentation talks about "keyword hints"
+without giving the field name— and getting it wrong **takes down the whole
+session** instead of degrading. If the `prompt` is rejected, the model is noted
+and it reconnects without bias: precision on proper names is lost, which is much
+better than losing the transcription. Same pattern as `EFFORT_UNSUPPORTED` in
+`claude.ts`, for the third time in this project.
 
-#### Lo que sale gratis y lo que no
+#### What comes free and what doesn't
 
-`openai-live` se abre con `intent=transcription`, así que la sesión **es** un
-transcriptor. Eso ahorra toda la pelea que Gemini Live obliga a mantener: allí
-el modelo es conversacional y va a intentar responder, de ahí su instrucción de
-silencio, el `modelTurn` que se tira y una salida que se paga sin usarla. Aquí
-no hay salida generada.
+`openai-live` opens with `intent=transcription`, so the session **is** a
+transcriber. That saves all the fight Gemini Live forces you to keep up: there
+the model is conversational and is going to try to answer, hence its silence
+instruction, the `modelTurn` that gets thrown away and an output paid for without
+using it. Here there's no generated output.
 
-A cambio, la app depende ahora de `ws` **de forma explícita**. Ya estaba en el
-árbol —lo arrastran `mqtt` y `@google/genai`— pero apoyarse en una dependencia
-transitiva es apoyarse en que un tercero no la cambie, así que se declara. No
-añade descarga.
+In exchange, the app now depends on `ws` **explicitly**. It was already in the
+tree —`mqtt` and `@google/genai` drag it in— but leaning on a transitive
+dependency is leaning on a third party not changing it, so it's declared. It adds
+no download.
 
-### Audio directo: saltarse la transcripción entera
+### Direct audio: skipping the whole transcription
 
-`gemini-audio` no es un motor de transcripción más. Manda el WAV del turno **al
-propio modelo de lenguaje** y recibe transcripción y respuesta en la misma
-llamada, con `responseSchema` para que la separación la garantice la API y no
-una expresión regular.
+`gemini-audio` isn't just another transcription engine. It sends the turn's WAV
+**to the language model itself** and receives transcription and answer in the
+same call, with `responseSchema` so the API guarantees the separation and not a
+regular expression.
 
-Nació de un diagnóstico concreto: con el idioma forzado mal, el reconocedor
-devolvía *"Are y'all gonna eat?"* a partir de una frase en español y el modelo
-respondía impecablemente a algo que nadie dijo. Ese fallo tiene dos eslabones, y
-este motor elimina el primero: el modelo **oye** el audio en lugar de leer lo
-que otro entendió.
+It was born of a concrete diagnosis: with the language forced wrong, the
+recognizer returned *"Are y'all gonna eat?"* from a Spanish sentence and the
+model answered impeccably to something nobody said. That failure has two links,
+and this engine removes the first: the model **hears** the audio instead of
+reading what someone else understood.
 
-Lo que cambia en el orquestador, y por qué:
+What changes in the orchestrator, and why:
 
-- **`STTProvider.answersDirectly`.** Con ese flag, `onFinalSegment` sale antes:
-  disparar el detector generaría una segunda respuesta, esta vez leyendo el
-  texto. Quien decide si algo merecía respuesta es el modelo que oyó el audio,
-  y por eso el aviso de `autoTriggerIsInert` tampoco aplica aquí.
-- **`AnswerEngine.present()`.** La respuesta no la pidió el motor de respuestas,
-  pero todo lo de después —difusión al overlay, memoria de la conversación,
-  historial en disco— tiene que ser idéntico. Por eso entra por el mismo sitio
-  en lugar de difundirse suelta desde el orquestador.
-- **El contexto se pasa como función, no como valor.** El motor lo consulta en
-  cada turno; entre el arranque y la tercera pregunta el perfil o la memoria ya
-  han cambiado.
+- **`STTProvider.answersDirectly`.** With that flag, `onFinalSegment` returns
+  early: firing the detector would generate a second answer, this time reading the
+  text. Whoever decides if something deserved an answer is the model that heard
+  the audio, and that's why the `autoTriggerIsInert` warning doesn't apply here
+  either.
+- **`AnswerEngine.present()`.** The answer wasn't requested by the answer engine,
+  but everything afterward —broadcast to the overlay, conversation memory, history
+  on disk— has to be identical. That's why it enters through the same place
+  instead of being broadcast loose from the orchestrator.
+- **The context is passed as a function, not as a value.** The engine consults it
+  on every turn; between startup and the third question the profile or the memory
+  have already changed.
 
-**Sigue haciendo falta el VAD.** Alguien tiene que decidir cuándo termina el
-turno; esto no es streaming. Para eso está Gemini Live.
+**The VAD is still needed.** Someone has to decide when the turn ends; this isn't
+streaming. That's what Gemini Live is for.
 
-### Transcripción
+### Transcription
 
-- **Una sesión de Gemini Live POR HABLANTE.** Más conexiones que mezclar los
-  streams, pero es lo que mantiene exacta la atribución; una sola sesión con
-  audio mezclado daría un transcript indistinguible.
-- **Compromiso conocido y sin solución:** los modelos Live son
-  conversacionales, no transcriptores puros, y **van a intentar responder**. Se
-  mitiga con `responseModalities: [TEXT]` (la salida más barata), una system
-  instruction que pide silencio, y descartando `modelTurn` por completo. La Live
-  API **no permite desactivar la generación**, así que se paga un pequeño coste
-  de salida. Si alguna vez lo permite, quitar el parche.
-- **Reconexión con backoff**: la Live API cierra sesiones largas por diseño. Un
-  `onclose` es normal, no un fallo.
-- **`finalizeOpen()` en el buffer** cierra segmentos que el motor dejó abiertos:
-  Gemini no siempre marca `finished` cuando alguien simplemente se calla, y un
-  segmento abierto para siempre bloquearía el auto-disparo.
-- **Los context packs tienen tipo y perfil, no sólo nombre.** La primera versión
-  eran cajas de texto libre: todas activas a la vez, todas volcadas al prompt
-  bajo un `## Nombre`. Eso dejaba dos cosas al usuario que no le tocaban.
-  La primera, **acordarse de activar y desactivar** al cambiar de tipo de
-  reunión. Ahora cada pack declara en qué perfiles aplica —vacío significa
-  siempre, que es lo que preserva los packs antiguos— y cambiar de «Entrevista»
-  a «Reunión» en el overlay cambia también el material.
-  La segunda, y más cara: **el modelo no podía distinguir qué era cada bloque**.
-  Un CV es la fuente de verdad sobre alguien; una oferta dice hacia dónde
-  alinear el discurso; una respuesta preparada hay que **reutilizarla**, no
-  parafrasearla. Sin esa distinción, una respuesta que el usuario había
-  redactado con cuidado salía aguada y genérica. `KIND_INSTRUCTIONS` en
-  `prompt.ts` le da a cada tipo su propia instrucción.
-  El tipo `vocabulary` es el único que **no entra en el prompt**: su sitio es el
-  reconocedor de voz, y en el prompt sólo gastaría ventana de contexto.
-- **`customVocabulary` alimentado desde los context packs.** Un CV y una
-  descripción de puesto están llenos de nombres propios y siglas, que es justo lo
-  que un ASR generalista transcribe mal. **Durante un tiempo sólo se le pasaba a
-  Gemini**: whisper.cpp acepta el mismo sesgo por `--prompt` y no se estaba
-  usando, desperdiciando la mitad del valor de una función que ya existía.
-- **Búsqueda por haces (`-bs 5`) en Whisper.** Es la palanca que más ayuda con
-  un acento marcado: en lugar de quedarse con el token más probable en cada
-  paso, mantiene varias hipótesis y elige la mejor frase completa. Se midió
-  antes de adoptarla, porque la intuición decía que sería cara: 494–611 ms con
-  haces frente a 498–563 ms voraz, o sea **dentro del ruido**. En turnos cortos
-  manda el paso del encoder —constante, ventana de 30 s— y la decodificación
-  apenas pesa.
+- **One Gemini Live session PER SPEAKER.** More connections than mixing the
+  streams, but it's what keeps the attribution exact; a single session with mixed
+  audio would give an indistinguishable transcript.
+- **Known compromise with no solution:** the Live models are conversational, not
+  pure transcribers, and **they're going to try to answer**. It's mitigated with
+  `responseModalities: [TEXT]` (the cheapest output), a system instruction asking
+  for silence, and discarding `modelTurn` entirely. The Live API **doesn't allow
+  disabling generation**, so a small output cost is paid. If it ever allows it,
+  remove the patch.
+- **Reconnection with backoff**: the Live API closes long sessions by design. An
+  `onclose` is normal, not a failure.
+- **`finalizeOpen()` in the buffer** closes segments the engine left open: Gemini
+  doesn't always mark `finished` when someone simply goes quiet, and a segment
+  open forever would block the auto-trigger.
+- **The context packs have type and profile, not just a name.** The first version
+  were free-text boxes: all active at once, all dumped into the prompt under a
+  `## Name`. That left two things to the user that weren't theirs to handle.
+  The first, **remembering to enable and disable** when switching meeting type.
+  Now each pack declares in which profiles it applies —empty means always, which
+  is what preserves the old packs— and switching from «Interview» to «Meeting» in
+  the overlay changes the material too.
+  The second, and more expensive: **the model couldn't tell what each block was**.
+  A CV is the source of truth about someone; a job offer says where to align the
+  discourse; a prepared answer must be **reused**, not paraphrased. Without that
+  distinction, an answer the user had carefully drafted came out watered-down and
+  generic. `KIND_INSTRUCTIONS` in `prompt.ts` gives each type its own instruction.
+  The `vocabulary` type is the only one that **doesn't enter the prompt**: its
+  place is the speech recognizer, and in the prompt it would only spend context
+  window.
+- **`customVocabulary` fed from the context packs.** A CV and a job description are
+  full of proper names and acronyms, which is exactly what a general-purpose ASR
+  transcribes badly. **For a while it was only passed to Gemini**: whisper.cpp
+  accepts the same bias via `--prompt` and it wasn't being used, wasting half the
+  value of a feature that already existed.
+- **Beam search (`-bs 5`) in Whisper.** It's the lever that helps most with a
+  strong accent: instead of keeping the most probable token at each step, it
+  maintains several hypotheses and picks the best full sentence. It was measured
+  before adopting it, because intuition said it would be expensive: 494–611 ms
+  with beams versus 498–563 ms greedy, i.e. **within the noise**. On short turns
+  the encoder step rules —constant, 30 s window— and the decoding barely weighs.
 
-### Respuestas
+### Answers
 
-- **El asistente recuerda sus propios turnos, y eso hubo que añadirlo.** La
-  primera versión mandaba cada consulta como un turno **único**: system prompt
-  más un mensaje de usuario. Las respuestas anteriores del modelo no volvían
-  nunca. El transcript no lo suplía, porque sólo contiene voz —micrófono y
-  sistema—, jamás lo generado.
-  El síntoma, sacado de una conversación real: a los 90 segundos de haber dicho
-  *"yo trabajo como comercial"*, el asistente contestaba *"no tengo información
-  sobre cuál es mi profesión en esta conversación"*. Y olvidaba un nombre que le
-  acababan de asignar en menos de un minuto.
-  Ahora `AnswerRequest.history` lleva los últimos 8 intercambios y **cada
-  proveedor los envía como mensajes reales** (`user`/`assistant`, o `model` en
-  Gemini), no resumidos dentro del prompt: es lo que hace que el modelo los trate
-  como cosas que dijo él. Se guardan sólo los turnos completados con texto —una
-  respuesta abortada no es algo que el modelo dijera— y "nueva conversación" los
-  borra, que es justamente para lo que existe ese botón.
-- **`manualContextSeconds` NO es la memoria**, aunque lo parezca. Es cuántos
-  segundos de transcripción acompañan a la pregunta. Con el valor en 10 el modelo
-  recibía poco más que la frase en curso; la memoria de la conversación es cosa
-  de `history`. La etiqueta del dashboard se cambió a "ventana de voz" porque
-  "contexto enviado" invitaba exactamente a esa confusión.
-- **`AbortSignal` es obligatorio en la firma de `LLMProvider`, no opcional.** Si
-  el entrevistador pregunta otra cosa mientras se genera la respuesta anterior,
-  hay que cancelarla: una respuesta obsoleta es **peor que ninguna**, porque el
-  usuario la lee y contesta a algo que ya pasó. Una sola respuesta en vuelo,
-  invariante garantizada por `abort()` al inicio de `ask()`.
-- **Throttle de 60 ms al difundir el texto.** Sin él, cada token sería un mensaje
-  IPC y un re-render de React: cientos por respuesta.
-- **`cache_control: ephemeral` en el system prompt.** El CV y la descripción del
-  puesto no cambian durante la entrevista, así que ese prefijo se cachea y las
-  llamadas siguientes cuestan ~10% en esa parte. Mínimo 512 tokens en Opus 5
-  para que el caché se cree; por debajo simplemente no cachea, sin error.
-- **El prompt se diseñó bajo una sola restricción:** la respuesta se lee de reojo
-  mientras alguien te mira a la cara. De ahí el máximo de 4 viñetas, la
-  prohibición de preámbulos, y la regla de no inventar datos fuera de
-  `<contexto>` — una respuesta genérica es recuperable, una mentira detectada no.
+- **The assistant remembers its own turns, and that had to be added.** The first
+  version sent each query as a **single** turn: system prompt plus one user
+  message. The model's previous answers never came back. The transcript didn't
+  make up for it, because it only contains voice —microphone and system—, never
+  what was generated.
+  The symptom, taken from a real conversation: 90 seconds after having said *"I
+  work in sales"*, the assistant answered *"I have no information about what my
+  profession is in this conversation"*. And it forgot a name it had just been
+  assigned in under a minute.
+  Now `AnswerRequest.history` carries the last 8 exchanges and **each provider
+  sends them as real messages** (`user`/`assistant`, or `model` in Gemini), not
+  summarized inside the prompt: it's what makes the model treat them as things it
+  said. Only the turns completed with text are saved —an aborted answer isn't
+  something the model said— and "new conversation" clears them, which is exactly
+  what that button exists for.
+- **`manualContextSeconds` is NOT the memory**, even though it looks like it. It's
+  how many seconds of transcript accompany the question. With the value at 10 the
+  model received little more than the sentence in progress; the conversation's
+  memory is `history`'s business. The dashboard label was changed to "voice
+  window" because "context sent" invited exactly that confusion.
+- **`AbortSignal` is mandatory in `LLMProvider`'s signature, not optional.** If
+  the interviewer asks something else while the previous answer is being
+  generated, it has to be cancelled: a stale answer is **worse than none**,
+  because the user reads it and answers something that already passed. A single
+  answer in flight, an invariant guaranteed by `abort()` at the start of `ask()`.
+- **60 ms throttle when broadcasting the text.** Without it, each token would be
+  an IPC message and a React re-render: hundreds per answer.
+- **`cache_control: ephemeral` on the system prompt.** The CV and the job
+  description don't change during the interview, so that prefix is cached and the
+  following calls cost ~10% on that part. Minimum 512 tokens on Opus 5 for the
+  cache to be created; below that it simply doesn't cache, no error.
+- **The prompt was designed under a single constraint:** the answer is read out
+  of the corner of your eye while someone looks you in the face. Hence the maximum
+  of 4 bullets, the ban on preambles, and the rule not to invent data outside
+  `<contexto>` — a generic answer is recoverable, a detected lie isn't.
 
-### Inyección de prompts: el sobre y la regla
+### Prompt injection: the envelope and the rule
 
-Cuatro cosas de las que entran al prompt **las escribe otro**: la transcripción,
-la pregunta que sale de ella, el `<contexto>` —un CV lo escribes tú, una oferta
-de empleo la pegas de un anuncio ajeno— y lo que se lea en una captura. Ninguna
-necesita un atacante dedicado para traer una orden: basta el enunciado de un
-ejercicio con letra pequeña.
+Four of the things that enter the prompt **are written by someone else**: the
+transcription, the question that comes out of it, the `<contexto>` —a CV you write
+yourself, a job offer you paste from someone else's listing— and whatever is read
+in a capture. None needs a dedicated attacker to bring an order: the prompt of an
+exercise in fine print is enough.
 
-**Dos defensas, y hacen falta las dos.** `core/untrusted.ts` desarma las
-etiquetas del sobre y tira los caracteres invisibles; `INJECTION_RULE`, en el
-system prompt, dice que lo de dentro es material reportado y nunca instrucciones.
-Sin la primera, la regla se esquiva escribiendo `</transcripcion>` y siguiendo
-fuera del sobre. Sin la segunda, el sobre son dos etiquetas que el modelo no
-tiene ningún motivo para respetar.
+**Two defenses, and both are needed.** `core/untrusted.ts` disarms the envelope's
+tags and throws away the invisible characters; `INJECTION_RULE`, in the system
+prompt, says what's inside is reported material and never instructions. Without
+the first, the rule is dodged by writing `</transcripcion>` and continuing outside
+the envelope. Without the second, the envelope is two tags the model has no reason
+to respect.
 
-**Lo que se descartó: filtrar frases.** Borrar «ignore previous instructions» y
-compañía no funciona —se parafrasea, se cambia de idioma, se parte la frase— y
-aquí los falsos positivos duelen de verdad: esta app se usa en entrevistas
-técnicas, y quien se entrevista de seguridad va a decir esa frase en voz alta
-como tema de conversación. Borrarla rompería la app en la entrevista donde más
-falta hace, y dejaría la transcripción que lee el usuario diciendo algo distinto
-de lo que se dijo. Por eso `looksLikeInjection` **marca y no borra**: mete un
-aviso dentro del sobre. Un falso positivo así no cuesta nada, porque le recuerda
-al modelo algo que ya era verdad.
+**What was dropped: filtering phrases.** Deleting «ignore previous instructions»
+and company doesn't work —it's paraphrased, the language is switched, the sentence
+is split— and here the false positives genuinely hurt: this app is used in
+technical interviews, and whoever interviews in security is going to say that
+phrase out loud as a topic of conversation. Deleting it would break the app in the
+interview where it's most needed, and would leave the transcript the user reads
+saying something different from what was said. That's why `looksLikeInjection`
+**marks and doesn't delete**: it puts a notice inside the envelope. A false
+positive like that costs nothing, because it reminds the model of something that
+was already true.
 
-**La regla obliga a avisar, no sólo a no obedecer.** Callarse una orden
-escondida en una captura deja a alguien leyendo una respuesta rara sin saber por
-qué lo es; el mismo criterio de siempre en este proyecto.
+**The rule requires warning, not just not obeying.** Staying quiet about an order
+hidden in a capture leaves someone reading a weird answer without knowing why it
+is one; the usual criterion in this project.
 
-**Tres sitios donde el texto ajeno se colaba fuera del sobre**, y que fue lo que
-costó encontrar:
+**Three places where the foreign text slipped outside the envelope**, and it was
+what took some finding:
 
-- **La memoria de la conversación.** `request.history` viaja como mensajes `user`
-  de verdad —eso es lo que hace que el modelo trate sus respuestas anteriores
-  como suyas— y por tanto sin sobre alrededor. Una orden frenada en
-  `<transcripcion>` volvía limpia en la consulta siguiente. Se desarma en
-  `remember()`, que es la única puerta a esa memoria; el historial de disco
-  guarda el texto literal, que es lo que hay que poder releer.
-- **El nombre de un context pack**, no sólo su contenido.
-- **La skill.** Una skill SÍ son instrucciones, así que no va en un sobre de
-  material; lo que se le quita es poder cerrar `</instruccion_activa>` y seguir
-  escribiendo como si fuera el mensaje de sistema. Un `SKILL.md` se instala
-  copiando una carpeta que te pasan.
+- **The conversation's memory.** `request.history` travels as real `user`
+  messages —that's what makes the model treat its previous answers as its own—
+  and therefore with no envelope around it. An order stopped in `<transcripcion>`
+  came back clean in the following query. It's disarmed in `remember()`, which is
+  the only door to that memory; the disk history keeps the literal text, which is
+  what you have to be able to re-read.
+- **A context pack's name**, not just its content.
+- **The skill.** A skill IS instructions, so it doesn't go in a material
+  envelope; what's taken from it is the ability to close `</instruccion_activa>`
+  and keep writing as if it were the system message. A `SKILL.md` is installed by
+  copying a folder someone hands you.
 
-**El turno de usuario se unificó por esto.** Estaba copiado en los cinco
-proveedores. Mientras era formato, la duplicación se aguantaba; siendo una
-frontera de seguridad, no: una defensa que hay que acordarse de repetir en cinco
-archivos —y en el sexto el día que se añada un proveedor— es una defensa que se
-va a olvidar. Ahora sale de `llm/user-turn.ts`, y el parámetro `sendsImages`
-conserva la diferencia que ya existía (DeepSeek no manda capturas, y anunciarle
-una que no ha recibido es invitarle a inventarse el enunciado).
+**The user turn was unified because of this.** It was copied across the five
+providers. While it was formatting, the duplication was bearable; being a security
+boundary, it wasn't: a defense you have to remember to repeat in five files —and
+in the sixth the day a provider is added— is a defense that's going to be
+forgotten. Now it comes out of `llm/user-turn.ts`, and the `sendsImages` parameter
+preserves the difference that already existed (DeepSeek doesn't send captures, and
+announcing one it hasn't received is inviting it to invent the prompt).
 
-Lo que los tests **no** pueden afirmar es que el modelo obedezca la regla. Lo que
-sí se comprueba, y es lo que se comprueba, es que la orden no pueda salirse de su
-sobre en ninguno de los cinco proveedores.
+What the tests **can't** assert is that the model obeys the rule. What is checked,
+and it's what is checked, is that the order can't get out of its envelope in any
+of the five providers.
 
-### Skills: la tercera cosa que entra en el prompt
+### Skills: the third thing that enters the prompt
 
-Agosto de 2026. Ya había dos formas de influir en la respuesta —el perfil y los
-context packs— y la petición era una tercera. El riesgo obvio era acabar con
-tres mecanismos que hacen lo mismo con nombres distintos, así que lo primero fue
-delimitar qué decide cada uno:
+August 2026. There were already two ways to influence the answer —the profile and
+the context packs— and the request was a third. The obvious risk was ending up
+with three mechanisms that do the same thing with different names, so the first
+thing was to delimit what each one decides:
 
-| | Decide | Si falta |
+| | Decides | If missing |
 |---|---|---|
-| Perfil | La **forma** | La respuesta no cabe en el panel, o el código sale sin código |
-| Context pack | El **material** | Correcta pero genérica: no es tuya |
-| Skill | La **manera** | Correcta y tuya, pero suena a generada |
+| Profile | The **shape** | The answer doesn't fit in the panel, or the code comes out without code |
+| Context pack | The **material** | Correct but generic: it's not yours |
+| Skill | The **manner** | Correct and yours, but sounds generated |
 
-Esa tercera columna es la que no tenía respuesta antes, y es un fallo caro en
-esta app concreta: **la respuesta se lee en voz alta**. Las muletillas de modelo
-—«es importante destacar», los pares de adjetivos, el cierre que resume— cantan
-mucho antes habladas que escritas.
+That third row is the one that had no answer before, and it's an expensive failure
+in this particular app: **the answer is read out loud**. The model's tics
+—«it's important to highlight», the pairs of adjectives, the summarizing
+close— stand out far more spoken than written.
 
-**El formato es el de Anthropic y se implementa a mano.** Una carpeta con un
-`SKILL.md`, frontmatter con `name` y `description`, cuerpo en Markdown. Elegir
-un formato que ya existe es lo que hace que una skill escrita para otra
-herramienta funcione tal cual, y no traer una dependencia para leerlo es la
-regla de siempre: partir por `---` y leer dos claves son treinta líneas, y su
-fallo **se ve** —la skill no carga y lo dice—. Es la misma frontera que dejó
-fuera a `electron-store` y que sí justificó el codificador de QR, cuyo fallo era
-invisible.
+**The format is Anthropic's and is implemented by hand.** A folder with a
+`SKILL.md`, frontmatter with `name` and `description`, body in Markdown. Choosing
+a format that already exists is what makes a skill written for another tool work
+as-is, and not bringing a dependency to read it is the usual rule: splitting on
+`---` and reading two keys is thirty lines, and its failure **shows** —the skill
+doesn't load and says so—. It's the same boundary that left out `electron-store`
+and that did justify the QR encoder, whose failure was invisible.
 
-El parser acepta continuación en las líneas indentadas —una `description` de
-verdad no cabe en 80 columnas— e **ignora las claves que no conoce**, para que
-un SKILL.md con campos de otra herramienta no se caiga por traer de más.
+The parser accepts continuation on indented lines —a real `description` doesn't
+fit in 80 columns— and **ignores keys it doesn't know**, so a SKILL.md with
+another tool's fields doesn't fall over for bringing extra.
 
-#### El reparto de autoridad, que es lo que hace que funcione
+#### The distribution of authority, which is what makes it work
 
-La decisión de diseño está aquí y no es evidente: la skill **se suma** al
-perfil, va **la última** del system prompt, y lleva su precedencia **escrita**:
+The design decision is here and isn't obvious: the skill **adds to** the profile,
+goes **last** in the system prompt, and carries its precedence **written out**:
 
-> Manda sobre CÓMO se dice. NO cambia el formato. Donde discrepen sobre la
-> MANERA de escribir, gana la skill; donde discrepen sobre la FORMA, gana la
-> regla de formato.
+> It rules over HOW it's said. It does NOT change the format. Where they disagree
+> on the MANNER of writing, the skill wins; where they disagree on the SHAPE, the
+> format rule wins.
 
-Sin esa frase, una skill de tono y unas reglas de formato que llevan la palabra
-«obligatorias» encima se contradicen en cuanto la primera pide algo que la
-segunda limita, y **el empate lo rompe el modelo en silencio**: distinto según
-el proveedor y según la frase, que es la peor clase de comportamiento — el que
-no se puede reproducir ni explicar.
+Without that sentence, a tone skill and format rules that carry the word
+«mandatory» on top contradict each other as soon as the first asks for something
+the second limits, and **the tie is broken by the model in silence**: different
+depending on the provider and on the sentence, which is the worst kind of
+behavior — the one that can't be reproduced or explained.
 
-Va la última, después incluso del contexto, porque es la posición que el modelo
-atiende con más fuerza y porque una skill existe justamente para corregir la
-manera de escribir que traen las reglas de arriba. Puesta antes, se diluye.
+It goes last, even after the context, because it's the position the model attends
+to most strongly and because a skill exists precisely to correct the manner of
+writing the rules above bring. Placed earlier, it dilutes.
 
-#### Cuatro decisiones que parecen recortes y no lo son
+#### Four decisions that look like cutbacks and aren't
 
-- **Una sola skill activa.** Dos instrucciones sobre cómo escribir se
-  contradicen enseguida —una pide frases cortas, otra un registro cuidado— y el
-  resultado dependería del orden en que estuvieran encendidas. Con una, lo que
-  se lee es lo que se pidió.
-- **Los scripts y assets del formato se ignoran.** No es una fase pendiente:
-  ejecutar un script que hay en una carpeta de datos es ejecutar código sin
-  revisar, en el proceso que tiene las API keys descifradas. El día que se
-  quiera, se diseña con esa frase delante.
-- **`/skill` sólo funciona escribiendo, no hablando.** Un «/humanizar» dicho en
-  voz alta llega del reconocedor como «humanizar» o como «barra humanizar»
-  según el motor: reconocerlo ahí sería adivinar.
-- **El prefijo sólo cuenta si la skill existe.** Si cualquier `/palabra` se
-  tratara como invocación, escribir «/etc está lleno de configuración» perdería
-  la primera palabra y el modelo respondería a otra cosa **sin que nada lo
-  avisara**. Con la lista delante, lo que no casa se queda como texto. Tiene
-  test, porque es el fallo silencioso de esta función.
+- **A single active skill.** Two instructions about how to write contradict each
+  other soon —one asks for short sentences, another for a careful register— and
+  the result would depend on the order in which they were on. With one, what you
+  read is what was asked for.
+- **The format's scripts and assets are ignored.** It's not a pending phase:
+  running a script that's in a data folder is running unreviewed code, in the
+  process that has the API keys decrypted. The day it's wanted, it's designed with
+  that sentence in front.
+- **`/skill` only works by writing, not by speaking.** A «/humanize» said out
+  loud arrives from the recognizer as «humanize» or as «slash humanize» depending
+  on the engine: recognizing it there would be guessing.
+- **The prefix only counts if the skill exists.** If any `/word` were treated as
+  an invocation, writing «/etc is full of configuration» would lose the first word
+  and the model would answer something else **without anything warning of it**.
+  With the list in front, what doesn't match stays as text. It has a test, because
+  it's the silent failure of this feature.
 
-#### Y dos que cubren fallos mudos
+#### And two that cover silent failures
 
-- **Una skill rota se lista igual, con su motivo.** Desaparecer sin decir nada
-  deja a alguien mirando una carpeta que sí existe. Y `getSkill()` devuelve
-  `undefined` para las rotas, así que un `activeSkillId` que apunta a una
-  carpeta que alguien estropeó **se comporta como si no hubiera skill** en lugar
-  de mandar medio prompt.
-- **El cuerpo vacío es el único error de verdad.** Sin `name` se usa el id de la
-  carpeta y sin `description` la lista se ve sosa, pero las dos funcionan. Una
-  skill sin instrucciones no hace **nada** y aparecería encendida en el
-  desplegable diciendo lo contrario.
+- **A broken skill is listed anyway, with its reason.** Disappearing without
+  saying anything leaves someone staring at a folder that does exist. And
+  `getSkill()` returns `undefined` for broken ones, so an `activeSkillId` pointing
+  at a folder someone broke **behaves as if there were no skill** instead of
+  sending half a prompt.
+- **An empty body is the only real error.** Without `name` the folder id is used
+  and without `description` the list looks bland, but both work. A skill without
+  instructions does **nothing** and would appear on in the dropdown saying the
+  opposite.
 
-**La skill entra también en `gemini-audio`.** Con ese motor la respuesta la
-escribe el reconocedor, así que si se hubiera quedado fuera habría un motor en
-el que encender una skill no hace nada — y desde la pantalla los dos casos se
-ven idénticos.
+**The skill also enters `gemini-audio`.** With that engine the answer is written
+by the recognizer, so if it had been left out there would be an engine where
+turning on a skill does nothing — and from the screen the two cases look
+identical.
 
-### El techo de la heurística, y el escalón que faltaba
+### The heuristic's ceiling, and the missing step
 
-`AutoTriggerMode` prometía `heuristic+classifier` **desde el primer día en el
-tipo**, y ese código no existía. Se implementó en agosto de 2026 empujado por un
-caso concreto, sacado de una conversación real:
+`AutoTriggerMode` promised `heuristic+classifier` **from day one in the type**,
+and that code didn't exist. It was implemented in August 2026, pushed by a
+concrete case, taken from a real conversation:
 
-> «Una persona que conozca de DevOps debería conocer también de seguridad.»
-> «Si una persona sabe DevOps, necesariamente tendría que saber de seguridad.»
+> «Someone who knows DevOps should also know security.»
+> «If a person knows DevOps, they'd necessarily have to know security.»
 
-Las dos son **preguntas**: quien las dice está esperando que le contesten. Y las
-dos llegan del reconocedor como oraciones afirmativas, sin signo y sin ningún
-interrogativo. La reacción natural es añadir marcadores a la lista, y es la
-equivocada: **lo que las hace preguntas no está en el léxico**. Está en que son
-afirmaciones dirigidas a alguien que espera respuesta. Ninguna lista de palabras
-lo va a coger nunca, y añadir «debería» ya se probó y se descartó porque dispara
-con «creo que debería haber estudiado más».
+Both are **questions**: whoever says them is waiting for an answer. And both
+arrive from the recognizer as affirmative sentences, without a mark and without
+any interrogative. The natural reaction is to add markers to the list, and it's
+the wrong one: **what makes them questions isn't in the lexicon**. It's that
+they're statements directed at someone who expects an answer. No word list is ever
+going to catch it, and adding «should» was already tried and dropped because it
+triggers on «I think I should have studied more».
 
-Así que el techo de `question-detector.ts` no era falta de reglas: era el
-método. De ahí el segundo escalón, que le pregunta al modelo.
+So `question-detector.ts`'s ceiling wasn't a lack of rules: it was the method.
+Hence the second step, which asks the model.
 
-Tres reglas lo hacen viable, y las tres importan:
+Three rules make it viable, and all three matter:
 
-- **Sólo se escala la duda, nunca la certeza.** Una muletilla o una frase de dos
-  palabras se descartan gratis. Pagar una consulta para que un modelo confirme
-  que «vale, perfecto» no es una pregunta es tirar el dinero.
-- **Nunca bloquea.** Reloj propio de 8 s y `AbortSignal`. Si el modelo tarda o
-  falla, el veredicto es «no era una pregunta» y todo sigue como en `heuristic`.
-  Un clasificador caído no puede dejar la escucha colgada.
-- **Cuesta, y se dice en pantalla.** Es una consulta más por intervención
-  ambigua, y en un modelo que razona ni siquiera es barata. Por eso no es el
-  valor por defecto.
+- **Only the doubt is escalated, never the certainty.** A filler word or a
+  two-word phrase are discarded for free. Paying for a query so a model confirms
+  that «okay, perfect» isn't a question is throwing money away.
+- **It never blocks.** Its own 8 s clock and `AbortSignal`. If the model is slow
+  or fails, the verdict is «it wasn't a question» and everything continues as in
+  `heuristic`. A downed classifier can't leave listening hung.
+- **It costs, and it's said on screen.** It's one more query per ambiguous
+  utterance, and on a model that reasons it isn't even cheap. That's why it isn't
+  the default value.
 
-**El campo `ambiguous`, y por qué no es el texto de `reason`.** La primera
-versión decidía si escalar comparando el prefijo de la cadena del motivo, y un
-test lo cazó en cuanto se escribió: el motivo del modo estricto empieza igual,
-así que la decisión dependía de cómo estuviera **redactado un mensaje** pensado
-para que lo lea una persona. Es la misma lección que ya estaba escrita para los
-errores de los proveedores —se distinguen por clase, no por cadena— aplicada a
-un sitio nuevo.
+**The `ambiguous` field, and why it isn't `reason`'s text.** The first version
+decided whether to escalate by comparing the prefix of the reason string, and a
+test caught it as soon as it was written: strict mode's reason starts the same, so
+the decision depended on how **a message** meant to be read by a person was
+**worded**. It's the same lesson already written for the providers' errors —they're
+distinguished by class, not by string— applied to a new place.
 
-De paso se decidió que **`strict` también escala**. La sensibilidad gobierna
-cuánto se arriesga la heurística; el modo gobierna si el modelo puede opinar.
-Estricto + clasificador es de hecho la combinación más precisa que existe: cero
-adivinanzas por palabras, y el modelo resolviendo las dudas.
+Along the way it was decided that **`strict` also escalates**. The sensitivity
+governs how much the heuristic risks; the mode governs whether the model can weigh
+in. Strict + classifier is in fact the most precise combination there is: zero
+guessing by words, and the model resolving the doubts.
 
-### Pedir no es preguntar, y la mitad de la gente pide
+### Asking isn't questioning, and half the people ask
 
-Del log de una prueba real, con diez segundos de diferencia:
+From the log of a real test, ten seconds apart:
 
-    20:04:58  descartado (sin marcadores): "Explica un poco el rol de un SRE"
-    20:05:08  disparando (signo de interrogación): "¿Podrías explicar un poco el rol de un SRE?"
+    20:04:58  discarded (no markers): "Explica un poco el rol de un SRE"
+    20:05:08  firing (question mark): "¿Podrías explicar un poco el rol de un SRE?"
 
-Las dos piden exactamente lo mismo. Sólo la segunda está **formulada** como
-pregunta, y ahí estaba el fallo: la heurística tenía `explícame` pero no
-`explica` a secas.
+Both ask for exactly the same thing. Only the second is **phrased** as a question,
+and there was the failure: the heuristic had `explícame` but not plain `explica`.
 
-**Y era una asimetría entre idiomas que llevaba ahí desde el principio.** En
-inglés los imperativos pelados ya estaban cubiertos —`explain`, `describe`,
-`tell` viven en `INTERROGATIVE_OPENERS`— y en español sólo se reconocían las
-formas con pronombre. Quien dice «explica» sin el «me» está pidiendo lo mismo.
+**And it was a cross-language asymmetry that had been there from the start.** In
+English the bare imperatives were already covered —`explain`, `describe`, `tell`
+live in `INTERROGATIVE_OPENERS`— and in Spanish only the forms with a pronoun were
+recognized. Whoever says «explica» without the «me» is asking for the same thing.
 
-`IMPERATIVE_OPENERS` los añade con dos condiciones que sí importan:
+`IMPERATIVE_OPENERS` adds them with two conditions that do matter:
 
-- **Sólo al principio de la intervención.** Estos verbos son idénticos a la
-  tercera persona del indicativo, que aparece a todas horas: «el informe
-  explica que…», «ese diagrama resume bastante bien». Al principio es una
-  petición casi siempre; en medio, casi nunca. Hay test de las dos caras.
-- **Cuentan también en modo estricto.** Pedir algo es tan explícito como
-  preguntarlo; que no lleve signo de interrogación no lo vuelve dudoso.
+- **Only at the start of the utterance.** These verbs are identical to the third
+  person of the indicative, which appears all the time: «el informe explica
+  que…», «ese diagrama resume bastante bien». At the start it's almost always a
+  request; in the middle, almost never. There's a test for both faces.
+- **They also count in strict mode.** Asking for something is as explicit as
+  questioning it; not carrying a question mark doesn't make it doubtful.
 
-Cuatro verbos se quedaron **fuera a propósito**, y conviene que no los añada
-nadie luego: `cuenta` (es sustantivo, y «cuenta con» significa otra cosa),
-`indica` («indica que…» en tercera persona es lo normal), `desarrolla`
-(«desarrolla software») y `habla` («habla muy rápido»). Es el mismo criterio
-que dejó fuera a «debería».
+Four verbs were left **out on purpose**, and nobody should add them later:
+`cuenta` (it's a noun, and «cuenta con» means something else), `indica` («indica
+que…» in the third person is the normal thing), `desarrolla` («desarrolla
+software») and `habla` («habla muy rápido»). It's the same criterion that left
+out «debería».
 
-**Lo que esto no arregla**, y hay que saberlo: cubre la forma imperativa, que es
-frecuente y barata de detectar. Las peticiones que no son ni preguntas ni
-imperativos —una afirmación lanzada para que la rebatas— siguen necesitando el
-clasificador. Una lista de verbos tiene el mismo techo que una lista de
-interrogativos; sólo lo tiene un poco más arriba.
+**What this doesn't fix**, and you have to know it: it covers the imperative form,
+which is frequent and cheap to detect. Requests that are neither questions nor
+imperatives —a statement thrown out for you to rebut— still need the classifier. A
+list of verbs has the same ceiling as a list of interrogatives; it just has it a
+little higher up.
 
-### La frase que salía dos veces
+### The sentence that came out twice
 
-Se vio en pantalla antes que en ningún test, y la firma lo decía todo:
+It was seen on screen before in any test, and the signature said it all:
 
     ¿ Qué opin as del concepto de Ops? … ¿Qué opinas del concepto de Ops? …
-      └── parciales acumulados            └── el turno completo, otra vez
+      └── accumulated partials            └── the full turn, again
 
-Dos fallos encadenados, los dos del motor `openai-live`:
+Two chained failures, both from the `openai-live` engine:
 
-- **Los `delta` son incrementales y el `completed` trae el turno ENTERO.** El
-  buffer concatena porque su contrato dice que todo es incremental —lo es en
-  Gemini Live—, así que el final se pegaba detrás de lo ya acumulado.
-- **Y la primera copia salía con las palabras partidas** («conoz ca», «ingen
-  ieros») porque `joinFragments` mete un espacio cuando ninguno de los dos
-  lados lo trae, y los deltas de OpenAI son trozos de token.
+- **The `delta`s are incremental and the `completed` brings the WHOLE turn.** The
+  buffer concatenates because its contract says everything is incremental —it is
+  in Gemini Live—, so the final got glued behind what was already accumulated.
+- **And the first copy came out with the words split** («conoz ca», «ingen
+  ieros») because `joinFragments` inserts a space when neither of the two sides
+  brings one, and OpenAI's deltas are token fragments.
 
-Se arregla en el sitio donde se conoce el protocolo: el carril acumula sus
-propios deltas **en crudo** y marca lo que emite como `cumulative`, con lo que
-el buffer reemplaza en lugar de concatenar. La alternativa —que el buffer
-adivinara comparando prefijos— es la clase de heurística que falla el día que
-alguien repite una frase a propósito.
+It's fixed where the protocol is known: the lane accumulates its own deltas
+**raw** and marks what it emits as `cumulative`, so the buffer replaces instead of
+concatenating. The alternative —having the buffer guess by comparing prefixes— is
+the kind of heuristic that fails the day someone repeats a sentence on purpose.
 
-La lección para el siguiente motor: **antes de emitir, mirar si los parciales
-del proveedor son incrementales o acumulativos.** No hay un estándar, y los dos
-que hay en esta app no coinciden.
+The lesson for the next engine: **before emitting, check whether the provider's
+partials are incremental or cumulative.** There's no standard, and the two in this
+app don't match.
 
-### Modo código: por qué es un camino aparte y no un prompt más
+### Code mode: why it's a separate path and not just another prompt
 
-El pedido era simple —"si tengo LeetCode en pantalla, dame la solución"— y la
-tentación era resolverlo con un perfil nuevo en `PROFILES` y ya. No basta, y
-conviene saber por qué antes de "simplificarlo":
+The request was simple —"if I have LeetCode on screen, give me the solution"— and
+the temptation was to solve it with a new profile in `PROFILES` and that's it.
+It's not enough, and it's worth knowing why before "simplifying it":
 
-- **Las reglas de formato del proyecto entero lo impedían.** `BASE_RULES` dice
-  máximo cuatro viñetas, sin párrafos, y que cada viñeta se pueda leer en voz
-  alta de un tirón. Todo eso es correcto para hablar y letal para un algoritmo:
-  con esas reglas puestas el modelo devuelve el enfoque resumido y **ninguna
-  implementación**. Por eso `RULES` pasó a ser un `Record<PromptProfileId,…>`:
-  `coding` sustituye las reglas, no se suma a ellas. Si algún día alguien
-  "unifica" eso en una constante única, el modo código deja de dar código.
-- **El tope de tokens también.** 700 corta una solución de Java a media función,
-  y una implementación truncada no vale para nada. `MAX_CODE_TOKENS` son 2200.
-  El tope se elige por el modo, y el modo se activa por **dos** caminos: el
-  disparo `code` y el perfil `coding` puesto a mano. Olvidar el segundo dejaba
-  el caso más obvio —el usuario elige el chip "Código"— cortando respuestas.
-- **La pregunta no está en el audio.** `ask('hotkey')` toma la última
-  intervención cerrada como pregunta. Aquí el enunciado está en la pantalla, así
-  que eso sólo mete una frase suelta de la llamada compitiendo con él.
-  `solveOnScreen()` manda una instrucción fija y deja la transcripción como
-  contexto secundario, que es su papel real: a veces la aclaración importante se
-  dijo en voz alta.
-- **Tiene que funcionar con la escucha parada**, que es el caso normal: un
-  ejercicio delante y ninguna llamada abierta. Nada en ese camino toca el STT.
-- **No persiste el perfil.** Ctrl+Alt+C fuerza `coding` sólo en esa consulta. Si
-  lo guardara, quien lo usa en mitad de una entrevista se quedaría respondiendo
-  las preguntas habladas en bloques de código hasta que se acordara de
-  desactivarlo, y acordarse es justo lo que no puede hacer en ese momento.
-- **Al revés que `Ctrl+Shift+S`, sin captura no se pregunta.** El hotkey de
-  captura normal responde igual si la captura falla, porque la pregunta venía del
-  audio. Aquí no hay nada que leer, así que preguntar sería gastar una llamada
-  para que el modelo confiese que no ve nada.
+- **The whole project's format rules prevented it.** `BASE_RULES` says a maximum
+  of four bullets, no paragraphs, and that each bullet can be read out loud in one
+  go. All of that is correct for speaking and lethal for an algorithm: with those
+  rules in place the model returns the summarized approach and **no
+  implementation**. That's why `RULES` became a `Record<PromptProfileId,…>`:
+  `coding` replaces the rules, it doesn't add to them. If some day someone
+  "unifies" that into a single constant, code mode stops giving code.
+- **The token cap too.** 700 cuts a Java solution off mid-function, and a
+  truncated implementation is worthless. `MAX_CODE_TOKENS` is 2200. The cap is
+  chosen by the mode, and the mode is activated by **two** paths: the `code`
+  trigger and the `coding` profile set by hand. Forgetting the second left the
+  most obvious case —the user picks the "Code" chip— cutting off answers.
+- **The question isn't in the audio.** `ask('hotkey')` takes the last closed
+  utterance as the question. Here the prompt is on the screen, so that only brings
+  in a stray sentence from the call competing with it. `solveOnScreen()` sends a
+  fixed instruction and leaves the transcript as secondary context, which is its
+  real role: sometimes the important clarification was said out loud.
+- **It has to work with listening stopped**, which is the normal case: an
+  exercise in front of you and no call open. Nothing in that path touches the STT.
+- **It doesn't persist the profile.** Ctrl+Alt+C forces `coding` only on that
+  query. If it saved it, whoever uses it in the middle of an interview would be
+  left answering the spoken questions in code blocks until they remembered to turn
+  it off, and remembering is exactly what they can't do in that moment.
+- **Unlike `Ctrl+Shift+S`, with no capture it doesn't ask.** The normal capture
+  hotkey answers even if the capture fails, because the question came from the
+  audio. Here there's nothing to read, so asking would be spending a call for the
+  model to confess it sees nothing.
 
-**Calidad de la captura: 92, no 72.** El JPEG a 72 vale para "hay un diagrama en
-pantalla" y se come exactamente lo que aquí importa: `l` contra `1`, `;` contra
-`:`, los subíndices de un enunciado. Una firma mal leída produce una solución que
-no compila, y el síntoma es desconcertante porque la respuesta parece perfecta.
-No se subió a PNG porque los modelos escalan a ~1,5k px de todas formas.
+**Capture quality: 92, not 72.** The JPEG at 72 is fine for "there's a diagram on
+screen" and eats exactly what matters here: `l` versus `1`, `;` versus `:`, the
+subscripts of a prompt. A misread signature produces a solution that doesn't
+compile, and the symptom is baffling because the answer looks perfect. It wasn't
+raised to PNG because the models scale to ~1.5k px anyway.
 
-**El atajo es `Ctrl+Alt+C` y no `Ctrl+Shift+X`.** Un acelerador global gana al de
-la aplicación que tenga el foco, y quien usa esto tiene VS Code delante:
-`Ctrl+Shift+X` le habría robado el panel de extensiones. `Ctrl+Shift+C` ya estaba
-tomado por los clics atravesables, y `Ctrl+Alt+` es la familia de las flechas que
-mueven el overlay.
+**The shortcut is `Ctrl+Alt+C` and not `Ctrl+Shift+X`.** A global accelerator
+wins over that of the application with the focus, and whoever uses this has VS Code
+in front: `Ctrl+Shift+X` would have stolen its extensions panel. `Ctrl+Shift+C`
+was already taken by click-through, and `Ctrl+Alt+` is the family of the arrows
+that move the overlay.
 
-**El overlay tuvo que aprender a pintar código.** Pintaba `answer.text` en un
-`div` con `pre-wrap`; con una solución dentro eso deja las tres comillas a la
-vista, parte las líneas largas a mitad de expresión —que es lo contrario de lo
-que se quiere en código— y obliga a seleccionar a mano dentro de una ventana sin
-foco y con los clics atravesándola. `answer-format.ts` es un parser mínimo de
-vallas ``` y nada más: **no es un renderizador de Markdown y no debe convertirse
-en uno**; meter una librería de 40 KB en una ventana que arranca en cada sesión
-no sale a cuenta para el único formato que el prompt promete.
+**The overlay had to learn to paint code.** It painted `answer.text` in a `div`
+with `pre-wrap`; with a solution inside that leaves the three backticks in view,
+splits the long lines mid-expression —which is the opposite of what you want in
+code— and forces selecting by hand inside an unfocused window with clicks passing
+through it. `answer-format.ts` is a minimal parser of ``` fences and nothing more:
+**it isn't a Markdown renderer and mustn't become one**; putting a 40 KB library
+into a window that starts on every session doesn't pay off for the only format the
+prompt promises.
 
-Su caso difícil no es parsear: es el **streaming**. La valla de cierre tarda
-segundos en llegar, así que un bloque a medias se pintaría como párrafo y saltaría
-de estilo a mitad de respuesta. De ahí el flag `open`, que abre la caja en cuanto
-llega la valla de apertura y esconde el botón "Copiar" hasta que el bloque cierra
-— copiar una función sin cerrar es peor que no poder copiarla.
+Its hard case isn't parsing: it's the **streaming**. The closing fence takes
+seconds to arrive, so a half-written block would be painted as a paragraph and
+jump style mid-answer. Hence the `open` flag, which opens the box as soon as the
+opening fence arrives and hides the "Copy" button until the block closes —
+copying an unclosed function is worse than not being able to copy it.
 
-### Un modelo para hablar y otro para mirar
+### One model to talk and another to look
 
-Había un solo modelo para todo, y las dos tareas piden cosas **opuestas**:
+There was a single model for everything, and the two tasks ask for **opposite**
+things:
 
 | | Necesita | Porque |
 |---|---|---|
-| Conversar | Latencia | La respuesta se lee mientras alguien te mira a la cara |
-| Pantalla | Vista y cabeza | Hay que leer un enunciado en una captura y no equivocarse |
+| Converse | Latency | The answer is read while someone looks you in the face |
+| Screen | Sight and brains | You have to read a prompt in a capture and not get it wrong |
 
-Un modelo local pequeño cumple lo primero y falla lo segundo; uno grande de pago
-al revés, es caro para cada frase suelta de una reunión. `screenProviderId` +
-`screenModel` los separan, y el default `same` reproduce **exactamente** el
-comportamiento anterior — nadie que no toque nada nota el cambio.
+A small local model meets the first and fails the second; a large paid one the
+other way around, it's expensive for every stray sentence of a meeting.
+`screenProviderId` + `screenModel` separate them, and the `same` default
+reproduces the previous behavior **exactly** — nobody who touches nothing notices
+the change.
 
-Dos detalles del diseño:
+Two design details:
 
-- **`screenModel` es un campo suelto, no otro `Record` por proveedor.** Al
-  elegir "Ollama para la pantalla" lo que se quiere es un modelo **concreto** —el
-  multimodal que tengas descargado— distinto del de conversar aunque el
-  proveedor sea el mismo. Ése es justo el caso interesante: `llama3.2:3b` para
-  hablar y `qwen2.5vl:7b` para mirar, los dos locales.
-- **La etiqueta del overlay sigue a la respuesta, no a los ajustes.** Con dos
-  modelos en juego, "con qué se generó esto" deja de ser deducible de la
-  configuración: se lee de `answer.model`, que es el que de verdad la escribió.
+- **`screenModel` is a loose field, not another per-provider `Record`.** When
+  choosing "Ollama for the screen" what you want is a **specific** model —the
+  multimodal one you have downloaded— different from the conversing one even if
+  the provider is the same. That's exactly the interesting case: `llama3.2:3b` to
+  talk and `qwen2.5vl:7b` to look, both local.
+- **The overlay's label follows the answer, not the settings.** With two models in
+  play, "what this was generated with" stops being deducible from the
+  configuration: it's read from `answer.model`, which is the one that actually
+  wrote it.
 
-El fallo a vigilar es el de siempre en este proyecto: **un modelo sin visión
-descarta las imágenes en silencio**. Para una pregunta hablada eso degrada y ya
-está; en las acciones de pantalla la captura **es** el enunciado, así que el
-modelo se inventaría el ejercicio entero y la respuesta parecería perfecta. Por
-eso ahí se falla con mensaje, y por eso el selector marca cuáles ven imágenes.
+The failure to watch for is the usual one in this project: **a model without
+vision discards the images silently**. For a spoken question that just degrades
+and that's it; in the screen actions the capture **is** the prompt, so the model
+would invent the whole exercise and the answer would look perfect. That's why it
+fails with a message there, and why the selector marks which ones see images.
 
-### Dos fallos del modo test que eran del prompt, no del modelo
+### Two quiz-mode failures that were the prompt's, not the model's
 
-Salieron en la primera prueba de verdad, y conviene registrar el diagnóstico
-porque la conclusión intuitiva era la contraria:
+They came out in the first real test, and it's worth recording the diagnosis
+because the intuitive conclusion was the opposite:
 
-- **"Qwen sólo responde una pregunta."** Se le pedía exactamente eso: la
-  instrucción decía *"si hay varias preguntas visibles, responde la que está en
-  primer plano o la primera sin contestar"*. Obedecía. Quien tiene un
-  cuestionario delante lo quiere entero, así que ahora se piden todas, una línea
-  cada una, en el orden en que aparecen.
-- **"Se extiende demasiado."** También pedido: el formato tenía un punto para el
-  porqué y otro para los distractores. Con un modelo grande eso sale corto; con
-  uno local pequeño, que cumple mal los topes de longitud, se desborda. La única
-  defensa que funciona de verdad no es pedir menos palabras, es **no pedir la
-  explicación**. Ahora la respuesta es sólo la respuesta, y el porqué se pide con
-  un botón cuando hace falta.
+- **"Qwen only answers one question."** It was asked for exactly that: the
+  instruction said *"if there are several visible questions, answer the one in the
+  foreground or the first unanswered one"*. It obeyed. Whoever has a quiz in front
+  of them wants it whole, so now all are asked for, one line each, in the order
+  they appear.
+- **"It goes on too long."** Also asked for: the format had a point for the why
+  and another for the distractors. With a large model that comes out short; with a
+  small local one, which meets length caps poorly, it overflows. The only defense
+  that really works isn't asking for fewer words, it's **not asking for the
+  explanation**. Now the answer is only the answer, and the why is asked for with
+  a button when needed.
 
-La lección general, que aplica a cualquier ajuste futuro de estos prompts:
-**antes de culpar al modelo, leer lo que se le pidió**. Los dos síntomas
-parecían límites de un modelo local pequeño y ninguno lo era.
+The general lesson, which applies to any future adjustment of these prompts:
+**before blaming the model, read what it was asked**. Both symptoms looked like
+limits of a small local model and neither was.
 
-Un tercer detalle de la misma prueba: **un modelo pequeño necesita reglas más
-cortas**. Las de test se reescribieron en frases imperativas de una línea, sin
-la prosa explicativa que llevaban antes; lo que en un modelo grande es matiz, en
-uno pequeño es ruido que compite con el formato.
+A third detail from the same test: **a small model needs shorter rules**. The
+quiz ones were rewritten as one-line imperative sentences, without the explanatory
+prose they carried before; what in a large model is nuance, in a small one is
+noise that competes with the format.
 
-### Los asteriscos de la negrita: se ataca por los dos lados
+### The bold's asterisks: attacked on both sides
 
-Claude marcaba en negrita la opción correcta de cada test y el overlay enseñaba
-`**B)** El índice...`, asteriscos incluidos, porque el panel pinta texto plano.
+Claude marked the correct option of each quiz in bold and the overlay showed
+`**B)** El índice...`, asterisks included, because the panel paints plain text.
 
-La corrección va **en los dos sitios a la vez**, y ninguno sobra:
+The correction goes **in both places at once**, and neither is superfluous:
 
-- **El prompt prohíbe el markdown de énfasis** en los tres perfiles que se leen
-  en el panel. Sin esto, las marcas seguirían llegando y gastando tokens y ancho.
-- **`parseInline` las interpreta igualmente.** Porque los modelos las ponen hagas
-  lo que hagas, y depender de que obedezcan una instrucción de formato es
-  exactamente el tipo de suposición que este documento existe para desmentir.
+- **The prompt bans emphasis markdown** in the three profiles read in the panel.
+  Without this, the marks would keep arriving and spending tokens and width.
+- **`parseInline` interprets them anyway.** Because the models put them there no
+  matter what you do, and relying on their obeying a formatting instruction is
+  exactly the kind of assumption this document exists to disprove.
 
-Sigue **sin** ser un renderizador de Markdown: sólo negrita y código en línea, y
-una marca sin cerrar se queda como texto literal — condición necesaria durante el
-streaming, donde `**B` llega antes que su pareja y no puede desaparecer nada de
-la pantalla.
+It's still **not** a Markdown renderer: only bold and inline code, and an unclosed
+mark stays as literal text — a necessary condition during streaming, where `**B`
+arrives before its partner and nothing can disappear from the screen.
 
-### El modo test y la regla de la duda
+### Quiz mode and the doubt rule
 
-Un test no se responde como un algoritmo, de ahí un perfil aparte y no un
-parámetro del de código. Lo que gobierna `QUIZ_RULES` es que **cada línea es una
-respuesta y nada más**: número, letra y texto de la opción, sin preámbulo. Lo
-demás —el porqué, los distractores— se pide con un botón, por lo que cuenta la
-sección anterior.
+A quiz isn't answered like an algorithm, hence a separate profile and not a
+parameter of the code one. What `QUIZ_RULES` governs is that **each line is an
+answer and nothing more**: number, letter and text of the option, no preamble. The
+rest —the why, the distractors— is asked for with a button, for the reason the
+previous section explains.
 
-Hay dos marcas de línea, y las dos existen porque cambian lo que hace quien lee:
-`DUDA:` cuando el modelo no está seguro, y `NO SE VE:` cuando de esa pregunta no
-se leían todas las opciones en la captura. La segunda evita el peor resultado
-posible, que es una respuesta segura basada en media pregunta.
+There are two line markers, and both exist because they change what the reader
+does: `DUDA:` when the model isn't sure, and `NO SE VE:` when not all the options
+of that question could be read in the capture. The second avoids the worst
+possible result, which is a confident answer based on half a question.
 
-La regla que más importa es la de la incertidumbre. Un modelo que contesta "C"
-con la misma seguridad cuando lo sabe y cuando lo adivina es **peor que uno que
-no contesta**: en un test con penalización por fallo, quien lee tiene que poder
-decidir si arriesga. De ahí el prefijo `DUDA:`, que además da igualmente la
-mejor opción — negarse a responder tampoco ayuda a nadie.
+The rule that matters most is the uncertainty one. A model that answers "C" with
+the same confidence whether it knows it or is guessing is **worse than one that
+doesn't answer**: in a quiz with a penalty for wrong answers, the reader has to be
+able to decide whether to risk it. Hence the `DUDA:` prefix, which also gives the
+best option anyway — refusing to answer doesn't help anyone either.
 
-El prompt avisa explícitamente de las negaciones y los superlativos del
-enunciado ("cuál NO", "siempre", "la mejor"). Es donde se pierden estas
-preguntas incluso sabiendo la materia, y un modelo con prisa cae igual que una
-persona con prisa.
+The prompt explicitly warns about the negations and superlatives of the prompt
+("which NOT", "always", "the best"). It's where these questions are lost even
+knowing the subject, and a model in a hurry falls just like a person in a hurry.
 
-### Ollama recorta el contexto sin decirlo, y la memoria ahora se ve
+### Ollama trims the context without saying so, and the memory is now visible
 
-**Ollama no usa la ventana de contexto del modelo.** Aplica la suya, `num_ctx`,
-por defecto **2048 tokens**, y lo que no cabe lo descarta por el principio **sin
-ningún error**. Con el system prompt con CV, la transcripción y ocho turnos de
-memoria, esos 2048 se agotan enseguida.
+**Ollama doesn't use the model's context window.** It applies its own, `num_ctx`,
+by default **2048 tokens**, and what doesn't fit it discards from the beginning
+**with no error**. With the system prompt carrying the CV, the transcript and
+eight turns of memory, those 2048 run out quickly.
 
-El síntoma es exactamente el que ya se documentó una vez —el asistente "olvida"
-lo que le acabas de decir— pero la causa es **otra**: aquella vez era que el
-historial no se enviaba; ésta es que sí se envía y Ollama lo tira. Que dos
-causas distintas produzcan el mismo síntoma es la razón de que esto esté
-escrito aquí. Ahora se envía `num_ctx` explícitamente, configurable, con 8192
-por defecto.
+The symptom is exactly the one already documented once —the assistant "forgets"
+what you just told it— but the cause is **another**: that time it was that the
+history wasn't being sent; this one is that it is sent and Ollama throws it away.
+That two distinct causes produce the same symptom is the reason this is written
+here. Now `num_ctx` is sent explicitly, configurable, with 8192 by default.
 
-De ahí sale también el chip `memoria n/8` del overlay. Cada turno recordado se
-reenvía **entero** en la siguiente consulta, y eso no se veía en ninguna parte;
-es lo único del coste de una consulta sobre lo que el usuario puede decidir.
-Vaciarla es distinto de "nueva conversación": aquélla aborta la respuesta en
-vuelo, limpia la transcripción y cierra la conversación en disco. Esto sólo tira
-lo que se reenvía al modelo.
+The overlay's `memoria n/8` chip also comes from here. Each remembered turn is
+resent **whole** in the following query, and that showed up nowhere; it's the only
+part of a query's cost the user can decide on. Clearing it is different from "new
+conversation": that one aborts the in-flight answer, clears the transcript and
+closes the conversation on disk. This only throws away what's resent to the model.
 
-Un detalle de implementación que costó una lectura: el "olvidado" del chip se
-marca **antes** de llamar al IPC, no en el `.then`. Vaciar la memoria deja el
-contador a cero, y con cero el chip no se pinta — para cuando llegaba la
-respuesta el componente ya estaba desmontado y el aviso no se veía nunca.
+An implementation detail that cost a read: the chip's "forgotten" is marked
+**before** calling the IPC, not in the `.then`. Clearing the memory leaves the
+counter at zero, and with zero the chip isn't painted — by the time the response
+arrived the component was already unmounted and the notice was never seen.
 
-### Los modelos que razonan gastan salida en algo que nadie lee
+### Reasoning models spend output on something nobody reads
 
-Un modelo de razonamiento en Ollama —`qwen3-vl:8b-thinking` y familia— rompe dos
-suposiciones que el proveedor daba por buenas, y las dos en silencio.
+A reasoning model in Ollama —`qwen3-vl:8b-thinking` and family— breaks two
+assumptions the provider took for granted, and both silently.
 
-**La primera es dónde llega el texto.** El razonamiento viene en
-`message.thinking`, un campo distinto de `message.content`, y `num_predict`
-cuenta los dos juntos. Medido con el prompt real del modo código:
+**The first is where the text arrives.** The reasoning comes in
+`message.thinking`, a field distinct from `message.content`, and `num_predict`
+counts both together. Measured with the real code-mode prompt:
 
-| `num_predict` | razonamiento | respuesta | `done_reason` |
+| `num_predict` | reasoning | answer | `done_reason` |
 |---|---|---|---|
-| 2200 (el tope de código) | 6.432 car. | **0 car.** | `length` |
-| 8000 | 23.329 car. | 589 car. | `stop` |
+| 2200 (the code cap) | 6,432 chars | **0 chars** | `length` |
+| 8000 | 23,329 chars | 589 chars | `stop` |
 
-Con el tope de siempre el modelo se quedaba sin presupuesto **pensando**. El
-stream terminaba limpio, sin error, así que la app caía en su rama de "el stream
-acabó sin texto" y decía *"El modelo no devolvió texto"* — cierto y completamente
-inútil. El razonamiento fue de 10 a 50 veces más largo que la respuesta, así que
-no se arregla subiendo el tope un poco: los modelos que piensan llevan
-`THINKING_BUDGET_TOKENS` **además** de lo que gasten respondiendo.
+With the usual cap the model ran out of budget **thinking**. The stream ended
+clean, no error, so the app fell into its "the stream ended with no text" branch
+and said *"The model returned no text"* — true and completely useless. The
+reasoning was 10 to 50 times longer than the answer, so it isn't fixed by raising
+the cap a little: the models that think carry `THINKING_BUDGET_TOKENS` **on top
+of** whatever they spend answering.
 
-**La segunda es el reloj.** `FIRST_TOKEN_TIMEOUT_MS` mata la consulta si no ha
-salido nada en 45 s, y aquí el primer carácter tardó **62,8 s** en el peor caso
-medido. Sin tocar eso, arreglar el presupuesto no habría servido de nada: la
-consulta moría igual, sólo que con otro mensaje. Por eso el proveedor emite un
-**latido vacío** en cuanto ve el primer trozo de razonamiento: le dice al motor
-"sigo vivo" sin pintar la deliberación en el overlay, que es un panel que se lee
-de reojo mientras alguien te mira a la cara.
+**The second is the clock.** `FIRST_TOKEN_TIMEOUT_MS` kills the query if nothing
+has come out in 45 s, and here the first character took **62.8 s** in the worst
+case measured. Without touching that, fixing the budget would have been no use:
+the query died just the same, only with a different message. That's why the
+provider emits an **empty heartbeat** as soon as it sees the first chunk of
+reasoning: it tells the engine "I'm still alive" without painting the
+deliberation in the overlay, which is a panel read out of the corner of your eye
+while someone looks you in the face.
 
-**`think: false` no es la salida.** Se probó contra este mismo modelo y siguió
-razonando 7.364 caracteres. Hay modelos que sólo saben pensar, así que la opción
-de apagarlo no se implementó: lo que se hizo fue dejarles sitio.
+**`think: false` isn't the way out.** It was tested against this same model and it
+kept reasoning 7,364 characters. There are models that only know how to think, so
+the option to turn it off wasn't implemented: what was done was to make room for
+them.
 
-La detección es por nombre **y aprendida en caliente**, el mismo patrón que
-`EFFORT_UNSUPPORTED` en `claude.ts`: la lista de pistas envejece —mañana sale uno
-que piensa y no se llama "thinking"—, así que la primera consulta lo descubre por
-el campo `thinking` y las siguientes ya salen con presupuesto.
+The detection is by name **and learned on the fly**, the same pattern as
+`EFFORT_UNSUPPORTED` in `claude.ts`: the list of hints ages —tomorrow one comes
+out that thinks and isn't called "thinking"—, so the first query discovers it via
+the `thinking` field and the following ones already go out with a budget.
 
-### El catálogo de modelos es una sugerencia, no una frontera
+### The model catalog is a suggestion, not a boundary
 
-`CLAUDE_MODELS`, `GEMINI_MODELS` y `OPENAI_MODELS` están escritos en el código,
-así que envejecen:
-cada modelo nuevo del proveedor tardaba en poder usarse **lo que tardara una
-versión de la app**, aunque la cuenta ya tuviera acceso. La lista sigue siendo lo
-primero que se ve —es lo que quiere casi todo el mundo y evita teclear un id de
-memoria— pero ahora tiene una opción «Otro…» que abre un campo de texto.
+`CLAUDE_MODELS`, `GEMINI_MODELS` and `OPENAI_MODELS` are written in the code, so
+they age: each new model from the provider took **however long an app version
+took** to become usable, even if the account already had access. The list is still
+the first thing you see —it's what almost everyone wants and it avoids typing an id
+from memory— but now it has an «Other…» option that opens a text field.
 
-**Con Ollama no se ofrece, y no es un olvido.** Esa lista no es un catálogo
-nuestro: es lo que el servidor local responde que tiene descargado. Escribir ahí
-el nombre de un modelo que no está instalado no lo instala, sólo produce un error
-más tarde y más lejos de la causa.
+**With Ollama it isn't offered, and it's not an oversight.** That list isn't a
+catalog of ours: it's what the local server reports it has downloaded. Writing
+there the name of a model that isn't installed doesn't install it, it just
+produces an error later and farther from the cause.
 
-Dos cosas que hubo que arreglar para que esto funcionara:
+Two things that had to be fixed for this to work:
 
-- **El auto-relleno pisaba el id escrito a mano.** El efecto que carga la lista
-  reparaba el ajuste cuando el modelo guardado *no estaba en la lista*, que era
-  correcto cuando la lista era la única fuente posible. Con ids a mano, eso
-  sustituía el modelo tecleado por el primero del catálogo en la siguiente
-  apertura del dashboard. Ahora la condición es "está vacío". El caso que
-  motivó el arreglo original —Ollama con `""`, que fallaba con "no hay ningún
-  modelo seleccionado"— sigue cubierto; el nuevo no. Cambiarle el modelo a
-  alguien a su espalda es malo con uno local y peor con uno de pago.
-- **`normalizeModelId`, y no es cosmético.** Un id copiado de una página de
-  documentación se pega con un espacio detrás. El proveedor responde 404 y el
-  mensaje que llega es "el modelo indicado no existe", que manda a buscar el
-  modelo bueno cuando el modelo ya era el bueno. Ningún proveedor admite
-  espacios en un id, así que se quitan al teclear. Tiene test.
+- **The auto-fill overwrote the hand-typed id.** The effect that loads the list
+  repaired the setting when the saved model *wasn't in the list*, which was
+  correct when the list was the only possible source. With hand-typed ids, that
+  replaced the typed model with the first of the catalog on the next opening of
+  the dashboard. Now the condition is "it's empty". The case that motivated the
+  original fix —Ollama with `""`, which failed with "no model selected"— is still
+  covered; the new one isn't. Changing someone's model behind their back is bad
+  with a local one and worse with a paid one.
+- **`normalizeModelId`, and it's not cosmetic.** An id copied from a documentation
+  page is pasted with a space after it. The provider responds 404 and the message
+  that arrives is "the specified model doesn't exist", which sends you to look for
+  the right model when the model was already the right one. No provider accepts
+  spaces in an id, so they're removed on typing. It has a test.
 
-El campo va en monoespaciada por la misma razón: lo que se escribe ahí se compara
-carácter a carácter contra el id del proveedor, y en una fuente proporcional un
-`1` por una `l` no se ve.
+The field is in monospace for the same reason: what's written there is compared
+character by character against the provider's id, and in a proportional font a `1`
+for an `l` doesn't show.
 
-La cara conocida del `<select>` controlado sigue vigilada aquí: mientras la lista
-carga está vacía, y sin la comprobación de `models.length > 0` **todo** parecería
-escrito a mano, así que el campo de texto aparecería y desaparecería solo en cada
-apertura. Se verificó muestreando el DOM cada pocos milisegundos tras cambiar de
-proveedor.
+The familiar face of the controlled `<select>` is still watched for here: while
+the list loads it's empty, and without the `models.length > 0` check **everything**
+would look hand-typed, so the text field would appear and disappear by itself on
+every opening. It was verified by sampling the DOM every few milliseconds after
+switching provider.
 
-### La guía de modelos es un documento, y no otra ventana
+### The model guide is a document, and not another window
 
-La tarjeta del dashboard responde *"¿qué me pongo?"* en dos líneas. La pregunta
-de al lado —*"¿y por qué, y qué más hay, y cuánto cuesta?"*— necesita tablas,
-tramos y comparativas de precios, y en una columna de ajustes eso es un muro que
-nadie lee.
+The dashboard card answers *"what do I set?"* in two lines. The neighboring
+question —*"and why, and what else is there, and how much does it cost?"*— needs
+tables, tiers and price comparisons, and in a settings column that's a wall nobody
+reads.
 
-Se resolvió generando un HTML autocontenido y abriéndolo con el navegador del
-sistema. **Una ventana propia de Electron se descartó por la regla de oro de este
-proyecto**: cada ventana nueva hay que registrarla en la protección de captura, y
-el modo invisible se verifica, no se asume. Un documento no tiene ese riesgo, y
-encima se guarda, se imprime y se consulta con la app cerrada — que es como se
-lee una tabla de precios.
+It was solved by generating a self-contained HTML and opening it with the system
+browser. **An Electron window of its own was dropped for this project's golden
+rule**: every new window has to be registered in the capture protection, and
+invisible mode is verified, not assumed. A document doesn't have that risk, and on
+top of that it's saved, printed and consulted with the app closed — which is how a
+price table gets read.
 
-El renderizador vive en `shared/` y es una función pura de `SystemSpecs` a
-string, así que tiene tests: que escapa lo que viene del sistema (el nombre de la
-CPU y de la GPU los da el SO y acaban dentro del HTML), que no mete `<script>` ni
-referencias externas —se abre desde `file://` y no puede depender de la red— y
-que cubre las tres cosas que se fueron a buscar: locales por cómputo,
-multimodales y nube barata.
+The renderer lives in `shared/` and is a pure function from `SystemSpecs` to
+string, so it has tests: that it escapes what comes from the system (the CPU and
+GPU names are given by the OS and end up inside the HTML), that it puts in no
+`<script>` or external references —it opens from `file://` and can't depend on the
+network— and that it covers the three things it set out to: local by compute,
+multimodal and cheap cloud.
 
-**Sobre los precios, dos reglas.** Los de Anthropic se verificaron contra su
-referencia oficial en lugar de escribirlos de memoria, y el documento lleva
-fecha porque caducan. Los de Google **no se reproducen**: no se pudieron
-verificar con la misma fuente, y una cifra inventada en una tabla de precios es
-peor que una remisión a la página del proveedor. Esa asimetría se explica en el
-propio documento en lugar de disimularse.
+**On the prices, two rules.** Anthropic's were verified against their official
+reference instead of writing them from memory, and the document carries a date
+because they expire. Google's are **not reproduced**: they couldn't be verified
+with the same source, and an invented figure in a price table is worse than a
+pointer to the provider's page. That asymmetry is explained in the document itself
+instead of being disguised.
 
-El dato que más costó reunir y el que más sorprende es el coste real de una
-pulsación de pantalla: una captura de 1600 px se cobra como **~4.800 tokens de
-entrada** en los modelos de visión de alta resolución, lo que deja el modo
-pantalla en céntimos incluso con el modelo caro. La conclusión práctica es la
-contraria de la intuición: **lo que engorda la factura no son los botones, es la
-escucha automática**, que dispara una consulta por cada pregunta que oye.
+The datum that was hardest to gather and the most surprising is the real cost of a
+screen press: a 1600 px capture is charged as **~4,800 input tokens** on the
+high-resolution vision models, which leaves screen mode in cents even with the
+expensive model. The practical conclusion is the opposite of the intuition:
+**what fattens the bill isn't the buttons, it's the automatic listening**, which
+fires a query for every question it hears.
 
-De ahí sale también la nota sobre Haiku 4.5, que parece la ganga obvia: es más
-barato *y* gasta menos tokens por captura porque la lee a menor resolución. Es
-exactamente la misma razón por la que falla antes con letra pequeña — está
-viendo menos.
+The note about Haiku 4.5 also comes from here, which looks like the obvious
+bargain: it's cheaper *and* spends fewer tokens per capture because it reads it at
+lower resolution. It's exactly the same reason it fails sooner with fine print —
+it's seeing less.
 
-### Recomendar un modelo local sin inventarse los datos
+### Recommending a local model without inventing the data
 
-"¿Qué modelo de Ollama me irá bien?" no tiene respuesta genérica: el mismo
-modelo es instantáneo con GPU y tarda un minuto sin ella, y equivocarse cuesta
-una descarga de varios gigas. La guía mide RAM, CPU y GPU y recomienda dos
-modelos, uno para conversar y otro para la pantalla.
+"Which Ollama model will do well for me?" has no generic answer: the same model is
+instant with a GPU and takes a minute without one, and getting it wrong costs a
+download of several gigs. The guide measures RAM, CPU and GPU and recommends two
+models, one to converse and another for the screen.
 
-**Lo que no hace es estimar la VRAM**, y es deliberado. Es el número que de
-verdad decide si un modelo cabe en la tarjeta, y no hay forma fiable de leerlo
-desde Electron sin invocar utilidades del sistema. Una recomendación apoyada en
-una cifra inventada es peor que una recomendación con un hueco reconocido, así
-que el hueco se reconoce en pantalla.
+**What it doesn't do is estimate the VRAM**, and it's deliberate. It's the number
+that really decides whether a model fits in the card, and there's no reliable way
+to read it from Electron without invoking system utilities. A recommendation
+propped on an invented figure is worse than a recommendation with an acknowledged
+gap, so the gap is acknowledged on screen.
 
-El nombre de la GPU sí se saca, y por una vía poco evidente: `app.getGPUInfo`
-devuelve identificadores numéricos, pero `auxAttributes.glRenderer` trae la
-cadena de ANGLE —`"ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 …)"`— de la
-que se puede extraer el nombre comercial sin depender de nada externo.
+The GPU name is extracted, and by a not-obvious route: `app.getGPUInfo` returns
+numeric identifiers, but `auxAttributes.glRenderer` brings the ANGLE string
+—`"ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 …)"`— from which the
+commercial name can be extracted without depending on anything external.
 
-**Esa cadena la escribe el driver, y no todos la escriben igual.** Con drivers
-recientes de NVIDIA llega el id PCI pegado al nombre —`"NVIDIA GeForce RTX 5070
-Ti (0x00002C05)"`— y se colaba entero en una línea que se lee de un vistazo.
-`cleanRenderer` lo quita, y tiene test: el patrón se acota a lo que parece un id
-hexadecimal justamente para no llevarse por delante el paréntesis de un
-`"Intel(R) UHD Graphics 620"`, que sí forma parte del nombre. El id se elimina y
-no se esconde detrás de nada porque no responde a la única pregunta de esa
-tarjeta —qué modelo local le pega a esta máquina—, igual que la VRAM que no se
-puede medir no se estima.
+**That string is written by the driver, and not all of them write it the same.**
+With recent NVIDIA drivers the PCI id arrives stuck to the name —`"NVIDIA GeForce
+RTX 5070 Ti (0x00002C05)"`— and it slipped whole into a line read at a glance.
+`cleanRenderer` removes it, and it has a test: the pattern is scoped to what looks
+like a hexadecimal id precisely so as not to take out the parenthesis of an
+`"Intel(R) UHD Graphics 620"`, which is part of the name. The id is removed and
+not hidden behind anything because it doesn't answer that card's only question
+—which local model suits this machine—, just as the VRAM that can't be measured
+isn't estimated.
 
-Los tramos salen de una regla sencilla: un modelo cuantizado a 4 bits ocupa
-~0,6 GB por cada mil millones de parámetros, más el sistema y la ventana de
-contexto. De ahí que un 7B pida ~8 GB libres y un 14B ronde los 16 GB. Los
-nombres de modelo envejecen, así que el dashboard enseña el comando y apunta a
-la biblioteca de Ollama en lugar de prometer que existirán siempre.
+The tiers come from a simple rule: a model quantized to 4 bits takes ~0.6 GB per
+billion parameters, plus the system and the context window. Hence a 7B asks for
+~8 GB free and a 14B is around 16 GB. Model names age, so the dashboard shows the
+command and points to the Ollama library instead of promising they'll always
+exist.
 
-### Hechos de la API de Claude, verificados contra la referencia
+### Facts of the Claude API, verified against the reference
 
-Tres salieron **distintos** de lo que se habría escrito de memoria. Si algún día
-el código parece "incompleto" en estos puntos, es deliberado:
+Three came out **different** from what would have been written from memory. If
+some day the code looks "incomplete" on these points, it's deliberate:
 
-1. **`temperature` / `top_p` / `top_k` devuelven 400** en Opus 5 y Sonnet 5. Están
-   eliminados. El estilo se controla por prompt.
-2. **El thinking está activo por defecto en Opus 5.** La palanca de latencia es
-   `output_config.effort: 'low'`, **no** desactivarlo: desactivarlo tiene dos
-   fallos conocidos (llamadas a herramientas emitidas como texto plano, que
-   nunca se ejecutan y no dan error; y etiquetas `<thinking>` filtradas en la
-   respuesta visible).
-3. **`stop_reason: 'refusal'` llega como HTTP 200**, no como excepción. Hay que
-   comprobarlo explícitamente o el overlay se queda en blanco sin motivo.
+1. **`temperature` / `top_p` / `top_k` return 400** on Opus 5 and Sonnet 5.
+   They're removed. Style is controlled by prompt.
+2. **Thinking is on by default in Opus 5.** The latency lever is
+   `output_config.effort: 'low'`, **not** disabling it: disabling it has two known
+   bugs (tool calls emitted as plain text, which never execute and give no error;
+   and `<thinking>` tags leaked in the visible answer).
+3. **`stop_reason: 'refusal'` arrives as HTTP 200**, not as an exception. You have
+   to check it explicitly or the overlay stays blank for no reason.
 
-Model IDs correctos: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`.
+Correct model IDs: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`.
 
-**Cuarto hecho, aprendido a golpes:** el punto 2 se verificó contra Opus 5 y se
-aplicó a los tres modelos. `output_config.effort` es de la **generación 5**, y
-Haiku 4.5 devuelve `400: "This model does not support the effort parameter"` —
-así que Haiku fallaba en TODAS las preguntas mientras Opus funcionaba, un patrón
-que desde fuera no tiene ningún sentido. `EFFORT_UNSUPPORTED` en `claude.ts`
-lleva la lista y además **aprende en caliente**: si un modelo futuro también lo
-rechaza, la primera petición lo detecta, reintenta sin el parámetro y las
-siguientes ya salen bien. La lección general es que un parámetro comprobado
-contra un modelo no está comprobado para su familia.
+**Fourth fact, learned the hard way:** point 2 was verified against Opus 5 and
+applied to all three models. `output_config.effort` is **generation 5**'s, and
+Haiku 4.5 returns `400: "This model does not support the effort parameter"` — so
+Haiku failed on ALL questions while Opus worked, a pattern that makes no sense
+from the outside. `EFFORT_UNSUPPORTED` in `claude.ts` carries the list and also
+**learns on the fly**: if a future model also rejects it, the first request
+detects it, retries without the parameter and the following ones come out fine.
+The general lesson is that a parameter verified against one model isn't verified
+for its family.
 
-### ChatGPT va por la Responses API, y no es una preferencia
+### ChatGPT goes through the Responses API, and it's not a preference
 
-El proveedor de OpenAI (agosto de 2026) se pidió como «añade ChatGPT». Lo que no
-es evidente es que la elección de **API** decide más que la de proveedor:
+The OpenAI provider (August 2026) was requested as «add ChatGPT». What isn't
+obvious is that the choice of **API** decides more than the choice of provider:
 
-- **Chat Completions no deja gobernar el razonamiento.** Los modelos GPT-5
-  piensan antes de contestar, y ahí no hay forma de pedirles que piensen poco.
-  La única palanca de latencia que existe —`reasoning.effort`— vive en la
-  Responses API, y esta app se lee de reojo mientras alguien te mira a la cara.
-  Se manda `low` por el mismo motivo que el `effort` de Claude.
-- **`store: false`, y esto es lo que de verdad importa.** La Responses API
-  **guarda por defecto** cada respuesta en la cuenta de OpenAI para poder
-  recuperarla luego por API. Es decir: el valor de fábrica del proveedor deja
-  una copia de lo que se dijo en tu entrevista en un sitio del que esta app no
-  sabe nada. Contradice la línea que §4 lleva defendiendo desde el principio, y
-  por eso se apaga en **todas** las llamadas, incluida la de «Probar conexión».
-  Tiene test contra un servidor real, no contra un cliente simulado: un mock
-  habría pasado igual mandando `store: true`.
+- **Chat Completions doesn't let you govern the reasoning.** The GPT-5 models
+  think before answering, and there's no way there to ask them to think little.
+  The only latency lever that exists —`reasoning.effort`— lives in the Responses
+  API, and this app is read out of the corner of your eye while someone looks you
+  in the face. `low` is sent for the same reason as Claude's `effort`.
+- **`store: false`, and this is what really matters.** The Responses API **saves
+  by default** each answer in the OpenAI account so it can be retrieved later via
+  API. That is: the provider's factory value leaves a copy of what was said in
+  your interview somewhere this app knows nothing about. It contradicts the line
+  §4 has been defending from the start, and that's why it's turned off in **all**
+  calls, including the «Test connection» one. It has a test against a real server,
+  not against a mocked client: a mock would have passed just the same sending
+  `store: true`.
 
-**Y la trampa del presupuesto aparece por tercera vez.** `max_output_tokens`
-cuenta los tokens de razonamiento **y** los de la respuesta, exactamente igual
-que `num_predict` en Ollama. Con el tope de 2.200 del modo código, un modelo que
-piensa puede gastárselo entero deliberando y terminar sin escribir un carácter,
-sin ningún error. Ya está documentado dos veces en este archivo —Ollama y el
-reloj del primer token— y aun así hubo que volver a resolverlo aquí, así que
-conviene decirlo como regla y no como anécdota:
+**And the budget trap appears for the third time.** `max_output_tokens` counts the
+reasoning tokens **and** the answer's, exactly like `num_predict` in Ollama. With
+code mode's 2,200 cap, a model that thinks can spend it all deliberating and
+finish without writing a single character, no error. It's already documented twice
+in this file —Ollama and the first-token clock— and it still had to be solved
+again here, so it's worth stating as a rule and not as an anecdote:
 
-> Cuando un proveedor tiene un solo número para «cuánto puedes generar», hay que
-> comprobar si el razonamiento sale de ese número **antes** de fiarse del tope.
+> When a provider has a single number for «how much you can generate», you have to
+> check whether the reasoning comes out of that number **before** trusting the cap.
 
-`budgetFor(maxTokens, withReasoning)` presta 4.000 tokens aparte. Es menos que
-los 8.000 de Ollama porque con `effort: 'low'` el razonamiento es mucho más
-corto que el de un modelo local de la familia *thinking*, y porque sólo se
-cobran los que se usen.
+`budgetFor(maxTokens, withReasoning)` lends 4,000 tokens separately. It's less than
+Ollama's 8,000 because with `effort: 'low'` the reasoning is much shorter than that
+of a local model of the *thinking* family, and because you're only charged for the
+ones used.
 
-**`reasoning` se aprende en caliente**, igual que `EFFORT_UNSUPPORTED` en
-`claude.ts` y `KNOWN_THINKERS` en `ollama.ts`. Los modelos sin razonamiento
-—un `gpt-4o` escrito a mano en «Otro…»— devuelven un 400 por un parámetro que
-el usuario no sabe que se está enviando, así que fallarían **todas** sus
-preguntas: es el fallo de Haiku 4.5 calcado. La primera petición lo descubre,
-reintenta sin el bloque y las siguientes ya salen bien.
+**`reasoning` is learned on the fly**, just like `EFFORT_UNSUPPORTED` in
+`claude.ts` and `KNOWN_THINKERS` in `ollama.ts`. The models without reasoning —a
+`gpt-4o` hand-typed in «Other…»— return a 400 for a parameter the user doesn't
+know is being sent, so **all** their questions would fail: it's Haiku 4.5's bug
+traced over. The first request discovers it, retries without the block and the
+following ones come out fine.
 
-**El catálogo son los tres GPT-5.6, y los nombres no ayudan.** «Sol», «terra» y
-«luna» no dicen cuál es el grande —a diferencia de `mini`/`nano`, o de
-Haiku/Sonnet/Opus— así que el papel de cada uno **hay que ir a leerlo** en lugar
-de deducirlo, que es exactamente el tipo de suposición que este documento existe
-para desmentir. Verificado contra la referencia de OpenAI:
+**The catalog is the three GPT-5.6, and the names don't help.** «Sol», «terra» and
+«luna» don't say which is the big one —unlike `mini`/`nano`, or Haiku/Sonnet/Opus—
+so each one's role **has to be gone and read** instead of deduced, which is exactly
+the kind of assumption this document exists to disprove. Verified against OpenAI's
+reference:
 
-| Modelo | Qué es | Precio (entrada / salida por millón) |
+| Model | What it is | Price (input / output per million) |
 |---|---|---|
-| `gpt-5.6-luna` | Cargas sensibles al coste | 0,20 $ / 1,20 $ |
-| `gpt-5.6-terra` | Equilibra capacidad y coste | 2 $ / 12 $ |
-| `gpt-5.6-sol` | Modelo de frontera, trabajo complejo | 5 $ / 30 $ |
+| `gpt-5.6-luna` | Cost-sensitive workloads | $0.20 / $1.20 |
+| `gpt-5.6-terra` | Balances capability and cost | $2 / $12 |
+| `gpt-5.6-sol` | Frontier model, complex work | $5 / $30 |
 
-Los tres aceptan **texto e imagen**, que es la condición para poder salir
-también en el selector del modelo de pantalla. Eso también se comprobó en lugar
-de darlo por hecho: un modelo sin visión ahí no degrada, **se inventa el
-enunciado entero** y la respuesta parece perfecta.
+All three accept **text and image**, which is the condition to be able to appear
+in the screen-model selector too. That was also checked instead of taken for
+granted: a model without vision there doesn't degrade, **it invents the whole
+prompt** and the answer looks perfect.
 
-**El defecto es Terra**, por el mismo motivo por el que en Claude es Sonnet y no
-Opus: esta app dispara una consulta por cada pregunta que oye, así que arrancar
-con el modelo caro se lo cobra a alguien que no ha elegido nada. Luna es de otro
-orden de magnitud —30 veces más barato de salida que Sol— y es la respuesta
-buena para quien mire la factura de la escucha automática.
+**The default is Terra**, for the same reason it's Sonnet and not Opus in Claude:
+this app fires a query for every question it hears, so starting with the expensive
+model charges it to someone who chose nothing. Luna is of another order of
+magnitude —30 times cheaper on output than Sol— and it's the right answer for
+whoever watches the automatic-listening bill.
 
-**Los precios de OpenAI sí se reproducen en la guía**, con fecha, porque se
-pudieron verificar contra su referencia oficial igual que los de Anthropic. Los
-de Google siguen sin reproducirse: la asimetría no es pereza, es el criterio de
-siempre — una cifra que no se pudo verificar hace más daño en una tabla de
-precios que un hueco reconocido.
+**OpenAI's prices are reproduced in the guide**, with a date, because they could
+be verified against their official reference just like Anthropic's. Google's are
+still not reproduced: the asymmetry isn't laziness, it's the usual criterion — a
+figure that couldn't be verified does more damage in a price table than an
+acknowledged gap.
 
-### Lo que costó añadir ChatGPT, y no era el proveedor
+### What it cost to add ChatGPT, and it wasn't the provider
 
-El archivo del proveedor y su entrada en el factory son la parte fácil, y el
-`never` exhaustivo de `llm/index.ts` la hace además a prueba de olvidos. Lo caro
-fueron **tres sitios que el compilador no señala**, y los tres tienen la misma
-forma: una condición escrita a mano que enumera los proveedores de entonces.
+The provider's file and its entry in the factory are the easy part, and the
+exhaustive `never` in `llm/index.ts` makes it oversight-proof too. The expensive
+part was **three places the compiler doesn't flag**, and all three have the same
+shape: a hand-written condition that enumerates the providers of the time.
 
-| Dónde | Qué pasaba si se olvida |
+| Where | What happened if forgotten |
 |---|---|
-| `providerReady()` en el dashboard | Cae al `else`: la sección «Modelos» sale con aviso de "sin configurar" **con la clave puesta** |
-| El `configured` del overlay | El panel enseña "Falta configurar la IA" para siempre, con el proveedor funcionando |
-| `alreadyThere` en el asistente | Dice "ya tienes una clave" mirando la de otro proveedor |
+| `providerReady()` in the dashboard | Falls to the `else`: the «Models» section comes up with a "not configured" warning **with the key set** |
+| The overlay's `configured` | The panel shows "The AI needs configuring" forever, with the provider working |
+| `alreadyThere` in the wizard | Says "you already have a key" looking at another provider's |
 
-Las tres decidían la misma pregunta —*¿está configurado esto?*— con tres
-condiciones distintas, y ninguna rompe el build al añadir un id: la cadena de
-ternarios simplemente cae al último caso. En el asistente se sustituyó por
-indexar `presence[choice.secret]`, que no puede quedarse atrás. Las otras dos
-siguen siendo cadenas de `if`, y aquí queda anotado que **son el sitio donde
-mirar** al añadir el siguiente.
+All three decided the same question —*is this configured?*— with three distinct
+conditions, and none breaks the build when adding an id: the ternary chain simply
+falls to the last case. In the wizard it was replaced by indexing
+`presence[choice.secret]`, which can't fall behind. The other two are still `if`
+chains, and it's noted here that **they're the place to look** when adding the
+next one.
 
-Dos cosas más que salieron al pasar, ninguna causada por OpenAI:
+Two more things that came out along the way, neither caused by OpenAI:
 
-- **El asistente borraba modelos de otros proveedores.** El camino local
-  escribía el mapa `llmModels` entero a mano —`{ claude: '', gemini: '', ollama:
-  … }`— con un `as` encima que lo dejaba pasar callando. Quien probaba lo local
-  perdía el modelo que tuviera elegido en la nube. El camino de la nube ya
-  documentaba exactamente esta lección **y el otro no la había aplicado**. Ahora
-  fusiona con lo que hubiera, y sin el `as`, que es lo que además obliga al
-  build a avisar si mañana falta una clave.
-- **El canal IPC de los secretos mentía en el tipo.** `secretsSet` declaraba
-  `key: 'anthropic' | 'google'` mientras el preload ya mandaba `SecretKey`, y la
-  contraseña de MQTT se guardaba por ahí desde hacía tiempo sin aparecer en esa
-  unión. No fallaba nada —el tipo no llega en tiempo de ejecución— pero era una
-  lista escrita a mano condenada a envejecer: ahora es `SecretKey`.
+- **The wizard was erasing other providers' models.** The local path wrote the
+  whole `llmModels` map by hand —`{ claude: '', gemini: '', ollama: … }`— with an
+  `as` on top that let it slip through silently. Whoever tried local lost the
+  model they had chosen in the cloud. The cloud path already documented exactly
+  this lesson **and the other hadn't applied it**. Now it merges with whatever was
+  there, and without the `as`, which is also what forces the build to warn if a
+  key is missing tomorrow.
+- **The secrets' IPC channel lied in the type.** `secretsSet` declared
+  `key: 'anthropic' | 'google'` while the preload was already sending `SecretKey`,
+  and the MQTT password had been saved through there for a while without appearing
+  in that union. Nothing failed —the type doesn't reach runtime— but it was a
+  hand-written list doomed to age: now it's `SecretKey`.
 
-Para Gemini Live, la documentación de Google listaba **tres model IDs distintos**
-en páginas diferentes. La forma de la API se verificó contra los tipos del SDK
-instalado (`node_modules/@google/genai/dist/genai.d.ts`), que es la fuente
-autoritativa. `GEMINI_LIVE_MODELS` está ordenado por preferencia: si el primero
-da 404 o permission denied, probar el siguiente.
+For Gemini Live, Google's documentation listed **three distinct model IDs** on
+different pages. The API's shape was verified against the installed SDK's types
+(`node_modules/@google/genai/dist/genai.d.ts`), which is the authoritative source.
+`GEMINI_LIVE_MODELS` is ordered by preference: if the first gives 404 or
+permission denied, try the next.
 
-### Mini-perfiles de modelos, y por qué no son el perfil de prompt
+### Model mini-profiles, and why they aren't the prompt profile
 
-Un `ModelPreset` guarda de un clic qué **motores y modelos** usar para un caso
-(entrevista, reunión, intérprete…): motor y modelo de transcripción, proveedor y
-modelo de respuestas, modelo de pantalla y perfil de prompt. La tentación es
-fusionarlo con `promptProfileId`, que ya se llama «perfil» y ya tiene esos
-nombres; son cosas distintas y juntarlas rompe las dos. `promptProfileId` decide
-la **forma** de la respuesta (cuatro viñetas, bloque de código); un `ModelPreset`
-decide **qué modelos** están cargados y **incluye** un `promptProfileId` como un
-campo más. Cambiar de perfil de prompt no aplica un preset: mezclarlos haría que
-elegir «modo código» te cambiara el modelo a tu espalda.
+A `ModelPreset` saves in one click which **engines and models** to use for a case
+(interview, meeting, interpreter…): transcription engine and model, answer
+provider and model, screen model and prompt profile. The temptation is to merge it
+with `promptProfileId`, which is already called «profile» and already has those
+names; they're distinct things and joining them breaks both. `promptProfileId`
+decides the answer's **shape** (four bullets, code block); a `ModelPreset` decides
+**which models** are loaded and **includes** a `promptProfileId` as one more field.
+Switching prompt profile doesn't apply a preset: mixing them would make choosing
+«code mode» change your model behind your back.
 
-Lo delicado de `applyModelPreset` es `llmModels`, que es un `Record` por
-proveedor: se **fusiona** para pisar sólo el modelo del proveedor del preset y no
-perder el que elegiste en los otros. Tiene test —ése es justo el bug silencioso:
-aplicar un preset de Ollama y quedarte sin el modelo de Claude—.
+The delicate thing about `applyModelPreset` is `llmModels`, which is a per-provider
+`Record`: it's **merged** to overwrite only the preset provider's model and not
+lose the one you chose in the others. It has a test —that's exactly the silent bug:
+applying an Ollama preset and losing your Claude model—.
 
-### La estrella de favoritos sólo ordena, no cambia nada
+### The favorites star only sorts, it doesn't change anything
 
-Una estrella en el Model Manager sube arriba los modelos locales marcados
-(`favoriteLocalModels`), para no rebuscar el que sueles usar. Es pura
-conveniencia: **no** cambia cuál está activo —eso lo dice `whisperModel`—, sólo el
-orden. `sortByFavorite` es genérico sobre `{ id }` y estable (dentro de favoritos
-y resto se conserva el orden del catálogo, que ya va de más ligero a más pesado).
+A star in the Model Manager moves the marked local models to the top
+(`favoriteLocalModels`), so you don't have to hunt for the one you usually use.
+It's pure convenience: it does **not** change which is active —that's what
+`whisperModel` says—, only the order. `sortByFavorite` is generic over `{ id }` and
+stable (within favorites and rest the catalog's order is preserved, which already
+goes from lightest to heaviest).
 
-### La cache de specs, o por qué dos pestañas cargaban lentas
+### The specs cache, or why two tabs loaded slowly
 
-`getSystemSpecs()` llama a `app.getGPUInfo('complete')`, que es caro (cientos de
-ms). El dashboard lo pedía en **cada visita** a Modelos y Transcripción —que se
-remontan al cambiar de pestaña—, así que esas dos cargaban notablemente más lentas
-que las demás. El hardware no cambia en una sesión, así que se **memoiza** la
-promesa (se paga una vez) y se **calienta** al arrancar la app, para que hasta la
-primera visita la encuentre lista. Ver `system-specs.ts`.
+`getSystemSpecs()` calls `app.getGPUInfo('complete')`, which is expensive (hundreds
+of ms). The dashboard requested it on **every visit** to Models and Transcription
+—which remount on switching tabs—, so those two loaded noticeably slower than the
+rest. The hardware doesn't change within a session, so the promise is **memoized**
+(paid once) and **warmed up** on app startup, so even the first visit finds it
+ready. See `system-specs.ts`.
 
-### El fantasmita: la mascota y el icono del `.exe`
+### The little ghost: the mascot and the `.exe` icon
 
-La mascota (`renderer/Mascot.tsx`) es el mismo SVG que la web —`tayori-web`—,
-copiado en vez de compartir un paquete: son dos proyectos y es un archivo
-autocontenido. Los ids de gradiente van por `useId` para que dos mascotas en la
-misma página no colisionen sus `url(#...)`.
+The mascot (`renderer/Mascot.tsx`) is the same SVG as the web —`tayori-web`—,
+copied instead of sharing a package: they're two projects and it's a
+self-contained file. The gradient ids go through `useId` so two mascots on the
+same page don't collide their `url(#...)`.
 
-El icono del `.exe` (`build/icon.ico`, multi-tamaño 256→16) se genera desde
-`build/icon.svg` con `scripts/make-icon.mjs`, y **las dependencias del generador
-(`@resvg/resvg-js`, `png-to-ico`) NO viven en el proyecto**: se instalan al vuelo,
-se genera el `.ico` —que se commitea como asset—, y se quitan. Es un asset que sólo
-cambia cuando cambia la mascota; cargar dos deps nativas permanentes por eso no
-compensa. El script documenta cómo regenerarlo.
+The `.exe` icon (`build/icon.ico`, multi-size 256→16) is generated from
+`build/icon.svg` with `scripts/make-icon.mjs`, and **the generator's dependencies
+(`@resvg/resvg-js`, `png-to-ico`) do NOT live in the project**: they're installed
+on the fly, the `.ico` is generated —which is committed as an asset—, and they're
+removed. It's an asset that only changes when the mascot changes; loading two
+permanent native deps for that doesn't pay off. The script documents how to
+regenerate it.
 
-### El marco rojo de «detectable»
+### The red «detectable» frame
 
-Cuando el sigilo está apagado —la app SÍ sale en la captura— aparece un marco
-discontinuo rojo en el borde de la ventana, en el overlay, el dashboard y el
-asistente. Es el mismo estado que el «VISIBLE» de la barra del overlay, pero
-imposible de pasar por alto. Va **por fuera** del contenido: éste se aparta con un
-hueco del mismo color de fondo (`--bg` coincide con el `backgroundColor` de la
-ventana), así que sólo se ve la línea roja flotando, no encima del contenido. El
-asistente es un render aparte, así que hubo que ponérselo también o parecía quedar
-fuera del interruptor —aunque la protección de captura, al ser de ventana, ya lo
-cubría—.
+When stealth is off —the app DOES show in the capture— a dashed red frame appears
+at the window's edge, in the overlay, the dashboard and the wizard. It's the same
+state as the overlay bar's «VISIBLE», but impossible to overlook. It goes
+**outside** the content: the content is set apart with a gap of the same
+background color (`--bg` matches the window's `backgroundColor`), so only the red
+line is seen floating, not on top of the content. The wizard is a separate render,
+so it had to be given it too or it seemed to fall outside the switch —even though
+the capture protection, being window-level, already covered it—.
 
 ---
 
-## 5. Desviaciones del plan aprobado, y por qué
+## 5. Deviations from the approved plan, and why
 
-El plan original está en `~/.claude/plans/vamos-a-crear-un-luminous-hippo.md`.
-Dos piezas se implementaron de otra forma. **Ambas cumplen el mismo requisito**;
-cambió el mecanismo, no el objetivo.
+The original plan is in `~/.claude/plans/vamos-a-crear-un-luminous-hippo.md`. Two
+pieces were implemented differently. **Both meet the same requirement**; the
+mechanism changed, not the objective.
 
-### Whisper local: binario externo, no binding nativo
+### Whisper local: external binary, not native binding
 
-El plan decía `smart-whisper`. Al ir a instalarlo:
+The plan said `smart-whisper`. On going to install it:
 
-- Es un binding nativo (`node-addon-api`) que hay que **recompilar contra el ABI
-  de Electron** con `electron-rebuild`.
-- Eso exige **Visual Studio Build Tools (~5 GB)**, ausente en esta máquina.
-- Y se rompe en **cada actualización de Electron**.
+- It's a native binding (`node-addon-api`) that has to be **recompiled against
+  Electron's ABI** with `electron-rebuild`.
+- That requires **Visual Studio Build Tools (~5 GB)**, absent on this machine.
+- And it breaks on **every Electron update**.
 
-En su lugar se usa el **binario oficial de whisper.cpp** (`whisper-bin-x64.zip`,
-v1.9.1, **7,6 MB**) como proceso hijo: sin toolchain, sin `node-gyp`, sin
-acoplamiento de ABI, y se empaqueta sin ceremonia (`npmRebuild: false`). Se
-descomprime con el `tar.exe` que Windows 10 1803+ trae de serie, para no añadir
-una dependencia de unzip por una operación que se hace una vez.
+Instead the **official whisper.cpp binary** is used (`whisper-bin-x64.zip`,
+v1.9.1, **7.6 MB**) as a child process: no toolchain, no `node-gyp`, no ABI
+coupling, and it's packaged without ceremony (`npmRebuild: false`). It's unzipped
+with the `tar.exe` Windows 10 1803+ ships by default, so as not to add an unzip
+dependency for an operation done once.
 
-El ejecutable se **busca** en lugar de asumir su ruta: el nombre cambió entre
-versiones (`main.exe` → `whisper-cli.exe`) y el zip no tiene estructura estable.
+The executable is **searched for** instead of assuming its path: the name changed
+between versions (`main.exe` → `whisper-cli.exe`) and the zip has no stable
+structure.
 
-**Desde julio de 2026 se usa `whisper-server`, no el CLI por turno.** El mismo
-zip trae `whisper-server.exe`, que mantiene el modelo cargado entre peticiones y
-acepta WAV por HTTP. Medido con los mismos hilos y el mismo audio:
+**Since July 2026 `whisper-server` is used, not the CLI per turn.** The same zip
+brings `whisper-server.exe`, which keeps the model loaded between requests and
+accepts WAV over HTTP. Measured with the same threads and the same audio:
 
-| | por turno |
+| | per turn |
 |---|---|
-| `whisper-cli` (proceso nuevo cada vez) | ~1440 ms |
-| `whisper-server` (modelo residente) | ~825 ms |
+| `whisper-cli` (new process each time) | ~1440 ms |
+| `whisper-server` (resident model) | ~825 ms |
 
-Los ~1440 ms del CLI coinciden con los tiempos reales del log de una sesión
-(1380–1540 ms), así que la medida es representativa y no de laboratorio.
+The CLI's ~1440 ms match the real times from a session's log (1380–1540 ms), so
+the measure is representative and not from a lab.
 
-Dos cosas que conviene no confundir:
+Two things worth not confusing:
 
-- **El CLI sigue ahí y no es código muerto.** Si el servidor no arranca —puerto
-  ocupado, binario viejo sin `whisper-server.exe`— se cae al CLI. Una mejora de
-  latencia no puede tumbar la transcripción entera.
-- **Lo que NO arregla:** whisper.cpp procesa siempre una ventana de 30 segundos,
-  así que el paso del encoder cuesta lo mismo con 1,7 s de audio que con 8,2 s.
-  Ese suelo es del modelo, no del transporte, y es la razón de que los tiempos
-  del log fueran tan planos. Quien busque bajar de ahí tiene que tocar
-  `--audio-ctx`, a costa de precisión, o cambiar a un motor con streaming real
-  (Gemini Live).
+- **The CLI is still there and isn't dead code.** If the server doesn't start
+  —port taken, old binary without `whisper-server.exe`— it falls back to the CLI.
+  A latency improvement can't take down the whole transcription.
+- **What it does NOT fix:** whisper.cpp always processes a 30-second window, so
+  the encoder step costs the same with 1.7 s of audio as with 8.2 s. That floor is
+  the model's, not the transport's, and it's the reason the log's times were so
+  flat. Whoever wants to go below that has to touch `--audio-ctx`, at the cost of
+  precision, or switch to an engine with real streaming (Gemini Live).
 
-### VAD: energía en TypeScript, no Silero
+### VAD: energy in TypeScript, not Silero
 
-Por el mismo criterio. El plan decía `@ricky0123/vad-web` + `onnxruntime-node`,
-que es **otro** módulo nativo. Silero es más preciso rechazando ruido que no es
-voz, pero para lo único que hace falta aquí —**saber dónde termina un turno**—
-la energía RMS basta, y Whisper filtra después lo que no sea habla.
+By the same criterion. The plan said `@ricky0123/vad-web` + `onnxruntime-node`,
+which is **another** native module. Silero is more precise at rejecting noise
+that isn't voice, but for the only thing needed here —**knowing where a turn
+ends**— RMS energy is enough, and Whisper filters out what isn't speech
+afterwards.
 
-Detalles que no son opcionales en `core/vad.ts`:
+Details that aren't optional in `core/vad.ts`:
 
-- **Suelo de ruido adaptativo**, actualizado **solo en silencio**. Un umbral fijo
-  falla entre un micro de portátil y uno de diadema, que difieren en un orden de
-  magnitud; y si se actualizara durante el habla, la propia voz arrastraría el
-  suelo hacia arriba hasta dejar de detectarse.
-- **Rescate del enganche.** Actualizar el suelo *sólo* en silencio tiene un fallo
-  que aparece después de un rato: si el ruido de fondo sube por encima de 2,5×
-  el suelo aprendido —el ventilador acelerando porque Whisper y el LLM están
-  cargando la CPU, o el AGC del micrófono subiendo ganancia— todos los frames
-  pasan a contar como habla, y entonces el suelo **ya no vuelve a actualizarse
-  nunca**, porque sólo se actualizaba en silencio. El VAD se queda enganchado y
-  todo sale por corte forzado a 20 s. Por eso, pasados 30 s seguidos de "habla",
-  se asume que es ruido y se deja que el suelo lo aprenda. El campo `forced` de
-  `Utterance` existía desde el principio y no lo leía nadie; ahora se registra,
-  porque varios cortes forzados seguidos son la firma exacta de este fallo.
-- **Corte forzado a los 20 s**, o quien habla sin pausas nunca se transcribiría.
-- **Descarte de picos cortos** (< 250 ms): un golpe en la mesa supera el umbral
-  un instante, y sin filtro se mandaría a Whisper, que devolvería una
-  alucinación.
-- **Pre-roll de 300 ms**, para no comerse la primera sílaba, que es justo la que
-  desambigua muchas preguntas.
+- **Adaptive noise floor**, updated **only in silence**. A fixed threshold fails
+  between a laptop mic and a headset one, which differ by an order of magnitude;
+  and if it updated during speech, the voice itself would drag the floor up until
+  it stopped being detected.
+- **Latch rescue.** Updating the floor *only* in silence has a bug that appears
+  after a while: if the background noise rises above 2.5× the learned floor —the
+  fan spinning up because Whisper and the LLM are loading the CPU, or the mic's
+  AGC raising gain— every frame starts counting as speech, and then the floor
+  **never updates again**, because it only updated in silence. The VAD stays
+  latched and everything comes out through the 20 s forced cut. That's why, after
+  30 s straight of "speech", it's assumed to be noise and the floor is let to
+  learn it. `Utterance`'s `forced` field existed from the start and nobody read
+  it; now it's logged, because several forced cuts in a row are the exact
+  signature of this bug.
+- **Forced cut at 20 s**, or whoever talks without pauses would never be
+  transcribed.
+- **Discarding short peaks** (< 250 ms): a bang on the table exceeds the threshold
+  for an instant, and without a filter it would be sent to Whisper, which would
+  return a hallucination.
+- **300 ms pre-roll**, so as not to eat the first syllable, which is exactly the
+  one that disambiguates many questions.
 
-También se filtran las **alucinaciones típicas de whisper.cpp sobre silencio**
-("subtítulos realizados por…", "thanks for watching", `[música]`): son
-artefactos conocidos del corpus de entrenamiento, y colarlas en el transcript
-envenenaría el contexto del LLM.
+The **typical whisper.cpp hallucinations on silence** are also filtered
+("subtitles by…", "thanks for watching", `[música]`): they're known artifacts of
+the training corpus, and slipping them into the transcript would poison the LLM's
+context.
 
-### Auto-disparo: precisión sobre recall
+### Auto-trigger: precision over recall
 
-Decisión de producto que conviene no revertir por descuido. El detector
-(`core/question-detector.ts`) prefiere **fallar preguntas** antes que disparar de
-más: una sugerencia que aparece cuando nadie preguntó nada distrae en el peor
-momento posible, y el usuario **siempre** tiene el hotkey manual como red.
+A product decision worth not reverting by carelessness. The detector
+(`core/question-detector.ts`) prefers to **miss questions** rather than trigger too
+much: a suggestion that appears when nobody asked anything distracts at the worst
+possible moment, and the user **always** has the manual hotkey as a net.
 
-- **No depende del signo de interrogación**, porque muchos motores de STT no
-  puntúan de forma fiable; depender de él perdería la mayoría de las preguntas.
-- **Las muletillas se comprueban ANTES que todo lo demás**: "¿me escuchas?" lleva
-  signo *y* empieza por interrogativo, y aun así no se responde.
-- **Se acumula antes de decidir, no se descarta después.** El VAD cierra el
-  turno a los 700 ms de silencio, y quien titubea hace pausas más largas que eso
-  a mitad de frase: *"entonces… eh… lo que quería preguntarte es… ¿cómo lo
-  harías?"* llega como tres segmentos.
-  La primera versión disparaba con el **primer** fragmento y silenciaba 2,5 s
-  los siguientes. El comentario del código identificaba bien el problema —"una
-  pregunta larga puede cerrarse en varios segmentos"— y sacaba la conclusión
-  contraria: respondía al titubeo y **descartaba la pregunta**.
-  Ahora los fragmentos se acumulan y se juzga el conjunto tras `AUTO_SETTLE_MS`
-  (900 ms) sin habla nueva. Sumados a los 700 ms del VAD, hacen falta ~1,6 s de
-  silencio para dar la intervención por terminada: más de lo que dura una pausa
-  de duda, menos de lo que dura el final de una pregunta. El debounce de 2,5 s
-  sobrevive sólo como red contra dobles disparos por caminos distintos.
-- **Las aperturas imperativas se buscan en cualquier posición.** Consecuencia
-  directa de lo anterior: al unir fragmentos, "cuéntame" deja de encabezar la
-  frase y la comprobación de prefijo dejaba de verla. Pedir algo sigue siendo
-  pedir algo aunque haya un titubeo delante.
+- **It doesn't depend on the question mark**, because many STT engines don't
+  punctuate reliably; depending on it would lose most of the questions.
+- **The filler words are checked BEFORE everything else**: "¿me escuchas?" carries
+  a mark *and* starts with an interrogative, and it still isn't answered.
+- **It accumulates before deciding, it doesn't discard after.** The VAD closes the
+  turn at 700 ms of silence, and whoever hesitates makes pauses longer than that
+  mid-sentence: *"entonces… eh… lo que quería preguntarte es… ¿cómo lo harías?"*
+  arrives as three segments.
+  The first version fired on the **first** fragment and silenced the following
+  ones for 2.5 s. The code comment identified the problem well —"a long question
+  can close in several segments"— and drew the opposite conclusion: it answered
+  the hesitation and **discarded the question**.
+  Now the fragments accumulate and the whole is judged after `AUTO_SETTLE_MS`
+  (900 ms) without new speech. Added to the VAD's 700 ms, ~1.6 s of silence is
+  needed to call the utterance finished: more than a pause of doubt lasts, less
+  than the end of a question lasts. The 2.5 s debounce survives only as a net
+  against double-triggers by distinct paths.
+- **The imperative openers are searched for in any position.** A direct
+  consequence of the above: on joining fragments, "cuéntame" stops heading the
+  sentence and the prefix check stopped seeing it. Asking for something is still
+  asking for something even with a hesitation in front.
 
-**Julio 2026: el equilibrio se volvió configurable, con datos.** La primera
-prueba de escucha real dio la medida: de cinco frases seguidas dictadas al
-micrófono, **sólo disparó una**, y desde fuera se vivió como "la app se quedó
-colgada". No estaba colgada — el detector las descartaba en silencio.
+**July 2026: the balance became configurable, with data.** The first real
+listening test gave the measure: of five sentences dictated to the microphone in a
+row, **only one fired**, and from the outside it was experienced as "the app
+hung". It wasn't hung — the detector was discarding them silently.
 
-Lo que enseñaron las transcripciones literales (recuperadas del historial, que
-para esto ya valió lo que costó) es que **el mismo motor puntúa de forma
-irregular en la misma sesión**:
+What the literal transcripts taught (recovered from the history, which for this
+alone was already worth what it cost) is that **the same engine punctuates
+irregularly within the same session**:
 
 ```
-"¿Qué tanto sabes de ingeniería software?"     ← con signos
-"que empresa creó Kotlin."                      ← sin signos ni acento
+"¿Qué tanto sabes de ingeniería software?"     ← with marks
+"que empresa creó Kotlin."                      ← no marks, no accents
 "Si yo quiero programar una aplicación escritorio que lenguaje… deberiosa ahora."
 ```
 
-Dos causas concretas, las dos arregladas:
+Two concrete causes, both fixed:
 
-- **`normalize()` tira los acentos**, y en español el acento es lo único que
-  separa "qué" de "que" — la señal más fuerte del idioma se perdía antes de
-  mirarla. Ahora los interrogativos acentuados se buscan sobre el texto **crudo**
-  y **en cualquier posición**, no sólo en las dos primeras palabras.
-- **El filtro de muletillas sólo miraba el principio.** "Hola, ¿cómo estás?
-  ¿Me escuchas?" no empieza por muletilla y trae signo de interrogación, así que
-  disparaba. Ahora también se comprueba por contenido en frases cortas.
+- **`normalize()` throws away the accents**, and in Spanish the accent is the only
+  thing separating "qué" from "que" — the language's strongest signal was lost
+  before looking at it. Now the accented interrogatives are searched over the
+  **raw** text and **in any position**, not just in the first two words.
+- **The filler filter only looked at the start.** "Hola, ¿cómo estás? ¿Me
+  escuchas?" doesn't start with a filler and carries a question mark, so it fired.
+  Now it's also checked by content in short sentences.
 
-Y como el equilibrio correcto **depende de para qué uses la app**, se añadió
-`autoTriggerSensitivity` (`strict` | `balanced` | `all`, default `balanced`).
-`all` existe porque el caso real del usuario era dictarle él las preguntas a
-propósito: ahí no hay ruido del que protegerse y cualquier heurística sobra.
+And since the right balance **depends on what you use the app for**,
+`autoTriggerSensitivity` was added (`strict` | `balanced` | `all`, default
+`balanced`). `all` exists because the user's real case was dictating the questions
+to it on purpose: there's no noise to protect against there and any heuristic is
+superfluous.
 
-**Lo que se probó y se descartó:** meter variantes de "debería" entre los
-marcadores (`que deberia`, `deberia usar`…). Disparaban con subordinadas
-normales — *"creo que debería haber estudiado más"* no es una pregunta. Lo que
-distingue una pregunta no es el verbo, es el interrogativo. El test de falsos
-positivos de `question-detector.test.ts` fija esa decisión para que no vuelva.
+**What was tried and dropped:** putting variants of "debería" among the markers
+(`que deberia`, `deberia usar`…). They fired on normal subordinate clauses —
+*"creo que debería haber estudiado más"* isn't a question. What distinguishes a
+question isn't the verb, it's the interrogative. The false-positive test in
+`question-detector.test.ts` pins that decision so it doesn't come back.
 
-**Quién dispara es configurable, pero el default no cambia.**
-`settings.autoTriggerSpeaker` acepta `them` (default), `me` y `any`. El default
-sigue siendo el interlocutor por la razón de siempre: responder a lo que dices tú
-no tiene sentido en una entrevista. Se hizo configurable porque la combinación
-`audioSources: 'mic'` + disparo en `them` deja el auto-disparo **muerto en
-silencio** — el carril `them` ni siquiera se crea, así que `onFinalSegment`
-descartaba todos los segmentos sin emitir una sola traza, y desde fuera se veía
-exactamente igual que "el modelo no responde". Quien usa la app dictando las
-preguntas necesita `me`.
+**Who triggers is configurable, but the default doesn't change.**
+`settings.autoTriggerSpeaker` accepts `them` (default), `me` and `any`. The default
+is still the other party for the usual reason: answering what you say makes no
+sense in an interview. It was made configurable because the combination
+`audioSources: 'mic'` + trigger on `them` leaves the auto-trigger **dead
+silently** — the `them` lane isn't even created, so `onFinalSegment` discarded
+every segment without emitting a single trace, and from the outside it looked
+exactly like "the model doesn't answer". Whoever uses the app dictating the
+questions needs `me`.
 
-Esa combinación imposible se detecta con `autoTriggerIsInert()` en
-`shared/types.ts`, que usan a la vez el main (avisa por consola al arrancar la
-transcripción) y el dashboard (banner rojo). Está en shared **a propósito**: la
-regla tiene que decir lo mismo en los dos sitios o el aviso deja de coincidir con
-el comportamiento.
+That impossible combination is detected with `autoTriggerIsInert()` in
+`shared/types.ts`, used at once by the main process (warns via console on starting
+the transcription) and the dashboard (red banner). It's in shared **on purpose**:
+the rule has to say the same thing in both places or the warning stops matching the
+behavior.
 
-El hotkey manual (`session.lastRelevantSegment()`) sigue la misma preferencia,
-pero cae al otro hablante **sólo si el preferido ni se escucha**. Si sí se
-escucha y todavía no ha dicho nada, no hay fallback: mandar la última línea de
-otro como si fuera la pregunta es peor que dejar que el modelo la deduzca.
+The manual hotkey (`session.lastRelevantSegment()`) follows the same preference,
+but falls back to the other speaker **only if the preferred one isn't even being
+listened to**. If it is being listened to and hasn't said anything yet, there's no
+fallback: sending someone else's last line as if it were the question is worse than
+letting the model deduce it.
 
 ---
 
-## 6. Bugs encontrados al verificar, y qué enseñó cada uno
+## 6. Bugs found while verifying, and what each one taught
 
-Todos salieron **ejecutando la app**, no leyendo el código. Están corregidos;
-se registran porque cada uno marca una trampa que es fácil volver a pisar.
+They all came out of **running the app**, not reading the code. They're fixed;
+they're recorded because each one marks a trap that's easy to step on again.
 
-| Síntoma | Causa | Lección |
+| Symptom | Cause | Lesson |
 |---|---|---|
-| Una ventana que arranca con stealth apagado no se podía encender después | `registerWindow()` solo se llamaba desde `applyStealth`, así que la ventana nunca entraba en `tracked` | El registro debe ser independiente del estado inicial |
-| El texto de la ventana de atrás se leía **nítido** a través del overlay | `backdrop-filter: blur()` **no compone** de forma fiable sobre una ventana `transparent: true` en Windows | No confiar en blur en ventanas transparentes; fondo sólido. Una translucidez del 4% no da sensación de transparencia, solo ruido |
-| La configuración se ignoraba **en silencio** | **BOM UTF-8** en `settings.json` → `JSON.parse` lanza → el store caía a defaults. Notepad y `Set-Content -Encoding utf8` de PowerShell 5.1 escriben BOM | Un archivo pensado para editarse a mano debe tolerar BOM |
-| `Unable to load a worklet's module` | La propia CSP: `script-src 'self'` bloquea el Blob URL del worklet | Las CSP estrictas también bloquean tu propio código generado |
-| ~344 mensajes IPC/s por stream | El worklet emitía en cada `process()` | Acumular a un tamaño de bloque útil |
-| `session.bind()` resolvía a `Function.prototype.bind` | Colisión de nombre con el módulo `session` de Electron | TypeScript avisó con "Duplicate identifier"; sin él habría sido un fallo silencioso |
-| El selector mostraba los modelos del proveedor equivocado | `listModels()` lento del proveedor A resolviendo **después** de cambiar a B | Lo detectó la regla `set-state-in-effect` de eslint. Se arregló guardando el resultado junto al proveedor y descartándolo por comparación |
-| `EPERM` al empaquetar | **OneDrive** mantiene un lock sobre `release/` | Ver §7 |
-| El dashboard mostraba `llama3.2:3b` elegido y los settings guardaban `""` | Un `<select>` controlado cuyo `value` **no existe entre sus `<option>`**: el navegador pinta la primera opción como seleccionada pero **no dispara `onChange`** | Un select controlado tiene que tener siempre una `<option>` con su valor, aunque sea un hueco. Si no, la UI miente y el fallo aparece muy lejos de su causa |
-| Whisper local fallaba con `Command failed` en cada intervención | `findWhisperBinary()` recorría el directorio y devolvía la **primera** coincidencia; `main.exe` ordena antes que `whisper-cli.exe` y desde whisper.cpp 1.7 es un stub de deprecación que sale con **código 1** | Buscar por prioridad del array de candidatos, nunca por orden de directorio. Y que un ejecutable exista no significa que sirva |
-| Frases con "you" desaparecían del transcript | `'you'` estaba en la lista de alucinaciones y se comparaba con `includes()` | Un filtro de subcadenas necesita que las entradas sean lo bastante largas para no aparecer dentro de texto legítimo; las cortas van a comparación exacta |
-| `error: input file not found 'false'` en whisper-cli | `--output-txt false`: `-otxt` es un flag booleano SIN argumento, así que `false` se tomaba por un fichero de entrada | Verificar cada bandera contra el CLI real; whisper.cpp no falla, solo lo ignora y escribe un `.txt` de más |
-| Gemini Live no funcionaba y no había forma de saber por qué | `GEMINI_LIVE_MODELS` está ordenado por preferencia y este mismo documento decía que se probaba el siguiente si el primero fallaba — **pero nadie lo implementó**: el constructor cogía el `[0]` y ahí acababa | Documentar una intención no la implementa. Si CONTEXT dice que algo hace X, debe haber un test o una lectura del código que lo confirme |
-| "La app dejó de responder" sin ningún error | El detector descartaba las frases **en silencio**: no había log del descarte ni del motivo | Un camino que decide no actuar necesita dejar rastro tanto como uno que falla. El `return` mudo es el peor de los dos |
-| Ningún diagnóstico posible en el `.exe` empaquetado | Los `console.*` del main sólo existían arrancando desde una terminal | Si la app se usa empaquetada, el log tiene que ir a un archivo desde el primer día |
-| Transcripción mediocre con los DOS motores | Sin filtro antialiasing, el contenido sobre 8 kHz se plegaba dentro de la banda de voz al decimar a 16 kHz | Que un fallo afecte por igual a dos implementaciones independientes es la señal de que está aguas arriba de ambas |
-| "¿Qué tal es la idea de software?" descartada como muletilla | El filtro hacía `startsWith('que tal ')`, así que cualquier pregunta que empezara por una muletilla moría | Una lista de frases a ignorar debe compararse contra la frase ENTERA; un prefijo compartido no significa lo mismo |
-| Respuesta eternamente en "Pensando…" | No había ningún tiempo límite en la generación: un proveedor colgado dejaba el estado ahí para siempre | Todo lo que espera a un proceso ajeno necesita reloj. Sin él, "lento" y "muerto" son la misma pantalla |
-| Haiku 4.5 fallaba con 400 en cada pregunta | `output_config.effort` es de la generación Claude 5 y se enviaba a todos los modelos. La API lo dice claro: *"This model does not support the effort parameter"* | Un parámetro verificado contra UN modelo no está verificado para toda la familia. Ver `EFFORT_UNSUPPORTED` |
-| Respuestas sin relación con lo preguntado, mezclando idiomas | `settings.language` estaba en `en` con alguien hablando español. Whisper **no falla** al forzar idioma: devuelve texto plausible inventado a partir de los sonidos (*"Are y'all gonna eat?"*) | Un ajuste cuyo error no produce ningún error tiene que estar a la vista. Por eso el idioma forzado sale ahora en la barra del overlay |
-| "¿Podrías presentarte?" descartada | `MIN_WORDS = 3`, y en español abundan las preguntas completas de dos palabras | Un umbral de longitud necesita excepción cuando hay una señal inequívoca |
-| El asistente olvidaba lo que él mismo había dicho | Cada consulta era un turno único: sus respuestas anteriores no volvían al modelo, y el transcript sólo contiene voz | "Contexto" y "memoria" no son lo mismo. Un transcript no es un historial de conversación |
-| Gemini Live "no funcionaba" sin dejar rastro | `live.connect()` **no tiene tiempo límite**: si el handshake no llega a completarse, la promesa no resuelve ni rechaza nunca. `startTranscription` quedaba colgado, la captura seguía diciendo "Escuchando" y no había ni transcripción ni error | Lo detectó el log: `[capture] primer chunk` sin ningún `[stt] transcripción iniciada` detrás. Toda promesa de red necesita reloj, y una que cuelga es peor que una que falla |
-| El timeout decía "sin respuesta en 15s" y no servía de nada | La causa **sí llegaba**: el servidor cierra el socket con `1007` y un motivo legible (*"API key not valid"*), pero **sin enviar ningún mensaje**. El SDK espera un `setupComplete` que no va a llegar y el timeout tapaba el motivo | Se comprobó abriendo el WebSocket a mano con una clave falsa. Un timeout que sustituye a un error es un parche: hay que escuchar el canal por el que llega la causa —aquí, el `onclose` |
-| JSON cortado a media cadena en el audio directo | Gemini 2.5 razona por defecto y **los tokens de razonamiento se descuentan de `maxOutputTokens`**: se gastaban pensando y el JSON se truncaba | `thinkingConfig: { thinkingBudget: 0 }`. Un presupuesto de salida compartido con el razonamiento no es un presupuesto de salida |
-| Cambiar "Qué se escucha" en mitad de una sesión no cambiaba nada | `audioSources` sólo se lee dentro de `capture.start()`, y los hablantes del motor de STT se fijan al arrancar la transcripción. El ajuste se guardaba, la UI se actualizaba y se seguía escuchando lo de antes | Un ajuste que sólo se lee al arrancar necesita que quien lo cambia reinicie lo que depende de él. Se hace en el handler de `settingsUpdate`, no en la UI, para que valga igual desde el overlay y desde el dashboard |
-| El botón "Copiar" de un bloque de código no hacía nada | `navigator.clipboard.writeText()` exige que el documento tenga el **foco**, y el overlay es `focusable: false` a propósito para no robárselo a la videollamada: rechazaba siempre con *"Document is not focused"*. Y el `.then()` sin `.catch()` se tragaba el rechazo | Dos lecciones. Una: en el overlay, cualquier API del navegador que dependa del foco está descartada por diseño, no por casualidad — se hace desde el main (`clipboard.writeText`), que además se salta el `setPermissionRequestHandler` que sólo concede `clipboard-read`. Otra: una promesa sin `catch` en un manejador de click convierte un error en "no pasa nada", que es el síntoma más caro de diagnosticar |
-| ~1,3 s fijos por turno en Whisper local | `whisper-cli` **carga el modelo en cada invocación**: tarda lo mismo con 1,7 s que con 8,2 s de audio | Medir el coste contra el tamaño de la entrada delata al instante lo que es fijo y lo que es proporcional |
-| "El modelo no devolvió texto" con un modelo de razonamiento en Ollama | Ollama devuelve el razonamiento en `message.thinking`, **aparte** de `message.content`, y `num_predict` cuenta los dos juntos: con el tope de 2.200 del modo código, `qwen3-vl:8b-thinking` agotaba el presupuesto pensando y terminaba con `done_reason: "length"` sin escribir un solo carácter | Un campo nuevo en la respuesta de un proveedor no avisa de que existe: el bucle leía `content` y lo demás caía al suelo. Y un tope de salida calculado para "lo que se lee" no vale cuando el modelo gasta salida en algo que **no** se lee |
+| A window that starts with stealth off couldn't be turned on afterward | `registerWindow()` was only called from `applyStealth`, so the window never entered `tracked` | The registration must be independent of the initial state |
+| The text of the window behind was read **sharp** through the overlay | `backdrop-filter: blur()` **doesn't compose** reliably over a `transparent: true` window on Windows | Don't trust blur on transparent windows; solid background. A 4% translucency gives no sense of transparency, just noise |
+| The configuration was ignored **silently** | **UTF-8 BOM** in `settings.json` → `JSON.parse` throws → the store fell back to defaults. Notepad and PowerShell 5.1's `Set-Content -Encoding utf8` write a BOM | A file meant to be edited by hand must tolerate a BOM |
+| `Unable to load a worklet's module` | The CSP itself: `script-src 'self'` blocks the worklet's Blob URL | Strict CSPs also block your own generated code |
+| ~344 IPC messages/s per stream | The worklet emitted on every `process()` | Accumulate to a useful block size |
+| `session.bind()` resolved to `Function.prototype.bind` | Name collision with Electron's `session` module | TypeScript warned with "Duplicate identifier"; without it it would have been a silent failure |
+| The selector showed the wrong provider's models | Provider A's slow `listModels()` resolving **after** switching to B | Caught by eslint's `set-state-in-effect` rule. Fixed by storing the result alongside the provider and discarding it by comparison |
+| `EPERM` when packaging | **OneDrive** holds a lock on `release/` | See §7 |
+| The dashboard showed `llama3.2:3b` selected and the settings saved `""` | A controlled `<select>` whose `value` **doesn't exist among its `<option>`s**: the browser paints the first option as selected but **doesn't fire `onChange`** | A controlled select must always have an `<option>` with its value, even a placeholder. Otherwise the UI lies and the failure appears far from its cause |
+| Whisper local failed with `Command failed` on every utterance | `findWhisperBinary()` walked the directory and returned the **first** match; `main.exe` sorts before `whisper-cli.exe` and since whisper.cpp 1.7 it's a deprecation stub that exits with **code 1** | Search by the candidate array's priority, never by directory order. And an executable existing doesn't mean it works |
+| Sentences with "you" disappeared from the transcript | `'you'` was in the hallucination list and compared with `includes()` | A substring filter needs the entries to be long enough not to appear inside legitimate text; the short ones go to exact comparison |
+| `error: input file not found 'false'` in whisper-cli | `--output-txt false`: `-otxt` is a boolean flag with NO argument, so `false` was taken as an input file | Verify each flag against the real CLI; whisper.cpp doesn't fail, it just ignores it and writes an extra `.txt` |
+| Gemini Live didn't work and there was no way to know why | `GEMINI_LIVE_MODELS` is ordered by preference and this very document said the next was tried if the first failed — **but nobody implemented it**: the constructor took `[0]` and that was it | Documenting an intention doesn't implement it. If CONTEXT says something does X, there must be a test or a reading of the code that confirms it |
+| "The app stopped responding" with no error | The detector discarded the sentences **silently**: there was no log of the discard or the reason | A path that decides not to act needs to leave a trace as much as one that fails. The mute `return` is the worst of the two |
+| No diagnosis possible in the packaged `.exe` | The main process's `console.*` only existed launching from a terminal | If the app is used packaged, the log has to go to a file from day one |
+| Mediocre transcription with BOTH engines | Without an antialiasing filter, the content above 8 kHz folded into the voice band when decimating to 16 kHz | A failure affecting two independent implementations alike is the sign that it's upstream of both |
+| "¿Qué tal es la idea de software?" discarded as a filler | The filter did `startsWith('que tal ')`, so any question starting with a filler died | A list of phrases to ignore must be compared against the WHOLE phrase; a shared prefix doesn't mean the same thing |
+| Answer eternally on "Thinking…" | There was no time limit on the generation: a hung provider left the state there forever | Everything that waits on a foreign process needs a clock. Without one, "slow" and "dead" are the same screen |
+| Haiku 4.5 failed with 400 on every question | `output_config.effort` is Claude generation 5's and was sent to all models. The API says it plainly: *"This model does not support the effort parameter"* | A parameter verified against ONE model isn't verified for the whole family. See `EFFORT_UNSUPPORTED` |
+| Answers unrelated to what was asked, mixing languages | `settings.language` was on `en` with someone speaking Spanish. Whisper **doesn't fail** when forcing a language: it returns plausible text invented from the sounds (*"Are y'all gonna eat?"*) | A setting whose error produces no error has to be in plain sight. That's why the forced language now shows in the overlay bar |
+| "¿Podrías presentarte?" discarded | `MIN_WORDS = 3`, and in Spanish complete two-word questions abound | A length threshold needs an exception when there's an unambiguous signal |
+| The assistant forgot what it had itself said | Each query was a single turn: its previous answers didn't come back to the model, and the transcript only contains voice | "Context" and "memory" aren't the same. A transcript isn't a conversation history |
+| Gemini Live "didn't work" leaving no trace | `live.connect()` **has no time limit**: if the handshake doesn't complete, the promise never resolves or rejects. `startTranscription` stayed hung, the capture kept saying "Listening" and there was neither transcription nor error | The log caught it: `[capture] first chunk` with no `[stt] transcription started` behind it. Every network promise needs a clock, and one that hangs is worse than one that fails |
+| The timeout said "no response in 15s" and was no use | The cause **did** arrive: the server closes the socket with `1007` and a legible reason (*"API key not valid"*), but **without sending any message**. The SDK waits for a `setupComplete` that isn't going to come and the timeout covered the reason | It was checked by opening the WebSocket by hand with a fake key. A timeout that replaces an error is a patch: you have to listen to the channel the cause arrives through —here, the `onclose` |
+| JSON cut off mid-string in direct audio | Gemini 2.5 reasons by default and **the reasoning tokens are deducted from `maxOutputTokens`**: they were spent thinking and the JSON was truncated | `thinkingConfig: { thinkingBudget: 0 }`. An output budget shared with the reasoning isn't an output budget |
+| Changing "What's being listened to" mid-session changed nothing | `audioSources` is only read inside `capture.start()`, and the STT engine's speakers are fixed on starting the transcription. The setting saved, the UI updated and it kept listening to the old thing | A setting only read on startup needs whoever changes it to restart what depends on it. It's done in the `settingsUpdate` handler, not in the UI, so it holds equally from the overlay and from the dashboard |
+| The "Copy" button of a code block did nothing | `navigator.clipboard.writeText()` requires the document to have the **focus**, and the overlay is `focusable: false` on purpose so as not to steal it from the video call: it always rejected with *"Document is not focused"*. And the `.then()` without a `.catch()` swallowed the rejection | Two lessons. One: in the overlay, any browser API that depends on the focus is ruled out by design, not by chance — it's done from the main process (`clipboard.writeText`), which also skips the `setPermissionRequestHandler` that only grants `clipboard-read`. Another: a promise without a `catch` in a click handler turns an error into "nothing happens", which is the most expensive symptom to diagnose |
+| ~1.3 s fixed per turn in Whisper local | `whisper-cli` **loads the model on every invocation**: it takes the same with 1.7 s as with 8.2 s of audio | Measuring the cost against the input's size instantly reveals what's fixed and what's proportional |
+| "The model returned no text" with a reasoning model in Ollama | Ollama returns the reasoning in `message.thinking`, **apart** from `message.content`, and `num_predict` counts both together: with code mode's 2,200 cap, `qwen3-vl:8b-thinking` exhausted the budget thinking and finished with `done_reason: "length"` without writing a single character | A new field in a provider's response doesn't announce that it exists: the loop read `content` and the rest fell to the floor. And an output cap computed for "what's read" is no good when the model spends output on something that **isn't** read |
 
-Dos reglas del tooling encontraron cosas reales, no ruido:
-`noUncheckedIndexedAccess` (desestructurar `getPosition()`, que devuelve
-`number[]`, no una tupla) y `preserve-caught-error` (re-lanzar sin `cause`).
-La regla `set-state-in-effect` de eslint ha encontrado **dos** condiciones de
-carrera reales (el selector de modelos y el sondeo de Ollama); merece la pena
-tratar sus avisos como bugs y no como pedantería.
+Two tooling rules found real things, not noise: `noUncheckedIndexedAccess`
+(destructuring `getPosition()`, which returns `number[]`, not a tuple) and
+`preserve-caught-error` (re-throwing without `cause`). Eslint's `set-state-in-effect`
+rule has found **two** real race conditions (the model selector and the Ollama
+probe); it's worth treating its warnings as bugs and not as pedantry.
 
-### Los clics sintéticos NO sirven para probar el overlay
+### Synthetic clicks are NO good for testing the overlay
 
-Vale la pena dejarlo escrito porque casi provoca un "arreglo" de código sano.
+It's worth writing down because it almost prompted a "fix" of healthy code.
 
-Al verificar el botón del engranaje con `SetCursorPos` + `mouse_event` desde
-PowerShell, **el click no llegaba nunca**, ni siquiera con los clics
-atravesables desactivados. La conclusión tentadora era que el mecanismo de
-hover estaba roto. Era falso: probado a mano con un ratón real, **funciona**.
+When verifying the gear button with `SetCursorPos` + `mouse_event` from
+PowerShell, **the click never arrived**, not even with click-through disabled. The
+tempting conclusion was that the hover mechanism was broken. It was false: tested by
+hand with a real mouse, it **works**.
 
-La causa es que la entrada sintética no reproduce fielmente el camino de
-mensajes que Electron reenvía con `forward: true` hacia una ventana con
-`focusable: false` (`WS_EX_NOACTIVATE`).
+The cause is that synthetic input doesn't faithfully reproduce the message path
+Electron forwards with `forward: true` toward a window with `focusable: false`
+(`WS_EX_NOACTIVATE`).
 
-**Regla práctica:** las capturas de pantalla sirven para verificar que el
-overlay *renderiza* y que el stealth funciona, pero **la interacción con el
-ratón sobre el overlay hay que probarla a mano**. Si un click sintético falla,
-la hipótesis por defecto debe ser el arnés de pruebas, no el código.
+**Practical rule:** screenshots serve to verify that the overlay *renders* and that
+stealth works, but **mouse interaction on the overlay has to be tested by hand**.
+If a synthetic click fails, the default hypothesis should be the test harness, not
+the code.
 
-### El overlay se bloqueaba tras el dashboard, y la persistencia era la causa
+### The overlay locked up after the dashboard, and persistence was the cause
 
-Un arco de tres intentos que conviene dejar escrito entero, porque la tentación
-en cada paso era la equivocada.
+An arc of three attempts worth writing down in full, because the temptation at each
+step was the wrong one.
 
-**El síntoma:** tras abrir y cerrar el dashboard, el overlay quedaba inclicable
-—ni el menú `⋯` respondía—; peor cuanto más se usaba el dashboard, y peor en el
-`.exe` que en `dev`.
+**The symptom:** after opening and closing the dashboard, the overlay was left
+unclickable —not even the `⋯` menu responded—; worse the more the dashboard was
+used, and worse in the `.exe` than in `dev`.
 
-**El mecanismo** tiene dos capas, y las dos importan:
+**The mechanism** has two layers, and both matter:
 
-- *El reenvío de ratón se rompe.* El overlay ignora el ratón con
-  `{ forward: true }` y son esos `mousemove` reenviados los que le dejan detectar
-  el hover sobre su barra. Cuando otra ventana enfocable toma el foco, Windows deja
-  de reenviárselos.
-- *El caché del renderer se desincroniza.* `useChromeMouse` cachea localmente si
-  está ignorando y **sólo avisa al main en los cambios**. Si el main cambia el
-  estado por su cuenta (un «arreglo» que re-aplica `setIgnoreMouseEvents`), el
-  caché queda apuntando a otro valor y el siguiente hover hace early-return: no
-  reactiva nada. Los dos primeros intentos —re-aplicar desde el main— fallaban por
-  esto, o incluso lo empeoraban.
+- *The mouse forwarding breaks.* The overlay ignores the mouse with
+  `{ forward: true }` and it's those forwarded `mousemove`s that let it detect the
+  hover over its bar. When another focusable window takes the focus, Windows stops
+  forwarding them.
+- *The renderer's cache desyncs.* `useChromeMouse` caches locally whether it's
+  ignoring and **only notifies the main process on changes**. If the main process
+  changes the state on its own (a «fix» that re-applies `setIgnoreMouseEvents`), the
+  cache is left pointing at another value and the next hover does an early-return:
+  it reactivates nothing. The first two attempts —re-applying from the main
+  process— failed because of this, or even made it worse.
 
-**La cura real de la desincronización** es que el main pida al renderer un
-`onOverlayResync`: el renderer resetea su caché a un estado conocido y re-manda el
-estado, lo que re-aplica el reenvío. Eso quedó como red de seguridad.
+**The real cure for the desync** is for the main process to ask the renderer for an
+`onOverlayResync`: the renderer resets its cache to a known state and re-sends the
+state, which re-applies the forwarding. That was kept as a safety net.
 
-**Pero la causa raíz era otra:** se había hecho el dashboard `always-on-top`
-(nivel `screen-saver`) para que persistiera al pulsar otra app. Eso dejaba **dos
-ventanas topmost al mismo nivel peleándose por el foco**, y cada pelea rompía el
-reenvío del overlay —de ahí que se acumulara con el uso—. Persistencia y overlay
-estable son incompatibles: una ventana enfocable que se queda delante al pulsar
-fuera **tiene** que ser topmost, y en Windows dos topmost se ordenan por foco. Se
-quitó el `always-on-top`: con una sola ventana topmost —el overlay— no hay pelea.
-El coste, asumido a conciencia, es que el dashboard se va detrás como cualquier
-ventana normal (se recupera con el engranaje). **Si alguien propone volver a hacer
-el dashboard persistente, esto es lo que rompe.**
+**But the root cause was another:** the dashboard had been made `always-on-top`
+(`screen-saver` level) so it would persist when clicking another app. That left
+**two topmost windows at the same level fighting over the focus**, and each fight
+broke the overlay's forwarding —hence it accumulated with use—. Persistence and a
+stable overlay are incompatible: a focusable window that stays in front when you
+click outside **has** to be topmost, and on Windows two topmost windows are ordered
+by focus. The `always-on-top` was removed: with a single topmost window —the
+overlay— there's no fight. The cost, accepted deliberately, is that the dashboard
+goes behind like any normal window (recovered with the gear). **If someone proposes
+making the dashboard persistent again, this is what breaks.**
 
-### El intérprete traducía las etiquetas del sobre
+### The interpreter translated the envelope tags
 
-`buildUserTurn` envuelve el turno de usuario en `<transcripcion>`/`<pregunta>` —la
-frontera anti-inyección—, pero el intérprete **traduce todo lo que recibe**, así
-que se llevaba los nombres de las etiquetas traducidos a la salida
-(`<transcripcion>` → `<transcription>`) y la traducción salía envuelta en XML. Lo
-destapó el botón de copiar, que da el texto en crudo. Se arregló con
-`AnswerRequest.interpreter`: en ese modo el turno va sin sobres ni instrucción
-—sólo la frase—, sin perder ninguna defensa porque traducir es literal por diseño.
+`buildUserTurn` wraps the user turn in `<transcripcion>`/`<pregunta>` —the
+anti-injection boundary—, but the interpreter **translates everything it
+receives**, so it carried the tag names translated into the output
+(`<transcripcion>` → `<transcription>`) and the translation came out wrapped in
+XML. The copy button exposed it, since it gives the text raw. It was fixed with
+`AnswerRequest.interpreter`: in that mode the turn goes without envelopes or
+instruction —just the sentence—, losing no defense because translating is literal
+by design.
 
 ---
 
-## 7. El problema de OneDrive
+## 7. The OneDrive problem
 
-`electron-builder` falla de forma **reproducible** con:
+`electron-builder` fails **reproducibly** with:
 
 ```
 EPERM: operation not permitted, rename 'release\win-unpacked.tmp' -> 'release\win-unpacked'
 ```
 
-No es configuración: OneDrive mantiene un lock sobre la carpeta mientras la
-sincroniza. Además, sincronizar ~215 MB de artefactos no tiene ningún sentido.
+It's not configuration: OneDrive holds a lock on the folder while it syncs it.
+Besides, syncing ~215 MB of artifacts makes no sense at all.
 
-`scripts/build-win.mjs` detecta si el proyecto vive en una carpeta sincronizada
-y saca la salida a `%LOCALAPPDATA%\Tayori-release`, avisando por
-consola. Se puede forzar otra ruta con `IH_BUILD_OUT`.
+`scripts/build-win.mjs` detects whether the project lives in a synced folder and
+sends the output to `%LOCALAPPDATA%\Tayori-release`, warning via console. Another
+path can be forced with `IH_BUILD_OUT`.
 
-Ese script invoca `cli.js` con `process.execPath` en lugar de `npx` con
-`shell: true`, por dos motivos: pasar argumentos con shell los concatena **sin
-escapar** (Node avisa con DEP0190), y la ruta de este proyecto **contiene
-espacios** ("Tayori").
-
----
-
-## 8. Qué está verificado y qué no
-
-Distinción importante: casi todo se probó **ejecutando la app y mirando
-capturas de pantalla**, no solo compilando.
-
-### Verificado ejecutándolo
-
-- **Stealth en las dos direcciones.** Con el modo activo el overlay **no
-  aparece** en una captura GDI; desactivándolo **sí aparece**. Probar solo una
-  dirección no habría demostrado nada: la ausencia también es compatible con
-  "el overlay no renderiza".
-- **Hotkeys globales** con el foco en otra aplicación (`Ctrl+Alt+Left` movió el
-  overlay exactamente 120 px en tres pulsaciones).
-- **Separación de los dos streams**: con un tono de 440 Hz por los altavoces, el
-  medidor "Ellos" sube y "Yo" se queda a cero.
-- **Chunks de PCM llegando al main** de ambos hablantes a 16 kHz.
-- **Captura de pantalla** → thumbnail en el overlay → motor de respuestas
-  llamando al proveedor y mostrando el error de key ausente en el panel.
-- **Ruta de error del STT**: sin key, falla con mensaje accionable y **la captura
-  de audio sigue funcionando** (comportamiento resiliente buscado).
-- **Dashboard completo**, con el selector de modelos poblado por IPC.
-- **La app empaquetada arranca**: instalador NSIS + portable de ~98 MB, y el
-  `.exe` levanta dashboard y overlay leyendo settings de `userData`.
-- `typecheck`, `lint` y **45 tests** limpios.
-
-### NO verificado — requiere claves o intervención manual
-
-- **Streaming real de tokens** de Claude/Gemini (necesita API key del usuario).
-- **ChatGPT contra la API real de OpenAI.** Sí está verificado **el contrato**:
-  `tests/openai-provider.test.ts` levanta un servidor HTTP de verdad que habla
-  la Responses API por SSE, y fija lo que sale (`store: false`, el bloque
-  `reasoning`, el presupuesto prestado, el historial como mensajes, la captura
-  como `input_image`) y lo que se hace con lo que vuelve (negativa, presupuesto
-  agotado, reintento sin `reasoning`, cancelación). Los ids del catálogo, sus
-  papeles, sus precios y que aceptan imágenes salen de la referencia de OpenAI,
-  consultada el 1 de agosto de 2026. Lo que **no** se ha comprobado es una
-  llamada real contra sus servidores: que la cuenta tenga acceso a esos tres
-  modelos. Lo dirá «Probar conexión» — el botón está y el error que devuelve ya
-  distingue clave inválida, sin acceso, sin saldo y modelo inexistente.
-- **Transcripción en vivo** con Gemini Live (ídem).
-- **Auto-disparo sobre habla real** (la heurística sí está cubierta por tests).
-- **Whisper local end-to-end**: los assets **ya están descargados** y se
-  comprobó, ejecutándolo, que `whisper-cli.exe` transcribe un WAV generado a
-  mano con la lista de argumentos exacta que usa la app, y que
-  `findWhisperBinary()` elige `whisper-cli.exe` y no el stub `main.exe`. Lo que
-  sigue sin probarse es la cadena completa con voz real: VAD → turno → texto.
-- **Ollama**: el servidor **sí corre** ahora, con `llama3.2:3b`. Lo verificado es
-  el listado de modelos; el streaming de tokens sobre una pregunta real no.
-- **Gemini Live sigue sin probarse contra la API real.** El fallback de modelo
-  está implementado y hay un botón "Probar" en Diagnóstico que abre una sesión
-  de verdad, pero requiere la API key del usuario. Hasta que alguien lo pulse,
-  **no sabemos qué modelo Live acepta la cuenta** — sólo que ya no se falla en
-  silencio sobre el primer candidato.
-- **El modo código contra una pantalla real.** Lo cubierto por tests es lo que se
-  puede cubrir sin clave: que `coding` sustituye las reglas de formato, que el
-  perfil forzado no toca los ajustes, y el parser de vallas con su caso de
-  streaming. Lo que falta es el bucle entero —captura de un LeetCode de verdad →
-  modelo con visión → solución que compile—, que necesita API key y una prueba a
-  ojo. Lo primero que hay que mirar ahí es si a calidad 92 el modelo lee bien la
-  **firma** del método: es el fallo silencioso del modo, porque una respuesta
-  perfecta sobre una firma mal leída no se distingue de una buena hasta que el
-  evaluador la rechaza.
-- **Los dos motores de OpenAI contra sus servidores.** `openai-transcribe` está
-  verificado de extremo a extremo contra un servidor HTTP real: que el turno
-  sale como WAV, con el modelo bueno, con el sesgo de vocabulario, sin forzar
-  idioma cuando es `auto`, y que un carril que nadie escucha no gasta ni una
-  petición. `openai-live` está verificado **contra un WebSocket local real** —el
-  `session.update` con `turn_detection: null`, el audio remuestreado a 24 kHz,
-  el commit al final del turno y su ausencia mientras se habla, los parciales y
-  el final por separado, y la degradación sin `prompt`—, y su handshake contra
-  la API de verdad ya se probó: fue lo que destapó los dos fallos del protocolo.
-  Lo que **sigue sin comprobarse** es una reunión entera de principio a fin: que
-  los turnos se cierren donde tienen que cerrarse con voz real, y qué tal
-  transcribe comparado con Whisper local. Eso es escuchar y juzgar, y necesita
-  a alguien delante.
-- **Que una skill cambie de verdad el tono de una respuesta.** Verificado que
-  llega al prompt —dónde va, con qué precedencia y que el perfil sobrevive—, y
-  la carga desde disco contra carpetas de verdad, con sus casos raros. Lo que
-  falta es lo que sólo se ve leyendo la salida: si con «Que no suene a IA»
-  puesta el modelo deja de escribir «es importante destacar». Es una prueba a
-  ojo y necesita una clave.
-- **La prueba en una videollamada real** (Meet / Teams / Zoom / OBS). La
-  verificación se hizo con captura GDI/BitBlt.
-  `WDA_EXCLUDEFROMCAPTURE` cubre también las rutas DXGI y Windows Graphics
-  Capture que usan esas apps, **pero conviene confirmarlo**. Es la prueba de la
-  fase 1 que queda pendiente, y la más importante de todas.
+That script invokes `cli.js` with `process.execPath` instead of `npx` with
+`shell: true`, for two reasons: passing arguments with a shell concatenates them
+**without escaping** (Node warns with DEP0190), and this project's path **contains
+spaces** ("Tayori").
 
 ---
 
-## 9. Cabos sueltos concretos
+## 8. What's verified and what isn't
 
-Cosas que existen a medias. No son bugs; son trabajo no terminado, y está mejor
-escrito aquí que descubierto por sorpresa.
+Important distinction: almost everything was tested by **running the app and
+looking at screenshots**, not just compiling.
 
-- **`resizeOverlay` no lo llama nadie.** El handler y el preload existen; la idea
-  era que el overlay se ajustara a la altura de la respuesta. Ahora que la
-  pestaña de escritura cambia la altura útil del panel, es más visible que antes.
-- **`overlayOpacity` no se puede cambiar.** El overlay lo respeta; el dashboard
-  no lo expone.
-- **Los hotkeys no se pueden remapear desde la UI.** `settings.hotkeys` y
-  `registerHotkeys()` ya lo soportan (y `registerHotkeys` devuelve los
-  aceleradores que Windows rechazó, para poder avisar), pero el dashboard no
-  tiene el editor.
-- **`'heuristic+classifier'` está en el tipo `AutoTriggerMode` pero no
-  implementado.** El dashboard solo ofrece `off` y `heuristic`; si alguien
-  escribe ese valor en `settings.json` se comportará como `heuristic`. Era el
-  escalón de clasificador con Haiku.
-- **No hay icono de la app.** `electron-builder` avisa: *"default Electron icon
-  is used"*. Falta `build/icon.ico`.
-- **`build/` no existe** (es `buildResources` en la config de electron-builder).
+### Verified by running it
+
+- **Stealth in both directions.** With the mode active the overlay **doesn't
+  appear** in a GDI capture; disabling it, it **does appear**. Testing only one
+  direction would have proved nothing: the absence is also compatible with "the
+  overlay doesn't render".
+- **Global hotkeys** with the focus on another application (`Ctrl+Alt+Left` moved
+  the overlay exactly 120 px in three presses).
+- **Separation of the two streams**: with a 440 Hz tone through the speakers, the
+  "Them" meter rises and "Me" stays at zero.
+- **PCM chunks reaching the main process** from both speakers at 16 kHz.
+- **Screen capture** → thumbnail in the overlay → answer engine calling the
+  provider and showing the missing-key error in the panel.
+- **STT error path**: with no key, it fails with an actionable message and **the
+  audio capture keeps working** (the resilient behavior sought).
+- **Complete dashboard**, with the model selector populated by IPC.
+- **The packaged app boots**: NSIS installer + ~98 MB portable, and the `.exe`
+  brings up dashboard and overlay reading settings from `userData`.
+- `typecheck`, `lint` and **45 tests** clean.
+
+### NOT verified — requires keys or manual intervention
+
+- **Real token streaming** from Claude/Gemini (needs the user's API key).
+- **ChatGPT against OpenAI's real API.** **The contract** is verified:
+  `tests/openai-provider.test.ts` brings up a real HTTP server that speaks the
+  Responses API over SSE, and pins what goes out (`store: false`, the `reasoning`
+  block, the lent budget, the history as messages, the capture as `input_image`)
+  and what's done with what comes back (refusal, exhausted budget, retry without
+  `reasoning`, cancellation). The catalog's ids, their roles, their prices and
+  that they accept images come from OpenAI's reference, consulted on 1 August
+  2026. What has **not** been checked is a real call against their servers: that
+  the account has access to those three models. «Test connection» will say so —
+  the button is there and the error it returns already distinguishes invalid key,
+  no access, no balance and nonexistent model.
+- **Live transcription** with Gemini Live (ditto).
+- **Auto-trigger on real speech** (the heuristic is covered by tests).
+- **Whisper local end-to-end**: the assets **are already downloaded** and it was
+  checked, by running it, that `whisper-cli.exe` transcribes a hand-generated WAV
+  with the exact argument list the app uses, and that `findWhisperBinary()` picks
+  `whisper-cli.exe` and not the `main.exe` stub. What remains untested is the full
+  chain with real voice: VAD → turn → text.
+- **Ollama**: the server **does run** now, with `llama3.2:3b`. What's verified is
+  the model listing; token streaming on a real question isn't.
+- **Gemini Live is still untested against the real API.** The model fallback is
+  implemented and there's a "Test" button in Diagnostics that opens a real
+  session, but it requires the user's API key. Until someone presses it, **we
+  don't know which Live model the account accepts** — only that it no longer fails
+  silently on the first candidate.
+- **Code mode against a real screen.** What's covered by tests is what can be
+  covered without a key: that `coding` replaces the format rules, that the forced
+  profile doesn't touch the settings, and the fence parser with its streaming
+  case. What's missing is the whole loop —capture of a real LeetCode → vision
+  model → solution that compiles—, which needs an API key and an eyeball test. The
+  first thing to look at there is whether at quality 92 the model reads the
+  method's **signature** well: it's the mode's silent failure, because a perfect
+  answer over a misread signature can't be told from a good one until the
+  evaluator rejects it.
+- **The two OpenAI engines against their servers.** `openai-transcribe` is
+  verified end to end against a real HTTP server: that the turn goes out as WAV,
+  with the right model, with the vocabulary bias, without forcing a language when
+  it's `auto`, and that a lane nobody listens to doesn't spend a single request.
+  `openai-live` is verified **against a real local WebSocket** —the
+  `session.update` with `turn_detection: null`, the audio resampled to 24 kHz, the
+  commit at the end of the turn and its absence while speaking, the partials and
+  the final separately, and the degradation without `prompt`—, and its handshake
+  against the real API was already tested: it's what exposed the two protocol
+  failures. What **remains unchecked** is a whole meeting from start to finish:
+  that the turns close where they have to close with real voice, and how well it
+  transcribes compared to Whisper local. That's listening and judging, and it
+  needs someone in front of it.
+- **That a skill really changes the tone of an answer.** Verified that it reaches
+  the prompt —where it goes, with what precedence and that the profile survives—,
+  and the load from disk against real folders, with their odd cases. What's
+  missing is what's only seen by reading the output: whether with «Don't sound
+  like AI» set the model stops writing «it's important to highlight». It's an
+  eyeball test and needs a key.
+- **The test on a real video call** (Meet / Teams / Zoom / OBS). The verification
+  was done with GDI/BitBlt capture. `WDA_EXCLUDEFROMCAPTURE` also covers the DXGI
+  and Windows Graphics Capture paths those apps use, **but it's worth confirming**.
+  It's the phase-1 test that remains pending, and the most important of all.
 
 ---
 
-## 10. Cómo repetir las verificaciones
+## 9. Concrete loose ends
 
-Los procedimientos que se usaron, por si hay que revalidar tras un cambio.
+Things that half-exist. They aren't bugs; they're unfinished work, and it's better
+written here than discovered by surprise.
 
-**Stealth (siempre en las dos direcciones):** con el modo activo, hacer una
-captura de pantalla y comprobar que el overlay **no** está; desactivarlo en el
-dashboard, repetir, y comprobar que **sí** está. Una sola dirección no demuestra
-nada.
+- **`resizeOverlay` is called by nobody.** The handler and the preload exist; the
+  idea was for the overlay to fit the answer's height. Now that the write tab
+  changes the panel's usable height, it's more visible than before.
+- **`overlayOpacity` can't be changed.** The overlay respects it; the dashboard
+  doesn't expose it.
+- **The hotkeys can't be remapped from the UI.** `settings.hotkeys` and
+  `registerHotkeys()` already support it (and `registerHotkeys` returns the
+  accelerators Windows rejected, so it can warn), but the dashboard doesn't have
+  the editor.
+- **`'heuristic+classifier'` is in the `AutoTriggerMode` type but not
+  implemented.** The dashboard only offers `off` and `heuristic`; if someone
+  writes that value in `settings.json` it will behave as `heuristic`. It was the
+  classifier step with Haiku.
+- **There's no app icon.** `electron-builder` warns: *"default Electron icon is
+  used"*. `build/icon.ico` is missing.
+- **`build/` doesn't exist** (it's `buildResources` in the electron-builder
+  config).
 
-**Audio dual:** reproducir un tono o un vídeo por los altavoces mientras se
-habla al micrófono; los dos medidores del dashboard deben moverse de forma
-independiente. El log del main imprime una línea por hablante al llegar su
-primer chunk (`[capture] primer chunk de "them" (16000 Hz)`) — está justamente
-para distinguir "no se oye nada" de "el pipeline está roto", que desde fuera se
-ven igual.
+---
 
-**Hotkeys globales:** dispararlos con el foco en **otra** aplicación. Si solo
-funcionan con la app enfocada, no están registrados como globales.
+## 10. How to repeat the verifications
 
-**Interacción con el overlay (a mano, sin excepción):** arrastrar por la barra,
-pulsar el engranaje y pulsar la X — con los **clics atravesables activados**,
-que es el caso difícil. Los clics sintéticos no valen aquí (ver §6).
+The procedures that were used, in case something has to be revalidated after a
+change.
 
-**Empaquetado:** `npm run build:win` y después **ejecutar el `.exe`
-empaquetado**. Que se generen los archivos no prueba que arranque: el bundle de
-producción resuelve las rutas de los renderers de otra forma que el dev server.
+**Stealth (always in both directions):** with the mode active, take a screenshot
+and check that the overlay is **not** there; disable it in the dashboard, repeat,
+and check that it **is** there. A single direction proves nothing.
+
+**Dual audio:** play a tone or a video through the speakers while talking to the
+microphone; the dashboard's two meters must move independently. The main
+process's log prints one line per speaker when their first chunk arrives
+(`[capture] first chunk of "them" (16000 Hz)`) — it's there precisely to
+distinguish "nothing is heard" from "the pipeline is broken", which from the
+outside look the same.
+
+**Global hotkeys:** fire them with the focus on **another** application. If they
+only work with the app focused, they aren't registered as global.
+
+**Overlay interaction (by hand, no exception):** drag by the bar, press the gear
+and press the X — with **click-through enabled**, which is the hard case.
+Synthetic clicks are no good here (see §6).
+
+**Packaging:** `npm run build:win` and then **run the packaged `.exe`**. The
+files being generated doesn't prove it boots: the production bundle resolves the
+renderers' paths differently from the dev server.
 
 ```bash
 npm run typecheck && npm run lint && npm test
@@ -2601,19 +2611,18 @@ npm run typecheck && npm run lint && npm test
 
 ---
 
-## 11. Regla de oro para este proyecto
+## 11. Golden rule for this project
 
-**El modo invisible se verifica, no se asume.** Es la única función cuyo fallo
-es silencioso *y* costoso: si deja de funcionar, la app sigue pareciendo
-perfecta y el usuario se enterará en el peor momento posible. Cualquier cambio
-que toque `windows/stealth.ts`, `windows/overlay.ts` o el ciclo de vida de las
-ventanas exige repetir la prueba de las dos direcciones **antes** de dar el
-cambio por bueno.
+**Invisible mode is verified, not assumed.** It's the only feature whose failure
+is silent *and* costly: if it stops working, the app keeps looking perfect and
+the user will find out at the worst possible moment. Any change that touches
+`windows/stealth.ts`, `windows/overlay.ts` or the windows' lifecycle requires
+repeating the two-direction test **before** calling the change good.
 
-Y en el README están escritos sin adornos los límites reales: no protege de una
-cámara apuntando a la pantalla, no oculta el proceso frente a software de
-proctoring que enumere ventanas, y no oculta lo que digas por el micrófono. Esa
-honestidad es parte del producto; no conviene diluirla.
+And in the README the real limits are written without adornment: it doesn't
+protect against a camera pointing at the screen, it doesn't hide the process from
+proctoring software that enumerates windows, and it doesn't hide what you say into
+the microphone. That honesty is part of the product; it shouldn't be diluted.
 
 ---
 
@@ -2642,36 +2651,36 @@ Version bumps require Conventional Commits on `main`: `fix:` bumps patch,
 change. The base version is tracked in `.release-please-manifest.json`; do not
 manually edit it except for an intentional bootstrap.
 
-### Lo que costó la primera publicación de verdad
+### What the first real publication cost
 
-Los dos workflows estaban bien escritos desde el principio y **aun así el
-repositorio pasó semanas sin un solo release**, con los runs en verde. Tres
-trampas encadenadas, las tres silenciosas:
+The two workflows were well written from the start and **the repository still went
+weeks without a single release**, with the runs green. Three chained traps, all
+three silent:
 
-1. **Ningún commit de `main` seguía Conventional Commits.** El historial entero
-   era `Workflow added`, `Controles en el overlay…`. Release Please busca
-   `feat:`/`fix:`, no encuentra nada que publicar, y **termina correctamente**.
-   Verde y sin resultado, que es el peor tipo de fallo.
-2. **GitHub prohíbe por defecto que Actions cree pull requests.** Con esa opción
-   apagada, release-please calcula la versión, genera el CHANGELOG, crea la
-   rama y el commit... y muere en el último paso con
-   `GitHub Actions is not permitted to create or approve pull requests`. Se
-   arregla en Settings → Actions → General → Workflow permissions.
-3. **Release Please identifica su PR por una etiqueta que pone él.** Al crearla
-   a mano para desbloquear la publicación, al fusionarla no la reconoció como
-   release: no creó el tag y se puso a calcular la versión siguiente. Si alguna
-   vez hay que desbloquearlo a mano, es mejor crear el tag y el release
-   directamente que falsificar su PR.
+1. **No `main` commit followed Conventional Commits.** The entire history was
+   `Workflow added`, `Controles en el overlay…`. Release Please looks for
+   `feat:`/`fix:`, finds nothing to publish, and **finishes correctly**. Green and
+   with no result, which is the worst kind of failure.
+2. **GitHub forbids Actions from creating pull requests by default.** With that
+   option off, release-please computes the version, generates the CHANGELOG,
+   creates the branch and the commit... and dies at the last step with
+   `GitHub Actions is not permitted to create or approve pull requests`. It's
+   fixed in Settings → Actions → General → Workflow permissions.
+3. **Release Please identifies its PR by a label it sets.** On creating it by hand
+   to unblock the publication, on merging it it wasn't recognized as a release: it
+   didn't create the tag and set about computing the next version. If it ever has
+   to be unblocked by hand, it's better to create the tag and the release directly
+   than to fake its PR.
 
-De ahí salió **`publish.yml`**: reconstruye y publica el `.exe` de un tag que ya
-existe, sólo por `workflow_dispatch`. Crear un *release* sí está permitido con
-`contents: write` —lo único bloqueado son las PRs—, así que no depende de
-ninguna configuración del repositorio. **No** se engancha a `push: tags` a
-propósito: con `release.yml` funcionando, ambos compilarían el mismo binario en
-paralelo, unos ocho minutos de runner de Windows para nada.
+Out of that came **`publish.yml`**: it rebuilds and publishes the `.exe` of a tag
+that already exists, only via `workflow_dispatch`. Creating a *release* is allowed
+with `contents: write` —the only thing blocked are the PRs—, so it doesn't depend
+on any repository configuration. It's **not** hooked to `push: tags` on purpose:
+with `release.yml` working, both would build the same binary in parallel, about
+eight minutes of Windows runner for nothing.
 
-**El formato del tag tiene que coincidir en los dos sitios.**
-`include-component-in-tag: false` deja los tags en `v{version}`. Sin eso,
-release-please los nombraba `interview-helper-v{version}`, no reconocía como
-publicado un tag `v0.2.0` creado a mano, y volvía a empaquetar todo lo anterior
-en la versión siguiente.
+**The tag format has to match in both places.**
+`include-component-in-tag: false` leaves the tags as `v{version}`. Without that,
+release-please named them `interview-helper-v{version}`, didn't recognize a
+hand-created `v0.2.0` tag as published, and repackaged everything prior into the
+next version.
