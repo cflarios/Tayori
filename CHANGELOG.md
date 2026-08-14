@@ -7,6 +7,13 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.6.1](https://github.com/cflarios/Tayori/compare/v1.6.0...v1.6.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **stt:** reintentar whisper-server tras un fallo transitorio ([70e8edb](https://github.com/cflarios/Tayori/commit/70e8edb6c920e39b1833ab907c9f5287d58fcb35))
+
 ## [1.6.0](https://github.com/cflarios/Tayori/compare/v1.5.1...v1.6.0) (2026-08-13)
 
 
