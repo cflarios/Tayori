@@ -12,21 +12,21 @@ import type { STTProvider, STTStartOptions } from './types';
 import { m } from '../i18n';
 
 /**
- * Transcripción local con el binario de whisper.cpp.
+ * Local transcription with the whisper.cpp binary.
  *
- * Whisper no hace streaming, así que el flujo es: VAD por hablante → turno
- * cerrado → WAV temporal → whisper-cli → texto. La latencia real es la del
- * silencio de cierre (~700 ms) más la inferencia (0,3–2 s según modelo y CPU),
- * frente a los ~300 ms de Gemini Live. Es el precio de no depender de la red.
+ * Whisper doesn't stream, so the flow is: per-speaker VAD → closed turn →
+ * temporary WAV → whisper-cli → text. The real latency is the closing silence
+ * (~700 ms) plus the inference (0.3–2 s depending on model and CPU), against
+ * Gemini Live's ~300 ms. It's the price of not depending on the network.
  *
- * Sólo emite segmentos FINALES: no hay parciales que revisar porque cada turno
- * se transcribe de una vez.
+ * It only emits FINAL segments: there are no partials to revise because each
+ * turn is transcribed at once.
  */
 
 /**
- * Transcripciones que whisper.cpp produce sobre silencio o ruido. Son
- * alucinaciones conocidas del modelo con los subtítulos de su corpus de
- * entrenamiento, y colarlas en el transcript envenenaría el contexto del LLM.
+ * Transcriptions whisper.cpp produces over silence or noise. They're known model
+ * hallucinations from the subtitles in its training corpus, and slipping them
+ * into the transcript would poison the LLM's context.
  */
 const HALLUCINATIONS = [
   'subtítulos realizados por',
@@ -45,10 +45,10 @@ const HALLUCINATIONS = [
 ];
 
 /**
- * Alucinaciones que son una palabra corriente. Van aparte porque hay que
- * compararlas con el texto ENTERO: whisper devuelve "you" a secas sobre
- * silencio, pero buscarla como subcadena descartaba también cualquier frase que
- * la contuviera ("what about your team", "youtube").
+ * Hallucinations that are ordinary words. They go apart because they have to be
+ * compared against the WHOLE text: whisper returns a bare "you" over silence,
+ * but searching for it as a substring also discarded any sentence that contained
+ * it ("what about your team", "youtube").
  */
 const HALLUCINATION_EXACT = ['you', 'gracias', 'thank you', 'thanks', '¡gracias!'];
 
@@ -62,18 +62,18 @@ function isLikelyHallucination(text: string): boolean {
   return HALLUCINATIONS.some((phrase) => normalized.includes(phrase));
 }
 
-/** Carril por hablante: su propio VAD y su propia cola de transcripción. */
+/** Per-speaker lane: its own VAD and its own transcription queue. */
 class Lane {
   private readonly vad: EnergyVAD;
   /**
-   * Cola en serie. Dos invocaciones de whisper.cpp a la vez se pelean por la
-   * CPU y ambas tardan más que ejecutadas en orden.
+   * Serial queue. Two whisper.cpp invocations at once fight over the CPU and
+   * both take longer than run in order.
    */
   private queue: Promise<void> = Promise.resolve();
   /**
-   * Turnos esperando a whisper. Si esto crece y no baja, la transcripción va
-   * más lenta que el habla y la latencia se acumula sin techo — otra forma de
-   * "deja de responder" que desde fuera es indistinguible de un cuelgue.
+   * Turns waiting on whisper. If this grows and doesn't drop, transcription runs
+   * slower than speech and latency piles up without a ceiling — another form of
+   * "stops responding" that from the outside is indistinguishable from a hang.
    */
   private pending = 0;
 
@@ -89,12 +89,11 @@ class Lane {
   push(pcm: Int16Array): void {
     for (const utterance of this.vad.push(pcm)) {
       /*
-       * `forced` significa que el turno se cortó por llegar al máximo, no
-       * porque la persona dejara de hablar. Uno suelto es normal (alguien que
-       * se enrolla); varios seguidos son la firma del VAD enganchado en ruido,
-       * y hasta ahora ese dato existía en el tipo `Utterance` y no lo leía
-       * nadie. Es exactamente lo que hay que ver en el log cuando "deja de
-       * responder".
+       * `forced` means the turn was cut by hitting the max, not because the
+       * person stopped talking. A lone one is normal (someone who rambles);
+       * several in a row are the signature of the VAD latched onto noise, and
+       * until now that datum existed in the `Utterance` type and no one read it.
+       * It's exactly what you need to see in the log when it "stops responding".
        */
       if (utterance.forced) {
         console.warn(
@@ -124,7 +123,7 @@ class Lane {
       try {
         const text = await this.transcribe(utterance);
         const tookMs = Date.now() - startedAt;
-        // Más lento que tiempo real significa que la cola sólo puede crecer.
+        // Slower than real time means the queue can only grow.
         if (tookMs > utterance.durationMs) {
           console.warn(
             `[whisper:${this.speaker}] ${tookMs}ms para transcribir ${Math.round(utterance.durationMs)}ms ` +
@@ -158,7 +157,7 @@ class Lane {
   }
 }
 
-/** Un 500 aislado no condena la sesión; varios seguidos, sí. */
+/** An isolated 500 doesn't condemn the session; several in a row do. */
 const SERVER_FAILURE_LIMIT = 3;
 
 export class WhisperLocalSTT implements STTProvider {
@@ -169,9 +168,9 @@ export class WhisperLocalSTT implements STTProvider {
   private tempDir: string | null = null;
   private counter = 0;
   private stopped = false;
-  /** `false` cae al CLI, que arranca un proceso por intervención. */
+  /** `false` falls to the CLI, which starts a process per utterance. */
   private useServer = false;
-  /** Fallos seguidos del servidor antes de rendirse al CLI toda la sesión. */
+  /** Consecutive server failures before giving up to the CLI for the whole session. */
   private serverFailures = 0;
 
   constructor(
@@ -180,8 +179,8 @@ export class WhisperLocalSTT implements STTProvider {
   ) {}
 
   /**
-   * Construye el provider comprobando que los assets están instalados. El
-   * mensaje de error apunta al dashboard porque es donde se descargan.
+   * Builds the provider checking that the assets are installed. The error
+   * message points to the dashboard because that's where they're downloaded.
    */
   static create(modelId: string): WhisperLocalSTT {
     const binary = findWhisperBinary();
@@ -199,8 +198,8 @@ export class WhisperLocalSTT implements STTProvider {
     this.stopped = false;
     this.tempDir = mkdtempSync(join(tmpdir(), 'ih-whisper-'));
 
-    // El servidor ahorra ~570 ms por turno frente a lanzar el CLI cada vez. Si
-    // no arranca se sigue con el CLI: más lento, pero la transcripción funciona.
+    // The server saves ~570 ms per turn versus launching the CLI each time. If
+    // it doesn't start, the CLI is used: slower, but transcription works.
     this.useServer = await whisperServer.ensure(this.modelPath, options.language, options.vocabulary);
     this.serverFailures = 0;
     console.log(
@@ -222,7 +221,7 @@ export class WhisperLocalSTT implements STTProvider {
 
   push(speaker: Speaker, pcm: Buffer): void {
     if (this.stopped) return;
-    // El Buffer viene del IPC; se reinterpreta como Int16 sin copiar.
+    // The Buffer comes from the IPC; it's reinterpreted as Int16 without copying.
     const samples = new Int16Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 2));
     this.lanes.get(speaker)?.push(samples);
   }
@@ -242,7 +241,7 @@ export class WhisperLocalSTT implements STTProvider {
     return Promise.resolve();
   }
 
-  /** Transcribe un turno: por el servidor si está vivo, si no por el CLI. */
+  /** Transcribes a turn: via the server if it's alive, otherwise via the CLI. */
   private async runWhisper(utterance: Utterance, options: STTStartOptions): Promise<string> {
     if (!this.tempDir) return '';
 
@@ -254,11 +253,11 @@ export class WhisperLocalSTT implements STTProvider {
         this.serverFailures = 0;
         return text;
       } catch (err) {
-        // Un fallo aislado del servidor (un HTTP 500 por un pico de memoria, por
-        // ejemplo) no significa que esté roto. Se cae al CLI SÓLO para este turno
-        // y se sigue intentando el servidor en el siguiente. Sólo se abandona
-        // para el resto de la sesión si el proceso ha muerto o si acumula varios
-        // fallos seguidos, que ya es un patrón y no un tropiezo.
+        // An isolated server failure (an HTTP 500 from a memory spike, for
+        // example) doesn't mean it's broken. It falls to the CLI ONLY for this
+        // turn and keeps trying the server on the next one. It's only abandoned
+        // for the rest of the session if the process has died or if it piles up
+        // several failures in a row, which is a pattern and not a stumble.
         this.serverFailures++;
         const dead = !whisperServer.running;
         const detail = err instanceof Error ? err.message : String(err);
@@ -283,20 +282,20 @@ export class WhisperLocalSTT implements STTProvider {
     const args = [
       '-m', this.modelPath,
       '-f', wavPath,
-      // Sin timestamps ni marcas: sólo queremos el texto.
+      // No timestamps or marks: we only want the text.
       '--no-timestamps',
       '--no-prints',
-      // Ojo: `--output-txt` es un flag booleano SIN argumento. Pasarle "false"
-      // hacía que whisper-cli lo tomara por un fichero de entrada
-      // ("error: input file not found 'false'") y encima escribía un .txt al
-      // lado del WAV. Lo que queremos es no pasarlo en absoluto.
-      // Hilos: dejamos un núcleo libre para no ahogar la captura de audio.
+      // Careful: `--output-txt` is a boolean flag with NO argument. Passing it
+      // "false" made whisper-cli take it as an input file ("error: input file
+      // not found 'false'") and on top of that write a stray .txt next to the
+      // WAV. What we want is not to pass it at all.
+      // Threads: we leave one core free so as not to choke the audio capture.
       '-t', String(Math.max(2, (cpus().length || 4) - 1)),
     ];
 
-    // Mismas dos palancas de calidad que en el servidor: búsqueda por haces y
-    // sesgo hacia el vocabulario del usuario. Aquí pesan más en tiempo, porque
-    // el CLI ya arrastra el arranque de proceso y la carga del modelo.
+    // The same two quality levers as in the server: beam search and bias toward
+    // the user's vocabulary. Here they weigh more in time, because the CLI
+    // already drags the process startup and the model load.
     args.push('-bs', '5');
     if (options.vocabulary?.length) {
       args.push('--prompt', options.vocabulary.slice(0, 60).join(', '));
@@ -325,13 +324,13 @@ export class WhisperLocalSTT implements STTProvider {
 }
 
 /**
- * Ejecuta whisper-cli sobre un WAV sintético para probar la instalación entera.
+ * Runs whisper-cli over a synthetic WAV to test the whole installation.
  *
- * Se ejecuta el binario de verdad, con el modelo de verdad, porque los dos
- * fallos que se han dado aquí eran invisibles de otra forma: el stub `main.exe`
- * (existe, pesa lo mismo que un ejecutable, y sale con código 1) y las DLL de
- * ggml, que sólo revientan al cargar el modelo. Un `existsSync` no habría
- * detectado ninguno de los dos.
+ * The real binary is run, with the real model, because the two failures that
+ * have happened here were invisible any other way: the `main.exe` stub (it
+ * exists, weighs the same as an executable, and exits with code 1) and the ggml
+ * DLLs, which only blow up when loading the model. An `existsSync` wouldn't have
+ * caught either.
  */
 export async function testWhisperBinary(
   modelId: string
@@ -346,8 +345,8 @@ export async function testWhisperBinary(
 
   const dir = mkdtempSync(join(tmpdir(), 'ih-whisper-test-'));
   const wavPath = join(dir, 'probe.wav');
-  // Medio segundo de tono bajo: suficiente para que cargue el modelo y corra la
-  // inferencia. No importa qué transcriba, sólo que llegue al final.
+  // Half a second of a low tone: enough for the model to load and the inference
+  // to run. It doesn't matter what it transcribes, only that it reaches the end.
   const samples = new Int16Array(8_000);
   for (let i = 0; i < samples.length; i++) {
     samples[i] = Math.round(1_500 * Math.sin((2 * Math.PI * 220 * i) / 16_000));
@@ -373,10 +372,10 @@ export async function testWhisperBinary(
 }
 
 /**
- * Limpia la salida de whisper-cli.
+ * Cleans up whisper-cli's output.
  *
- * Aun con `--no-timestamps` deja líneas de diagnóstico y a veces marcas de
- * tiempo residuales, así que se filtran en lugar de confiar en las banderas.
+ * Even with `--no-timestamps` it leaves diagnostic lines and sometimes residual
+ * timestamps, so they're filtered instead of trusting the flags.
  */
 function cleanOutput(stdout: string): string {
   return stdout

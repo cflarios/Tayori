@@ -3,27 +3,27 @@ import { cpus } from 'node:os';
 import { findWhisperServer } from './whisper-assets';
 
 /**
- * `whisper-server` como proceso persistente.
+ * `whisper-server` as a persistent process.
  *
- * Lanzar `whisper-cli` una vez por intervención obliga a arrancar un proceso y
- * cargar el modelo cada vez. Medido sobre el mismo audio y los mismos hilos:
- * 2820 ms por el CLI frente a 2250 ms contra el servidor, unos **570 ms por
- * turno** que se pagaban sin necesidad.
+ * Launching `whisper-cli` once per utterance forces starting a process and
+ * loading the model each time. Measured over the same audio and the same
+ * threads: 2820 ms via the CLI against 2250 ms against the server, some **570 ms
+ * per turn** paid for nothing.
  *
- * Lo que NO arregla, y conviene no prometer: whisper.cpp procesa siempre una
- * ventana de 30 segundos, así que el paso del encoder cuesta lo mismo con 1,7 s
- * de audio que con 8,2 s. Ese suelo es inherente al modelo, no al transporte —
- * es la razón de que los tiempos del log fueran tan planos.
+ * What it does NOT fix, and it's best not to promise: whisper.cpp always
+ * processes a 30-second window, so the encoder pass costs the same with 1.7 s of
+ * audio as with 8.2 s. That floor is inherent to the model, not the transport —
+ * it's the reason the log times were so flat.
  *
- * Si el servidor no arranca no pasa nada grave: `whisper-local.ts` se queda con
- * el CLI. Es más lento, pero funciona, y una función de latencia no puede
- * tumbar la transcripción entera.
+ * If the server doesn't start nothing bad happens: `whisper-local.ts` sticks
+ * with the CLI. It's slower, but it works, and a latency feature can't take down
+ * transcription entirely.
  */
 
-/** Puerto de partida. Si está ocupado se prueban los siguientes. */
+/** Starting port. If it's taken, the next ones are tried. */
 const BASE_PORT = 8178;
 const PORT_ATTEMPTS = 5;
-/** Cargar `small` desde disco frío puede pasar de diez segundos. */
+/** Loading `small` from cold disk can take more than ten seconds. */
 const READY_TIMEOUT_MS = 60_000;
 
 export class WhisperServer {
@@ -40,11 +40,11 @@ export class WhisperServer {
   }
 
   /**
-   * Arranca el servidor si hace falta. Devuelve `false` si no se pudo, para que
-   * quien llama caiga al CLI en lugar de quedarse sin transcripción.
+   * Starts the server if needed. Returns `false` if it couldn't, so the caller
+   * falls to the CLI instead of being left with no transcription.
    *
-   * Las llamadas concurrentes comparten la misma promesa: dos carriles
-   * arrancando a la vez levantarían dos servidores peleándose por el puerto.
+   * Concurrent calls share the same promise: two lanes starting at once would
+   * bring up two servers fighting over the port.
    */
   async ensure(modelPath: string, language: string, vocabulary?: string[]): Promise<boolean> {
     if (this.running) return true;
@@ -77,26 +77,26 @@ export class WhisperServer {
           '-nt',
           '-l', language === 'auto' ? 'auto' : language.split('-')[0] || 'auto',
           /*
-           * Búsqueda por haces en lugar de decodificación voraz.
+           * Beam search instead of greedy decoding.
            *
-           * Es la palanca que más ayuda con un acento marcado o con audio
-           * regular: en lugar de quedarse con el token más probable en cada
-           * paso, mantiene varias hipótesis y elige la mejor frase completa.
-           * Con el modelo residente hay margen de sobra para pagarlo — el
-           * turno estaba en 230 ms, no en 1440.
+           * It's the lever that helps most with a marked accent or with
+           * so-so audio: instead of keeping the most likely token at each step,
+           * it holds several hypotheses and picks the best complete sentence.
+           * With the resident model there's plenty of room to pay for it — the
+           * turn was at 230 ms, not 1440.
            */
           '-bs', '5',
-          // Prompt inicial: sesga el decodificador hacia los nombres propios,
-          // siglas y tecnologías de los context packs, que es justo lo que un
-          // reconocedor generalista destroza. Se acota porque el prompt compite
-          // por la ventana de contexto con el audio.
+          // Initial prompt: biases the decoder toward the proper nouns, acronyms
+          // and technologies of the context packs, which is exactly what a
+          // generalist recognizer wrecks. It's capped because the prompt competes
+          // with the audio for the context window.
           ...(vocabulary?.length ? ['--prompt', vocabulary.slice(0, 60).join(', ')] : []),
         ],
         { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }
       );
 
-      // Hay que consumir stdout/stderr: si nadie lee, el buffer del pipe se
-      // llena y el proceso se queda bloqueado escribiendo.
+      // stdout/stderr have to be consumed: if no one reads, the pipe's buffer
+      // fills and the process gets stuck writing.
       child.stdout?.resume();
       child.stderr?.resume();
 
@@ -124,7 +124,7 @@ export class WhisperServer {
     return false;
   }
 
-  /** Sondea hasta que el puerto responde algo. Un 404 vale: el proceso vive. */
+  /** Polls until the port responds with something. A 404 counts: the process is alive. */
   private async waitUntilReady(port: number): Promise<boolean> {
     const deadline = Date.now() + READY_TIMEOUT_MS;
     while (Date.now() < deadline) {
@@ -140,7 +140,7 @@ export class WhisperServer {
     return false;
   }
 
-  /** Transcribe un WAV completo. Lanza si el servidor contesta mal. */
+  /** Transcribes a complete WAV. Throws if the server answers badly. */
   async transcribe(wav: Buffer, language: string, signal?: AbortSignal): Promise<string> {
     const form = new FormData();
     form.append('file', new Blob([new Uint8Array(wav)], { type: 'audio/wav' }), 'audio.wav');
@@ -172,7 +172,7 @@ export class WhisperServer {
 }
 
 /**
- * Instancia única. El modelo ocupa cientos de megas en memoria: un servidor por
- * hablante duplicaría ese coste para transcribir la mitad de audio cada uno.
+ * Single instance. The model takes hundreds of megs in memory: one server per
+ * speaker would double that cost to transcribe half the audio each.
  */
 export const whisperServer = new WhisperServer();

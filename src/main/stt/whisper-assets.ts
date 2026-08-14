@@ -17,36 +17,37 @@ import { m } from '../i18n';
 import { WHISPER_MODELS, whisperModelById } from '@shared/whisper-models';
 
 /**
- * Descarga y verificación de lo que necesita Whisper local: el ejecutable de
- * whisper.cpp y un modelo GGML.
+ * Download and verification of what Whisper local needs: the whisper.cpp
+ * executable and a GGML model.
  *
- * Se usa el BINARIO PRECOMPILADO en lugar de un binding nativo (`smart-whisper`,
- * `nodejs-whisper`). Razón: un binding nativo hay que recompilarlo contra el ABI
- * de Electron con `electron-rebuild`, lo que exige Visual Studio Build Tools
- * (~5 GB) y node-gyp en la máquina del usuario, y se rompe en cada actualización
- * de Electron. El binario oficial son 7,6 MB, no tiene acoplamiento de ABI y se
- * empaqueta sin ceremonia.
+ * The PRECOMPILED BINARY is used instead of a native binding (`smart-whisper`,
+ * `nodejs-whisper`). Reason: a native binding has to be recompiled against
+ * Electron's ABI with `electron-rebuild`, which requires Visual Studio Build
+ * Tools (~5 GB) and node-gyp on the user's machine, and breaks on every Electron
+ * update. The official binary is 7.6 MB, has no ABI coupling and is packaged
+ * without ceremony.
  *
- * Nada de esto se descarga hasta que el usuario elige Whisper local en el
- * dashboard: no tiene sentido bajar 200 MB a quien va a usar Gemini.
+ * None of this is downloaded until the user chooses Whisper local in the
+ * dashboard: there's no point downloading 200 MB for someone who's going to use
+ * Gemini.
  */
 
 const WHISPER_VERSION = 'v1.9.1';
 const BINARY_URL = `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_VERSION}/whisper-bin-x64.zip`;
 
 /**
- * URL de descarga de un modelo: la explícita del catálogo (los Distil) o el
- * patrón del repo oficial de whisper.cpp para el resto.
+ * Download URL of a model: the explicit one from the catalog (the Distils) or
+ * the whisper.cpp official repo pattern for the rest.
  */
 const modelUrl = (id: string): string =>
   whisperModelById(id)?.url ??
   `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${id}.bin`;
 
 export interface DownloadProgress {
-  /** Qué se está descargando. */
+  /** What's being downloaded. */
   target: 'binary' | 'model';
   receivedBytes: number;
-  /** `0` si el servidor no envía Content-Length. */
+  /** `0` if the server doesn't send Content-Length. */
   totalBytes: number;
 }
 
@@ -55,23 +56,23 @@ const modelPath = (id: string): string => join(whisperDir(), `ggml-${id}.bin`);
 const binDir = (): string => join(whisperDir(), 'bin');
 
 /**
- * Nombres válidos del ejecutable, EN ORDEN DE PREFERENCIA. El nombre cambió
- * entre versiones de whisper.cpp y el zip no tiene una estructura estable, así
- * que se busca en lugar de asumir una ruta.
+ * Valid executable names, IN ORDER OF PREFERENCE. The name changed between
+ * whisper.cpp versions and the zip has no stable structure, so it's searched for
+ * instead of assuming a path.
  *
- * `main.exe` NO está aquí a propósito: desde whisper.cpp 1.7 es un stub de
- * deprecación que imprime "the binary 'main.exe' is deprecated" y sale con
- * código 1. Como el zip lo sigue trayendo y ordena antes que `whisper-cli.exe`,
- * una búsqueda por orden de directorio lo elegía y la transcripción local
- * fallaba entera, con un `Command failed` por cada intervención.
+ * `main.exe` is NOT here on purpose: since whisper.cpp 1.7 it's a deprecation
+ * stub that prints "the binary 'main.exe' is deprecated" and exits with code 1.
+ * Since the zip still brings it and it sorts before `whisper-cli.exe`, a search
+ * by directory order picked it and local transcription failed entirely, with a
+ * `Command failed` for every utterance.
  */
 const BINARY_CANDIDATES = ['whisper-cli.exe', 'whisper.exe'];
 
 /**
- * El servidor viene en el mismo zip y mantiene el modelo cargado entre
- * peticiones. Medido sobre el mismo audio: 2820 ms lanzando `whisper-cli` por
- * turno frente a 2250 ms contra el servidor — unos 570 ms de proceso y carga de
- * modelo que se pagaban en cada intervención.
+ * The server comes in the same zip and keeps the model loaded between requests.
+ * Measured over the same audio: 2820 ms launching `whisper-cli` per turn against
+ * 2250 ms against the server — some 570 ms of process and model loading paid for
+ * on every utterance.
  */
 const SERVER_CANDIDATES = ['whisper-server.exe'];
 
@@ -87,13 +88,13 @@ function findExecutable(candidates: string[]): string | null {
   const dir = binDir();
   if (!existsSync(dir)) return null;
 
-  /** Todas las coincidencias, indexadas por nombre en minúsculas. */
+  /** All matches, indexed by lowercase name. */
   const found = new Map<string, string>();
 
   const search = (current: string, depth: number): void => {
     if (depth > 3) return;
-    // `Dirent[]` explícito: sin él TypeScript elige la sobrecarga de Buffer de
-    // readdirSync y `entry.name` deja de ser string.
+    // Explicit `Dirent[]`: without it TypeScript picks readdirSync's Buffer
+    // overload and `entry.name` stops being a string.
     let entries: Dirent[];
     try {
       entries = readdirSync(current, { withFileTypes: true });
@@ -113,8 +114,8 @@ function findExecutable(candidates: string[]): string | null {
 
   search(dir, 0);
 
-  // Se elige por prioridad del array, no por orden de directorio: es la única
-  // forma de que un nombre obsoleto que ordene antes no gane la partida.
+  // Chosen by the array's priority, not by directory order: it's the only way
+  // for an obsolete name that sorts first not to win.
   for (const candidate of candidates) {
     const path = found.get(candidate);
     if (path) return path;
@@ -124,8 +125,8 @@ function findExecutable(candidates: string[]): string | null {
 
 export function isModelInstalled(id: string): boolean {
   const path = modelPath(id);
-  // Un archivo truncado por una descarga interrumpida existe pero no sirve; el
-  // umbral descarta esos casos sin tener que verificar el hash completo.
+  // A file truncated by an interrupted download exists but is useless; the
+  // threshold discards those cases without having to verify the full hash.
   return existsSync(path) && statSync(path).size > 20 * 1024 * 1024;
 }
 
@@ -133,11 +134,11 @@ export function getModelPath(id: string): string {
   return modelPath(id);
 }
 
-/** Estado de instalación, para pintar el dashboard. */
+/** Installation state, for painting the dashboard. */
 export function getWhisperStatus(modelId: string): {
   binaryInstalled: boolean;
   modelInstalled: boolean;
-  /** Qué modelos del catálogo tienen su .bin en disco, para el Model Manager. */
+  /** Which catalog models have their .bin on disk, for the Model Manager. */
   installed: string[];
 } {
   return {
@@ -147,7 +148,7 @@ export function getWhisperStatus(modelId: string): {
   };
 }
 
-/** Descarga a un archivo temporal y renombra al final: nunca deja algo a medias. */
+/** Downloads to a temp file and renames at the end: never leaves something half-done. */
 async function download(
   url: string,
   destination: string,
@@ -166,8 +167,8 @@ async function download(
   const source = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]);
   source.on('data', (chunk: Buffer) => {
     receivedBytes += chunk.length;
-    // Reporta cada 250 ms: a cada chunk saturaría el IPC en una descarga de
-    // cientos de megas.
+    // Reports every 250 ms: reporting on every chunk would saturate the IPC on a
+    // download of hundreds of megs.
     const now = Date.now();
     if (now - lastReport > 250) {
       lastReport = now;
@@ -185,10 +186,10 @@ async function download(
 }
 
 /**
- * Instala el ejecutable de whisper.cpp.
+ * Installs the whisper.cpp executable.
  *
- * Se descomprime con `tar.exe`, presente de serie en Windows 10 1803+, para no
- * añadir una dependencia de unzip por una operación que se hace una vez.
+ * It's unzipped with `tar.exe`, present by default on Windows 10 1803+, so as
+ * not to add an unzip dependency for an operation done once.
  */
 export async function ensureBinary(onProgress?: (p: DownloadProgress) => void): Promise<string> {
   const existing = findWhisperBinary();
@@ -227,7 +228,7 @@ export async function ensureModel(
   return modelPath(id);
 }
 
-/** Descarga lo que falte. Lo llama el dashboard antes de activar Whisper local. */
+/** Downloads whatever's missing. The dashboard calls it before enabling Whisper local. */
 export async function ensureWhisperReady(
   modelId: string,
   onProgress?: (p: DownloadProgress) => void
