@@ -9,14 +9,14 @@ import {
 import { duplicateAccelerators } from '../src/shared/accelerator';
 
 /**
- * Apagar un atajo tiene que **soltar la combinación**, no sólo dejar de hacer
- * su trabajo. Un acelerador global se lo quita a la aplicación que tenga el
- * foco, así que un atajo apagado que siguiera registrado sería lo peor de los
- * dos mundos: no hace nada y encima nadie más puede usar esas teclas.
+ * Turning off a shortcut has to **release the combination**, not just stop doing
+ * its job. A global accelerator takes it away from whatever application has the
+ * focus, so a turned-off shortcut that stayed registered would be the worst of
+ * both worlds: it does nothing and on top of that nobody else can use those keys.
  *
- * Todo lo que se comprueba aquí pasa por `activeHotkeys`, que es el único sitio
- * donde se decide qué está vivo. Lo consumen el registro de `globalShortcut` y
- * el aviso de duplicados del dashboard.
+ * Everything checked here goes through `activeHotkeys`, which is the only place
+ * where it's decided what's alive. It's consumed by the `globalShortcut`
+ * registration and by the dashboard's duplicates warning.
  */
 
 const settings = (patch: Partial<Settings> = {}): Settings => ({
@@ -25,51 +25,51 @@ const settings = (patch: Partial<Settings> = {}): Settings => ({
 });
 
 describe('activeHotkeys', () => {
-  it('sin nada apagado devuelve los atajos tal cual', () => {
-    // Con el teleprompter encendido: sus dos atajos sólo existen con el modo
-    // activo, así que ése es el único estado en el que están TODOS vivos.
+  it('with nothing off it returns the shortcuts as-is', () => {
+    // With the teleprompter on: its two shortcuts only exist with the mode
+    // active, so that's the only state in which they're ALL alive.
     expect(activeHotkeys(settings({ teleprompterEnabled: true }))).toEqual(DEFAULT_HOTKEYS);
   });
 
-  it('los del teleprompter no se registran con el modo apagado', () => {
+  it("the teleprompter's aren't registered with the mode off", () => {
     /*
-     * Es la misma regla que el interruptor por atajo, aplicada sola: un
-     * acelerador global le quita la combinación a la aplicación que tenga el
-     * foco, y tomar dos por una función que está apagada es exactamente lo que
-     * hay que evitar. Con el modo apagado, Ctrl+Shift+Abajo es de quien la
-     * quiera.
+     * It's the same rule as the shortcut toggle, applied on its own: a global
+     * accelerator takes the combination away from whatever application has the
+     * focus, and taking two for a feature that's off is exactly what has to be
+     * avoided. With the mode off, Ctrl+Shift+Down belongs to whoever wants it.
      */
     const active = activeHotkeys(settings({ teleprompterEnabled: false }));
 
     expect(active.teleprompterNext).toBe('');
     expect(active.teleprompterPrev).toBe('');
-    // Y no se lleva por delante a los demás.
+    // And it doesn't take out the others.
     expect(active.askNow).toBe(DEFAULT_HOTKEYS.askNow);
   });
 
-  it('vacía el acelerador del apagado y no toca los demás', () => {
+  it("empties the accelerator of the off one and doesn't touch the others", () => {
     const active = activeHotkeys(settings({ disabledHotkeys: ['solveQuiz'] }));
 
-    // Vacío es lo que `registerHotkeys` ya ignoraba: la combinación no llega a
-    // registrarse, así que queda libre para otra aplicación.
+    // Empty is what `registerHotkeys` already ignored: the combination never gets
+    // registered, so it's free for another application.
     expect(active.solveQuiz).toBe('');
     expect(active.askNow).toBe(DEFAULT_HOTKEYS.askNow);
     expect(active.solveOnScreen).toBe(DEFAULT_HOTKEYS.solveOnScreen);
   });
 
-  it('NO borra el acelerador guardado: apagar no es olvidar', () => {
-    // Es lo que permite volver a encenderlo sin teclear la combinación otra
-    // vez; si apagar vaciase `settings.hotkeys`, el valor se habría perdido.
+  it("does NOT erase the saved accelerator: turning off isn't forgetting", () => {
+    // It's what lets you turn it back on without typing the combination again;
+    // if turning off emptied `settings.hotkeys`, the value would have been lost.
     const current = settings({ disabledHotkeys: ['moveUp'] });
     activeHotkeys(current);
     expect(current.hotkeys.moveUp).toBe(DEFAULT_HOTKEYS.moveUp);
   });
 
-  it('un atajo apagado deja de contar como choque', () => {
+  it('a turned-off shortcut stops counting as a clash', () => {
     /*
-     * El caso real: reasignas algo a una combinación que ya usaba otra acción
-     * que tienes apagada. No hay conflicto —sólo se registra una— y marcarlo en
-     * rojo mandaría a arreglar un problema que no existe.
+     * The real case: you reassign something to a combination that another action
+     * you have turned off already used. There's no conflict —only one is
+     * registered— and marking it red would send you to fix a problem that
+     * doesn't exist.
      */
     const collide: HotkeyMap = { ...DEFAULT_HOTKEYS, moveUp: DEFAULT_HOTKEYS.askNow };
 
@@ -81,15 +81,15 @@ describe('activeHotkeys', () => {
     ).toBe(0);
   });
 
-  it('con todo apagado no queda ninguna combinación tomada', () => {
+  it('with everything off no combination is left taken', () => {
     const all = Object.keys(DEFAULT_HOTKEYS) as (keyof HotkeyMap)[];
     const active = activeHotkeys(settings({ disabledHotkeys: all }));
 
     expect(Object.values(active).every((accelerator) => accelerator === '')).toBe(true);
   });
 
-  it('tolera una acción apagada que ya no existe', () => {
-    // Un `settings.json` de una versión que tenía un atajo que se quitó después.
+  it('tolerates a turned-off action that no longer exists', () => {
+    // A `settings.json` from a version that had a shortcut removed afterward.
     const active = activeHotkeys(
       settings({
         teleprompterEnabled: true,

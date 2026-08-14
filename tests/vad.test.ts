@@ -3,7 +3,7 @@ import { EnergyVAD } from '../src/main/core/vad';
 
 const RATE = 16_000;
 
-/** Genera un tono senoidal de la amplitud y duración indicadas. */
+/** Generates a sine tone of the given amplitude and duration. */
 function tone(ms: number, amplitude = 0.4, freq = 220): Int16Array {
   const samples = Math.round((RATE * ms) / 1000);
   const out = new Int16Array(samples);
@@ -29,19 +29,19 @@ function concat(...parts: Int16Array[]): Int16Array {
 }
 
 describe('EnergyVAD', () => {
-  it('cierra un turno tras el silencio configurado', () => {
+  it('closes a turn after the configured silence', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 300 });
 
-    // Silencio inicial para que el suelo de ruido converja antes del habla.
+    // Initial silence so the noise floor converges before the speech.
     const utterances = vad.push(concat(silence(500), tone(800), silence(500)));
 
     expect(utterances).toHaveLength(1);
     expect(utterances[0]?.forced).toBe(false);
-    // Incluye el padding previo, así que dura más que el habla en sí.
+    // It includes the leading padding, so it lasts longer than the speech itself.
     expect(utterances[0]?.durationMs).toBeGreaterThanOrEqual(800);
   });
 
-  it('no emite nada mientras el habla continúa', () => {
+  it('emits nothing while the speech continues', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 700 });
 
     const utterances = vad.push(concat(silence(400), tone(1500)));
@@ -49,27 +49,27 @@ describe('EnergyVAD', () => {
     expect(utterances).toHaveLength(0);
   });
 
-  it('descarta un pico demasiado corto para ser habla', () => {
+  it('discards a peak too short to be speech', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 300, minSpeechMs: 250 });
 
-    // Un golpe: fuerte pero de 60 ms. Sin este filtro iría a Whisper y
-    // devolvería una alucinación.
+    // A bang: loud but 60 ms. Without this filter it would go to Whisper and
+    // return a hallucination.
     const utterances = vad.push(concat(silence(500), tone(60, 0.9), silence(500)));
 
     expect(utterances).toHaveLength(0);
   });
 
-  it('fuerza el corte si nadie hace una pausa', () => {
+  it('forces the cut if nobody pauses', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 700, maxUtteranceMs: 1000 });
 
-    // Sin corte forzado, quien habla sin pausas nunca se transcribiría.
+    // Without a forced cut, whoever talks without pauses would never be transcribed.
     const utterances = vad.push(concat(silence(400), tone(3000)));
 
     expect(utterances.length).toBeGreaterThanOrEqual(2);
     expect(utterances.every((u) => u.forced)).toBe(true);
   });
 
-  it('separa dos turnos distintos con una pausa en medio', () => {
+  it('separates two distinct turns with a pause in between', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 300 });
 
     const utterances = vad.push(
@@ -79,17 +79,17 @@ describe('EnergyVAD', () => {
     expect(utterances).toHaveLength(2);
   });
 
-  it('ignora el silencio puro', () => {
+  it('ignores pure silence', () => {
     const vad = new EnergyVAD({ sampleRate: RATE });
     expect(vad.push(silence(3000))).toHaveLength(0);
   });
 
-  it('reconstruye frames a través de varios push', () => {
+  it('reconstructs frames across several pushes', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 300 });
     const audio = concat(silence(500), tone(800), silence(500));
 
-    // Trozos de tamaño arbitrario que no caen en frontera de frame: el resto
-    // debe arrastrarse entre llamadas o se perderían muestras.
+    // Arbitrary-size chunks that don't land on a frame boundary: the remainder
+    // must be carried between calls or samples would be lost.
     const utterances: ReturnType<typeof vad.push> = [];
     const chunkSize = 777;
     for (let i = 0; i < audio.length; i += chunkSize) {
@@ -99,7 +99,7 @@ describe('EnergyVAD', () => {
     expect(utterances).toHaveLength(1);
   });
 
-  it('flush recupera la última frase al parar la captura', () => {
+  it('flush recovers the last sentence when stopping capture', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 700 });
 
     vad.push(concat(silence(400), tone(900)));
@@ -109,19 +109,19 @@ describe('EnergyVAD', () => {
     expect(flushed?.forced).toBe(true);
   });
 
-  it('flush no devuelve nada si no había habla activa', () => {
+  it('flush returns nothing if there was no active speech', () => {
     const vad = new EnergyVAD({ sampleRate: RATE });
     vad.push(silence(1000));
     expect(vad.flush()).toBeNull();
   });
 
-  it('reset limpia el estado interno', () => {
+  it('reset clears the internal state', () => {
     const vad = new EnergyVAD({ sampleRate: RATE, silenceMs: 300 });
 
     vad.push(concat(silence(400), tone(600)));
     vad.reset();
 
-    // Tras el reset no debe quedar habla a medias que se cierre sola.
+    // After the reset no half-finished speech should remain that closes by itself.
     expect(vad.flush()).toBeNull();
   });
 });

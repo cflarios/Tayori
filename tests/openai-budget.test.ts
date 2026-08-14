@@ -2,55 +2,54 @@ import { describe, expect, it } from 'vitest';
 import { budgetFor, OPENAI_MODELS } from '../src/main/llm/openai';
 
 /**
- * El presupuesto de salida de la Responses API.
+ * The output budget of the Responses API.
  *
- * `max_output_tokens` es un tope **conjunto**: los tokens que el modelo gasta
- * razonando salen del mismo saco que el texto que se lee. Es exactamente la
- * misma trampa que `num_predict` en Ollama, y produce el mismo fallo mudo — con
- * el tope de 2.200 del modo código, un modelo que piensa puede terminar sin
- * escribir ni un carácter, sin ningún error, y la app sólo puede decir "no
- * devolvió texto".
+ * `max_output_tokens` is a **joint** cap: the tokens the model spends reasoning
+ * come out of the same pot as the text that's read. It's exactly the same trap as
+ * `num_predict` in Ollama, and it produces the same silent failure — with code
+ * mode's 2,200 cap, a model that thinks can finish without writing a single
+ * character, no error, and the app can only say "it returned no text".
  *
- * Esto fija la holgura porque la tentación de "simplificar" `budgetFor` a
- * `request.maxTokens` seco es justo lo que lo devolvería.
+ * This pins the slack because the temptation to "simplify" `budgetFor` to a bare
+ * `request.maxTokens` is exactly what would bring it back.
  */
-describe('presupuesto de salida en OpenAI', () => {
-  it('presta tokens de sobra cuando se manda el bloque de razonamiento', () => {
-    // El tope del modo código: lo que se quiere es que la respuesta quepa
-    // ENTERA además de lo que se piense antes.
+describe('output budget in OpenAI', () => {
+  it('lends plenty of tokens when the reasoning block is sent', () => {
+    // Code mode's cap: what's wanted is for the answer to fit WHOLE on top of
+    // whatever is thought before.
     const budget = budgetFor(2_200, true);
     expect(budget).toBeGreaterThan(2_200 * 2);
   });
 
-  it('no toca el tope cuando el modelo no razona', () => {
-    // El tope corto existe por una razón —una respuesta que se lee de reojo— y
-    // no debe aflojarse para un modelo que no va a gastar nada pensando.
+  it("doesn't touch the cap when the model doesn't reason", () => {
+    // The short cap exists for a reason —an answer read out of the corner of your
+    // eye— and mustn't be loosened for a model that won't spend anything thinking.
     expect(budgetFor(700, false)).toBe(700);
     expect(budgetFor(2_200, false)).toBe(2_200);
   });
 
-  it('la holgura es la misma se pida lo que se pida', () => {
-    // Es un préstamo para razonar, no un porcentaje del tope: multiplicar
-    // haría que el modo test —con 700— tuviera menos margen para pensar que el
-    // de código, y pensar cuesta lo mismo en los dos.
+  it('the slack is the same whatever is asked for', () => {
+    // It's a loan for reasoning, not a percentage of the cap: multiplying would
+    // make quiz mode —with 700— have less room to think than code mode, and
+    // thinking costs the same in both.
     expect(budgetFor(2_200, true) - 2_200).toBe(budgetFor(700, true) - 700);
   });
 });
 
-describe('catálogo de OpenAI', () => {
-  it('todos los modelos que ofrece leen imágenes', () => {
-    // El catálogo se usa también para el modelo de pantalla, donde la captura
-    // ES el enunciado: ofrecer ahí uno sin visión haría que el modelo se
-    // inventara el ejercicio entero y la respuesta parecería perfecta.
+describe('OpenAI catalog', () => {
+  it('every model it offers reads images', () => {
+    // The catalog is also used for the screen model, where the capture IS the
+    // prompt: offering one without vision there would make the model invent the
+    // whole exercise and the answer would look perfect.
     for (const model of OPENAI_MODELS) {
       expect(model.supportsVision, model.id).toBe(true);
     }
   });
 
-  it('los ids no llevan espacios ni adornos', () => {
-    // Se comparan carácter a carácter contra los del proveedor: un id con un
-    // espacio da un 404 cuyo mensaje manda a buscar el modelo bueno cuando el
-    // modelo ya era el bueno.
+  it("the ids carry no spaces or adornments", () => {
+    // They're compared character by character against the provider's: an id with a
+    // space gives a 404 whose message sends you to look for the right model when
+    // the model was already the right one.
     for (const model of OPENAI_MODELS) {
       expect(model.id).toMatch(/^[a-z0-9.-]+$/);
     }

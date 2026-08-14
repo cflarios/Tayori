@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { autoTriggerIsInert, DEFAULT_SETTINGS, speakersFor } from '../src/shared/types';
 
 /**
- * Regresión del bug que dejaba la app muda: con `audioSources: 'mic'` el carril
- * `them` ni se crea, así que el auto-disparo —que solo mira a `them`— descartaba
- * todos los segmentos en silencio. Ni error, ni traza, ni respuesta.
+ * Regression of the bug that left the app mute: with `audioSources: 'mic'` the
+ * `them` lane isn't even created, so the auto-trigger —which only looks at
+ * `them`— discarded every segment silently. No error, no trace, no answer.
  */
 describe('autoTriggerIsInert', () => {
   const settings = (patch: Partial<typeof DEFAULT_SETTINGS>): typeof DEFAULT_SETTINGS => ({
@@ -12,7 +12,7 @@ describe('autoTriggerIsInert', () => {
     ...patch,
   });
 
-  it('detecta la combinación que no puede dispararse nunca', () => {
+  it('detects the combination that can never fire', () => {
     expect(
       autoTriggerIsInert(
         settings({ audioSources: 'mic', autoTriggerSpeaker: 'them', autoTriggerMode: 'heuristic' })
@@ -26,7 +26,7 @@ describe('autoTriggerIsInert', () => {
     ).toBe(true);
   });
 
-  it('no marca como inerte lo que sí puede dispararse', () => {
+  it("doesn't mark as inert what can fire", () => {
     expect(autoTriggerIsInert(DEFAULT_SETTINGS)).toBe(false);
 
     expect(
@@ -35,7 +35,7 @@ describe('autoTriggerIsInert', () => {
       )
     ).toBe(false);
 
-    // `any` se conforma con cualquier carril, y siempre hay al menos uno.
+    // `any` is happy with any lane, and there's always at least one.
     expect(
       autoTriggerIsInert(
         settings({ audioSources: 'mic', autoTriggerSpeaker: 'any', autoTriggerMode: 'heuristic' })
@@ -43,9 +43,9 @@ describe('autoTriggerIsInert', () => {
     ).toBe(false);
   });
 
-  it('con el auto-disparo apagado no hay nada que avisar', () => {
-    // Sin esta salida temprana el dashboard mostraría un aviso sobre una función
-    // que el usuario ya ha desactivado a propósito.
+  it('with the auto-trigger off there is nothing to warn about', () => {
+    // Without this early return the dashboard would show a warning about a feature
+    // the user has already deliberately disabled.
     expect(
       autoTriggerIsInert(
         settings({ audioSources: 'mic', autoTriggerSpeaker: 'them', autoTriggerMode: 'off' })
@@ -53,9 +53,9 @@ describe('autoTriggerIsInert', () => {
     ).toBe(false);
   });
 
-  it('el default sigue escuchando al interlocutor', () => {
-    // CONTEXT.md §5: precisión sobre recall. Que ahora sea configurable no
-    // cambia el default.
+  it('the default keeps listening to the other party', () => {
+    // CONTEXT.md §5: precision over recall. Its now being configurable doesn't
+    // change the default.
     expect(DEFAULT_SETTINGS.autoTriggerSpeaker).toBe('them');
     expect(speakersFor(DEFAULT_SETTINGS.audioSources)).toContain('them');
   });

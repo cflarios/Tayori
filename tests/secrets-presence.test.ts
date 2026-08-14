@@ -4,22 +4,21 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 /**
- * «Configurada» tiene que significar «sirve», no «hay bytes escritos».
+ * «Configured» has to mean «works», not «there are bytes written».
  *
- * El fallo que esto fija se descubrió al añadir el asistente de configuración:
- * la pantalla decía «ya tienes una clave» y, dos segundos después, la prueba de
- * conexión contestaba «falta la API key». Las dos cosas venían del mismo
- * archivo — pero `getPresence` sólo miraba que el campo existiera y `getSecret`
- * intentaba descifrarlo de verdad.
+ * The bug this pins was discovered when adding the setup wizard: the screen said
+ * «you already have a key» and, two seconds later, the connection test replied
+ * «the API key is missing». Both came from the same file — but `getPresence` only
+ * checked that the field existed and `getSecret` actually tried to decrypt it.
  *
- * Pasa cuando el ciphertext lo escribió otro perfil de Windows u otra
- * instalación: el valor sigue ahí y `safeStorage` no puede abrirlo. El síntoma
- * era un dashboard en verde con todas las respuestas fallando.
+ * It happens when the ciphertext was written by another Windows profile or
+ * installation: the value is still there and `safeStorage` can't open it. The
+ * symptom was a green dashboard with every answer failing.
  */
 
 let userData = '';
 
-/** `decryptString` se controla por test: es la diferencia entre "hay" y "sirve". */
+/** `decryptString` is controlled per test: it's the difference between "exists" and "works". */
 const decryptString = vi.fn<(buffer: Buffer) => string>();
 
 vi.mock('electron', () => ({
@@ -45,13 +44,13 @@ afterEach(() => {
   rmSync(userData, { recursive: true, force: true });
 });
 
-/** Deja un secreto guardado sin pasar por `setSecret`, como el de una sesión anterior. */
+/** Leaves a secret saved without going through `setSecret`, like one from an earlier session. */
 function seed(value: Record<string, string>): void {
   writeFileSync(join(userData, 'secrets.json'), JSON.stringify(value), 'utf-8');
 }
 
-describe('presencia de las API keys', () => {
-  it('dice que hay clave cuando de verdad se puede leer', async () => {
+describe('presence of the API keys', () => {
+  it('says there is a key when it can really be read', async () => {
     seed({ anthropic: Buffer.from('sk-real').toString('base64') });
     decryptString.mockImplementation((buffer) => buffer.toString('utf-8'));
 
@@ -59,20 +58,20 @@ describe('presencia de las API keys', () => {
     expect(getPresence()).toEqual({ anthropic: true, google: false, openai: false, deepseek: false, mqtt: false });
   });
 
-  it('dice que NO hay clave cuando el ciphertext no se puede descifrar', async () => {
-    // Escrita por otro perfil de Windows: el campo está, el contenido no se abre.
+  it("says there is NO key when the ciphertext can't be decrypted", async () => {
+    // Written by another Windows profile: the field is there, the content won't open.
     seed({ anthropic: 'algo-que-no-es-de-este-perfil' });
     decryptString.mockImplementation(() => {
       throw new Error('Error while decrypting the ciphertext provided to safeStorage');
     });
 
     const { getPresence } = await secrets();
-    // Antes esto devolvía `true` y el dashboard lo pintaba en verde mientras
-    // todas las consultas fallaban con "Falta la API key".
+    // Before, this returned `true` and the dashboard painted it green while every
+    // query failed with "Falta la API key".
     expect(getPresence()).toEqual({ anthropic: false, google: false, openai: false, deepseek: false, mqtt: false });
   });
 
-  it('no confunde una clave rota con la otra', async () => {
+  it("doesn't confuse one broken key with the other", async () => {
     seed({
       anthropic: 'rota',
       google: Buffer.from('AIza-buena').toString('base64'),

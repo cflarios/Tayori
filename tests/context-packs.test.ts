@@ -25,28 +25,28 @@ const settings = (packs: ContextPack[], profile: PromptProfileId = 'interview'):
 });
 
 describe('packsForProfile', () => {
-  it('un pack sin perfiles se aplica siempre', () => {
-    // Es lo que mantiene funcionando a los packs creados antes de que los
-    // perfiles existieran: no se puede romper la configuración de nadie.
+  it('a pack with no profiles is always applied', () => {
+    // It's what keeps working the packs created before the profiles existed:
+    // nobody's configuration can be broken.
     const p = pack({ profiles: [] });
     for (const profile of ['interview', 'meeting', 'support'] as const) {
       expect(packsForProfile([p], profile)).toHaveLength(1);
     }
   });
 
-  it('un pack con perfiles solo se aplica en los suyos', () => {
+  it('a pack with profiles is only applied in its own', () => {
     const p = pack({ profiles: ['interview'] });
     expect(packsForProfile([p], 'interview')).toHaveLength(1);
     expect(packsForProfile([p], 'meeting')).toHaveLength(0);
   });
 
-  it('un pack desactivado no se aplica en ningún perfil', () => {
+  it('a disabled pack is applied in no profile', () => {
     expect(packsForProfile([pack({ enabled: false })], 'interview')).toHaveLength(0);
   });
 });
 
 describe('buildSystemPrompt', () => {
-  it('cambiar de perfil cambia el material que llega al modelo', () => {
+  it('switching profile changes the material that reaches the model', () => {
     const packs = [
       pack({ name: 'Mi CV', kind: 'cv', content: 'Diez años en backend', profiles: ['interview'] }),
       pack({ name: 'Roadmap', kind: 'notes', content: 'Q3: migración', profiles: ['meeting'] }),
@@ -61,9 +61,9 @@ describe('buildSystemPrompt', () => {
     expect(reunion).not.toContain('Diez años en backend');
   });
 
-  it('cada tipo llega con su propia instrucción', () => {
-    // La razón de ser de `ContextKind`: sin esto el modelo no puede distinguir
-    // experiencia real de un anuncio de empleo ni de una respuesta ya escrita.
+  it('each type arrives with its own instruction', () => {
+    // The reason `ContextKind` exists: without this the model can't tell real
+    // experience from a job listing or from an already-written answer.
     const cv = buildSystemPrompt(settings([pack({ kind: 'cv' })]));
     expect(cv).toContain('Experiencia REAL');
 
@@ -74,19 +74,19 @@ describe('buildSystemPrompt', () => {
     expect(qa).toContain('reutilízala casi literal');
   });
 
-  it('el vocabulario no se cuela en el prompt', () => {
-    // Su sitio es el reconocedor de voz. En el prompt solo ocuparía ventana de
-    // contexto con una lista que el modelo no necesita para responder.
+  it("the vocabulary doesn't slip into the prompt", () => {
+    // Its place is the speech recognizer. In the prompt it would only take up
+    // context window with a list the model doesn't need to answer.
     const prompt = buildSystemPrompt(
       settings([pack({ kind: 'vocabulary', content: 'Kubernetes, EmployeeBridge' })])
     );
     expect(prompt).not.toContain('EmployeeBridge');
   });
 
-  it('sin contexto aplicable no se emite el bloque', () => {
-    // Ojo: no se puede buscar "<contexto>" a secas. El perfil de entrevista lo
-    // MENCIONA en sus reglas ("nunca inventes datos que no estén en
-    // <contexto>"), así que la cadena aparece aunque no haya ningún bloque.
+  it('with no applicable context the block is not emitted', () => {
+    // Careful: you can't search for "<contexto>" plainly. The interview profile
+    // MENTIONS it in its rules ("nunca inventes datos que no estén en
+    // <contexto>"), so the string appears even with no block.
     const vacio = buildSystemPrompt(settings([pack({ content: '   ' })]));
     expect(vacio).not.toContain('Material preparado por la persona');
 
@@ -94,7 +94,7 @@ describe('buildSystemPrompt', () => {
     expect(conContenido).toContain('Material preparado por la persona');
   });
 
-  it('el perfil personalizado usa el prompt del usuario', () => {
+  it('the custom profile uses the user prompt', () => {
     const prompt = buildSystemPrompt({
       ...DEFAULT_SETTINGS,
       promptProfileId: 'custom',

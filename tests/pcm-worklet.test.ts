@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { PCM_WORKLET_SOURCE } from '../src/renderer/audio-worker/pcm-worklet';
 
 /**
- * Ejecuta el worklet REAL en un sandbox.
+ * Runs the REAL worklet in a sandbox.
  *
- * El código vive en un string porque se compila desde un Blob URL (ver el
- * comentario del módulo), así que no se puede importar. Se evalúa con las tres
- * cosas que el entorno de AudioWorklet le da como globales —`sampleRate`,
- * `AudioWorkletProcessor` y `registerProcessor`— y se le mete audio a mano.
+ * The code lives in a string because it's compiled from a Blob URL (see the
+ * module's comment), so it can't be imported. It's evaluated with the three
+ * things the AudioWorklet environment gives it as globals —`sampleRate`,
+ * `AudioWorkletProcessor` and `registerProcessor`— and fed audio by hand.
  *
- * Merece la pena el montaje: es la única forma de comprobar el antialiasing
- * sobre el código que de verdad corre, en lugar de sobre una copia del
- * algoritmo que podría divergir.
+ * The setup is worth it: it's the only way to check the antialiasing against the
+ * code that actually runs, instead of against a copy of the algorithm that could
+ * diverge.
  */
 interface WorkletProcessor {
   process(inputs: Float32Array[][]): boolean;
@@ -47,13 +47,13 @@ function runWorklet(options: {
     registered = cls;
   });
 
-  // A una const antes de comprobar: si no, el análisis de flujo de TypeScript
-  // no ve la asignación de dentro del callback y estrecha el tipo a `never`.
+  // To a const before checking: otherwise TypeScript's flow analysis doesn't see
+  // the assignment inside the callback and narrows the type to `never`.
   const Ctor = registered;
   if (!Ctor) throw new Error('el worklet no registró ningún procesador');
   const processor = new Ctor({ processorOptions: { targetRate: options.targetRate } });
 
-  // 128 frames por llamada, que es lo que hace Chromium de verdad.
+  // 128 frames per call, which is what Chromium actually does.
   for (let offset = 0; offset + 128 <= options.samples.length; offset += 128) {
     processor.process([[options.samples.subarray(offset, offset + 128)]]);
   }
@@ -76,7 +76,7 @@ function tone(frequency: number, sampleRate: number, seconds: number, amplitude 
   return samples;
 }
 
-/** RMS normalizado a [0,1], descartando el arranque del filtro. */
+/** RMS normalized to [0,1], discarding the filter's startup. */
 function rms(pcm: Int16Array, skip = 1_600): number {
   let sum = 0;
   let count = 0;
@@ -91,34 +91,34 @@ function rms(pcm: Int16Array, skip = 1_600): number {
 const IN_RATE = 48_000;
 const TARGET = 16_000;
 
-describe('worklet de PCM', () => {
-  it('remuestrea a la frecuencia pedida', () => {
+describe('PCM worklet', () => {
+  it('resamples to the requested frequency', () => {
     const out = runWorklet({
       sampleRate: IN_RATE,
       targetRate: TARGET,
       samples: tone(440, IN_RATE, 1),
     });
-    // Un segundo de entrada debe dar ~16000 muestras, menos el último bloque
-    // incompleto que todavía no se ha emitido.
+    // One second of input should give ~16000 samples, minus the last incomplete
+    // block that hasn't been emitted yet.
     expect(out.length).toBeGreaterThan(TARGET * 0.9);
     expect(out.length).toBeLessThanOrEqual(TARGET);
   });
 
-  it('deja pasar la banda de la voz sin tocarla', () => {
-    // 1 kHz está en mitad de la banda útil del habla: tiene que salir intacto.
+  it('lets the voice band through untouched', () => {
+    // 1 kHz is in the middle of the useful speech band: it has to come out intact.
     const out = runWorklet({
       sampleRate: IN_RATE,
       targetRate: TARGET,
       samples: tone(1_000, IN_RATE, 1),
     });
-    // RMS de una senoidal de amplitud 0,5 es 0,5/√2 ≈ 0,354.
+    // RMS of a 0.5-amplitude sine is 0.5/√2 ≈ 0.354.
     expect(rms(out)).toBeGreaterThan(0.3);
   });
 
-  it('elimina el aliasing que arruinaba la transcripción', () => {
-    // 12 kHz no cabe a 16 kHz: sin filtro se pliega a |12 − 16| = 4 kHz, justo
-    // encima de los formantes. Como la entrada es un tono puro inaudible tras
-    // el remuestreo, TODA la energía de salida sería alias.
+  it('removes the aliasing that ruined the transcription', () => {
+    // 12 kHz doesn't fit at 16 kHz: without a filter it folds to |12 − 16| = 4 kHz,
+    // right on top of the formants. Since the input is a pure tone inaudible after
+    // resampling, ALL the output energy would be alias.
     const out = runWorklet({
       sampleRate: IN_RATE,
       targetRate: TARGET,
@@ -129,13 +129,13 @@ describe('worklet de PCM', () => {
       runWorklet({ sampleRate: IN_RATE, targetRate: TARGET, samples: tone(1_000, IN_RATE, 1) })
     );
 
-    // Al menos 40 dB por debajo de lo que pasa en banda. Sin el filtro esta
-    // relación era ~1: el tono de 12 kHz salía con toda su amplitud, convertido
-    // en un 4 kHz que nunca se dijo.
+    // At least 40 dB below what passes in-band. Without the filter this ratio was
+    // ~1: the 12 kHz tone came out with its full amplitude, turned into a 4 kHz
+    // that was never said.
     expect(rms(out)).toBeLessThan(passband / 100);
   });
 
-  it('atenúa más cuanto más adentro de la banda de voz caería el pliegue', () => {
+  it('attenuates more the deeper into the voice band the fold would land', () => {
     const passband = rms(
       runWorklet({ sampleRate: IN_RATE, targetRate: TARGET, samples: tone(1_000, IN_RATE, 1) })
     );
@@ -143,25 +143,25 @@ describe('worklet de PCM', () => {
       rms(runWorklet({ sampleRate: IN_RATE, targetRate: TARGET, samples: tone(frequency, IN_RATE, 1) })) /
       passband;
 
-    // 8 kHz es el punto de pliegue exacto: se mapea sobre sí mismo, así que no
-    // llega a ensuciar nada y basta con que esté claramente atenuado.
+    // 8 kHz is the exact fold point: it maps onto itself, so it doesn't dirty
+    // anything and it's enough for it to be clearly attenuated.
     expect(level(8_000)).toBeLessThan(0.5);
-    // 10 kHz caería sobre 6 kHz y 12 kHz sobre 4 kHz — justo encima de los
-    // formantes. Cuanto más adentro aterriza, más hundido tiene que estar.
+    // 10 kHz would land on 6 kHz and 12 kHz on 4 kHz — right on top of the
+    // formants. The deeper it lands, the more sunk it has to be.
     expect(level(10_000)).toBeLessThan(level(8_000) / 4);
     expect(level(12_000)).toBeLessThan(level(10_000) / 4);
   });
 
-  it('funciona con la otra frecuencia habitual de tarjeta', () => {
-    // 44,1 kHz da una relación no entera (2,75625): el resampleador tiene que
-    // arrastrar la parte fraccionaria sin desfasarse.
+  it('works with the other common card frequency', () => {
+    // 44.1 kHz gives a non-integer ratio (2.75625): the resampler has to carry
+    // the fractional part without drifting.
     const out = runWorklet({
       sampleRate: 44_100,
       targetRate: TARGET,
       samples: tone(1_000, 44_100, 1),
     });
-    // El límite es holgado a propósito: sólo se emiten bloques completos de
-    // 1600 muestras, así que la cola siempre se queda dentro del worklet.
+    // The bound is loose on purpose: only complete blocks of 1600 samples are
+    // emitted, so the tail always stays inside the worklet.
     expect(out.length).toBeGreaterThan(TARGET * 0.85);
     expect(rms(out)).toBeGreaterThan(0.3);
   });

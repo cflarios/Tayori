@@ -17,7 +17,7 @@ const stroke = (key: string, mods: Partial<KeyStroke> = {}): KeyStroke => ({
 });
 
 describe('acceleratorFromEvent', () => {
-  it('compone el formato que espera Electron', () => {
+  it('composes the format Electron expects', () => {
     expect(acceleratorFromEvent(stroke('s', { ctrlKey: true, shiftKey: true }))).toBe(
       'Control+Shift+S'
     );
@@ -26,66 +26,66 @@ describe('acceleratorFromEvent', () => {
     );
   });
 
-  it('mantiene el orden Control, Alt, Shift, Super', () => {
+  it('keeps the order Control, Alt, Shift, Super', () => {
     const all = acceleratorFromEvent(
       stroke('k', { ctrlKey: true, altKey: true, shiftKey: true, metaKey: true })
     );
     expect(all).toBe('Control+Alt+Shift+Super+K');
   });
 
-  it('rechaza una tecla sin modificador', () => {
-    // No es cosmético: un atajo global sin modificador secuestra esa tecla en
-    // todo el sistema, y dejaría de poder escribirse en cualquier aplicación.
+  it('rejects a key without a modifier', () => {
+    // Not cosmetic: a global shortcut with no modifier hijacks that key across
+    // the whole system, and it would stop being typable in any application.
     expect(acceleratorFromEvent(stroke('s'))).toBeNull();
     expect(acceleratorFromEvent(stroke('F5'))).toBeNull();
   });
 
-  it('ignora los modificadores sueltos mientras se compone la combinación', () => {
+  it('ignores lone modifiers while composing the combination', () => {
     expect(acceleratorFromEvent(stroke('Control', { ctrlKey: true }))).toBeNull();
     expect(acceleratorFromEvent(stroke('Shift', { ctrlKey: true, shiftKey: true }))).toBeNull();
   });
 
-  it('traduce los nombres del DOM a los de Electron', () => {
+  it("translates the DOM names to Electron's", () => {
     expect(acceleratorFromEvent(stroke('ArrowUp', { ctrlKey: true, altKey: true }))).toBe(
       'Control+Alt+Up'
     );
     expect(acceleratorFromEvent(stroke(' ', { ctrlKey: true }))).toBe('Control+Space');
   });
 
-  it('deja pasar las teclas cuyo nombre ya coincide', () => {
+  it('lets through keys whose name already matches', () => {
     expect(acceleratorFromEvent(stroke('Enter', { ctrlKey: true }))).toBe('Control+Enter');
     expect(acceleratorFromEvent(stroke('F5', { ctrlKey: true }))).toBe('Control+F5');
   });
 
-  it('normaliza la caja de las letras', () => {
-    // Con Shift la tecla llega en mayúscula y sin él en minúscula; el
-    // acelerador tiene que ser el mismo en ambos casos.
+  it('normalizes the case of the letters', () => {
+    // With Shift the key arrives uppercase and without it lowercase; the
+    // accelerator has to be the same in both cases.
     expect(acceleratorFromEvent(stroke('m', { ctrlKey: true }))).toBe('Control+M');
     expect(acceleratorFromEvent(stroke('M', { ctrlKey: true }))).toBe('Control+M');
   });
 });
 
 describe('formatAccelerator', () => {
-  it('abrevia Control y separa con espacios', () => {
+  it('abbreviates Control and separates with spaces', () => {
     expect(formatAccelerator('Control+Shift+S')).toBe('Ctrl + Shift + S');
   });
 
-  it('dice algo cuando no hay atajo', () => {
-    // El texto lo pone quien llama, que es el único que sabe el idioma; sin
-    // nada, un guion, para que el campo nunca se vea simplemente vacío.
+  it("says something when there's no shortcut", () => {
+    // The text is provided by the caller, the only one that knows the language;
+    // with nothing, a dash, so the field is never seen simply empty.
     expect(formatAccelerator('')).toBe('—');
     expect(formatAccelerator('', 'Unassigned')).toBe('Unassigned');
   });
 });
 
 describe('duplicateAccelerators', () => {
-  it('los atajos por defecto no chocan entre sí', () => {
-    // Es la comprobación que importa: dos acciones con el mismo acelerador no
-    // dan error, `globalShortcut` registra la primera y la otra queda muerta.
+  it("the default shortcuts don't clash with each other", () => {
+    // It's the check that matters: two actions with the same accelerator give no
+    // error, `globalShortcut` registers the first and the other is left dead.
     expect(duplicateAccelerators(DEFAULT_HOTKEYS).size).toBe(0);
   });
 
-  it('detecta el choque', () => {
+  it('detects the clash', () => {
     const repeated = duplicateAccelerators({
       askNow: 'Control+Enter',
       otra: 'Control+Enter',
@@ -94,7 +94,7 @@ describe('duplicateAccelerators', () => {
     expect([...repeated]).toEqual(['Control+Enter']);
   });
 
-  it('los vacíos no cuentan como repetidos', () => {
+  it("empty ones don't count as duplicates", () => {
     expect(duplicateAccelerators({ a: '', b: '' }).size).toBe(0);
   });
 });

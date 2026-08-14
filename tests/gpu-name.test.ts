@@ -1,32 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
 
 /**
- * El nombre de la GPU, que lo escribe el driver y lo leemos nosotros.
+ * The GPU name, which the driver writes and we read.
  *
- * `app.getGPUInfo` sólo da identificadores numéricos; el nombre comercial hay
- * que sacarlo de la cadena del renderer de ANGLE, cuyo formato no controlamos y
- * cambia entre drivers. Lo que salga de aquí se enseña tal cual en la tarjeta de
- * "qué modelo local le pega a tu equipo", así que conviene fijarlo.
+ * `app.getGPUInfo` only gives numeric identifiers; the commercial name has to be
+ * extracted from ANGLE's renderer string, whose format we don't control and
+ * changes between drivers. Whatever comes out of here is shown as-is in the
+ * "which local model suits your machine" card, so it's worth pinning it.
  */
 
-// El módulo importa `app` de Electron al cargarse; aquí sólo se prueba la
-// función pura de limpieza, así que basta con que el import no reviente.
+// The module imports Electron's `app` on load; here only the pure cleanup
+// function is tested, so it's enough that the import doesn't blow up.
 vi.mock('electron', () => ({ app: { getGPUInfo: () => Promise.resolve({}) } }));
 
 const { cleanRenderer } = await import('../src/main/system-specs');
 
 describe('cleanRenderer', () => {
-  it('saca el nombre comercial de la cadena de ANGLE', () => {
+  it("extracts the commercial name from ANGLE's string", () => {
     expect(
       cleanRenderer('ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)')
     ).toBe('NVIDIA GeForce RTX 3060');
   });
 
-  it('quita el id PCI que algunos drivers meten detrás del nombre', () => {
+  it('removes the PCI id some drivers put after the name', () => {
     /*
-     * El caso real: "NVIDIA GeForce RTX 5070 Ti (0x00002C05)". El identificador
-     * no responde a la única pregunta de esa tarjeta —qué modelo local le pega
-     * a esta máquina— y ensucia una línea que se lee de un vistazo.
+     * The real case: "NVIDIA GeForce RTX 5070 Ti (0x00002C05)". The identifier
+     * doesn't answer that card's only question —which local model suits this
+     * machine— and dirties a line read at a glance.
      */
     expect(
       cleanRenderer(
@@ -35,20 +35,20 @@ describe('cleanRenderer', () => {
     ).toBe('NVIDIA GeForce RTX 5070 Ti');
   });
 
-  it('no se lleva por delante un paréntesis que sí forma parte del nombre', () => {
-    // Sólo se quita lo que tiene pinta de id hexadecimal, no cualquier paréntesis.
+  it("doesn't take out a parenthesis that is part of the name", () => {
+    // Only what looks like a hexadecimal id is removed, not any parenthesis.
     expect(cleanRenderer('ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0, D3D11)')).toBe(
       'Intel(R) UHD Graphics 620'
     );
   });
 
-  it('devuelve la cadena tal cual si no es de ANGLE', () => {
-    // En otras plataformas o backends el renderer no lleva ese envoltorio, y un
-    // nombre feo es mejor que ninguno.
+  it("returns the string as-is if it isn't ANGLE's", () => {
+    // On other platforms or backends the renderer doesn't carry that wrapper, and
+    // an ugly name is better than none.
     expect(cleanRenderer('AMD Radeon RX 7800 XT')).toBe('AMD Radeon RX 7800 XT');
   });
 
-  it('sin renderer no se inventa nada', () => {
+  it('with no renderer it invents nothing', () => {
     expect(cleanRenderer(undefined)).toBeUndefined();
   });
 });

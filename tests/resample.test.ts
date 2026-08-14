@@ -2,40 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { pcmToInt16, Upsampler16to24 } from '../src/main/stt/resample';
 
 /**
- * De 16 kHz a 24 kHz, que es lo que exige la API en tiempo real de OpenAI.
+ * From 16 kHz to 24 kHz, which is what OpenAI's real-time API requires.
  *
- * El fallo que estas pruebas evitan no da ningún error: un remuestreador sin
- * memoria entre bloques deja una discontinuidad en cada unión —diez por segundo
- * y por hablante, porque el audio llega en trozos de 100 ms— y el reconocedor
- * las oye como consonantes que nadie dijo. La transcripción sale peor y no hay
- * absolutamente nada en el log que lo insinúe.
+ * The bug these tests avoid gives no error: a resampler with no memory between
+ * blocks leaves a discontinuity at every join —ten per second and per speaker,
+ * because the audio arrives in 100 ms chunks— and the recognizer hears them as
+ * consonants nobody said. The transcription comes out worse and there's
+ * absolutely nothing in the log to hint at it.
  */
 describe('Upsampler16to24', () => {
-  it('produce 3 muestras por cada 2 de entrada', () => {
+  it('produces 3 samples for every 2 of input', () => {
     const up = new Upsampler16to24();
-    const out = up.process(new Int16Array(1_600)); // 100 ms a 16 kHz
+    const out = up.process(new Int16Array(1_600)); // 100 ms at 16 kHz
 
-    // 100 ms a 24 kHz son 2.400 muestras. Se admite ±1 por el redondeo de fase.
+    // 100 ms at 24 kHz is 2,400 samples. ±1 is allowed for phase rounding.
     expect(Math.abs(out.length - 2_400)).toBeLessThanOrEqual(1);
   });
 
-  it('mantiene la proporción a lo largo de muchos bloques', () => {
-    // Aquí se ve si la fase deriva: con un `float` acumulando 2/3, el error se
-    // nota tras unos minutos de reunión, y son minutos de audio desplazado.
+  it('keeps the ratio over many blocks', () => {
+    // Here you see if the phase drifts: with a `float` accumulating 2/3, the error
+    // shows after a few minutes of meeting, and that's minutes of shifted audio.
     const up = new Upsampler16to24();
     let total = 0;
     for (let i = 0; i < 600; i += 1) total += up.process(new Int16Array(1_600)).length;
 
-    // 60 s de audio → 1.440.000 muestras a 24 kHz.
+    // 60 s of audio → 1,440,000 samples at 24 kHz.
     expect(Math.abs(total - 1_440_000)).toBeLessThanOrEqual(2);
   });
 
-  it('no deja un salto en la unión entre bloques', () => {
+  it("doesn't leave a jump at the join between blocks", () => {
     /*
-     * El test que de verdad importa. Se parte una rampa continua en dos bloques:
-     * si el remuestreador arrastra la última muestra del anterior, la salida
-     * sigue siendo monótona; si empieza de cero en cada bloque, aparece un
-     * escalón hacia atrás justo en la costura.
+     * The test that really matters. A continuous ramp is split into two blocks:
+     * if the resampler carries the last sample of the previous one, the output
+     * stays monotonic; if it starts from zero on each block, a step backward
+     * appears right at the seam.
      */
     const rampa = (desde: number, n: number): Int16Array =>
       Int16Array.from({ length: n }, (_, i) => desde + i * 10);
@@ -46,14 +46,14 @@ describe('Upsampler16to24', () => {
 
     const junto = [...a, ...b];
     for (let i = 1; i < junto.length; i += 1) {
-      expect(junto[i]!, `salto en la muestra ${i}`).toBeGreaterThanOrEqual(junto[i - 1]!);
+      expect(junto[i]!, `jump at sample ${i}`).toBeGreaterThanOrEqual(junto[i - 1]!);
     }
   });
 
-  it('interpola en lugar de repetir muestras', () => {
-    // Repetir la muestra anterior (vecino más cercano) sería más simple y mete
-    // escalones en la señal; se comprueba que aparecen valores intermedios que
-    // no estaban en la entrada.
+  it('interpolates instead of repeating samples', () => {
+    // Repeating the previous sample (nearest neighbor) would be simpler and puts
+    // steps into the signal; it's checked that intermediate values appear that
+    // weren't in the input.
     const up = new Upsampler16to24();
     const out = up.process(Int16Array.from([0, 300, 600, 900, 1_200]));
 
@@ -61,9 +61,9 @@ describe('Upsampler16to24', () => {
     expect([...out].some((v) => !entrada.has(v))).toBe(true);
   });
 
-  it('reset vuelve a empezar de cero', () => {
-    // Lo llama cada sesión nueva: arrastrar la fase de una reunión anterior
-    // sería empezar la siguiente con un empalme contra silencio.
+  it('reset starts over from zero', () => {
+    // Every new session calls it: carrying the phase of a previous meeting would
+    // be starting the next one with a splice against silence.
     const up = new Upsampler16to24();
     const primero = up.process(new Int16Array(1_600)).length;
     up.process(new Int16Array(1_600));
@@ -72,13 +72,13 @@ describe('Upsampler16to24', () => {
     expect(up.process(new Int16Array(1_600)).length).toBe(primero);
   });
 
-  it('un bloque vacío no rompe nada', () => {
+  it("an empty block doesn't break anything", () => {
     expect(new Upsampler16to24().process(new Int16Array(0))).toHaveLength(0);
   });
 });
 
 describe('pcmToInt16', () => {
-  it('lee PCM16 little-endian', () => {
+  it('reads little-endian PCM16', () => {
     const buffer = Buffer.alloc(4);
     buffer.writeInt16LE(-1_234, 0);
     buffer.writeInt16LE(5_678, 2);
@@ -86,9 +86,9 @@ describe('pcmToInt16', () => {
     expect([...pcmToInt16(buffer)]).toEqual([-1_234, 5_678]);
   });
 
-  it('sobrevive a un Buffer con desplazamiento impar', () => {
-    // `Buffer.subarray` puede devolver una vista con `byteOffset` impar, y un
-    // `Int16Array` sobre ella lanza. Pasa con los chunks que llegan por IPC.
+  it('survives a Buffer with an odd offset', () => {
+    // `Buffer.subarray` can return a view with an odd `byteOffset`, and an
+    // `Int16Array` over it throws. It happens with the chunks that arrive over IPC.
     const base = Buffer.alloc(5);
     base.writeInt16LE(4_321, 1);
     const impar = base.subarray(1);

@@ -23,7 +23,7 @@ const preset = (patch: Partial<ModelPreset> = {}): ModelPreset => ({
 });
 
 describe('applyModelPreset', () => {
-  it('fija motores, modelos y perfil del preset', () => {
+  it("sets the preset's engines, models and profile", () => {
     const patch = applyModelPreset(settings(), preset());
     expect(patch.sttProviderId).toBe('whisper-local');
     expect(patch.whisperModel).toBe('small');
@@ -32,9 +32,9 @@ describe('applyModelPreset', () => {
     expect(patch.promptProfileId).toBe('interview');
   });
 
-  it('pisa sólo el modelo del proveedor del preset y conserva el resto', () => {
-    // Lo delicado: `llmModels` es un Record por proveedor. Cambiar a Ollama no
-    // puede olvidar el modelo de Claude que el usuario eligió en su día.
+  it("overwrites only the preset provider's model and keeps the rest", () => {
+    // The delicate part: `llmModels` is a per-provider Record. Switching to Ollama
+    // can't forget the Claude model the user chose back in the day.
     const current = settings({
       llmModels: {
         claude: 'claude-opus-4-8',
@@ -56,7 +56,7 @@ describe('applyModelPreset', () => {
     });
   });
 
-  it('no toca ajustes fuera de su alcance (idioma, fuentes, skill)', () => {
+  it("doesn't touch settings outside its scope (language, sources, skill)", () => {
     const patch = applyModelPreset(settings(), preset());
     expect(patch).not.toHaveProperty('language');
     expect(patch).not.toHaveProperty('audioSources');
@@ -66,7 +66,7 @@ describe('applyModelPreset', () => {
 });
 
 describe('presetFromSettings', () => {
-  it('captura lo que un preset gobierna, sin id ni nombre', () => {
+  it('captures what a preset governs, without id or name', () => {
     const current = settings({
       sttProviderId: 'whisper-local',
       whisperModel: 'medium',
@@ -84,7 +84,7 @@ describe('presetFromSettings', () => {
     expect(captured.promptProfileId).toBe('meeting');
   });
 
-  it('capturar y volver a aplicar deja los campos gobernados igual', () => {
+  it('capturing and re-applying leaves the governed fields unchanged', () => {
     const current = settings({
       sttProviderId: 'whisper-local',
       whisperModel: 'small',
