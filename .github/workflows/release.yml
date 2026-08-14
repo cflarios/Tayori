@@ -59,4 +59,12 @@ jobs:
           if ($null -eq $artifact) { throw 'Portable executable not found.' }
           $zipPath = Join-Path $artifact.DirectoryName "$($artifact.BaseName).zip"
           Compress-Archive -LiteralPath $artifact.FullName -DestinationPath $zipPath -Force
-          gh release upload $env:TAG_NAME $artifact.FullName $zipPath --clobber
+          # SHA-256 checksums so users can verify the download is byte-for-byte
+          # what CI built. The app ships unsigned, so this is the integrity check
+          # that stands in for a signature. Format matches `sha256sum -c`:
+          # lowercase hash, two spaces, bare file name.
+          $sumsPath = Join-Path $artifact.DirectoryName 'SHA256SUMS.txt'
+          Get-FileHash -Algorithm SHA256 $artifact.FullName, $zipPath |
+            ForEach-Object { '{0}  {1}' -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+            Set-Content -Path $sumsPath -Encoding ascii
+          gh release upload $env:TAG_NAME $artifact.FullName $zipPath $sumsPath --clobber
