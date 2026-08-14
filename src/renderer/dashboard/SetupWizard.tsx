@@ -14,31 +14,31 @@ import { Tx, useT } from '@renderer/i18n';
 import type { UIKey } from '@shared/i18n';
 
 /**
- * Asistente de primera configuración.
+ * First-run setup wizard.
  *
- * ## Qué problema resuelve
+ * ## What problem it solves
  *
- * La tarjeta de «Primeros pasos» que había antes era una **lista de tareas**:
- * decía qué faltaba y te mandaba a la sección correspondiente a hacerlo tú. Eso
- * sirve si ya sabes lo que es un proveedor, una API key y un modelo con visión.
- * Para quien abre la app por primera vez, cada paso era una decisión con
- * vocabulario propio, y la primera de todas —«local o nube»— exige saber cuánta
- * RAM tienes y si tu GPU sirve. Nadie tiene por qué saber eso para probar una
- * app.
+ * The old «First steps» card was a **task list**: it told you what was missing
+ * and sent you off to the relevant section to do it yourself. That works if you
+ * already know what a provider, an API key and a vision-capable model are. For
+ * someone opening the app for the first time, each step was a decision with its
+ * own vocabulary, and the very first one —«local or cloud»— demands knowing how
+ * much RAM you have and whether your GPU is up to it. Nobody should have to know
+ * that just to try out an app.
  *
- * El asistente **lo hace**, no lo pide: mide el equipo, recomienda un camino con
- * el motivo, instala Ollama si hace falta, descarga los modelos que le pegan a
- * esa máquina y deja también resuelta la transcripción — que es el paso que se
- * olvida y sin el cual la app no oye nada.
+ * The wizard **does it**, it doesn't ask: it measures the machine, recommends a
+ * path with the reason, installs Ollama if needed, downloads the models that
+ * fit that machine, and also settles the transcription — which is the step that
+ * gets forgotten and without which the app hears nothing.
  *
- * ## Las dos reglas que lo gobiernan
+ * ## The two rules that govern it
  *
- * - **Nada se instala ni se descarga sin pedirlo.** Cada acción que toca la
- *   máquina va detrás de un botón que dice antes qué va a hacer. No hay ninguna
- *   ruta que instale al arrancar.
- * - **Se puede salir en cualquier momento.** Quien ya sabe lo que hace cierra el
- *   asistente y usa el dashboard. Un asistente del que no se puede escapar es
- *   una jaula, no una ayuda.
+ * - **Nothing is installed or downloaded without asking.** Every action that
+ *   touches the machine sits behind a button that says up front what it will
+ *   do. There's no path that installs on startup.
+ * - **You can leave at any time.** Someone who already knows what they're doing
+ *   closes the wizard and uses the dashboard. A wizard you can't escape is a
+ *   cage, not a help.
  */
 
 type Step = 'welcome' | 'brain' | 'voice' | 'context' | 'done';
@@ -70,18 +70,18 @@ export function SetupWizard({
   const at = steps.indexOf(step);
 
   /*
-   * Navegación libre, arriba del todo y no dentro de cada paso.
+   * Free navigation, up at the top and not inside each step.
    *
-   * Antes cada paso traía su «Atrás» y ninguno traía «Siguiente»: se podía
-   * retroceder desde unos sitios y desde otros no, y para saltarse un paso que
-   * no aplicaba —ya tengo la clave, ya tengo los modelos— había que ejecutarlo
-   * igualmente. Un asistente del que no se puede salir es una jaula, y uno por
-   * el que no se puede pasar de largo es casi lo mismo.
+   * Before, each step brought its own «Back» and none brought «Next»: you could
+   * go back from some places and not others, and to skip a step that didn't
+   * apply —I already have the key, I already have the models— you had to run it
+   * anyway. A wizard you can't leave is a cage, and one you can't skip past is
+   * nearly the same thing.
    *
-   * El botón de cada paso sigue siendo su acción («Instalar», «Guardar y
-   * probar»); esto es sólo moverse. Por eso «Siguiente» dice «Saltar» cuando el
-   * paso todavía no se ha hecho: pasar de largo sin hacerlo es legítimo, pero
-   * conviene que se note.
+   * Each step's button is still its action («Install», «Save and test»); this
+   * is only moving around. That's why «Next» says «Skip» when the step hasn't
+   * been done yet: passing it by without doing it is legitimate, but it's worth
+   * making that visible.
    */
   const goTo = (index: number): void => {
     const next = steps[Math.min(Math.max(index, 0), steps.length - 1)];
@@ -95,8 +95,8 @@ export function SetupWizard({
           <div className="wiz__eyebrow">{t('wiz.eyebrow')}</div>
           <h1 className="wiz__title">{t(TITLES[step])}</h1>
         </div>
-        {/* Salir siempre visible: quien sabe lo que hace no debería tener que
-            terminar un asistente para llegar a los ajustes. */}
+        {/* Exit always visible: someone who knows what they're doing shouldn't
+            have to finish a wizard to reach the settings. */}
         <button className="btn btn--ghost" onClick={onClose}>
           {t('wiz.exit')}
         </button>
@@ -118,10 +118,10 @@ export function SetupWizard({
 
         <button
           className="btn btn--ghost"
-          // Desde la bienvenida no se puede saltar: sin camino elegido, el paso
-          // siguiente no sabría qué enseñar. Se deshabilita en lugar de no hacer
-          // nada al pulsarlo — un botón que no responde es indistinguible de uno
-          // roto.
+          // From the welcome you can't skip: with no path chosen, the next step
+          // wouldn't know what to show. It's disabled rather than doing nothing
+          // when pressed — a button that doesn't respond is indistinguishable
+          // from a broken one.
           disabled={at === steps.length - 1 || (step === 'welcome' && !path)}
           onClick={() => goTo(at + 1)}
           title={step === 'welcome' && !path ? t('wiz.pickFirst') : t('wiz.skipTitle')}
@@ -190,15 +190,15 @@ const TITLES: Record<Step, UIKey> = {
   done: 'wiz.titleDone',
 };
 
-// ────────────────────────────── 1 · Bienvenida ──────────────────────────────
+// ────────────────────────────── 1 · Welcome ──────────────────────────────
 
 /**
- * La elección local/nube, con el equipo ya medido.
+ * The local/cloud choice, with the machine already measured.
  *
- * La recomendación se calcula, no se sortea: por debajo de 16 GB un modelo local
- * decente no cabe, y sin GPU dedicada la latencia arruina el caso de uso —la
- * respuesta se lee mientras alguien te mira—. Se dice el porqué junto a la
- * recomendación para que se pueda llevar la contraria con criterio.
+ * The recommendation is computed, not guessed: below 16 GB a decent local model
+ * doesn't fit, and without a dedicated GPU the latency ruins the use case —the
+ * answer is read while someone is looking at you—. The reason is stated next to
+ * the recommendation so you can go against it with judgment.
  */
 function Welcome({ specs, onPick }: { specs: SystemSpecs | null; onPick: (path: Path) => void }) {
   const t = useT();
@@ -291,7 +291,7 @@ function PathCard({
   );
 }
 
-// ──────────────────────────── 2a · Camino nube ────────────────────────────
+// ──────────────────────────── 2a · Cloud path ────────────────────────────
 
 const CLOUD_PROVIDERS = [
   {
@@ -349,9 +349,9 @@ function CloudStep({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Se indexa por la clave del propio proveedor y no con una cadena de
-  // ternarios: con dos proveedores aquello se leía, con el tercero ya era una
-  // rama que hay que actualizar cada vez y que no avisa cuando se olvida.
+  // Indexed by the provider's own key rather than a chain of ternaries: with
+  // two providers that read fine, with the third it was already a branch you
+  // have to update every time and that gives no warning when forgotten.
   const alreadyThere = presence[choice.secret];
 
   const apply = async (): Promise<void> => {
@@ -361,16 +361,16 @@ function CloudStep({
       if (key.trim()) await saveSecret(choice.secret, key.trim());
 
       /*
-       * Se deja el proveedor puesto ANTES de probar: `testConnection` usa el
-       * proveedor activo de los ajustes, así que probar antes de guardarlo
-       * comprobaría el anterior y diría que todo va bien mientras la clave
-       * nueva sigue sin validar.
+       * The provider is set BEFORE testing: `testConnection` uses the active
+       * provider from the settings, so testing before saving it would check the
+       * previous one and report all is well while the new key is still
+       * unvalidated.
        */
       /*
-       * Se fusiona con lo que ya hubiera. La primera versión reescribía el mapa
-       * entero y borraba el modelo de Ollama de quien pasara por aquí a probar
-       * la nube: elegir un proveedor no es motivo para tirar la configuración
-       * de los otros dos.
+       * Merged with whatever was already there. The first version rewrote the
+       * whole map and wiped the Ollama model of anyone passing through here to
+       * try the cloud: choosing one provider is no reason to throw away the
+       * configuration of the other two.
        */
       await patch({
         llmProviderId: choice.id,
@@ -441,16 +441,16 @@ function CloudStep({
   );
 }
 
-// ──────────────────────────── 2b · Camino local ────────────────────────────
+// ──────────────────────────── 2b · Local path ────────────────────────────
 
 /**
- * Instalar Ollama y bajar los modelos que le pegan a este equipo.
+ * Install Ollama and pull the models that fit this machine.
  *
- * Los modelos salen de `adviseLocalModels`, que ya existía para la tarjeta del
- * dashboard: el mismo criterio, aplicado sin que nadie tenga que leerlo. Se
- * descargan **dos** porque conversar y leer la pantalla piden cosas distintas —
- * uno rápido y uno con visión—, que es la conclusión que este proyecto ya había
- * sacado y que un usuario nuevo no tiene forma de saber.
+ * The models come from `adviseLocalModels`, which already existed for the
+ * dashboard card: the same criteria, applied without anyone having to read it.
+ * **Two** are downloaded because conversing and reading the screen ask for
+ * different things —one fast and one with vision—, which is the conclusion this
+ * project had already reached and that a new user has no way of knowing.
  */
 function LocalStep({
   settings,
@@ -468,10 +468,10 @@ function LocalStep({
   const t = useT();
   const [reachable, setReachable] = useState<boolean | null>(null);
   /**
-   * Instalado no es lo mismo que corriendo, y confundirlos era un fallo real:
-   * quien instalaba Ollama y volvía al asistente con el servicio parado se
-   * encontraba otra vez «No lo tienes instalado» y el botón de instalar. Volver
-   * a instalar por encima no arregla nada; lo que hay que hacer es abrirlo.
+   * Installed isn't the same as running, and confusing them was a real bug:
+   * someone who installed Ollama and came back to the wizard with the service
+   * stopped hit «You don't have it installed» and the install button again.
+   * Reinstalling over the top fixes nothing; what's needed is to open it.
    */
   const [installed, setInstalled] = useState<boolean | null>(null);
   const [canInstall, setCanInstall] = useState(false);
@@ -479,7 +479,7 @@ function LocalStep({
   const [progress, setProgress] = useState<SetupProgress | null>(null);
   const [error, setError] = useState('');
 
-  /** Modelos que Ollama dice tener ya descargados. */
+  /** Models that Ollama reports as already downloaded. */
   const [downloaded, setDownloaded] = useState<string[]>([]);
 
   const check = useCallback((): void => {
@@ -503,10 +503,10 @@ function LocalStep({
       const result = await window.api.setup.installOllama();
       if (!result.ok) {
         setError(result.error ?? t('wiz.installFailed'));
-        // Se relee el estado en lugar de dejarlo como estaba: el caso más
-        // común de fallo es "se instaló pero el servidor no arrancó", y ahí lo
-        // correcto es pasar a la pantalla de «ábrelo una vez», no repetir la
-        // instalación.
+        // The state is re-read rather than left as it was: the most common
+        // failure case is "it installed but the server didn't start", and the
+        // right move there is to move to the «open it once» screen, not repeat
+        // the install.
         check();
         return;
       }
@@ -521,18 +521,18 @@ function LocalStep({
   const advice = specs ? adviseLocalModels(specs) : null;
 
   /**
-   * Si un modelo recomendado ya está descargado.
+   * Whether a recommended model is already downloaded.
    *
-   * Se tolera la etiqueta implícita: Ollama lista `llama3.2:latest` para lo que
-   * se descargó como `llama3.2`, y una comparación exacta mandaría a repetir
-   * una descarga de varios gigas que ya está hecha.
+   * The implicit tag is tolerated: Ollama lists `llama3.2:latest` for what was
+   * downloaded as `llama3.2`, and an exact comparison would send you to repeat
+   * a multi-gigabyte download that's already done.
    */
   const has = (model: string): boolean => {
     const base = model.includes(':') ? model : `${model}:latest`;
     return downloaded.some((id) => id === model || id === base);
   };
 
-  /** Los dos ya están: no hay nada que descargar, sólo que elegirlos. */
+  /** Both are already here: nothing to download, just to select them. */
   const nothingToDownload = Boolean(advice && has(advice.chat.model) && has(advice.vision.model));
 
   const download = async (): Promise<void> => {
@@ -541,9 +541,9 @@ function LocalStep({
     setError('');
     try {
       for (const model of [advice.chat.model, advice.vision.model]) {
-        // Lo que ya está no se vuelve a pedir: `ollama pull` sobre un modelo
-        // descargado no rompe nada, pero tarda en comprobar el manifest y deja
-        // al usuario mirando una barra por trabajo que no hace falta.
+        // What's already here isn't requested again: `ollama pull` on a
+        // downloaded model breaks nothing, but it's slow to check the manifest
+        // and leaves the user watching a bar for work that isn't needed.
         if (has(model)) continue;
 
         const result = await window.api.setup.pullModel(model);
@@ -554,14 +554,14 @@ function LocalStep({
       }
 
       /*
-       * Los dos papeles quedan separados desde el primer día: el de conversar
-       * pide latencia y el de la pantalla pide vista.
+       * The two roles stay separate from day one: the conversing one asks for
+       * latency and the screen one asks for vision.
        *
-       * Se fusiona con lo que ya hubiera, por lo mismo que en el camino de la
-       * nube: elegir local no es motivo para borrar el modelo que alguien tenía
-       * elegido en Claude, Gemini o ChatGPT. La versión anterior escribía el
-       * mapa entero a mano, así que además había que acordarse de añadirle una
-       * clave con cada proveedor nuevo — y el `as` la dejaba pasar callando.
+       * Merged with whatever was already there, for the same reason as in the
+       * cloud path: choosing local is no reason to wipe the model someone had
+       * chosen in Claude, Gemini or ChatGPT. The previous version wrote the
+       * whole map by hand, so you also had to remember to add a key with every
+       * new provider — and the `as` let it slip through silently.
        */
       await patch({
         llmProviderId: 'ollama',
@@ -582,16 +582,16 @@ function LocalStep({
       : null;
 
   /**
-   * El avance, visible en TODAS las fases.
+   * The progress, visible in ALL phases.
    *
-   * Antes vivía dentro de la rama de "Ollama ya está listo", así que durante la
-   * instalación —que es justo la parte que tarda minutos— no se veía nada: el
-   * botón cambiaba de texto y ahí se quedaba. El main ya emitía los mensajes
-   * («Instalando con winget…», «Esperando a que arranque el servidor…»); lo que
-   * faltaba era enseñarlos.
+   * It used to live inside the "Ollama is ready" branch, so during the
+   * install —which is exactly the part that takes minutes— nothing showed: the
+   * button changed its text and stayed there. The main process was already
+   * emitting the messages («Installing with winget…», «Waiting for the server
+   * to start…»); what was missing was showing them.
    *
-   * El porcentaje sólo aparece cuando lo hay: winget no da progreso, así que
-   * pintar una barra al 0% durante tres minutos mentiría más que el texto.
+   * The percentage only appears when there is one: winget gives no progress, so
+   * painting a bar at 0% for three minutes would lie more than the text.
    */
   const avance = busy ? (
     <div className="progress">
@@ -618,8 +618,8 @@ function LocalStep({
           </p>
 
           {/*
-            Instalado y parado: instalar otra vez no arregla nada. Lo que hace
-            falta es abrirlo una vez — Ollama se queda residente después.
+            Installed and stopped: installing again fixes nothing. What's needed
+            is to open it once — Ollama stays resident afterwards.
           */}
           {installed ? (
             <>
@@ -640,8 +640,8 @@ function LocalStep({
                 <Tx k="wiz.wingetNote" />
               </p>
 
-              {/* La instalación tarda minutos: sin esto, el único indicio de
-                  que algo pasa era el texto del botón. */}
+              {/* The install takes minutes: without this, the only sign that
+                  something is happening was the button's text. */}
               {avance}
               {error && <div className="warn">{error}</div>}
 
@@ -728,17 +728,17 @@ function LocalStep({
   );
 }
 
-// ────────────────────────────── 3 · Voz a texto ──────────────────────────────
+// ────────────────────────────── 3 · Speech to text ──────────────────────────────
 
 /**
- * El paso que se olvida.
+ * The step that gets forgotten.
  *
- * Un usuario que pega una clave de Claude y da por terminada la configuración se
- * queda con la app **muda**: el motor de transcripción por defecto es Gemini
- * Live, que necesita una clave de Google que esa persona no tiene. El síntoma es
- * el peor posible —escucha encendida, medidores moviéndose y ni una palabra
- * transcrita— así que aquí se resuelve de una vez, eligiendo un motor que de
- * verdad pueda funcionar con lo que hay configurado.
+ * A user who pastes a Claude key and considers the setup finished is left with
+ * the app **mute**: the default transcription engine is Gemini Live, which
+ * needs a Google key that person doesn't have. The symptom is the worst
+ * possible one —listening on, meters moving and not a single word transcribed—
+ * so here it's settled once and for all, choosing an engine that can actually
+ * work with what's configured.
  */
 function VoiceStep({
   settings,
@@ -750,13 +750,13 @@ function VoiceStep({
   settings: Settings;
   presence: SecretsPresence;
   /**
-   * El camino elegido en la bienvenida, que aquí decide qué se ofrece.
+   * The path chosen in the welcome, which here decides what's offered.
    *
-   * Enseñar las cinco opciones a todo el mundo era incoherente con lo que la
-   * persona acaba de decidir: quien eligió «en mi equipo» para no mandar nada
-   * fuera no debería tener que volver a esquivar los motores de nube dos
-   * pantallas después, y quien eligió la nube no quiere descargar 150 MB de
-   * Whisper. Se ofrece lo que encaja con la decisión ya tomada.
+   * Showing all five options to everyone was inconsistent with what the person
+   * just decided: someone who chose «on my machine» to send nothing outside
+   * shouldn't have to dodge the cloud engines again two screens later, and
+   * someone who chose the cloud doesn't want to download 150 MB of Whisper.
+   * What fits the decision already made is what's offered.
    */
   path: Path | null;
   patch: (p: Partial<Settings>) => Promise<void>;
@@ -778,8 +778,8 @@ function VoiceStep({
   const canUseOpenAI = presence.openai;
 
   /*
-   * Con «en tu equipo» sólo se ofrece Whisper. Los de nube no son peores, son
-   * lo contrario de lo que esa elección pedía.
+   * With «on your machine» only Whisper is offered. The cloud ones aren't
+   * worse, they're the opposite of what that choice asked for.
    */
   const showCloud = path !== 'local';
   const showLocal = path !== 'cloud';
@@ -824,10 +824,10 @@ function VoiceStep({
       </p>
 
       <div className="wiz__choices">
-        {/* OpenAI primero, y recomendado: es el modelo que su propio fabricante
-            señala para audio en directo, que es literalmente lo que hace esta
-            app. Gemini Live va igual de rápido y tiene la ventaja de compartir
-            clave con las respuestas. */}
+        {/* OpenAI first, and recommended: it's the model its own maker points
+            to for live audio, which is literally what this app does. Gemini
+            Live is just as fast and has the advantage of sharing a key with the
+            answers. */}
         {showCloud && (
           <button
             className={`choice${canUseOpenAI ? ' choice--on' : ''}`}
@@ -866,9 +866,9 @@ function VoiceStep({
         )}
       </div>
 
-      {/* Sin ninguna clave de nube, el camino de nube se queda sin opciones
-          pulsables: hay que decir por dónde se sale en lugar de dejar dos
-          botones grises. */}
+      {/* With no cloud key at all, the cloud path is left with no clickable
+          options: you have to say where the way out is instead of leaving two
+          grayed-out buttons. */}
       {showCloud && !showLocal && !canUseOpenAI && !canUseGemini && (
         <div className="warn">
           <Tx k="wiz.noSttKey" />
@@ -896,15 +896,15 @@ function VoiceStep({
   );
 }
 
-// ─────────────────────────────── 4 · Contexto ───────────────────────────────
+// ─────────────────────────────── 4 · Context ───────────────────────────────
 
 /**
- * El CV, que es lo que separa una respuesta correcta de una tuya.
+ * The CV, which is what separates a correct answer from one of yours.
  *
- * Se puede saltar —quien viene a probar la app no tiene por qué pegar su vida
- * laboral en el primer minuto— pero se explica qué se pierde, porque el modelo
- * tiene **prohibido** inventarse experiencia y sin esto las respuestas salen
- * genéricas sin que se entienda por qué.
+ * It can be skipped —someone coming to try the app shouldn't have to paste
+ * their working life in the first minute— but what's lost is explained, because
+ * the model is **forbidden** from inventing experience and without this the
+ * answers come out generic with no way to understand why.
  */
 function ContextStep({
   settings,
@@ -928,9 +928,9 @@ function ContextStep({
             ...settings.contextPacks,
             {
               id: crypto.randomUUID(),
-              // La clave de INTERFAZ, no `CONTEXT_KIND_LABEL`: ese rotula los
-              // bloques que se le mandan al modelo y se queda en español, pero
-              // esto es el nombre que el usuario va a ver en «Contexto».
+              // The UI key, not `CONTEXT_KIND_LABEL`: that one labels the
+              // blocks sent to the model and stays in Spanish, but this is the
+              // name the user will see under «Context».
               name: t('ctx.kindCv'),
               content: text.trim(),
               enabled: true,
@@ -974,7 +974,7 @@ function ContextStep({
   );
 }
 
-// ──────────────────────────────── 5 · Listo ────────────────────────────────
+// ──────────────────────────────── 5 · Done ────────────────────────────────
 
 function DoneStep({
   settings,
