@@ -1,59 +1,57 @@
 /**
- * AudioWorkletProcessor que convierte el audio del grafo a PCM16 mono a la
- * frecuencia que espera el STT.
+ * AudioWorkletProcessor that converts the graph's audio to mono PCM16 at the
+ * rate the STT expects.
  *
- * Se escribe como string y se registra con un Blob URL en lugar de como
- * archivo aparte: `audioWorklet.addModule()` necesita una URL servida, y en
- * producción los assets de Vite tienen nombres con hash. El Blob evita
- * depender de la ruta final del bundle.
+ * It's written as a string and registered with a Blob URL instead of as a
+ * separate file: `audioWorklet.addModule()` needs a served URL, and in
+ * production Vite's assets have hashed names. The Blob avoids depending on the
+ * bundle's final path.
  *
- * ## Por qué hay un filtro antes del resampleo
+ * ## Why there's a filter before the resampling
  *
- * La primera versión decimaba con interpolación lineal y nada más, razonando
- * que "el aliasing por encima de 8 kHz no afecta a la inteligibilidad". **Ese
- * razonamiento estaba del revés** y fue la causa de que la transcripción fuera
- * mediocre con los DOS motores, que es lo que delató que el fallo estaba aguas
- * arriba de ambos.
+ * The first version decimated with linear interpolation and nothing else,
+ * reasoning that "aliasing above 8 kHz doesn't affect intelligibility". **That
+ * reasoning was backwards** and was the cause of transcription being mediocre
+ * with BOTH engines, which is what gave away that the bug was upstream of both.
  *
- * Al bajar de 48 kHz a 16 kHz, todo lo que hay por encima de 8 kHz no
- * desaparece: se **pliega** hacia abajo y aterriza dentro de la banda de la
- * voz. Las sibilantes (s, f, z, ch) tienen ahí buena parte de su energía, así
- * que acaban superpuestas sobre las vocales. El efecto perverso es que
- * vocalizar con más énfasis lo **empeora**, porque mete más energía en la banda
- * que se va a plegar.
+ * When dropping from 48 kHz to 16 kHz, everything above 8 kHz doesn't disappear:
+ * it **folds** downward and lands inside the voice band. The sibilants (s, f, z,
+ * ch) have a good part of their energy there, so they end up superimposed on the
+ * vowels. The perverse effect is that vocalizing with more emphasis makes it
+ * **worse**, because it puts more energy into the band that's going to fold.
  *
- * La interpolación lineal atenúa algo, pero como filtro es pésima (unos -3 dB
- * en la mitad de Nyquist). Por eso va delante un Butterworth a 7 kHz.
+ * Linear interpolation attenuates a bit, but as a filter it's terrible (about
+ * -3 dB at half of Nyquist). That's why a Butterworth at 7 kHz goes in front.
  *
- * El **orden 8** (cuatro biquads) no es exceso de celo: se midió. Con orden 4
- * un tono de 12 kHz seguía saliendo a -23 dB, que sobre una consonante sorda es
- * perfectamente audible para el reconocedor. Con orden 8 baja de -40 dB, y el
- * coste son cuatro multiplicaciones más por muestra. `pcm-worklet.test.ts`
- * ejecuta el worklet de verdad y fija ambos números.
+ * The **8th order** (four biquads) isn't overkill: it was measured. With order 4
+ * a 12 kHz tone still came out at -23 dB, which over a voiceless consonant is
+ * perfectly audible to the recognizer. With order 8 it drops below -40 dB, and
+ * the cost is four more multiplications per sample. `pcm-worklet.test.ts` runs
+ * the real worklet and pins both numbers.
  *
- * ## Por qué no hay ni un `push` aquí dentro
+ * ## Why there's not a single `push` in here
  *
- * `process()` corre en el hilo de audio, con deadline de tiempo real y sin
- * margen. La versión anterior usaba arrays JS con `push` por muestra y
- * `slice`/`splice` en cada llamada (~cada 2,7 ms): eso es basura para el GC en
- * el peor sitio posible, y con Whisper y Ollama comiéndose la CPU se traduce en
- * bloques perdidos, que es más audio roto llegando al reconocedor. Todo el
- * estado son `Float32Array` con índices y `copyWithin`.
+ * `process()` runs on the audio thread, with a real-time deadline and no margin.
+ * The previous version used JS arrays with `push` per sample and `slice`/`splice`
+ * on every call (~every 2.7 ms): that's garbage for the GC in the worst possible
+ * place, and with Whisper and Ollama eating the CPU it translates to dropped
+ * blocks, which is more broken audio reaching the recognizer. All the state is
+ * `Float32Array` with indices and `copyWithin`.
  */
 export const PCM_WORKLET_NAME = 'pcm-downsampler';
 
-/** Mensaje que el worklet manda al hilo principal del renderer. */
+/** Message the worklet sends to the renderer's main thread. */
 export interface WorkletMessage {
-  /** PCM16 little-endian. Ausente si sólo se reporta nivel. */
+  /** PCM16 little-endian. Absent if only level is reported. */
   pcm?: ArrayBuffer;
-  /** Pico de amplitud en [0,1] del bloque, para el medidor visual. */
+  /** Amplitude peak in [0,1] of the block, for the visual meter. */
   peak: number;
 }
 
 export const PCM_WORKLET_SOURCE = /* js */ `
 /**
- * Biquad en forma directa II transpuesta. Estado plano (dos variables) en lugar
- * de un objeto por sección: se ejecuta por muestra y no puede asignar nada.
+ * Biquad in transposed direct form II. Flat state (two variables) instead of an
+ * object per section: it runs per sample and can't allocate anything.
  */
 class Biquad {
   constructor(sampleRate, cutoff, q) {
@@ -85,13 +83,13 @@ class PcmDownsampler extends AudioWorkletProcessor {
     super();
     const targetRate = options.processorOptions.targetRate;
 
-    // Cuántas muestras de entrada equivalen a una de salida.
+    // How many input samples equal one output sample.
     this.ratio = sampleRate / targetRate;
 
-    // Antialiasing a 0,4375 · targetRate (7 kHz para 16 kHz). Se deja margen
-    // bajo Nyquist para que la caída haya hecho su trabajo antes del pliegue.
-    // Las Q son las de un Butterworth de 8º orden en cascada: plano en la banda
-    // de paso, que es lo que importa cuando lo que sigue es un reconocedor.
+    // Antialiasing at 0.4375 · targetRate (7 kHz for 16 kHz). Margin is left
+    // below Nyquist so the rolloff has done its job before the fold. The Qs are
+    // those of an 8th-order Butterworth in cascade: flat in the passband, which
+    // is what matters when what follows is a recognizer.
     const cutoff = 0.4375 * targetRate;
     this.lowpass = [
       new Biquad(sampleRate, cutoff, 0.50979558),
@@ -100,33 +98,33 @@ class PcmDownsampler extends AudioWorkletProcessor {
       new Biquad(sampleRate, cutoff, 2.56291545),
     ];
 
-    // Entrada ya filtrada, pendiente de remuestrear. Holgado: a 48 kHz un
-    // bloque son 128 muestras y se drena en cada llamada.
+    // Already-filtered input, pending resampling. Generous: at 48 kHz a block is
+    // 128 samples and it's drained on every call.
     this.inBuf = new Float32Array(4096);
     this.inLen = 0;
-    // Posición fraccionaria de lectura dentro de inBuf.
+    // Fractional read position within inBuf.
     this.position = 0;
 
-    // ~100 ms por mensaje. process() se llama cada 128 frames (~2,7 ms a
-    // 48 kHz); emitir en cada llamada serían ~375 mensajes IPC por segundo y
-    // por stream, así que acumulamos hasta tener un bloque útil.
+    // ~100 ms per message. process() is called every 128 frames (~2.7 ms at
+    // 48 kHz); emitting on every call would be ~375 IPC messages per second per
+    // stream, so we accumulate until we have a useful block.
     this.chunkSize = Math.round(targetRate / 10);
     this.outBuf = new Float32Array(this.chunkSize);
     this.outLen = 0;
 
-    // Pico del bloque actual, se reinicia al emitir.
+    // Peak of the current block, reset on emit.
     this.peak = 0;
   }
 
   emit() {
     const pcm = new Int16Array(this.outLen);
     for (let i = 0; i < this.outLen; i++) {
-      // Recorta antes de escalar: un valor fuera de [-1,1] daría wraparound
-      // en el entero y un chasquido muy audible.
+      // Clip before scaling: a value outside [-1,1] would wrap around in the
+      // integer and produce a very audible click.
       const s = this.outBuf[i] < -1 ? -1 : this.outBuf[i] > 1 ? 1 : this.outBuf[i];
       pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
     }
-    // Transferir el buffer evita copiarlo en cada bloque.
+    // Transferring the buffer avoids copying it on every block.
     this.port.postMessage({ pcm: pcm.buffer, peak: this.peak }, [pcm.buffer]);
     this.outLen = 0;
     this.peak = 0;
@@ -134,33 +132,33 @@ class PcmDownsampler extends AudioWorkletProcessor {
 
   process(inputs) {
     const input = inputs[0];
-    // Un input vacío ocurre mientras el grafo aún no arranca; devolver true
-    // mantiene el procesador vivo esperando audio.
+    // An empty input happens while the graph hasn't started yet; returning true
+    // keeps the processor alive waiting for audio.
     if (!input || input.length === 0 || !input[0]) return true;
 
     const channels = input.length;
     const frames = input[0].length;
 
     for (let i = 0; i < frames; i++) {
-      // Mezcla a mono promediando: más robusto que quedarse con el canal
-      // izquierdo, porque algunos dispositivos dejan un canal en silencio.
+      // Mix to mono by averaging: more robust than keeping the left channel,
+      // because some devices leave one channel silent.
       let sum = 0;
       for (let c = 0; c < channels; c++) sum += input[c][i];
       const mono = sum / channels;
 
-      // El pico se mide ANTES de filtrar: el medidor debe reflejar lo que entra
-      // por el micrófono, no lo que queda después de recortar agudos.
+      // The peak is measured BEFORE filtering: the meter should reflect what
+      // comes in through the microphone, not what's left after trimming highs.
       const abs = mono < 0 ? -mono : mono;
       if (abs > this.peak) this.peak = abs;
 
       let filtered = mono;
       for (let s = 0; s < this.lowpass.length; s++) filtered = this.lowpass[s].process(filtered);
-      // Si el buffer se llena es que el consumidor se quedó atrás; se descarta
-      // la muestra en lugar de crecer sin límite dentro del hilo de audio.
+      // If the buffer fills up the consumer fell behind; the sample is dropped
+      // instead of growing without limit inside the audio thread.
       if (this.inLen < this.inBuf.length) this.inBuf[this.inLen++] = filtered;
     }
 
-    // Remuestrea todo lo que se pueda con los datos disponibles.
+    // Resample as much as possible with the available data.
     while (this.position + 1 < this.inLen) {
       const idx = this.position | 0;
       const frac = this.position - idx;
@@ -171,8 +169,8 @@ class PcmDownsampler extends AudioWorkletProcessor {
       this.position += this.ratio;
     }
 
-    // Descarta la entrada ya consumida. copyWithin mueve dentro del mismo
-    // buffer: sin asignar nada.
+    // Discard the already-consumed input. copyWithin moves within the same
+    // buffer: without allocating anything.
     const consumed = this.position | 0;
     if (consumed > 0) {
       this.inBuf.copyWithin(0, consumed, this.inLen);

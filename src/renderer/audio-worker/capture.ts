@@ -3,22 +3,22 @@ import { TARGET_SAMPLE_RATE, type Speaker } from '@shared/types';
 import { PCM_WORKLET_NAME, PCM_WORKLET_SOURCE, type WorkletMessage } from './pcm-worklet';
 
 /**
- * Captura de audio de dos fuentes independientes:
- *   - `me`   → micrófono (`getUserMedia`)
- *   - `them` → salida del sistema (`getDisplayMedia` con loopback)
+ * Audio capture from two independent sources:
+ *   - `me`   → microphone (`getUserMedia`)
+ *   - `them` → system output (`getDisplayMedia` with loopback)
  *
- * Mantenerlas separadas es lo que permite saber quién habla sin diarización:
- * el hablante se deduce del stream de origen.
+ * Keeping them separate is what lets us know who's talking without diarization:
+ * the speaker is deduced from the source stream.
  */
 
 /**
- * Traducir desde la ventana oculta.
+ * Translating from the hidden window.
  *
- * Sus errores **acaban en el overlay y en el dashboard** —«no se pudo abrir el
- * micrófono» sale por el mismo sitio que cualquier otro fallo de captura—, así
- * que tienen que salir en el idioma de la interfaz. No hay React aquí para
- * proveerlo por contexto: se lee una vez y se sigue el cambio, que es todo lo
- * que hace falta para tres cadenas.
+ * Its errors **end up in the overlay and the dashboard** —"couldn't open the
+ * microphone" comes out the same place as any other capture failure—, so they
+ * have to come out in the interface language. There's no React here to provide it
+ * by context: it's read once and the change is followed, which is all that's
+ * needed for three strings.
  */
 let uiLang: UILang = DEFAULT_UI_LANG;
 
@@ -50,7 +50,7 @@ interface Lane {
 const lanes = new Map<Speaker, Lane>();
 let workletUrl: string | null = null;
 
-/** Registra el worklet en un AudioContext, compilándolo desde un Blob URL. */
+/** Registers the worklet in an AudioContext, compiling it from a Blob URL. */
 async function attachWorklet(context: AudioContext): Promise<void> {
   if (!workletUrl) {
     workletUrl = URL.createObjectURL(new Blob([PCM_WORKLET_SOURCE], { type: 'text/javascript' }));
@@ -59,11 +59,11 @@ async function attachWorklet(context: AudioContext): Promise<void> {
 }
 
 /**
- * Conecta un MediaStream al worklet y empieza a emitir PCM.
+ * Connects a MediaStream to the worklet and starts emitting PCM.
  *
- * No se conecta a `context.destination` a propósito: hacerlo reproduciría el
- * audio capturado por los altavoces, creando un bucle de realimentación con
- * el loopback del sistema.
+ * It's deliberately not connected to `context.destination`: doing so would play
+ * the captured audio through the speakers, creating a feedback loop with the
+ * system loopback.
  */
 async function buildLane(
   speaker: Speaker,
@@ -94,14 +94,14 @@ async function buildLane(
   return { stream, context, node };
 }
 
-/** Loopback del sistema: lo que se oye por los altavoces = la otra persona. */
+/** System loopback: what you hear through the speakers = the other person. */
 async function captureLoopback(): Promise<MediaStream> {
-  // `video: true` es obligatorio para que getDisplayMedia funcione en Electron,
-  // aunque sólo queramos el audio. El main responde con audio:'loopback'.
+  // `video: true` is mandatory for getDisplayMedia to work in Electron, even
+  // though we only want the audio. Main responds with audio:'loopback'.
   const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
 
-  // Soltamos el video de inmediato: mantenerlo consumiría GPU y memoria por
-  // frames que nadie mira.
+  // We drop the video immediately: keeping it would consume GPU and memory for
+  // frames no one looks at.
   for (const track of stream.getVideoTracks()) {
     track.stop();
     stream.removeTrack(track);
@@ -113,13 +113,13 @@ async function captureLoopback(): Promise<MediaStream> {
   return stream;
 }
 
-/** Micrófono: lo que dices tú. */
+/** Microphone: what you say. */
 function captureMicrophone(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
     audio: {
-      // Desactivados a propósito: no queremos que el micrófono cancele el audio
-      // del otro lado, porque ya lo capturamos por separado con el loopback.
-      // Con la cancelación activa, el mic borraría parte de esa señal.
+      // Disabled on purpose: we don't want the microphone to cancel the audio
+      // from the other side, because we already capture it separately with the
+      // loopback. With cancellation on, the mic would erase part of that signal.
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: true,
@@ -141,9 +141,9 @@ export async function startCapture(
   let loopbackActive = false;
 
   if (wantsLoopback) {
-    // Cuando el usuario pidió el audio del sistema, es la fuente principal: si
-    // falla, propagamos en lugar de arrancar una sesión que no oye a nadie.
-    // Con `sources === 'mic'` ni siquiera se pide permiso de captura.
+    // When the user asked for the system audio, it's the main source: if it
+    // fails, we propagate instead of starting a session that hears no one. With
+    // `sources === 'mic'` capture permission isn't even requested.
     const loopback = await captureLoopback();
     lanes.set('them', await buildLane('them', loopback, callbacks));
     loopbackActive = true;
@@ -156,9 +156,9 @@ export async function startCapture(
       micActive = true;
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
-      // Con ambas fuentes, perder el micrófono degrada pero no impide seguir
-      // escuchando la reunión. Si el micrófono ERA la única fuente pedida, no
-      // hay nada que degradar: es un fallo.
+      // With both sources, losing the microphone degrades but doesn't prevent
+      // keeping listening to the meeting. If the microphone WAS the only source
+      // requested, there's nothing to degrade: it's a failure.
       if (loopbackActive) {
         callbacks.onError(t('err.micDegraded', { detail }));
       } else {
@@ -175,8 +175,8 @@ export async function stopCapture(): Promise<void> {
     lane.node.port.onmessage = null;
     lane.node.disconnect();
     for (const track of lane.stream.getTracks()) track.stop();
-    // Cerrar el AudioContext libera el hilo de audio; sin esto se acumulan
-    // contextos en cada start/stop hasta agotar el límite de Chromium.
+    // Closing the AudioContext frees the audio thread; without this, contexts
+    // pile up on every start/stop until Chromium's limit is exhausted.
     await lane.context.close().catch(() => undefined);
   }
   lanes.clear();

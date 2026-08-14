@@ -2,15 +2,14 @@ import { TARGET_SAMPLE_RATE, type AudioLevels, type Speaker } from '@shared/type
 import { startCapture, stopCapture, t, watchUILang } from './capture';
 
 /**
- * Punto de entrada del audio worker: una ventana oculta cuyo único trabajo es
- * capturar audio y enviar PCM al proceso main.
+ * Audio worker entry point: a hidden window whose only job is to capture audio
+ * and send PCM to the main process.
  *
- * Los niveles se envían con throttle y los chunks al ritmo del worklet
- * (~10/s por stream).
+ * Levels are sent throttled and chunks at the worklet's rate (~10/s per stream).
  */
 
 const levels: AudioLevels = { me: 0, them: 0 };
-/** ~20 fps para el medidor: suficiente para verse fluido sin saturar el IPC. */
+/** ~20 fps for the meter: enough to look smooth without saturating the IPC. */
 const LEVELS_INTERVAL_MS = 50;
 let levelsTimer: number | null = null;
 
@@ -18,8 +17,8 @@ function startLevelsReporting(): void {
   if (levelsTimer !== null) return;
   levelsTimer = window.setInterval(() => {
     window.api.audioWorker.sendLevels({ ...levels });
-    // Decaimiento suave: sin esto la barra se quedaría clavada en el último
-    // pico en cuanto el hablante hace una pausa.
+    // Gentle decay: without this the bar would stay stuck at the last peak as
+    // soon as the speaker pauses.
     levels.me *= 0.75;
     levels.them *= 0.75;
   }, LEVELS_INTERVAL_MS);
@@ -40,8 +39,8 @@ const callbacks = {
     window.api.audioWorker.sendChunk({ speaker, pcm, sampleRate: TARGET_SAMPLE_RATE });
   },
   onPeak: (speaker: Speaker, peak: number): void => {
-    // Guardamos el máximo entre reportes en lugar del último valor, para que
-    // un pico corto no se pierda entre dos ticks del temporizador.
+    // We keep the maximum between reports instead of the last value, so a short
+    // peak isn't lost between two timer ticks.
     if (peak > levels[speaker]) levels[speaker] = peak;
   },
   onError: (message: string): void => {
