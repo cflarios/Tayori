@@ -20,10 +20,10 @@ import type {
 } from '@shared/types';
 import type { ScrollCaptureState } from '@shared/ipc';
 
-/** Cuántas líneas de transcript mostramos; el overlay debe ocupar poco espacio. */
+/** How many transcript lines we show; the overlay must take little space. */
 const VISIBLE_LINES = 6;
 
-/** Engranaje y X, dibujados en línea para no depender de una fuente de iconos. */
+/** Gear and X, drawn inline so we don't depend on an icon font. */
 function GearIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -48,7 +48,7 @@ function CloseIcon() {
   );
 }
 
-/** Los clásicos corchetes angulares: resolver lo que hay en pantalla. */
+/** The classic angle brackets: solve what's on the screen. */
 function CodeIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -65,11 +65,10 @@ function CodeIcon() {
 }
 
 /**
- * Lista con marcas de verificación: responder el test de la pantalla.
+ * List with check marks: answer the quiz on the screen.
  *
- * Antes era una interrogación en un círculo, y ese icono se leía como "ayuda",
- * no como "responde el cuestionario". Una lista con checks dice justo lo que
- * hace el botón.
+ * It used to be a question mark in a circle, and that icon read as "help", not
+ * "answer the quiz". A list with checks says exactly what the button does.
  */
 function QuizIcon() {
   return (
@@ -86,7 +85,7 @@ function QuizIcon() {
   );
 }
 
-/** Flechas hacia dentro y hacia fuera: plegar y desplegar el panel. */
+/** Arrows in and out: collapse and expand the panel. */
 function CompactIcon({ compact }: { compact: boolean }) {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -98,9 +97,9 @@ function CompactIcon({ compact }: { compact: boolean }) {
         fill="none"
         d={
           compact
-            ? // Desplegar: flechas separándose.
+            ? // Expand: arrows moving apart.
               'M6.5 9.5 3 13m0 0h2.8M3 13v-2.8M9.5 6.5 13 3m0 0h-2.8M13 3v2.8'
-            : // Plegar: flechas juntándose.
+            : // Collapse: arrows moving together.
               'M3 13l3.5-3.5m0 0H3.7m2.8 0v2.8M13 3L9.5 6.5m0 0h2.8m-2.8 0V3.7'
         }
       />
@@ -108,7 +107,7 @@ function CompactIcon({ compact }: { compact: boolean }) {
   );
 }
 
-/** Hoja en blanco: empezar una conversación nueva. */
+/** Blank sheet: start a new conversation. */
 function NewChatIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -131,14 +130,14 @@ function NewChatIcon() {
 }
 
 /**
- * El interruptor de escucha, en el overlay.
+ * The listen switch, in the overlay.
  *
- * Antes sólo existía en el dashboard y en `Ctrl+Shift+M`. Eso obligaba a abrir
- * la configuración —que roba el foco, que es justo lo que la app evita— para lo
- * más frecuente que se hace con ella. El estado y el mando son el mismo control
- * a propósito: el punto verde ya decía si escuchaba, pero no se podía pulsar, y
- * dos elementos distintos para "qué pasa" y "cámbialo" cuestan sitio en una
- * barra que ya va llena.
+ * It used to exist only in the dashboard and on `Ctrl+Shift+M`. That forced you
+ * to open the settings —which steal the focus, exactly what the app avoids— for
+ * the most frequent thing you do with it. The state and the control are the
+ * same element on purpose: the green dot already said whether it was listening,
+ * but it couldn't be pressed, and two distinct elements for "what's happening"
+ * and "change it" cost room in a bar that's already full.
  */
 function ListenButton({ status }: { status: CaptureStatus }) {
   const t = useT();
@@ -152,8 +151,8 @@ function ListenButton({ status }: { status: CaptureStatus }) {
     void done.finally(() => setBusy(false));
   };
 
-  // El estado de error es accionable: se pulsa y se reintenta. Dejarlo como una
-  // etiqueta muerta obligaría a ir al dashboard para volver a arrancar.
+  // The error state is actionable: press it and it retries. Leaving it as a
+  // dead label would force a trip to the dashboard to start again.
   const label = starting
     ? t('overlay.starting')
     : status.state === 'error'
@@ -216,23 +215,23 @@ function SpeakerIcon() {
 }
 
 /**
- * Qué se escucha: uno de tres, no dos interruptores.
+ * What's being listened to: one of three, not two switches.
  *
- * Antes eran dos botones independientes, y pulsar "Ellos" con las dos fuentes
- * activas **apagaba** esa fuente. Nadie lo lee así: se lee como "escucha a
- * ellos". El resultado era el peor posible — el usuario pulsaba para oír al
- * interlocutor y conseguía justo lo contrario, quedarse sólo con su micrófono,
- * y encima en silencio, porque el disparo automático espera a "ellos" y sin ese
- * carril no salta nunca.
+ * They used to be two independent buttons, and pressing "Them" with both
+ * sources active **turned off** that source. Nobody reads it that way: it reads
+ * as "listen to them". The result was the worst possible one — the user pressed
+ * to hear the other party and got exactly the opposite, left with only their
+ * mic, and silent at that, because the auto-trigger waits for "them" and
+ * without that lane it never fires.
  *
- * `AudioSourceMode` siempre fue un enum de tres valores; pintarlo como dos
- * interruptores era la fuente de la ambigüedad. Con tres segmentos, pulsar
- * "Ellos" sólo puede significar una cosa.
+ * `AudioSourceMode` was always a three-value enum; painting it as two switches
+ * was the source of the ambiguity. With three segments, pressing "Them" can
+ * only mean one thing.
  *
- * Lo que sí se conserva es la doble lectura que tenían los chips: qué se
- * *supone* que se escucha (el segmento activo) y qué está entrando *de verdad*
- * (la barra, y el ámbar cuando la fuente estaba pedida pero no llegó a abrirse
- * — que da exactamente la misma pantalla que una sala en silencio).
+ * What is kept is the double reading the chips had: what's *supposed* to be
+ * heard (the active segment) and what's *actually* coming in (the bar, and the
+ * amber when the source was requested but never opened — which gives exactly
+ * the same screen as a silent room).
  */
 const SOURCE_MODES: { mode: AudioSourceMode; label: UIKey; hint: UIKey }[] = [
   { mode: 'mic', label: 'overlay.sourceMe', hint: 'overlay.sourceMeHint' },
@@ -254,7 +253,7 @@ function SourcePicker({
   const t = useT();
   const listening = status.state === 'listening';
 
-  /** Pedida pero sin abrirse: el estado que de otro modo no se ve en ninguna parte. */
+  /** Requested but not opened: the state that otherwise shows up nowhere. */
   const mute =
     listening &&
     ((mode !== 'system' && !status.micActive) || (mode !== 'mic' && !status.loopbackActive));
@@ -283,18 +282,18 @@ function SourcePicker({
               <SpeakerIcon />
             ) : null}
             {/*
-              El rótulo de "Ambos" no se esconde nunca: es el único segmento
-              sin icono, y sin texto sería un botón vacío. Los otros dos se
-              quedan en icono cuando falta ancho — un micrófono y un altavoz se
-              distinguen sin leerlos.
+              The "Both" label never hides: it's the only segment without an
+              icon, and with no text it would be an empty button. The other two
+              drop to just the icon when width is tight — a microphone and a
+              speaker are told apart without reading them.
             */}
             <span
               className={`source__label${source.mode === 'both' ? ' source__label--keep' : ''}`}
             >
               {t(source.label)}
             </span>
-            {/* El medidor sólo en las fuentes concretas: en "Ambos" habría que
-                enseñar dos y la barra dejaría de decir cuál se mueve. */}
+            {/* The meter only on the concrete sources: on "Both" you'd have to
+                show two and the bar would stop telling which one moves. */}
             {source.mode !== 'both' && (
               <span className="source__bar">
                 <span
@@ -337,9 +336,9 @@ function StatusBar({
   const compact = settings?.overlayCompact ?? false;
 
   return (
-    // `data-interactive` es lo que hace que la ventana deje de ignorar el ratón
-    // mientras el cursor está aquí; sin él, con los clics atravesables activos
-    // no se podría ni arrastrar ni pulsar los botones.
+    // `data-interactive` is what makes the window stop ignoring the mouse while
+    // the cursor is here; without it, with click-through active, you couldn't
+    // drag or press the buttons.
     <div className="statusbar" data-interactive onMouseDown={onDragStart}>
       <ListenButton status={status} />
 
@@ -351,25 +350,25 @@ function StatusBar({
       />
 
       {/*
-        El estado va PEGADO a la escucha, no junto a los botones.
+        The state sits RIGHT NEXT to the listen control, not by the buttons.
 
-        Antes vivía a la derecha, entre el espaciador y los iconos, y eso lo
-        colocaba visualmente en el grupo de las acciones: dos etiquetas que no se
-        pueden pulsar en mitad de una fila de cosas que sí. Aquí forman un solo
-        bloque de "qué está pasando" con el punto de escucha y las fuentes.
+        It used to live on the right, between the spacer and the icons, and that
+        placed it visually in the actions group: two labels you can't press in
+        the middle of a row of things you can. Here they form a single "what's
+        happening" block with the listen dot and the sources.
       */}
-      {/* Aviso explícito cuando el overlay SÍ es visible en una captura:
-          es el estado peligroso, así que no puede pasar desapercibido. */}
+      {/* Explicit warning when the overlay IS visible in a capture: it's the
+          dangerous state, so it can't go unnoticed. */}
       {settings && !settings.stealthEnabled && (
         <span className="statusbar__flag" title={t('overlay.visible')}>
           VISIBLE
         </span>
       )}
       {/*
-        Un idioma forzado que no coincide con lo que se habla no produce ningún
-        error: el reconocedor devuelve texto inventado en ese idioma. Al no estar
-        a la vista en ningún sitio, era imposible sospecharlo. `auto` no se
-        muestra porque no puede equivocarse.
+        A forced language that doesn't match what's being spoken produces no
+        error: the recognizer returns invented text in that language. With it
+        not shown anywhere, it was impossible to suspect. `auto` isn't shown
+        because it can't be wrong.
       */}
       {language !== 'auto' && (
         <span className="statusbar__lang" title={`Transcribiendo como "${language}"`}>
@@ -380,23 +379,25 @@ function StatusBar({
       <span className="statusbar__spacer" />
 
       {/*
-        Sólo lo que se usa CON ALGUIEN DELANTE, y con su nombre escrito.
+        Only what's used WITH SOMEONE IN FRONT OF YOU, and with its name spelled
+        out.
 
-        Aquí había seis iconos sin etiqueta y del mismo tamaño; cuatro de ellos
-        —plegar, empezar de cero, ajustes y cerrar— son de antes o después de la
-        llamada y se han ido al menú `⋯`. El hueco que dejan es exactamente lo
-        que hacía falta para poder escribir qué hace cada uno de los dos que
-        quedan: eran los que más se usan y los que menos se entendían.
+        There used to be six unlabeled icons all the same size; four of them
+        —collapse, start fresh, settings and close— are for before or after the
+        call and have moved to the `⋯` menu. The room they leave is exactly what
+        was needed to spell out what each of the two remaining ones does: they
+        were the most used and the least understood.
 
-        Siguen agrupados: a tamaño S el contenido no cabe (medido: 407 px en 354
-        disponibles) y lo primero que se recortaba era el último botón. En bloque
-        la barra los baja enteros a una segunda línea en vez de cortarlos.
+        They stay grouped: at size S the content doesn't fit (measured: 407 px
+        in 354 available) and the first thing that got clipped was the last
+        button. As a block the bar drops them whole to a second line instead of
+        cutting them.
       */}
       <div className="statusbar__actions">
-        {/* Va en la barra y no entre las acciones rápidas porque tiene que estar
-            disponible SIEMPRE: el caso normal es un ejercicio en pantalla sin
-            ninguna llamada abierta, así que no hay respuesta previa bajo la que
-            colgarlo ni audio que esperar. */}
+        {/* It goes in the bar and not among the quick actions because it has to
+            be available ALWAYS: the normal case is an exercise on screen with no
+            call open, so there's no previous answer to hang it under nor audio
+            to wait for. */}
         <button
           type="button"
           className="actionbtn"
@@ -406,9 +407,9 @@ function StatusBar({
           <CodeIcon />
           <span className="actionbtn__label">{t('overlay.codeAction')}</span>
         </button>
-        {/* Hermano del anterior: mismo camino, prompt distinto. Un test no se
-            responde como un algoritmo, y mezclarlos en un solo botón obligaría
-            al modelo a adivinar cuál de las dos cosas está mirando. */}
+        {/* Sibling of the previous one: same path, different prompt. A quiz
+            isn't answered like an algorithm, and merging them into one button
+            would force the model to guess which of the two it's looking at. */}
         <button
           type="button"
           className="actionbtn"
@@ -429,7 +430,7 @@ function StatusBar({
   );
 }
 
-/** Tres puntos: lo que no se usa en mitad de una llamada. */
+/** Three dots: what isn't used in the middle of a call. */
 function MoreIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -441,40 +442,41 @@ function MoreIcon() {
 }
 
 /**
- * Lo que no se usa durante una llamada, fuera de la barra.
+ * What isn't used during a call, out of the bar.
  *
- * ## Por qué existe
+ * ## Why it exists
  *
- * La barra tenía seis iconos con el mismo peso visual, y sólo dos —resolver
- * código y resolver un test— se usan con alguien delante. Los otros cuatro son
- * de antes o de después: plegar, empezar de cero, abrir los ajustes (que roban
- * el foco, así que a mitad de llamada no se tocan) y cerrar la app. Competían
- * por el mismo sitio que los dos que importan, y a tamaño S no cabían: el
- * contenido medía 407 px en 354 disponibles y lo primero que se recortaba era
- * la X.
+ * The bar had six icons with the same visual weight, and only two —solve code
+ * and solve a quiz— are used with someone in front of you. The other four are
+ * for before or after: collapse, start fresh, open the settings (which steal
+ * the focus, so they aren't touched mid-call) and close the app. They competed
+ * for the same room as the two that matter, and at size S they didn't fit: the
+ * content measured 407 px in 354 available and the first thing clipped was the
+ * X.
  *
- * Sacándolos de aquí, los dos que quedan pueden llevar **etiqueta de texto**,
- * que es lo que hacía falta para que se entendieran sin adivinar.
+ * Taking them out of here, the two that remain can carry a **text label**,
+ * which is what was needed for them to be understood without guessing.
  *
- * ## Los cierres, que es la parte con trampa
+ * ## The closings, which is the tricky part
  *
- * El overlay es `focusable: false`, así que **no hay evento de blur** que sirva
- * para cerrar: un menú abierto se quedaría abierto para siempre tapando la
- * respuesta. Se cierra por tres caminos:
+ * The overlay is `focusable: false`, so **there's no blur event** to close on:
+ * an open menu would stay open forever covering the answer. It closes by three
+ * routes:
  *
- * - Al **pulsar fuera** del menú, dentro de la ventana.
- * - Al **sacar el ratón de la ventana entera**, que es volver a la llamada.
- * - Con **Escape**, o al **elegir** cualquier cosa.
+ * - On **clicking outside** the menu, within the window.
+ * - On **moving the mouse out of the whole window**, which is returning to the
+ *   call.
+ * - With **Escape**, or on **choosing** anything.
  *
- * Lo que NO se usa es cerrar al salir el ratón del menú, y ése fue un bug de
- * verdad: entre el botón y el menú hay unos píxeles de separación visual, así
- * que bajar el cursor hacia las opciones **salía** de `.more` un instante y el
- * menú se cerraba justo cuando ibas a elegir. Un menú que depende de que el
- * ratón no cruce nunca un hueco es un menú roto; la separación se mantiene
- * porque se ve mejor, y el hueco se cubre con un puente en el CSS.
+ * What is NOT used is closing when the mouse leaves the menu, and that was a
+ * real bug: between the button and the menu there are a few pixels of visual
+ * gap, so moving the cursor down toward the options **left** `.more` for an
+ * instant and the menu closed just as you were about to choose. A menu that
+ * depends on the mouse never crossing a gap is a broken menu; the gap is kept
+ * because it looks better, and the gap is covered with a bridge in the CSS.
  *
- * Y con `data-interactive`, sin el cual los clics atravesables lo harían
- * inclicable justo en el modo recomendado durante una llamada.
+ * And with `data-interactive`, without which click-through would make it
+ * unclickable right in the mode recommended during a call.
  */
 function MoreMenu({
   compact,
@@ -494,13 +496,13 @@ function MoreMenu({
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') setOpen(false);
     };
-    // Pulsar fuera. En captura, para enterarse aunque el destino pare el evento.
+    // Click outside. In capture phase, to catch it even if the target stops the event.
     const onDown = (event: PointerEvent): void => {
       if (!(event.target as Element | null)?.closest('.more')) setOpen(false);
     };
-    // Salir de la ventana es volver a la llamada: el menú no se queda tapando
-    // la respuesta. Sirve además de red por si el clic de fuera no llega, que
-    // con los clics atravesables es exactamente lo que pasa.
+    // Leaving the window is returning to the call: the menu doesn't stay
+    // covering the answer. It also serves as a net in case the outside click
+    // doesn't arrive, which with click-through is exactly what happens.
     const onLeaveWindow = (): void => setOpen(false);
 
     window.addEventListener('keydown', onKey);
@@ -513,7 +515,7 @@ function MoreMenu({
     };
   }, [open]);
 
-  /** Cada entrada cierra el menú, haga lo que haga después. */
+  /** Each entry closes the menu, whatever it does afterwards. */
   const pick = (action: () => void) => () => {
     setOpen(false);
     action();
@@ -554,9 +556,9 @@ function MoreMenu({
           </button>
 
           {/*
-            Las dos que no se deshacen, separadas y al final. Nueva conversación
-            borra la transcripción y la memoria; la X cierra la app. Estaban a un
-            píxel de «plegar», que no cuesta nada.
+            The two that can't be undone, set apart and at the end. New
+            conversation clears the transcript and the memory; the X closes the
+            app. They were a pixel away from «collapse», which costs nothing.
           */}
           <div className="more__sep" />
           <button
@@ -584,9 +586,9 @@ function MoreMenu({
 }
 
 /**
- * Minutos:segundos desde que empezó la conversación, no la hora del reloj.
- * Al repasar lo que importa es "hace cuánto se dijo esto", y una hora absoluta
- * obliga a restar mentalmente.
+ * Minutes:seconds since the conversation started, not the clock time.
+ * When reviewing, what matters is "how long ago this was said", and an absolute
+ * time forces you to subtract in your head.
  */
 function elapsed(startedAt: number, at: number): string {
   const total = Math.max(0, Math.round((at - startedAt) / 1000));
@@ -603,9 +605,9 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
     endRef.current?.scrollIntoView({ block: 'end' });
   }, [segments]);
 
-  // El primer segmento es a la vez la condición de "hay algo" y el origen de
-  // tiempos, así que se resuelve de una vez: un `?? Date.now()` de respaldo
-  // sería una llamada impura en render (y la regla `purity` de eslint la caza).
+  // The first segment is at once the "there's something" condition and the time
+  // origin, so it's resolved in one go: a fallback `?? Date.now()` would be an
+  // impure call in render (and eslint's `purity` rule catches it).
   const first = segments[0];
   if (!first) {
     return <p className="empty">{t('overlay.waitingAudio')}</p>;
@@ -630,35 +632,36 @@ function TranscriptPane({ segments }: { segments: TranscriptSegment[] }) {
 }
 
 /**
- * Perfiles de respuesta como chips.
+ * Answer profiles as chips.
  *
- * `promptProfileId` ya existía, pero sólo se podía cambiar desde el dashboard,
- * que hay que abrir con el engranaje y roba el foco. Cambiar de registro a mitad
- * de una llamada es justo el momento en el que no puedes hacer ninguna de las dos.
- * `custom` no está aquí: se edita con un textarea y ése sí necesita el dashboard.
+ * `promptProfileId` already existed, but it could only be changed from the
+ * dashboard, which you open with the gear and which steals the focus. Switching
+ * register mid-call is exactly the moment when you can do neither of those.
+ * `custom` isn't here: it's edited with a textarea and that one does need the
+ * dashboard.
  */
 /**
- * Iconos de los perfiles.
+ * The profile icons.
  *
- * Reconocer una forma es más rápido que leer una palabra, y aquí se mira de
- * reojo con alguien delante: el icono es el que hace el trabajo y la etiqueta el
- * que desempata. Se dibujan en línea, como los demás del overlay, para no
- * depender de ninguna fuente de iconos.
+ * Recognizing a shape is faster than reading a word, and here you glance at it
+ * with someone in front of you: the icon does the work and the label breaks the
+ * tie. They're drawn inline, like the rest of the overlay's, so as not to
+ * depend on any icon font.
  */
 function ProfileIcon({ id }: { id: Settings['promptProfileId'] }) {
   const paths: Partial<Record<Settings['promptProfileId'], string>> = {
-    // Una persona: la entrevista es uno frente a uno.
+    // One person: the interview is one on one.
     interview:
       'M8 8.2a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8Zm-4.3 5.4c0-2.2 1.9-3.5 4.3-3.5s4.3 1.3 4.3 3.5',
-    // Dos personas: la reunión es de varios.
+    // Two people: the meeting is of several.
     meeting:
       'M6 7.6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm5 .4a1.7 1.7 0 1 0 0-3.4 1.7 1.7 0 0 0 0 3.4ZM2.4 13c0-1.9 1.6-3 3.6-3s3.6 1.1 3.6 3m.7-2.8c1.6.1 2.9 1 2.9 2.8',
-    // Birrete: una clase o una charla.
+    // Mortarboard: a class or a talk.
     lecture: 'M8 3 1.8 6.1 8 9.2l6.2-3.1L8 3Zm-3.6 4.6v3c0 1 1.6 1.8 3.6 1.8s3.6-.8 3.6-1.8v-3',
-    // Auriculares con micro: soporte.
+    // Headset with mic: support.
     support:
       'M3.2 10.4V8a4.8 4.8 0 0 1 9.6 0v2.4M2 9.6h1.6v3.2H2Zm10.4 0H14v3.2h-1.6Zm0 3.2c0 .9-1 1.4-2.2 1.4',
-    // Globo: idiomas, el intérprete.
+    // Globe: languages, the interpreter.
     interpreter:
       'M8 1.8a6.2 6.2 0 1 0 0 12.4A6.2 6.2 0 0 0 8 1.8ZM1.8 8h12.4M8 1.8c1.7 1.7 2.6 3.9 2.6 6.2s-.9 4.5-2.6 6.2M8 1.8C6.3 3.5 5.4 5.7 5.4 8s.9 4.5 2.6 6.2',
   };
@@ -685,11 +688,11 @@ const PROFILE_CHIPS = [
   ['lecture', 'overlay.profileLecture'],
   ['support', 'overlay.profileSupport'],
   ['coding', 'overlay.profileCoding'],
-  // También como chip, no sólo como botón de pantalla: sirve para un examen
-  // oral o una certificación que alguien lee en voz alta, y sus reglas ya
-  // contemplan la pregunta abierta.
+  // Also as a chip, not just as a screen button: it's for an oral exam or a
+  // certification that someone reads aloud, and its rules already account for
+  // the open question.
   ['quiz', 'overlay.profileQuiz'],
-  // Traduce en vez de responder; los idiomas se fijan en el dashboard.
+  // Translates instead of answering; the languages are set in the dashboard.
   ['interpreter', 'beh.profInterpreter'],
 ] as const satisfies readonly (readonly [Settings['promptProfileId'], UIKey])[];
 
@@ -711,9 +714,9 @@ function ProfileChips({
           aria-pressed={active === id}
           onClick={() => onChange(id)}
         >
-          {/* Código y test reutilizan los de la barra: es la MISMA acción vista
-              desde otro sitio, y darles dos dibujos distintos haría dudar de si
-              son lo mismo. */}
+          {/* Code and quiz reuse the ones from the bar: it's the SAME action
+              seen from another place, and giving them two different drawings
+              would make you doubt whether they're the same. */}
           {id === 'coding' ? <CodeIcon /> : id === 'quiz' ? <QuizIcon /> : <ProfileIcon id={id} />}
           {t(label)}
         </button>
@@ -726,24 +729,24 @@ function ProfileChips({
 }
 
 /*
- * Aquí hubo un desplegable de skills, y se quitó.
+ * There was a skills dropdown here, and it was removed.
  *
- * Pasaba el criterio de "¿lo necesitarías a mitad de una llamada?" pero fallaba
- * el otro, que en este panel pesa más: **cada control que sube al overlay le
- * quita sitio a lo que se ha venido a leer**. La skill activa se elige una vez
- * y se olvida —no es como el perfil, que se alterna— así que su sitio es el
- * dashboard, y para el caso puntual está `/skill` en la pestaña de escritura,
- * que no ocupa ni un píxel hasta que se teclea la barra.
+ * It passed the "would you need it mid-call?" test but failed the other one,
+ * which weighs more in this panel: **every control that rises to the overlay
+ * takes room from what you came to read**. The active skill is chosen once and
+ * forgotten —it's not like the profile, which you toggle— so its place is the
+ * dashboard, and for the odd case there's `/skill` in the write tab, which
+ * takes up not a pixel until you type the slash.
  */
 
 /**
- * Acciones rápidas sobre la última respuesta.
+ * Quick actions on the last answer.
  *
- * Son prompts enlatados que van por `askWithText`, la misma vía que la pestaña
- * de escritura: no hay un camino nuevo hacia el LLM que mantener. Cada una es
- * algo que si no tendrías que teclear entero mientras alguien te mira.
+ * They're canned prompts that go through `askWithText`, the same route as the
+ * write tab: there's no new path to the LLM to maintain. Each is something you'd
+ * otherwise have to type out in full while someone watches you.
  */
-/** Etiqueta del botón y prompt enlatado que envía. */
+/** The button's label and the canned prompt it sends. */
 type QuickAction = readonly [label: UIKey, prompt: UIKey];
 
 const QUICK_ACTIONS: readonly QuickAction[] = [
@@ -754,11 +757,11 @@ const QUICK_ACTIONS: readonly QuickAction[] = [
 ] as const;
 
 /**
- * Las mismas acciones, pero para código.
+ * The same actions, but for code.
  *
- * "Más corto" o "Seguimiento" no significan nada frente a una solución; lo que
- * se pide a continuación es siempre lo mismo: explicarla en voz alta —que es
- * justo lo que te van a pedir después de escribirla—, optimizarla, o probarla.
+ * "Shorter" or "Follow-up" mean nothing in front of a solution; what you ask
+ * for next is always the same: explain it aloud —which is exactly what you'll
+ * be asked for after writing it—, optimize it, or test it.
  */
 const CODE_ACTIONS: readonly QuickAction[] = [
   ['overlay.qaExplain', 'overlay.qaExplainPrompt'],
@@ -768,11 +771,13 @@ const CODE_ACTIONS: readonly QuickAction[] = [
 ] as const;
 
 /**
- * Las de test, y son la contrapartida de que la respuesta ya no explique nada.
+ * The quiz ones, and they're the flip side of the answer no longer explaining
+ * anything.
  *
- * El modo test devuelve una línea por pregunta y punto, porque es lo que hace
- * falta con el examen delante. El porqué no desaparece: se pide aquí, cuando ya
- * has contestado y quieres entender —o comprobar— lo que marcaste.
+ * Quiz mode returns one line per question and that's it, because that's what's
+ * needed with the exam in front of you. The why doesn't disappear: it's asked
+ * for here, once you've answered and want to understand —or check— what you
+ * marked.
  */
 const QUIZ_ACTIONS: readonly QuickAction[] = [
   ['overlay.qaWhy', 'overlay.qaWhyPrompt'],
@@ -830,7 +835,7 @@ function SizePicker({
   );
 }
 
-/** El micrófono del estado central. Grande y de un solo trazo, sin relleno. */
+/** The microphone of the central state. Large and single-stroke, no fill. */
 function MicGlyph() {
   return (
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
@@ -855,7 +860,7 @@ function MicGlyph() {
   );
 }
 
-/** Llave inglesa: falta configurar un proveedor. */
+/** Wrench: a provider still needs configuring. */
 function SetupGlyph() {
   return (
     <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
@@ -873,17 +878,17 @@ function SetupGlyph() {
 }
 
 /**
- * El estado del panel cuando todavía no hay nada que leer.
+ * The panel's state when there's still nothing to read.
  *
- * Sustituye a los dos vacíos que había antes —"Esperando audio…" en la
- * transcripción y "Ctrl+Enter para pedir una respuesta" en la sugerencia—, que
- * eran dos textos pequeños en cursiva compitiendo por decir lo mismo: que no
- * pasa nada todavía. Ahora lo dice una sola cosa, en el centro y en grande.
+ * It replaces the two empties there used to be —"Waiting for audio…" in the
+ * transcript and "Ctrl+Enter to ask for an answer" in the suggestion—, which
+ * were two small italic texts competing to say the same thing: that nothing is
+ * happening yet. Now a single thing says it, centered and large.
  *
- * El micrófono **es** el botón principal, no un adorno encima de él. Fundirlos
- * quita un elemento de la pantalla y elimina la ambigüedad de "¿pulso el icono
- * o el botón?": sólo hay una cosa que pulsar, y es la única con relleno de color
- * en todo el overlay.
+ * The microphone **is** the main button, not an ornament on top of it. Fusing
+ * them removes an element from the screen and eliminates the "do I press the
+ * icon or the button?" ambiguity: there's only one thing to press, and it's the
+ * only one with a color fill in the whole overlay.
  */
 function IdleHero({
   status,
@@ -910,8 +915,8 @@ function IdleHero({
           : 'idle';
 
   const copy = {
-    // Sin proveedor no hay nada que escuchar: el sitio del estado lo ocupa lo
-    // único que se puede hacer, en lugar de un aviso aparte encima del panel.
+    // With no provider there's nothing to listen to: the state's spot is taken
+    // by the only thing you can do, instead of a separate warning above the panel.
     setup: {
       title: t('overlay.setupTitle'),
       sub: t('overlay.setupSub'),
@@ -960,9 +965,9 @@ function IdleHero({
         onClick={press}
       >
         {/*
-          El anillo es un elemento aparte y no un `box-shadow` animado: así puede
-          escalar y desvanecerse sin mover ni un píxel del botón, que es lo que
-          diferencia un latido tranquilo de un elemento que da saltos.
+          The ring is a separate element and not an animated `box-shadow`: this
+          way it can scale and fade without moving a single pixel of the button,
+          which is what separates a calm pulse from an element that jumps around.
         */}
         <span className="hero__ring" aria-hidden="true" />
         {state === 'setup' ? <SetupGlyph /> : <MicGlyph />}
@@ -972,10 +977,10 @@ function IdleHero({
       <p className="hero__sub">{copy.sub}</p>
 
       {/*
-        La segunda vía, en voz baja. Se puede usar la app entera sin micrófono
-        —escribiendo, o resolviendo lo que hay en pantalla— y sin esto no habría
-        forma de saberlo desde aquí. Va en texto plano y no en botones para que
-        no compita con el círculo.
+        The second way, in a low voice. You can use the whole app without a
+        microphone —writing, or solving what's on the screen— and without this
+        there'd be no way to know it from here. It goes in plain text and not in
+        buttons so it doesn't compete with the circle.
       */}
       {state !== 'setup' && (
         <div className="hero__alt">
@@ -993,12 +998,12 @@ function IdleHero({
 }
 
 /**
- * Estado de primer arranque. El dashboard ya no se abre solo, así que sin esto
- * un usuario nuevo se quedaría mirando un overlay que no hace nada y sin pista
- * de dónde configurar las claves.
+ * First-run state. The dashboard no longer opens by itself, so without this a
+ * new user would be left staring at an overlay that does nothing and with no
+ * clue where to configure the keys.
  *
- * Sigue existiendo para cuando YA hay contenido en pantalla: ahí el estado
- * central no se muestra, y el aviso tiene que caber en una línea.
+ * It still exists for when there's ALREADY content on screen: there the central
+ * state isn't shown, and the warning has to fit on one line.
  */
 function SetupPrompt() {
   return (
@@ -1017,14 +1022,14 @@ function SetupPrompt() {
   );
 }
 
-/** Las dos formas de darle una pregunta al asistente. */
+/** The two ways of giving the assistant a question. */
 type InputTab = 'listen' | 'write';
 
 function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => void }) {
   const t = useT();
   return (
-    // `data-interactive`: sin esto las pestañas serían inclicables con los
-    // clics atravesables activos, que es el modo recomendado durante una llamada.
+    // `data-interactive`: without this the tabs would be unclickable with
+    // click-through active, which is the mode recommended during a call.
     <div className="tabs" data-interactive>
       {(
         [
@@ -1047,29 +1052,29 @@ function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => voi
 }
 
 /**
- * Pestaña de escritura: preguntar sin depender del audio.
+ * Write tab: asking without depending on audio.
  *
- * Requiere que el overlay sea enfocable, lo que sólo pasa mientras esta pestaña
- * está abierta — de ahí el efecto de `setInteractive` en `OverlayApp`. Es la
- * única situación en la que la app toma el foco, y el aviso del pie lo dice
- * porque es justo el comportamiento que el resto del programa evita.
+ * It requires the overlay to be focusable, which only happens while this tab is
+ * open — hence the `setInteractive` effect in `OverlayApp`. It's the only
+ * situation in which the app takes the focus, and the footer warning says so
+ * because it's exactly the behavior the rest of the program avoids.
  */
 function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: string) => void }) {
   const t = useT();
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // La ventana ya es enfocable cuando esto se monta; enfocar aquí evita que el
-  // usuario tenga que dar un clic extra para empezar a escribir.
+  // The window is already focusable when this mounts; focusing here saves the
+  // user an extra click to start writing.
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
   /*
-   * `null` mientras no se esté invocando nada; una lista —aunque esté vacía—
-   * en cuanto el texto empieza por `/` o `$`. La diferencia es lo que permite
-   * decir "no hay ninguna que se llame así" en lugar de no decir nada, que es
-   * indistinguible de que el autocompletado esté roto.
+   * `null` while nothing is being invoked; a list —even an empty one— as soon
+   * as the text starts with `/` or `$`. The difference is what lets it say
+   * "there's none by that name" instead of saying nothing, which is
+   * indistinguishable from the autocomplete being broken.
    */
   const matches = matchSkills(draft, skills);
 
@@ -1114,17 +1119,18 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          // Enter envía; Shift+Enter salta línea. No se usa Ctrl+Enter porque
-          // es un hotkey GLOBAL: lo intercepta el main y nunca llegaría aquí.
+          // Enter sends; Shift+Enter adds a line break. Ctrl+Enter isn't used
+          // because it's a GLOBAL hotkey: the main process intercepts it and it
+          // would never reach here.
           if (e.key !== 'Enter' || e.shiftKey) return;
           e.preventDefault();
 
           /*
-           * Con el menú abierto, Enter **completa** en lugar de enviar. Es lo
-           * que hace cualquier chat, y aquí además evita el caso tonto: enviar
-           * "/hum" a medias no invoca nada —el prefijo sólo cuenta si casa con
-           * una skill de verdad— así que el modelo recibiría esa palabra suelta
-           * como si fuera la pregunta. El segundo Enter ya envía.
+           * With the menu open, Enter **completes** instead of sending. It's
+           * what any chat does, and here it also avoids the silly case: sending
+           * a half-typed "/hum" invokes nothing —the prefix only counts if it
+           * matches a real skill— so the model would receive that stray word as
+           * if it were the question. The second Enter does send.
            */
           const first = matches?.[0];
           if (first) {
@@ -1146,13 +1152,12 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
 }
 
 /**
- * Explica un descarte del detector en lenguaje llano.
+ * Explains a detector skip in plain language.
  *
- * El motivo interno ("muletilla o comprobación de audio") es preciso pero no
- * dice qué hacer. Estos textos sí, y el de la comprobación de audio es
- * afirmativo a propósito: alguien que pregunta "¿me escuchas?" quiere saber si
- * la cadena funciona, y la respuesta honesta es que sí — sólo que eso no
- * dispara una sugerencia.
+ * The internal reason ("filler word or audio check") is precise but doesn't
+ * say what to do. These texts do, and the audio-check one is affirmative on
+ * purpose: someone who asks "can you hear me?" wants to know if the chain
+ * works, and the honest answer is yes — it just doesn't trigger a suggestion.
  */
 function explainSkip(reason: string): UIKey {
   if (reason.includes('muletilla')) {
@@ -1168,19 +1173,19 @@ function explainSkip(reason: string): UIKey {
 }
 
 /**
- * Un bloque de código con su botón de copiar.
+ * A code block with its copy button.
  *
- * Copiar es la acción principal aquí: nadie transcribe a mano una solución
- * desde un overlay mientras le miran. `data-interactive` no es opcional — sin
- * él el botón sería inclicable con los clics atravesables activos, que es el
- * modo recomendado durante una llamada.
+ * Copying is the main action here: nobody transcribes a solution by hand from
+ * an overlay while being watched. `data-interactive` isn't optional — without
+ * it the button would be unclickable with click-through active, which is the
+ * mode recommended during a call.
  */
 function CodeBlock({ block }: { block: AnswerBlock }) {
   const t = useT();
   const [copied, setCopied] = useState<'no' | 'sí' | 'falló'>('no');
 
-  // El aviso se apaga solo; sin la limpieza, un bloque que desaparece a mitad
-  // de temporizador dejaría un setState sobre un componente ya desmontado.
+  // The notice turns off by itself; without the cleanup, a block that
+  // disappears mid-timer would leave a setState on an already-unmounted component.
   useEffect(() => {
     if (copied === 'no') return;
     const timer = setTimeout(() => setCopied('no'), 1_200);
@@ -1188,13 +1193,13 @@ function CodeBlock({ block }: { block: AnswerBlock }) {
   }, [copied]);
 
   /*
-   * Por el main, no por `navigator.clipboard`.
+   * Through the main process, not through `navigator.clipboard`.
    *
-   * La API del navegador exige que el documento tenga el foco y el overlay es
-   * `focusable: false` a propósito, así que rechazaba siempre con "Document is
-   * not focused" — y el rechazo se perdía sin `catch`, con lo que el botón
-   * simplemente no hacía nada. El handler de permisos, que sólo concede
-   * `clipboard-read`, la habría bloqueado igual.
+   * The browser API requires the document to have the focus and the overlay is
+   * `focusable: false` on purpose, so it always rejected with "Document is not
+   * focused" — and the rejection was lost without a `catch`, so the button
+   * simply did nothing. The permissions handler, which only grants
+   * `clipboard-read`, would have blocked it anyway.
    */
   const copy = (): void => {
     window.api.clipboard
@@ -1207,8 +1212,8 @@ function CodeBlock({ block }: { block: AnswerBlock }) {
     <div className="code" data-interactive>
       <div className="code__head">
         <span className="code__lang">{block.lang || t('overlay.code')}</span>
-        {/* Mientras la valla siga abierta el código está a medias: ofrecer
-            copiarlo daría una función sin cerrar sin avisar de nada. */}
+        {/* While the fence is still open the code is half-written: offering to
+            copy it would hand over an unclosed function without any warning. */}
         {block.open ? (
           <span className="code__writing">{t('overlay.writing')}</span>
         ) : (
@@ -1229,10 +1234,11 @@ function CodeBlock({ block }: { block: AnswerBlock }) {
 }
 
 /**
- * Texto de una respuesta, con la negrita y el código en línea interpretados.
+ * An answer's text, with the bold and inline code interpreted.
  *
- * Los modelos marcan en negrita hagas lo que hagas —Claude subrayaba así la
- * opción correcta de cada test— y sin esto el panel enseñaba los asteriscos.
+ * Models mark things in bold no matter what you do —Claude highlighted the
+ * correct option of each quiz that way— and without this the panel showed the
+ * asterisks.
  */
 function InlineText({ text }: { text: string }) {
   const spans = parseInline(text);
@@ -1255,25 +1261,25 @@ function InlineText({ text }: { text: string }) {
 }
 
 /**
- * Modo teleprompter: la respuesta, una frase por línea.
+ * Teleprompter mode: the answer, one sentence per line.
  *
- * ## Por qué se ve así
+ * ## Why it looks like this
  *
- * Lo que delata que alguien lee **no es el tamaño de la letra**, es el
- * movimiento horizontal de los ojos: barrer una línea larga y volver al
- * principio de la siguiente se ve desde el otro lado de una videollamada. De ahí
- * las tres decisiones que definen esta vista, y ninguna es estética:
+ * What gives away that someone is reading **isn't the font size**, it's the
+ * horizontal movement of the eyes: sweeping a long line and returning to the
+ * start of the next is visible from the other side of a video call. Hence the
+ * three decisions that define this view, and none is aesthetic:
  *
- * - **Columna estrecha**, para que los ojos apenas se muevan. Poner la respuesta
- *   "en grande" empeora esto, porque una línea grande es más ancha.
- * - **La línea activa siempre en el mismo sitio**, con las vecinas atenuadas.
- *   No hay que buscar por dónde ibas: está donde estaba.
- * - **Se avanza a mano**, con un atajo global. En una conversación no sabes a
- *   qué ritmo vas a hablar; un desplazamiento automático se va justo cuando te
- *   interrumpen, y perseguirlo es mirar la pantalla.
+ * - **Narrow column**, so the eyes barely move. Setting the answer "large"
+ *   makes this worse, because a large line is wider.
+ * - **The active line always in the same spot**, with the neighbors dimmed.
+ *   You don't have to hunt for where you were: it's where it was.
+ * - **You advance by hand**, with a global shortcut. In a conversation you
+ *   don't know at what pace you'll speak; an automatic scroll drifts off right
+ *   when you're interrupted, and chasing it means looking at the screen.
  *
- * Se enseña la anterior y la siguiente, no sólo la actual: ver lo que viene es
- * lo que permite encadenar sin la pausa de leer.
+ * It shows the previous and the next, not just the current one: seeing what's
+ * coming is what lets you chain on without the pause of reading.
  */
 function Teleprompter({ text }: { text: string }) {
   const t = useT();
@@ -1287,8 +1293,8 @@ function Teleprompter({ text }: { text: string }) {
     [lines.length]
   );
 
-  // El atajo es global porque el overlay no tiene el foco: la tecla la recoge el
-  // proceso principal y la reenvía por IPC.
+  // The shortcut is global because the overlay doesn't have the focus: the key
+  // is picked up by the main process and forwarded over IPC.
   useEffect(() => window.api.teleprompter.onMove(move), [move]);
 
   if (lines.length === 0) return null;
@@ -1302,8 +1308,8 @@ function Teleprompter({ text }: { text: string }) {
       title={t('overlay.prompterHint')}
       onClick={() => move(1)}
       onContextMenu={(event) => {
-        // Clic derecho para retroceder: es el gesto más corto que existe para
-        // corregir un avance de más, y no hay menú contextual que estorbar.
+        // Right-click to go back: it's the shortest gesture there is to correct
+        // an over-advance, and there's no context menu to get in the way.
         event.preventDefault();
         move(-1);
       }}
@@ -1326,11 +1332,12 @@ function Teleprompter({ text }: { text: string }) {
 }
 
 /**
- * Copia el texto completo de la respuesta al portapapeles.
+ * Copies the answer's full text to the clipboard.
  *
- * Como el copiar de un bloque de código, pasa por el main (`clipboard.write`):
- * `navigator.clipboard` exige foco y el overlay es `focusable: false`, así que
- * fallaría siempre. Da un «Copiado» breve como confirmación.
+ * Like the copy of a code block, it goes through the main process
+ * (`clipboard.write`): `navigator.clipboard` requires focus and the overlay is
+ * `focusable: false`, so it would always fail. It gives a brief «Copied» as
+ * confirmation.
  */
 function CopyAnswerButton({ text }: { text: string }) {
   const t = useT();
@@ -1366,7 +1373,7 @@ function CopyAnswerButton({ text }: { text: string }) {
   );
 }
 
-/** El cuerpo de una respuesta: texto, salvo lo que venga entre vallas. */
+/** The body of an answer: text, except for what comes between fences. */
 function AnswerBody({ text }: { text: string }) {
   const blocks = parseAnswerBlocks(text);
 
@@ -1396,8 +1403,8 @@ function AnswerPane({
 }) {
   const t = useT();
   if (!answer) {
-    // El descarte sólo se enseña mientras no haya respuesta: si ya hay una en
-    // pantalla, taparla con un aviso sobre una frase suelta sería peor.
+    // The skip is only shown while there's no answer: if there's already one on
+    // screen, covering it with a warning about a stray sentence would be worse.
     if (skip) {
       return (
         <div className="skip">
@@ -1406,17 +1413,17 @@ function AnswerPane({
         </div>
       );
     }
-    // El estado vacío dice lo que se puede hacer AHORA. Antes decía siempre
-    // "Ctrl+Enter para pedir una respuesta", que con la escucha parada no sirve
-    // de nada: no hay transcripción de la que sacar una pregunta.
+    // The empty state says what can be done NOW. It used to always say
+    // "Ctrl+Enter to ask for an answer", which with listening stopped is
+    // useless: there's no transcript to draw a question from.
     return (
       <p className="empty">{listening ? t('overlay.emptyIdle') : t('overlay.emptyStopped')}</p>
     );
   }
   if (answer.status === 'thinking') {
-    // El modo código tarda más y por una razón distinta —la imagen se sube y se
-    // lee entera antes del primer token—, así que decirlo evita que parezca que
-    // se ha colgado justo cuando más prisa hay.
+    // Code mode takes longer and for a different reason —the image is uploaded
+    // and read in full before the first token—, so saying it keeps it from
+    // looking like it's hung just when there's the most hurry.
     return (
       <p className="empty">
         {answer.trigger === 'code' ? t('overlay.readingScreen') : t('overlay.thinking')}
@@ -1427,19 +1434,19 @@ function AnswerPane({
     return <div className="answer answer--error">{answer.error ?? t('overlay.unknownError')}</div>;
   }
   /*
-   * El teleprompter sólo entra con la respuesta TERMINADA.
+   * The teleprompter only kicks in with the answer FINISHED.
    *
-   * Durante el streaming las líneas se recalculan con cada token y la que estás
-   * leyendo se mueve debajo de los ojos, que es lo contrario de lo que este modo
-   * viene a resolver. Mientras llega se ve la respuesta normal.
+   * During streaming the lines are recomputed with each token and the one
+   * you're reading moves under your eyes, which is the opposite of what this
+   * mode comes to solve. While it arrives the normal answer is shown.
    */
   /*
-   * `key` con el id de la respuesta, y no un efecto que ponga el índice a cero.
+   * `key` with the answer's id, and not an effect that sets the index to zero.
    *
-   * Una respuesta nueva tiene que empezar por su primera línea; si no, arrancas
-   * por donde te quedaste en la anterior y lo primero que haces al leer es
-   * darte cuenta de que estás en el sitio equivocado. Remontar lo consigue sin
-   * `setState` dentro de un efecto, que es lo que este proyecto ya evita.
+   * A new answer has to start at its first line; otherwise you start where you
+   * left off in the previous one and the first thing you do when reading is
+   * realize you're in the wrong place. Remounting achieves it without a
+   * `setState` inside an effect, which is what this project already avoids.
    */
   if (teleprompter && answer.status === 'done') {
     return <Teleprompter key={answer.id} text={answer.text} />;
@@ -1448,12 +1455,11 @@ function AnswerPane({
 }
 
 /**
- * Navegación por las respuestas de esta conversación.
+ * Navigation through this conversation's answers.
  *
- * Hasta ahora una respuesta la borraba la siguiente y sólo se recuperaba
- * abriendo el historial del dashboard — con lo que eso implica: engranaje,
- * ventana nueva y foco robado. Es la última cosa frecuente que obligaba a salir
- * del overlay.
+ * Until now an answer was erased by the next one and only recovered by opening
+ * the dashboard's history — with all that implies: gear, new window and stolen
+ * focus. It's the last frequent thing that forced you out of the overlay.
  */
 function AnswerNav({
   total,
@@ -1497,24 +1503,24 @@ function AnswerNav({
 }
 
 /**
- * La memoria del asistente, con su botón para vaciarla.
+ * The assistant's memory, with its button to clear it.
  *
- * Cada turno recordado se reenvía **entero** en la siguiente consulta, y eso no
- * se veía en ninguna parte. Importa sobre todo con un modelo local: Ollama
- * aplica su propia ventana de contexto y descarta lo que no cabe **sin dar
- * ningún error**, así que el síntoma de haberla llenado es que el modelo empieza
- * a olvidar cosas recientes, que es justo lo que no hace sospechar del contexto.
+ * Each remembered turn is resent **whole** on the next query, and that showed
+ * up nowhere. It matters above all with a local model: Ollama applies its own
+ * context window and discards what doesn't fit **without any error**, so the
+ * symptom of having filled it is that the model starts forgetting recent
+ * things, which is exactly what keeps you from suspecting the context.
  *
- * Es distinto de "nueva conversación", que además vacía la transcripción y
- * cierra la conversación en disco. Aquí se conserva todo eso.
+ * It's different from "new conversation", which also clears the transcript and
+ * closes the conversation on disk. Here all of that is kept.
  */
 /**
- * Estado de la captura por trozos, junto a "Sugerencia".
+ * State of the chunk capture, next to "Suggestion".
  *
- * Aparece sólo cuando hay algo que enseñar: trozos en la pila o el bucle
- * automático grabando. Los dos botones —Resolver y ✕— hacen lo mismo que los
- * atajos, para quien no los recuerda. `data-interactive` es imprescindible: sin
- * él, con los clics atravesables activos, el ratón pasaría de largo.
+ * It appears only when there's something to show: chunks on the stack or the
+ * automatic loop recording. The two buttons —Solve and ✕— do the same as the
+ * shortcuts, for anyone who doesn't remember them. `data-interactive` is
+ * essential: without it, with click-through active, the mouse would pass on by.
  */
 function ScrollChip({ state }: { state: ScrollCaptureState }) {
   const t = useT();
@@ -1561,10 +1567,10 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
     return () => clearTimeout(timer);
   }, [done]);
 
-  // Sin memoria no hay nada que enseñar ni que olvidar: el chip sólo aparece
-  // cuando el asistente ya recuerda algo. La excepción es el instante posterior
-  // a vaciarla — si no, al pulsar el chip se desvanece sin decir nada y el
-  // "olvidado" no llega a verse nunca.
+  // With no memory there's nothing to show or to forget: the chip only appears
+  // once the assistant already remembers something. The exception is the moment
+  // right after clearing it — otherwise, on pressing the chip it vanishes
+  // without saying anything and the "forgotten" is never seen.
   if (turns === 0 && !done) return null;
 
   return (
@@ -1574,11 +1580,11 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
       data-interactive
       title={t('overlay.memoryTitle', { turns, max })}
       onClick={() => {
-        // Se marca ANTES de llamar, y no en el `.then`. Vaciar la memoria deja
-        // el contador a cero, y con cero el chip no se pinta: para cuando
-        // llegara la respuesta, este componente ya estaría desmontado y el
-        // aviso no se vería nunca. Ambos cambios de estado caen en el mismo
-        // render, así que el chip sobrevive para decir que lo hizo.
+        // Marked BEFORE calling, and not in the `.then`. Clearing the memory
+        // leaves the counter at zero, and with zero the chip isn't drawn: by
+        // the time the response arrived, this component would already be
+        // unmounted and the notice would never be seen. Both state changes fall
+        // in the same render, so the chip survives to say it did it.
         setDone(true);
         void window.api.ask.forgetContext().catch(() => setDone(false));
       }}
@@ -1589,11 +1595,11 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
 }
 
 /**
- * Qué acciones rápidas tocan según lo que hay en pantalla.
+ * Which quick actions apply based on what's on screen.
  *
- * Manda la respuesta que se está mirando y no el perfil configurado: un
- * Ctrl+Alt+Q con el perfil en "Entrevista" deja delante una lista de respuestas
- * de test, y lo que se querrá pedir es sobre ellas.
+ * The answer being looked at rules, not the configured profile: a Ctrl+Alt+Q
+ * with the profile on "Interview" leaves a list of quiz answers in front of
+ * you, and what you'll want to ask about is those.
  */
 function quickActionKind(answer: Answer, settings: Settings | null): 'chat' | 'code' | 'quiz' {
   if (answer.trigger === 'code' || settings?.promptProfileId === 'coding') return 'code';
@@ -1601,7 +1607,7 @@ function quickActionKind(answer: Answer, settings: Settings | null): 'chat' | 'c
   return 'chat';
 }
 
-/** Cuántas respuestas se guardan para poder volver atrás. */
+/** How many answers are kept so you can go back. */
 const ANSWER_MEMORY = 20;
 
 export function OverlayApp() {
@@ -1614,10 +1620,10 @@ export function OverlayApp() {
   const [levels, setLevels] = useState<AudioLevels>({ me: 0, them: 0 });
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   /**
-   * Las respuestas de la conversación, de la más antigua a la más reciente, y
-   * cuál se está mirando. `null` en `viewing` significa "la última", que es lo
-   * que hace que una respuesta en streaming se siga sola sin saltar de sitio
-   * cuando el usuario está leyendo una anterior.
+   * The conversation's answers, from oldest to most recent, and which one is
+   * being looked at. `null` in `viewing` means "the last one", which is what
+   * makes a streaming answer follow along by itself without jumping around when
+   * the user is reading an earlier one.
    */
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [viewing, setViewing] = useState<number | null>(null);
@@ -1639,21 +1645,21 @@ export function OverlayApp() {
   const onDragStart = useOverlayDrag();
 
   /*
-   * Este componente **provee** el idioma, así que no puede consumirlo con
-   * `useT()`: un contexto no se lee en el mismo componente que lo pone. Para
-   * sus propias cadenas traduce directamente contra los settings, que es de
-   * donde salía el valor de todas formas.
+   * This component **provides** the language, so it can't consume it with
+   * `useT()`: a context isn't read in the same component that sets it. For its
+   * own strings it translates directly against the settings, which is where the
+   * value came from anyway.
    */
   const t = (key: UIKey, vars?: Record<string, string | number>): string =>
     translate(settings?.uiLanguage ?? DEFAULT_UI_LANG, key, vars);
 
   /**
-   * El overlay sólo es enfocable mientras se escribe.
+   * The overlay is only focusable while writing.
    *
-   * La limpieza del efecto no es opcional: si la ventana se quedara enfocable
-   * acabaría robando el foco de la videollamada, que es exactamente lo que la
-   * app existe para evitar (CONTEXT §4). Por eso se revierte al cambiar de
-   * pestaña y también al desmontar.
+   * The effect's cleanup isn't optional: if the window stayed focusable it
+   * would end up stealing the video call's focus, which is exactly what the app
+   * exists to avoid (CONTEXT §4). That's why it's reverted on switching tabs
+   * and also on unmount.
    */
   useEffect(() => {
     if (tab !== 'write') return;
@@ -1664,14 +1670,14 @@ export function OverlayApp() {
   }, [tab]);
 
   /*
-   * La lista de skills se refresca al abrir la pestaña de escritura, además de
-   * al arrancar.
+   * The skills list refreshes on opening the write tab, in addition to on
+   * startup.
    *
-   * No hay evento de "cambió la carpeta" y no se ha puesto uno: eso obligaría a
-   * vigilar un directorio del usuario para siempre por un cambio que ocurre
-   * dos veces al mes. Releer al entrar cubre el caso real —crear una skill y
-   * usarla sin reiniciar— y cuesta una lectura de disco en el momento en el que
-   * el usuario acaba de decidir escribir, no en mitad de una respuesta.
+   * There's no "the folder changed" event and none has been added: that would
+   * force watching a user directory forever for a change that happens twice a
+   * month. Re-reading on entry covers the real case —create a skill and use it
+   * without restarting— and costs one disk read at the moment the user has just
+   * decided to write, not in the middle of an answer.
    */
   useEffect(() => {
     if (tab === 'write') void window.api.skills.list().then(setSkills);
@@ -1686,19 +1692,19 @@ export function OverlayApp() {
     void api.skills.list().then(setSkills);
 
     /*
-     * "¿Está configurada la IA?" se vuelve a preguntar en CADA cambio, no sólo
-     * al arrancar.
+     * "Is the AI configured?" is asked again on EVERY change, not just on
+     * startup.
      *
-     * El fallo que arregla se ve en pantalla y no en ningún log: bastaba con
-     * probar otro proveedor un momento —uno sin clave— para que el panel se
-     * quedara con «Falta configurar la IA» **para siempre**, aunque se volviera
-     * al de antes. El aviso se calculaba una vez al montar y nada lo revisaba.
+     * The bug it fixes shows on screen and in no log: it was enough to try
+     * another provider for a moment —one without a key— for the panel to be
+     * stuck with «The AI needs configuring» **forever**, even after switching
+     * back. The warning was computed once on mount and nothing revisited it.
      *
-     * Y se recalcula por los dos lados, porque el veredicto depende de dos
-     * cosas que cambian por separado: el proveedor elegido (settings) y si su
-     * clave sirve (secrets). Escuchar sólo una dejaba la mitad de los casos
-     * mintiendo — pegar la clave que falta y que el aviso siguiera ahí es el
-     * más frustrante de los dos.
+     * And it's recomputed from both sides, because the verdict depends on two
+     * things that change separately: the chosen provider (settings) and whether
+     * its key works (secrets). Listening to only one left half the cases lying —
+     * pasting the missing key and having the warning still there is the more
+     * frustrating of the two.
      */
     const recheck = (current?: Settings): void => {
       void Promise.all([
@@ -1713,19 +1719,19 @@ export function OverlayApp() {
         setSettings(next);
         recheck(next);
       }),
-      // Sin argumento a propósito: lo que llega por ahí es la presencia, no los
-      // settings, y `recheck` los pediría de nuevo igualmente.
+      // No argument on purpose: what arrives there is the presence, not the
+      // settings, and `recheck` would request them again anyway.
       api.secrets.onChange(() => recheck()),
       api.capture.onStatus(setStatus),
       api.capture.onLevels(setLevels),
       api.screenshot.onCaptured(setShot),
-      // Un descarte deja de importar en cuanto llega una respuesta de verdad.
+      // A skip stops mattering as soon as a real answer arrives.
       api.transcript.onAutoSkip(setSkip),
       api.ask.onAnswer((next) => {
-        // `answer` se emite en CADA actualización del streaming, así que la
-        // misma respuesta llega decenas de veces: se sustituye por id en lugar
-        // de acumularse. Una abortada se queda en la lista sólo si llegó a
-        // escribir algo; si no, sería un hueco vacío por el que navegar.
+        // `answer` is emitted on EVERY streaming update, so the same answer
+        // arrives dozens of times: it's replaced by id rather than accumulated.
+        // An aborted one stays in the list only if it got to write something;
+        // otherwise it would be an empty gap to navigate through.
         setAnswers((prev) => {
           const idx = prev.findIndex((a) => a.id === next.id);
           if (idx !== -1) {
@@ -1736,13 +1742,13 @@ export function OverlayApp() {
           return [...prev, next].slice(-ANSWER_MEMORY);
         });
         setSkip(null);
-        // La captura se consume con la respuesta: dejar el thumbnail visible
-        // haría creer que sigue adjunta a la siguiente pregunta.
+        // The capture is consumed with the answer: leaving the thumbnail
+        // visible would make you think it's still attached to the next question.
         if (next.status === 'streaming' || next.status === 'done') setShot(null);
       }),
       api.transcript.onSegment((seg) => {
-        // Un segmento parcial se reemplaza in situ; uno nuevo se añade.
-        // Sin esto, el transcript se llenaría de versiones intermedias.
+        // A partial segment is replaced in place; a new one is appended.
+        // Without this, the transcript would fill with intermediate versions.
         setSegments((prev) => {
           const idx = prev.findIndex((s) => s.id === seg.id);
           if (idx === -1) return [...prev.slice(-80), seg];
@@ -1751,16 +1757,16 @@ export function OverlayApp() {
           return next;
         });
       }),
-      // El main ya limpió su buffer; el overlay tiene su propia copia en estado
-      // de React y se quedaría enseñando la conversación anterior.
+      // The main process already cleared its buffer; the overlay has its own
+      // copy in React state and would keep showing the previous conversation.
       api.history.onReset(() => {
         setSegments([]);
         setAnswers([]);
         setViewing(null);
         setShot(null);
       }),
-      // Un motor que falla carril a carril se veía exactamente igual que una
-      // sala en silencio: el overlay decía "Escuchando" y no llegaba nada.
+      // An engine that fails lane by lane looked exactly like a silent room:
+      // the overlay said "Listening" and nothing arrived.
       api.transcript.onError(setSttError),
       api.notices.on(setNotice),
       api.memory.onChange(setMemory),
@@ -1772,19 +1778,19 @@ export function OverlayApp() {
 
   const compact = settings?.overlayCompact ?? false;
 
-  // Qué respuesta se enseña: la que se esté mirando, o la última. Seguir a la
-  // última por defecto es lo que mantiene el comportamiento de siempre — una
-  // respuesta nueva sustituye a la anterior — sin perder las de antes.
+  // Which answer is shown: the one being looked at, or the last. Following the
+  // last by default is what keeps the usual behavior — a new answer replaces
+  // the previous one — without losing the earlier ones.
   const index = viewing ?? answers.length - 1;
   const answer = answers[index] ?? null;
 
   /*
-   * El estado central manda mientras no haya nada que leer.
+   * The central state rules while there's nothing to read.
    *
-   * "Nada que leer" es literal: ni transcripción ni respuestas. En cuanto llega
-   * lo primero, el panel vuelve a su reparto normal y el contenido ocupa el
-   * sitio — el vacío es un estado, no una pantalla aparte. La pestaña de
-   * escritura lo desactiva porque ahí el usuario ya eligió qué hacer.
+   * "Nothing to read" is literal: no transcript and no answers. As soon as the
+   * first thing arrives, the panel returns to its normal layout and the content
+   * takes the spot — the empty is a state, not a separate screen. The write tab
+   * disables it because there the user has already chosen what to do.
    */
   const hero = tab === 'listen' && segments.length === 0 && answers.length === 0;
 
@@ -1794,14 +1800,14 @@ export function OverlayApp() {
         className="panel"
         style={{
           opacity: settings?.overlayOpacity ?? 1,
-          // Sólo escala el CONTENIDO: la barra y los chips se quedan como están,
-          // o con la letra grande los controles se comerían el panel entero.
+          // Only the CONTENT scales: the bar and the chips stay as they are, or
+          // with large text the controls would eat the whole panel.
           ['--font-scale' as string]: clampFontScale(settings?.overlayFontScale ?? 1),
         }}
       >
-        {/* Marco discontinuo rojo cuando el sigilo está apagado: el overlay SÍ
-            sale en la captura ahora mismo, y el borde lo grita en el propio borde
-            de la ventana, no sólo con el «VISIBLE» de la barra. */}
+        {/* Dashed red frame when stealth is off: the overlay DOES show in the
+            capture right now, and the border shouts it on the window's own edge,
+            not just with the «VISIBLE» in the bar. */}
         {settings && !settings.stealthEnabled && (
           <div className="detectable-frame" aria-hidden="true" />
         )}
@@ -1815,9 +1821,9 @@ export function OverlayApp() {
           onToggleCompact={() => void window.api.settings.update({ overlayCompact: !compact })}
         />
 
-        {/* Con el estado central visible, el aviso de configuración vive dentro
-          de él: dos sitios diciendo lo mismo es exactamente el ruido que este
-          rediseño quita. */}
+        {/* With the central state visible, the setup warning lives inside it:
+          two places saying the same thing is exactly the noise this redesign
+          removes. */}
         {!configured && !hero && <SetupPrompt />}
 
         {sttError && (
@@ -1851,11 +1857,11 @@ export function OverlayApp() {
         )}
 
         {/*
-        Lo que el modo compacto pliega: perfiles, transcripción y pie de atajos.
-        Es todo lo que sirve para PREPARAR o COMPROBAR; lo que se deja es lo que
-        sirve para leer. La barra se queda entera porque desde ella se despliega
-        otra vez —esconder el botón que devuelve lo escondido sería una trampa—,
-        y porque parar la escucha tiene que estar siempre a mano.
+        What compact mode folds away: profiles, transcript and the shortcut
+        footer. It's everything that serves to PREPARE or CHECK; what's left is
+        what serves to read. The bar stays whole because it's from there that
+        you expand again —hiding the button that brings back what's hidden would
+        be a trap—, and because stopping listening has to always be at hand.
       */}
         {!compact && settings && (
           <ProfileChips
@@ -1865,10 +1871,10 @@ export function OverlayApp() {
         )}
 
         {/*
-        Con el estado central no se pintan las pestañas: en ese momento hay una
-        sola cosa que hacer, y una fila de pestañas encima de un panel vacío es
-        justo lo que hace que un vacío parezca sin terminar en lugar de
-        deliberado. La otra vía —escribir— la ofrece el propio estado central.
+        With the central state the tabs aren't drawn: at that moment there's a
+        single thing to do, and a row of tabs on top of an empty panel is just
+        what makes an empty look unfinished rather than deliberate. The other
+        way —writing— is offered by the central state itself.
       */}
         {hero ? (
           <IdleHero status={status} configured={configured} onWrite={() => setTab('write')} />
@@ -1895,8 +1901,8 @@ export function OverlayApp() {
           </div>
         )}
 
-        {/* La sección de respuesta desaparece con el estado central: su cabecera
-          y su texto de "todavía nada" eran el segundo vacío que competía. */}
+        {/* The answer section disappears with the central state: its header and
+          its "nothing yet" text were the second competing empty. */}
         {!hero && (
           <div className="section" style={{ flex: 1 }}>
             <div className="section__head">
@@ -1904,23 +1910,23 @@ export function OverlayApp() {
               <AnswerNav
                 total={answers.length}
                 index={index}
-                // Volver a la última desengancha la navegación: a partir de ahí las
-                // respuestas nuevas vuelven a seguirse solas.
+                // Going back to the last unhooks the navigation: from there on
+                // new answers follow along by themselves again.
                 onGo={(next) => setViewing(next === answers.length - 1 ? null : next)}
               />
               {/*
-            Con qué se está respondiendo. Vale un renglón y ahorra el viaje al
-            dashboard: al leer una respuesta floja, lo primero que se quiere
-            saber es con qué modelo salió, y con tres proveedores configurables
-            es fácil creer que estás en uno y estar en otro.
+            What it's answering with. It's worth one line and saves the trip to
+            the dashboard: when reading a weak answer, the first thing you want
+            to know is which model it came out of, and with three configurable
+            providers it's easy to believe you're on one and be on another.
           */}
               {settings && (
                 <span
                   className="section__meta"
                   title={
-                    // Con modelo propio para la pantalla, saber cuál respondió deja
-                    // de ser evidente: la etiqueta sigue a la respuesta que hay
-                    // delante, no a los ajustes.
+                    // With a dedicated model for the screen, knowing which one
+                    // answered stops being obvious: the label follows the answer
+                    // in front of you, not the settings.
                     answer
                       ? t('overlay.generatedBy', {
                           provider: answer.providerId,
@@ -1936,15 +1942,15 @@ export function OverlayApp() {
               )}
               <MemoryChip turns={memory.turns} max={memory.max} />
               <ScrollChip state={scroll} />
-              {/* Copiar la respuesta entera. Aparece cuando ya está terminada (con
-                  la generación en curso está el botón «Parar»), para cualquier tipo
-                  de respuesta, no solo código. */}
+              {/* Copy the whole answer. It appears once it's finished (with
+                  generation in progress there's the «Stop» button), for any kind
+                  of answer, not just code. */}
               {answer && answer.status === 'done' && answer.text.trim() && (
                 <CopyAnswerButton text={answer.text} />
               )}
-              {/* Parar una generación ya existía en el IPC pero no tenía botón: sólo
-              se cancelaba preguntando otra cosa, que es una forma cara de decir
-              "para". */}
+              {/* Stopping a generation already existed in the IPC but had no
+              button: it was only cancelled by asking something else, which is an
+              expensive way to say "stop". */}
               {answer && (answer.status === 'thinking' || answer.status === 'streaming') && (
                 <button
                   type="button"
@@ -1955,9 +1961,9 @@ export function OverlayApp() {
                   Parar
                 </button>
               )}
-              {/* Extiende una solución de código que se cortó. Sólo en la última
-                  respuesta (el motor continúa la que tiene en vuelo) y sólo en
-                  código, que es donde el tope aprieta. */}
+              {/* Extends a code solution that got cut off. Only on the last
+                  answer (the engine continues the one it has in flight) and only
+                  on code, which is where the cap bites. */}
               {answer &&
                 answer.status === 'done' &&
                 answer.trigger === 'code' &&
@@ -1983,32 +1989,31 @@ export function OverlayApp() {
         )}
 
         {/*
-        Sólo tienen sentido cuando hay una respuesta sobre la que actuar:
-        "Sigue" o "Más corto" sin nada previo pedirían al modelo que ampliara el
-        vacío.
+        They only make sense when there's an answer to act on: "Continue" or
+        "Shorter" with nothing prior would ask the model to expand the void.
 
-        Y desaparecen mientras se navega hacia atrás, aunque haya respuesta en
-        pantalla: estos prompts dicen "tu última respuesta", y la última para el
-        modelo es la suya, no la que se esté mirando. Ofrecerlos ahí prometería
-        actuar sobre lo que se lee y actuaría sobre otra cosa.
+        And they disappear while navigating back, even if there's an answer on
+        screen: these prompts say "your last answer", and the last for the model
+        is its own, not the one being looked at. Offering them there would
+        promise to act on what's read and would act on something else.
       */}
         {viewing === null &&
           answer &&
           (answer.status === 'done' || answer.status === 'streaming') && (
             <QuickActions
               onAsk={(prompt) => void window.api.ask.withText(prompt)}
-              // Manda lo que se acaba de responder, no el perfil configurado: tras
-              // un Ctrl+Alt+C con el perfil en "Entrevista", lo que hay en pantalla
-              // es una solución y lo que se quiere pedir es sobre ella.
+              // What was just answered rules, not the configured profile: after
+              // a Ctrl+Alt+C with the profile on "Interview", what's on screen
+              // is a solution and what you'll want to ask about is that.
               kind={quickActionKind(answer, settings)}
             />
           )}
 
         {!compact && (
           <div className="hints">
-            {/* Con el estado central los atajos ya están dichos ahí arriba, y
-              repetirlos abajo es la clase de relleno que hace que un panel
-              parezca un formulario. Queda sólo el tamaño. */}
+            {/* With the central state the shortcuts are already stated up there,
+              and repeating them below is the kind of filler that makes a panel
+              look like a form. Only the size remains. */}
             {!hero && (
               <>
                 <span>
