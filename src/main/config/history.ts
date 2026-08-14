@@ -12,19 +12,19 @@ import { join } from 'node:path';
 import type { Conversation, ConversationSummary } from '@shared/types';
 
 /**
- * Persistencia del historial de conversaciones.
+ * Persistence of the conversation history.
  *
- * Esto **rompe a propósito** la promesa original de la app ("escucha, no
- * graba"): mientras `settings.historyEnabled` esté activo, aquí se escriben
- * transcripciones a disco. La decisión es del usuario y está documentada en el
- * README y en CONTEXT.md §4; este módulo sólo la implementa. Si el interruptor
- * está apagado, `save()` no llega a llamarse y no se crea ni la carpeta.
+ * This **deliberately breaks** the app's original promise ("listens, doesn't
+ * record"): while `settings.historyEnabled` is on, transcripts are written to
+ * disk here. The decision is the user's and is documented in the README and in
+ * CONTEXT.md §4; this module only implements it. If the switch is off, `save()`
+ * never gets called and not even the folder is created.
  *
- * **Un archivo JSON por conversación**, no un único índice con todo dentro. Un
- * archivo grande habría que reescribirlo entero en cada turno —con el riesgo de
- * perderlo todo en una escritura a medias— y borrar una conversación obligaría
- * a reescribir el resto. Con un archivo por conversación, guardar toca sólo la
- * activa y borrar es un `rm`.
+ * **One JSON file per conversation**, not a single index with everything inside.
+ * A big file would have to be rewritten whole on every turn —with the risk of
+ * losing it all in a half-written write— and deleting a conversation would force
+ * rewriting the rest. With one file per conversation, saving touches only the
+ * active one and deleting is an `rm`.
  */
 
 const DIR_NAME = 'conversations';
@@ -33,7 +33,7 @@ function dir(): string {
   return join(app.getPath('userData'), DIR_NAME);
 }
 
-/** El id va en el nombre del archivo, así que no puede traer separadores. */
+/** The id goes in the file name, so it can't carry separators. */
 function fileFor(id: string): string {
   return join(dir(), `${id.replace(/[^a-zA-Z0-9-]/g, '')}.json`);
 }
@@ -41,19 +41,19 @@ function fileFor(id: string): string {
 function readConversation(path: string): Conversation | null {
   try {
     let text = readFileSync(path, 'utf-8');
-    // Mismo motivo que en `store.ts`: un archivo que alguien puede abrir con
-    // Notepad tiene que tolerar el BOM o `JSON.parse` lanza.
+    // Same reason as in `store.ts`: a file someone can open with Notepad has to
+    // tolerate the BOM or `JSON.parse` throws.
     if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
     const parsed = JSON.parse(text) as Conversation;
-    // Una conversación sin id es un archivo corrupto o de otra cosa; se ignora
-    // en lugar de dejar que reviente la lista entera.
+    // A conversation with no id is a corrupt file or something else; it's ignored
+    // instead of letting it blow up the whole list.
     return parsed && typeof parsed.id === 'string' ? parsed : null;
   } catch {
     return null;
   }
 }
 
-/** Cabeceras de todas las conversaciones, de la más reciente a la más antigua. */
+/** Headers of all conversations, from most recent to oldest. */
 export function listConversations(): ConversationSummary[] {
   const base = dir();
   if (!existsSync(base)) return [];
@@ -88,9 +88,9 @@ export function getConversation(id: string): Conversation | null {
 }
 
 /**
- * Escritura atómica: se vuelca a `.tmp` y se renombra. Si el proceso muere a
- * mitad, el archivo anterior sigue íntegro — importa más aquí que en los
- * settings, porque esto no se puede regenerar desde defaults.
+ * Atomic write: it's dumped to `.tmp` and renamed. If the process dies mid-way,
+ * the previous file stays intact — it matters more here than in the settings,
+ * because this can't be regenerated from defaults.
  */
 export function saveConversation(conversation: Conversation): void {
   try {
@@ -100,7 +100,7 @@ export function saveConversation(conversation: Conversation): void {
     writeFileSync(tmp, JSON.stringify(conversation, null, 2), 'utf-8');
     renameSync(tmp, path);
   } catch (err) {
-    // Que falle el guardado no puede tumbar una entrevista en curso.
+    // A failed save can't take down an interview in progress.
     console.error('[history] no se pudo guardar la conversación:', err);
   }
 }
@@ -113,7 +113,7 @@ export function deleteConversation(id: string): void {
   }
 }
 
-/** Borra el historial entero. Sólo lo llama el botón del dashboard. */
+/** Deletes the whole history. Only the dashboard button calls it. */
 export function clearHistory(): void {
   try {
     rmSync(dir(), { recursive: true, force: true });
@@ -122,7 +122,7 @@ export function clearHistory(): void {
   }
 }
 
-/** Dónde vive el historial. El dashboard lo enseña para que no sea un misterio. */
+/** Where the history lives. The dashboard shows it so it's not a mystery. */
 export function historyLocation(): string {
   return dir();
 }

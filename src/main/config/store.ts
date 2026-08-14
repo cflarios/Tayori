@@ -6,20 +6,20 @@ import { guessUILang } from '@shared/i18n';
 import { DEFAULT_SETTINGS, type ContextPack, type Settings } from '@shared/types';
 
 /**
- * Persistencia de settings en un JSON dentro de userData.
+ * Settings persistence in a JSON inside userData.
  *
- * Se escribió a mano en lugar de usar `electron-store` porque esa librería
- * es ESM-only desde la v10 y el proceso main se empaqueta como CommonJS
- * (necesario para los módulos nativos de whisper/onnxruntime). Lo que
- * necesitamos es pequeño y no justifica pelear con el interop.
+ * It was written by hand instead of using `electron-store` because that library
+ * has been ESM-only since v10 and the main process is packaged as CommonJS
+ * (needed for the native whisper/onnxruntime modules). What we need is small and
+ * doesn't justify fighting the interop.
  *
- * Los secretos NO viven aquí — ver `secrets.ts`.
+ * Secrets do NOT live here — see `secrets.ts`.
  */
 
 /**
- * Mezcla superficial por clave de primer nivel: si el archivo en disco no
- * tiene una clave (porque se añadió en una versión posterior), gana el default.
- * `hotkeys` se mezcla un nivel más para no perder atajos nuevos.
+ * Shallow merge by top-level key: if the file on disk doesn't have a key
+ * (because it was added in a later version), the default wins. `hotkeys` is
+ * merged one level deeper so as not to lose new shortcuts.
  */
 function withDefaults(raw: unknown, systemLocale?: string): Settings {
   if (raw === null || typeof raw !== 'object') return { ...DEFAULT_SETTINGS };
@@ -27,25 +27,25 @@ function withDefaults(raw: unknown, systemLocale?: string): Settings {
   return {
     ...DEFAULT_SETTINGS,
     /*
-     * El idioma de la interfaz, sólo la PRIMERA vez.
+     * The interface language, only the FIRST time.
      *
-     * Por defecto es inglés, pero recibir en inglés a alguien con Windows en
-     * español cuando su idioma existe es una mala primera impresión gratuita.
-     * En cuanto lo elige a mano queda guardado y esto no vuelve a mirarse — la
-     * comprobación es `stored.uiLanguage` y no el valor final justamente para
-     * que cambiarlo a inglés a propósito no se deshaga en el siguiente arranque.
+     * The default is English, but greeting someone with Windows in Spanish in
+     * English when their language exists is a free bad first impression. As soon
+     * as they choose it by hand it's saved and this isn't looked at again — the
+     * check is `stored.uiLanguage` and not the final value precisely so that
+     * changing it to English on purpose doesn't get undone on the next startup.
      */
     uiLanguage: stored.uiLanguage ?? guessUILang(systemLocale),
     ...stored,
     llmModels: { ...DEFAULT_SETTINGS.llmModels, ...(stored.llmModels ?? {}) },
     hotkeys: { ...DEFAULT_SETTINGS.hotkeys, ...(stored.hotkeys ?? {}) },
     /*
-     * La lista de apagados se **normaliza a array**, no se toma tal cual.
+     * The disabled list is **normalized to an array**, not taken as-is.
      *
-     * El resto de campos toleran basura porque un valor raro se ve; éste no:
-     * si un `settings.json` editado a mano trae aquí algo que no es un array,
-     * `activeHotkeys` haría `new Set(undefined)` y reventaría al arrancar, con
-     * los once atajos caídos y sin ninguna pista de por qué.
+     * The rest of the fields tolerate garbage because an odd value shows; this
+     * one doesn't: if a hand-edited `settings.json` brings something here that
+     * isn't an array, `activeHotkeys` would do `new Set(undefined)` and blow up
+     * at startup, with all eleven shortcuts down and no hint why.
      */
     disabledHotkeys: Array.isArray(stored.disabledHotkeys) ? stored.disabledHotkeys : [],
     contextPacks: (stored.contextPacks ?? DEFAULT_SETTINGS.contextPacks).map(normalizePack),
@@ -53,12 +53,12 @@ function withDefaults(raw: unknown, systemLocale?: string): Settings {
 }
 
 /**
- * Rellena los campos que un pack antiguo no tenía.
+ * Fills in the fields an old pack didn't have.
  *
- * `withDefaults` sólo mezcla el primer nivel, así que un `contextPacks` guardado
- * antes de que existieran `kind` y `profiles` llegaría sin ellos y reventaría al
- * leerlos. `notes` y `[]` reproducen exactamente el comportamiento anterior:
- * texto libre que se aplica en todos los perfiles.
+ * `withDefaults` only merges the top level, so a `contextPacks` saved before
+ * `kind` and `profiles` existed would arrive without them and blow up when read.
+ * `notes` and `[]` reproduce exactly the previous behavior: free text applied to
+ * all profiles.
  */
 function normalizePack(pack: ContextPack): ContextPack {
   return {
@@ -82,25 +82,24 @@ class SettingsStore extends EventEmitter {
     try {
       if (existsSync(this.file)) {
         let text = readFileSync(this.file, 'utf-8');
-        // Notepad y `Set-Content -Encoding utf8` de PowerShell 5.1 escriben un
-        // BOM que hace fallar a JSON.parse. Como el archivo está pensado para
-        // poder editarse a mano, lo toleramos en lugar de ignorar la config
-        // entera en silencio.
+        // Notepad and PowerShell 5.1's `Set-Content -Encoding utf8` write a BOM
+        // that makes JSON.parse fail. Since the file is meant to be editable by
+        // hand, we tolerate it instead of silently ignoring the whole config.
         if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
         raw = JSON.parse(text);
       }
     } catch (err) {
-      // Un JSON corrupto no debe impedir arrancar: caemos a defaults.
+      // A corrupt JSON must not prevent startup: we fall back to defaults.
       console.error('[settings] no se pudo leer, usando defaults:', err);
     }
 
-    // `app.getLocale()` sólo tiene valor después de `ready`, y para cuando
-    // alguien pide los settings ya lo está.
+    // `app.getLocale()` only has a value after `ready`, and by the time someone
+    // asks for the settings it already is.
     this.cache = withDefaults(raw, app.getLocale());
     return this.cache;
   }
 
-  /** Aplica un patch parcial, persiste y notifica a los suscriptores. */
+  /** Applies a partial patch, persists and notifies subscribers. */
   update(patch: Partial<Settings>): Settings {
     const next = withDefaults({ ...this.get(), ...patch });
     this.cache = next;
@@ -109,7 +108,7 @@ class SettingsStore extends EventEmitter {
     return next;
   }
 
-  /** Escritura atómica: si el proceso muere a mitad, el archivo previo sigue íntegro. */
+  /** Atomic write: if the process dies mid-way, the previous file stays intact. */
   private persist(settings: Settings): void {
     try {
       mkdirSync(dirname(this.file), { recursive: true });

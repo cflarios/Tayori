@@ -5,52 +5,52 @@ import type { ImageAttachment } from '@shared/types';
 import { aHashFromBitmap } from './frame-hash';
 
 /**
- * Captura de pantalla para usarla como contexto visual.
+ * Screenshot capture to use as visual context.
  *
- * Efecto secundario útil de la protección de contenido: el overlay NO sale en
- * su propia captura, porque `WDA_EXCLUDEFROMCAPTURE` lo excluye del compositor
- * igual que de un screen share. No hay que ocultarlo antes de capturar.
+ * Useful side effect of content protection: the overlay does NOT appear in its
+ * own capture, because `WDA_EXCLUDEFROMCAPTURE` excludes it from the compositor
+ * just like from a screen share. There's no need to hide it before capturing.
  *
- * Se comprime a JPEG por coste: una captura 1920x1080 en PNG ronda los 2-3 MB
- * de base64, y a los modelos de visión les da igual la compresión con pérdida
- * para leer texto de pantalla.
+ * It's compressed to JPEG for cost: a 1920x1080 capture in PNG runs about 2-3 MB
+ * of base64, and the vision models don't care about lossy compression for
+ * reading on-screen text.
  */
 
 /**
- * Ancho máximo enviado al modelo. Claude admite hasta 2576 px en el lado largo
- * (~4784 tokens de imagen); 1600 px conserva el texto de pantalla legible con
- * bastante menos coste por captura.
+ * Maximum width sent to the model. Claude accepts up to 2576 px on the long side
+ * (~4784 image tokens); 1600 px keeps the on-screen text legible at considerably
+ * less cost per capture.
  */
 const MAX_WIDTH = 1600;
 const JPEG_QUALITY = 72;
 
 /**
- * Calidad para el modo código.
+ * Quality for code mode.
  *
- * 72 vale de sobra para "hay un diagrama en pantalla", pero el artefacto de JPEG
- * a esa calidad se come justo lo que aquí importa: la diferencia entre `l` y
- * `1`, entre `;` y `:`, y los subíndices de un enunciado. Una firma mal leída
- * produce una solución que no compila, así que el coste extra en tokens está
- * pagado. No se sube a PNG porque el modelo escala a ~1,5k px de todas formas.
+ * 72 is plenty for "there's a diagram on screen", but the JPEG artifact at that
+ * quality eats exactly what matters here: the difference between `l` and `1`,
+ * between `;` and `:`, and the subscripts of a prompt. A misread signature
+ * produces a solution that won't compile, so the extra token cost is paid for.
+ * It's not bumped to PNG because the model scales to ~1.5k px anyway.
  */
 const CODE_JPEG_QUALITY = 92;
 
-/** Lado de la huella perceptual: 8×8 = 64 bits, suficiente para deduplicar. */
+/** Side of the perceptual fingerprint: 8×8 = 64 bits, enough to deduplicate. */
 const HASH_SIZE = 8;
 
 /**
- * Captura la pantalla que contiene el cursor, a resolución real y antes de
- * comprimir. Es la parte común de `captureScreen` y `captureScreenFrame`.
+ * Captures the screen containing the cursor, at real resolution and before
+ * compressing. It's the common part of `captureScreen` and `captureScreenFrame`.
  *
- * Con varios monitores, la pantalla del cursor es la que el usuario está mirando
- * — mucho mejor heurística que coger siempre la principal.
+ * With several monitors, the cursor's screen is the one the user is looking at
+ * — a much better heuristic than always taking the primary one.
  */
 async function acquireScreen(): Promise<Electron.NativeImage | null> {
   const cursor = screen.getCursorScreenPoint();
   const target = screen.getDisplayNearestPoint(cursor);
 
-  // `thumbnailSize` es la resolución real de captura, no una miniatura: hay que
-  // pedirla del tamaño del display o la imagen sale ilegible.
+  // `thumbnailSize` is the real capture resolution, not a thumbnail: it has to
+  // be requested at the display's size or the image comes out illegible.
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
     thumbnailSize: {
@@ -59,8 +59,8 @@ async function acquireScreen(): Promise<Electron.NativeImage | null> {
     },
   });
 
-  // `display_id` es la forma fiable de emparejar fuente y display; el orden de
-  // `sources` no coincide con el de `screen.getAllDisplays()`.
+  // `display_id` is the reliable way to pair source and display; the order of
+  // `sources` doesn't match that of `screen.getAllDisplays()`.
   const source = sources.find((s) => s.display_id === String(target.id)) ?? sources[0];
 
   if (!source || source.thumbnail.isEmpty()) return null;
@@ -68,13 +68,14 @@ async function acquireScreen(): Promise<Electron.NativeImage | null> {
 }
 
 /**
- * Volcado de depuración, apagado por defecto.
+ * Debug dump, off by default.
  *
- * La app NO persiste medios: las capturas van al modelo y a la miniatura del
- * overlay, nunca al disco. Pero con `IH_DEBUG_CAPTURES` en el entorno, cada una
- * se escribe además a `userData/debug-captures` para poder abrirla y juzgar el
- * recorte y la legibilidad. Es best-effort y fuera del camino crítico: si falla,
- * la captura sigue yendo al modelo igual. Sólo para desarrollo.
+ * The app does NOT persist media: the captures go to the model and to the
+ * overlay's thumbnail, never to disk. But with `IH_DEBUG_CAPTURES` in the
+ * environment, each one is also written to `userData/debug-captures` so it can
+ * be opened and the crop and legibility judged. It's best-effort and off the
+ * critical path: if it fails, the capture still goes to the model. Development
+ * only.
  */
 async function dumpCapture(jpeg: Buffer, label: string): Promise<void> {
   if (!process.env.IH_DEBUG_CAPTURES) return;
@@ -90,7 +91,7 @@ async function dumpCapture(jpeg: Buffer, label: string): Promise<void> {
   }
 }
 
-/** Reduce a `MAX_WIDTH` si hace falta y comprime a JPEG base64. */
+/** Shrinks to `MAX_WIDTH` if needed and compresses to base64 JPEG. */
 function toJpegAttachment(
   thumb: Electron.NativeImage,
   forCode?: boolean,
@@ -105,7 +106,7 @@ function toJpegAttachment(
 }
 
 /**
- * @param options.forCode Sube la calidad para que el texto pequeño se lea.
+ * @param options.forCode Raises the quality so small text is legible.
  */
 export async function captureScreen(
   options: { forCode?: boolean } = {}
@@ -115,12 +116,12 @@ export async function captureScreen(
 }
 
 /**
- * Como `captureScreen`, pero además devuelve una huella perceptual del frame.
+ * Like `captureScreen`, but also returns a perceptual fingerprint of the frame.
  *
- * Lo usa la "captura por trozos" en modo automático para deduplicar frames casi
- * idénticos (cuando el scroll se detiene). La huella se saca del frame a
- * resolución completa —antes del JPEG— reducido a 8×8 en gris: barato y estable
- * frente al ruido de compresión.
+ * "Chunk capture" in automatic mode uses it to deduplicate near-identical frames
+ * (when the scroll stops). The fingerprint is taken from the full-resolution
+ * frame —before the JPEG— reduced to 8×8 in gray: cheap and stable against
+ * compression noise.
  */
 export async function captureScreenFrame(
   options: { forCode?: boolean } = {}

@@ -1,26 +1,27 @@
 /**
- * Hash perceptual (average hash) de un frame, para deduplicar capturas casi
- * idénticas en el modo automático de "captura por trozos".
+ * Perceptual hash (average hash) of a frame, to deduplicate near-identical
+ * captures in the automatic mode of "chunk capture".
  *
- * No es criptográfico ni pretende serlo: reduce el frame a una huella de
- * `width * height` bits —un bit por píxel: 1 si es más claro que la media— que
- * cambia poco entre dos capturas casi iguales y mucho entre dos distintas. Se
- * comparan por distancia de Hamming; por debajo de un umbral, se toman como el
- * mismo trozo y no se apila el segundo.
+ * It's not cryptographic and doesn't pretend to be: it reduces the frame to a
+ * `width * height`-bit fingerprint —one bit per pixel: 1 if it's brighter than
+ * the average— that changes little between two near-equal captures and a lot
+ * between two different ones. They're compared by Hamming distance; below a
+ * threshold, they're taken as the same chunk and the second isn't stacked.
  *
- * Es lógica pura y con test aparte: un frame mal deduplicado no se ve —se apila
- * un duplicado o se pierde un trozo del enunciado—, así que conviene fijarlo.
+ * It's pure logic and has its own test: a badly deduplicated frame isn't visible
+ * —a duplicate gets stacked or a chunk of the prompt is lost—, so it's worth
+ * pinning.
  */
 
 /**
- * Average hash de un bitmap BGRA (el formato que devuelve `nativeImage.toBitmap`,
- * 4 bytes por píxel: B, G, R, A). Devuelve `width * height` bits en un bigint.
+ * Average hash of a BGRA bitmap (the format `nativeImage.toBitmap` returns, 4
+ * bytes per pixel: B, G, R, A). Returns `width * height` bits in a bigint.
  */
 export function aHashFromBitmap(bitmap: Buffer, width: number, height: number): bigint {
   const count = width * height;
 
-  // Luminancia aproximada de un píxel. `readUInt8` devuelve `number` (no
-  // `number | undefined` como el indexado), lo que mantiene la aritmética limpia.
+  // Approximate luminance of a pixel. `readUInt8` returns `number` (not
+  // `number | undefined` like indexing), which keeps the arithmetic clean.
   const lumAt = (i: number): number => {
     const o = i * 4;
     return (
@@ -42,7 +43,7 @@ export function aHashFromBitmap(bitmap: Buffer, width: number, height: number): 
   return hash;
 }
 
-/** Distancia de Hamming: cuántos bits difieren entre dos huellas. */
+/** Hamming distance: how many bits differ between two fingerprints. */
 export function hamming(a: bigint, b: bigint): number {
   let x = a ^ b;
   let bits = 0;

@@ -5,17 +5,17 @@ import type { SecretKey, SecretsPresence } from '@shared/types';
 import { m } from '../i18n';
 
 /**
- * Almacenamiento de API keys cifrado con `safeStorage`, que en Windows delega
- * en DPAPI: el ciphertext sólo se puede descifrar con la cuenta de usuario
- * de Windows que lo creó.
+ * API key storage encrypted with `safeStorage`, which on Windows delegates to
+ * DPAPI: the ciphertext can only be decrypted with the Windows user account that
+ * created it.
  *
- * Reglas que no se rompen:
- *   - Las keys NUNCA cruzan el puente IPC hacia el renderer. El dashboard sólo
- *     recibe un booleano de "está configurada o no" (`SecretsPresence`).
- *   - Las keys NUNCA se escriben en texto plano ni acaban en el repo.
+ * Rules that don't get broken:
+ *   - The keys NEVER cross the IPC bridge to the renderer. The dashboard only
+ *     gets a "configured or not" boolean (`SecretsPresence`).
+ *   - The keys are NEVER written in plain text or end up in the repo.
  */
 
-type SecretsFile = Partial<Record<SecretKey, string>>; // valores en base64 cifrado
+type SecretsFile = Partial<Record<SecretKey, string>>; // values in encrypted base64
 
 const secretsPath = (): string => join(app.getPath('userData'), 'secrets.json');
 
@@ -39,8 +39,8 @@ function write(data: SecretsFile): void {
 }
 
 /**
- * En entornos sin backend de cifrado disponible (algunos Linux sin keyring)
- * preferimos fallar antes que guardar en claro.
+ * In environments with no encryption backend available (some Linux without a
+ * keyring) we prefer to fail rather than store in the clear.
  */
 function assertEncryptionAvailable(): void {
   if (!safeStorage.isEncryptionAvailable()) {
@@ -67,7 +67,7 @@ export function getSecret(key: SecretKey): string | null {
   try {
     return safeStorage.decryptString(Buffer.from(stored, 'base64'));
   } catch (err) {
-    // Ocurre si el perfil de Windows cambió o el archivo se copió de otra máquina.
+    // Happens if the Windows profile changed or the file was copied from another machine.
     console.error(`[secrets] no se pudo descifrar "${key}":`, err);
     return null;
   }
@@ -80,22 +80,22 @@ export function clearSecret(key: SecretKey): void {
 }
 
 /**
- * Lo único sobre secretos que el renderer tiene permitido saber.
+ * The only thing about secrets the renderer is allowed to know.
  *
- * Pregunta si la clave **sirve**, no si está escrita. La versión anterior
- * miraba únicamente que el campo existiera en el archivo, y eso resultó ser una
- * media verdad cara: `safeStorage` descifra con la identidad del perfil de
- * Windows, así que una clave guardada por otra instalación —o por un perfil que
- * cambió— sigue ahí, ocupando su sitio, y falla al descifrarse.
+ * It asks whether the key **works**, not whether it's written. The previous
+ * version only checked that the field existed in the file, and that turned out
+ * to be an expensive half-truth: `safeStorage` decrypts with the Windows
+ * profile's identity, so a key saved by another installation —or by a profile
+ * that changed— is still there, taking up its spot, and fails to decrypt.
  *
- * El resultado era el peor de los posibles: el dashboard ponía «configurada» en
- * verde y **todas** las respuestas fallaban con "Falta la API key de Anthropic",
- * que manda a configurar algo que ya parece configurado. Se descubrió al añadir
- * el asistente, que prueba la conexión justo después de decir que la clave está
- * puesta y se contradijo a sí mismo en la misma pantalla.
+ * The result was the worst possible one: the dashboard put "configured" in green
+ * and **all** answers failed with "Anthropic API key missing", which sends you to
+ * configure something that already looks configured. It was discovered when
+ * adding the wizard, which tests the connection right after saying the key is set
+ * and contradicted itself on the same screen.
  *
- * Descifrar dos cadenas cortas es gratis al lado de eso, y `getSecret` ya deja
- * la causa real en el log cuando falla.
+ * Decrypting two short strings is free next to that, and `getSecret` already
+ * leaves the real cause in the log when it fails.
  */
 export function getPresence(): SecretsPresence {
   return {
