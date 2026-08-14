@@ -2,18 +2,18 @@ import { app } from 'electron';
 import { isNewerVersion, type UpdateInfo } from '@shared/types';
 
 /**
- * Comprobación de actualizaciones bajo demanda.
+ * On-demand update check.
  *
- * La app se distribuye como `.exe` portable sin firmar, así que el auto-update
- * estándar (electron-updater, que necesita el instalador NSIS + `latest.yml`) no
- * encaja. En su lugar: se consulta la API pública de releases de GitHub, se
- * compara la versión y, si hay una nueva, el dashboard ofrece descargar el nuevo
- * portable en el navegador. La descarga la hace el navegador —no la app baja y
- * ejecuta un binario por su cuenta—, que es la misma cautela con la que se
- * instala Ollama por winget en vez de bajando el `.exe`.
+ * The app is distributed as an unsigned portable `.exe`, so the standard
+ * auto-update (electron-updater, which needs the NSIS installer + `latest.yml`)
+ * doesn't fit. Instead: GitHub's public releases API is queried, the version is
+ * compared and, if there's a new one, the dashboard offers to download the new
+ * portable in the browser. The download is done by the browser —the app doesn't
+ * fetch and run a binary on its own—, which is the same caution with which Ollama
+ * is installed via winget instead of downloading the `.exe`.
  *
- * Sólo se llama cuando el usuario pulsa el botón: nada de red al arrancar, así el
- * límite de 60 peticiones/hora sin autenticar de GitHub sobra de largo.
+ * It's only called when the user presses the button: no network at startup, so
+ * GitHub's 60-requests/hour unauthenticated limit is more than enough.
  */
 
 const REPO = 'cflarios/Tayori';
@@ -23,7 +23,7 @@ export async function checkForUpdate(): Promise<UpdateInfo | { error: string }> 
     const response = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: {
         Accept: 'application/vnd.github+json',
-        // GitHub rechaza peticiones sin User-Agent.
+        // GitHub rejects requests with no User-Agent.
         'User-Agent': 'Tayori-Updater',
       },
       signal: AbortSignal.timeout(10_000),

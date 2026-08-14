@@ -2,17 +2,18 @@ import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse';
 
 /**
- * Extrae texto plano de un archivo de contexto subido en el dashboard.
+ * Extracts plain text from a context file uploaded in the dashboard.
  *
- * Vive en el main y no en el renderer a propósito: parsear un PDF (pdfjs por
- * debajo) o un .docx (descomprimir el zip y leer su XML) es trabajo pesado con
- * librerías, y el proyecto concentra eso en el proceso con Node. El renderer
- * sólo manda los bytes y recibe el texto. El texto plano (.txt/.md) ni siquiera
- * llega aquí: lo lee el propio renderer con FileReader, sin cruzar el IPC.
+ * It lives in main and not in the renderer on purpose: parsing a PDF (pdfjs
+ * underneath) or a .docx (unzipping and reading its XML) is heavy work with
+ * libraries, and the project concentrates that in the Node process. The renderer
+ * only sends the bytes and receives the text. Plain text (.txt/.md) doesn't even
+ * reach here: the renderer reads it itself with FileReader, without crossing the
+ * IPC.
  *
- * Devuelve un resultado en vez de lanzar: un PDF cifrado o un archivo corrupto
- * es un caso normal —lo acaba de elegir el usuario— y el dashboard lo enseña
- * como un aviso en el propio dropzone, no como una excepción sin recoger.
+ * It returns a result instead of throwing: an encrypted PDF or a corrupt file is
+ * a normal case —the user just chose it— and the dashboard shows it as a warning
+ * in the dropzone itself, not as an uncaught exception.
  */
 export type ParseResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -29,8 +30,8 @@ export async function parseDocument(name: string, data: ArrayBuffer): Promise<Pa
       const result = await mammoth.extractRawText({ buffer });
       return { ok: true, text: result.value.trim() };
     }
-    // El .doc antiguo (binario, no zip) no lo lee mammoth, y cualquier otra
-    // extensión tampoco tiene parser: se dice en vez de devolver basura.
+    // The old .doc (binary, not zip) isn't read by mammoth, and any other
+    // extension has no parser either: it's said instead of returning garbage.
     return { ok: false, error: `unsupported:${ext}` };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

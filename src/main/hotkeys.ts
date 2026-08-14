@@ -4,7 +4,7 @@ import { settingsStore } from './config/store';
 import { getOverlay, nudgeOverlay, toggleOverlayVisibility } from './windows/overlay';
 import { setClickThrough } from './windows/stealth';
 
-/** Acciones que un hotkey puede disparar. Las rellena `registerHotkeys`. */
+/** Actions a hotkey can trigger. `registerHotkeys` fills them in. */
 export interface HotkeyActions {
   askNow: () => void;
   screenshotAndAsk: () => void;
@@ -20,15 +20,15 @@ export interface HotkeyActions {
 let bound: string[] = [];
 
 /**
- * Registra los atajos globales. Devuelve los acelerradores que Windows rechazó
- * (normalmente porque otra app ya los tiene tomados) para poder avisar en el
- * dashboard en lugar de fallar en silencio.
+ * Registers the global shortcuts. Returns the accelerators Windows rejected
+ * (usually because another app already holds them) so it can warn in the
+ * dashboard instead of failing silently.
  */
 export function registerHotkeys(actions: HotkeyActions): string[] {
   unregisterHotkeys();
 
-  // Los apagados llegan en blanco, y `bind` ya ignora lo vacío: la combinación
-  // no se registra, así que queda libre para la aplicación que la quiera.
+  // The disabled ones arrive blank, and `bind` already ignores the empty: the
+  // combination isn't registered, so it's free for whatever app wants it.
   const keys: HotkeyMap = activeHotkeys(settingsStore.get());
   const failed: string[] = [];
 
@@ -39,7 +39,7 @@ export function registerHotkeys(actions: HotkeyActions): string[] {
       if (ok) bound.push(accelerator);
       else failed.push(accelerator);
     } catch {
-      // Un acelerador con sintaxis inválida lanza en lugar de devolver false.
+      // An accelerator with invalid syntax throws instead of returning false.
       failed.push(accelerator);
     }
   };
@@ -51,12 +51,12 @@ export function registerHotkeys(actions: HotkeyActions): string[] {
   bind(keys.captureFrame, actions.captureFrame);
   bind(keys.solveCapture, actions.solveCapture);
   bind(keys.toggleListening, actions.toggleListening);
-  // Sólo llegan aquí con el teleprompter encendido: `activeHotkeys` los deja en
-  // blanco si no, y `bind` ignora lo vacío.
+  // They only reach here with the teleprompter on: `activeHotkeys` leaves them
+  // blank otherwise, and `bind` ignores the empty.
   bind(keys.teleprompterNext, actions.teleprompterNext);
   bind(keys.teleprompterPrev, actions.teleprompterPrev);
   bind(keys.toggleOverlay, toggleOverlayVisibility);
-  // Sin atajo para el dashboard: se abre solo con el engranaje del overlay.
+  // No shortcut for the dashboard: it opens only with the overlay's gear.
 
   bind(keys.toggleClickThrough, () => {
     const win = getOverlay();

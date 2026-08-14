@@ -40,8 +40,8 @@ import { setClickThrough, setStealthForAll } from './windows/stealth';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
 import { captureScreen } from './capture/screenshot';
-// Renombrado: `session` colisiona con el módulo `session` de Electron, y la
-// colisión resolvía silenciosamente a Function.prototype.bind.
+// Renamed: `session` collides with Electron's `session` module, and the
+// collision silently resolved to Function.prototype.bind.
 import { session as sessionOrchestrator } from './core/session';
 import { createLLMProvider, listModelsFor } from './llm';
 import { probeOllama } from './llm/ollama';
@@ -58,11 +58,11 @@ import { installOllama, ollamaInstalled, pullModel, wingetAvailable } from './se
 import { parseDocument } from './context-parse';
 
 /**
- * Habilita la captura de audio del sistema (loopback).
+ * Enables system audio capture (loopback).
  *
- * Sin este handler, `getDisplayMedia()` en el renderer falla en Electron.
- * `audio: 'loopback'` captura la salida de audio del sistema sin drivers de
- * terceros (soportado en Windows 10+ desde Electron 31; nativo desde la 39).
+ * Without this handler, `getDisplayMedia()` in the renderer fails in Electron.
+ * `audio: 'loopback'` captures the system's audio output without third-party
+ * drivers (supported on Windows 10+ since Electron 31; native since 39).
  */
 function enableLoopbackAudio(): void {
   session.defaultSession.setDisplayMediaRequestHandler(
@@ -70,26 +70,26 @@ function enableLoopbackAudio(): void {
       const sources = await desktopCapturer.getSources({ types: ['screen'] });
       const screenSource = sources[0];
       if (!screenSource) {
-        // callback sin video cancela la petición de forma limpia.
+        // callback with no video cancels the request cleanly.
         callback({});
         return;
       }
-      // Pedimos video porque getDisplayMedia lo exige, pero el worker
-      // descarta el track de video de inmediato: sólo queremos el audio.
+      // We ask for video because getDisplayMedia requires it, but the worker
+      // discards the video track immediately: we only want the audio.
       callback({ video: screenSource, audio: 'loopback' });
     },
-    // El overlay tiene content protection, así que no se filtra en la captura.
+    // The overlay has content protection, so it doesn't leak into the capture.
     { useSystemPicker: false }
   );
 }
 
 /**
- * Concede permiso de micrófono y captura sólo a nuestras propias ventanas.
+ * Grants microphone and capture permission only to our own windows.
  *
- * Electron no concede `media` por defecto y `getUserMedia` fallaría con
- * NotAllowedError. Comprobamos el origen en lugar de aceptar todo: en dev el
- * renderer se sirve desde el dev server de Vite y en producción desde file://,
- * y nada más debería poder pedir el micrófono.
+ * Electron doesn't grant `media` by default and `getUserMedia` would fail with
+ * NotAllowedError. We check the origin instead of accepting everything: in dev
+ * the renderer is served from Vite's dev server and in production from file://,
+ * and nothing else should be able to ask for the microphone.
  */
 function registerPermissionHandlers(): void {
   const allowed = new Set(['media', 'display-capture', 'clipboard-read']);
@@ -114,9 +114,9 @@ function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload);
   }
-  // El espejo del teléfono se engancha aquí y no a cada emisor: lo que ve el
-  // overlay es exactamente lo que puede ver el móvil, sin una lista aparte que
-  // se quede desfasada. Filtra él lo que le sirve.
+  // The phone mirror hooks in here and not into each emitter: what the overlay
+  // sees is exactly what the phone can see, without a separate list that falls
+  // out of date. It filters what's useful to it.
   phoneBridge.publish(channel, payload);
 }
 
@@ -126,9 +126,9 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.settingsUpdate, (_e, rawPatch: Partial<Settings>) => {
     const previous = settingsStore.get();
-    // Cambiar de fuente no puede dejar el disparo automático mudo; ver
-    // `alignAutoTrigger`. Se hace aquí y no en la UI para que valga igual desde
-    // el overlay y desde el dashboard.
+    // Changing the source can't leave the auto-trigger mute; see
+    // `alignAutoTrigger`. It's done here and not in the UI so it holds equally
+    // from the overlay and from the dashboard.
     const patch = alignAutoTrigger(previous, rawPatch);
     const next = settingsStore.update(patch);
 
@@ -137,8 +137,8 @@ function registerIpcHandlers(): void {
         `[auto] el disparo pasa a "${patch.autoTriggerSpeaker}" para seguir a ` +
           `audioSources="${next.audioSources}"`
       );
-      // Se dice: es un ajuste que el usuario no pidió, aunque sea el que hace
-      // que lo que sí pidió funcione.
+      // It's said: it's a setting the user didn't ask for, even if it's the one
+      // that makes what they did ask for work.
       broadcast(
         IPC.onNotice,
         m(patch.autoTriggerSpeaker === 'them' ? 'notice.nowThem' : 'notice.nowMe')
@@ -152,8 +152,8 @@ function registerIpcHandlers(): void {
       const overlay = getOverlay();
       if (overlay) setClickThrough(overlay, next.clickThrough);
     }
-    // Encender o apagar uno cambia qué hay registrado igual que reasignarlo.
-    // El teleprompter también: sus dos atajos sólo existen con el modo activo.
+    // Turning one on or off changes what's registered just like reassigning it.
+    // The teleprompter too: its two shortcuts only exist with the mode active.
     if (patch.hotkeys || patch.disabledHotkeys || patch.teleprompterEnabled !== undefined) {
       applyHotkeys();
     }
@@ -161,13 +161,13 @@ function registerIpcHandlers(): void {
       setOverlaySize(next.overlaySize);
     }
     /*
-     * Cambiar qué se escucha exige reabrir los streams.
+     * Changing what's listened to requires reopening the streams.
      *
-     * `audioSources` sólo se lee dentro de `capture.start()`, y los hablantes
-     * del motor de STT se fijan al arrancar la transcripción. Sin esto, cambiar
-     * la fuente en mitad de una sesión no hacía absolutamente nada: la UI se
-     * actualizaba, el ajuste se guardaba, y se seguía escuchando lo de antes
-     * hasta que alguien parase y volviese a arrancar a mano.
+     * `audioSources` is only read inside `capture.start()`, and the STT engine's
+     * speakers are fixed when transcription starts. Without this, changing the
+     * source mid-session did absolutely nothing: the UI updated, the setting was
+     * saved, and it kept listening to the old thing until someone stopped and
+     * started again by hand.
      */
     if (
       patch.audioSources &&
@@ -177,18 +177,18 @@ function registerIpcHandlers(): void {
       audioCapture.stop();
       void audioCapture.start();
     }
-    // Apagar el historial a mitad de una conversación debe cortar también la que
-    // está en curso; si no, seguiría en memoria y volvería a disco al reactivarlo.
+    // Turning off history mid-conversation must also cut the one in progress; if
+    // not, it would stay in memory and go back to disk when reactivated.
     if (patch.historyEnabled === false && previous.historyEnabled) {
       sessionOrchestrator.newConversation();
     }
-    // El espejo se aplica desde aquí, no desde la UI, para que el estado del
-    // servidor no dependa de qué ventana tocó el interruptor.
+    // The mirror is applied from here, not from the UI, so the server's state
+    // doesn't depend on which window touched the switch.
     if (patch.phoneMirrorEnabled !== undefined || patch.phoneMirrorLan !== undefined) {
       phoneBridge.apply(next);
     }
-    // Igual con el broker: cambiar la URL, el usuario o el tema obliga a
-    // reconectar, porque el cliente MQTT los fija al conectar.
+    // Same with the broker: changing the URL, the user or the topic forces a
+    // reconnect, because the MQTT client fixes them on connect.
     if (
       patch.mqttEnabled !== undefined ||
       patch.mqttUrl !== undefined ||
@@ -200,19 +200,19 @@ function registerIpcHandlers(): void {
     return next;
   });
 
-  // ── Secretos (las keys nunca salen hacia el renderer) ──
+  // ── Secrets (the keys never go out to the renderer) ──
   ipcMain.handle(IPC.secretsGetPresence, () => getPresence());
-  // El tipo es `SecretKey` y no una lista escrita a mano: ésta ya se había
-  // quedado atrás con la contraseña de MQTT —que se guardaba igual, porque el
-  // preload sí manda el tipo bueno— y volvería a quedarse con el siguiente
-  // proveedor. Un `Record` compartido es lo que hace que el build lo cace.
+  // The type is `SecretKey` and not a hand-written list: this one had already
+  // fallen behind with the MQTT password —which was saved anyway, because the
+  // preload does send the right type— and would fall behind again with the next
+  // provider. A shared `Record` is what makes the build catch it.
   /*
-   * Las dos difunden la presencia además de devolverla.
+   * Both broadcast the presence in addition to returning it.
    *
-   * Quien la cambia es el dashboard, pero quien la necesita es también el
-   * overlay: su aviso de «Falta configurar la IA» sale de aquí. Sin la difusión,
-   * pegar la clave que falta dejaba el aviso puesto hasta reiniciar, que es
-   * exactamente el momento en el que alguien concluye que la app está rota.
+   * The one that changes it is the dashboard, but the one that needs it is also
+   * the overlay: its "AI not configured" warning comes from here. Without the
+   * broadcast, pasting the missing key left the warning up until restart, which
+   * is exactly the moment someone concludes the app is broken.
    */
   ipcMain.handle(IPC.secretsSet, (_e, key: SecretKey, value: string) => {
     setSecret(key, value);
@@ -227,7 +227,7 @@ function registerIpcHandlers(): void {
     return presence;
   });
 
-  // ── Ventanas ──
+  // ── Windows ──
   ipcMain.handle(IPC.stealthSet, (_e, enabled: boolean) => {
     settingsStore.update({ stealthEnabled: enabled });
     setStealthForAll(enabled);
@@ -243,8 +243,8 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.overlayHide, () => toggleOverlayVisibility());
 
-  // Modo escritura: la única vía por la que el overlay toma el foco, y siempre
-  // a petición explícita del usuario (abrir la pestaña de escritura).
+  // Writing mode: the only path by which the overlay takes focus, and always at
+  // the user's explicit request (opening the writing tab).
   ipcMain.handle(IPC.overlayInteractive, (_e, interactive: boolean) =>
     setOverlayInteractive(interactive)
   );
@@ -253,10 +253,10 @@ function registerIpcHandlers(): void {
     openDashboard();
   });
 
-  // Barra de título propia del dashboard (frame: false). Actúan sobre la ventana
-  // que emite, así que sirven aunque en el futuro haya otra ventana con marco
-  // propio. Cerrar cierra SÓLO esa ventana —el overlay es la app—, igual que la
-  // X nativa de antes.
+  // The dashboard's own title bar (frame: false). They act on the window that
+  // emits, so they work even if there's another window with its own frame in the
+  // future. Close closes ONLY that window —the overlay is the app—, just like the
+  // native X before.
   ipcMain.on(IPC.dashboardMinimize, (e) => BrowserWindow.fromWebContents(e.sender)?.minimize());
   ipcMain.on(IPC.dashboardToggleMaximize, (e) => {
     const win = BrowserWindow.fromWebContents(e.sender);
@@ -266,32 +266,32 @@ function registerIpcHandlers(): void {
   });
   ipcMain.on(IPC.dashboardClose, (e) => BrowserWindow.fromWebContents(e.sender)?.close());
 
-  // Parseo de archivos de contexto (PDF, Word) → texto plano. El renderer manda
-  // los bytes; los .txt/.md ni pasan por aquí (los lee él con FileReader).
+  // Parsing of context files (PDF, Word) → plain text. The renderer sends the
+  // bytes; .txt/.md don't even pass through here (it reads them with FileReader).
   ipcMain.handle(IPC.contextParseFile, (_e, payload: { name: string; data: ArrayBuffer }) =>
     parseDocument(payload.name, payload.data)
   );
 
-  // Alto tráfico (un evento por mousemove), así que van por `on` y no `handle`.
+  // High traffic (one event per mousemove), so they go through `on` and not `handle`.
   ipcMain.on(IPC.overlayMouseIgnore, (_e, ignore: boolean) => setOverlayMouseIgnore(ignore));
   ipcMain.on(IPC.overlayDragStart, () => startOverlayDrag());
   ipcMain.on(IPC.overlayDragEnd, () => stopOverlayDrag());
 
-  // La X del overlay cierra la app entera: el overlay ES la aplicación. Para
-  // ocultarla temporalmente está Ctrl+Shift+H.
+  // The overlay's X closes the whole app: the overlay IS the application. To hide
+  // it temporarily there's Ctrl+Shift+H.
   ipcMain.handle(IPC.overlayQuit, () => {
     audioCapture.stop();
-    // Volcar antes de salir: lo que quedara en el debounce se perdería.
+    // Flush before exiting: whatever was left in the debounce would be lost.
     sessionOrchestrator.flush();
     app.quit();
   });
 
-  // ── Captura de audio ──
+  // ── Audio capture ──
   ipcMain.handle(IPC.captureStart, () => audioCapture.start());
   ipcMain.handle(IPC.captureStop, () => audioCapture.stop());
   ipcMain.handle(IPC.captureGetStatus, () => audioCapture.getStatus());
 
-  // ── Respuestas ──
+  // ── Answers ──
   ipcMain.handle(IPC.askNow, () => sessionOrchestrator.ask('hotkey'));
   ipcMain.handle(IPC.askWithText, (_e, text: string) => sessionOrchestrator.askWithText(text));
   ipcMain.handle(IPC.askAbort, () => sessionOrchestrator.abortAnswer());
@@ -302,8 +302,8 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.askContinue, () => sessionOrchestrator.answers.continueAnswer());
   ipcMain.handle(IPC.memoryGet, () => sessionOrchestrator.answers.memory);
 
-  // Captura por trozos: los botones del chip del overlay resuelven o vacían la
-  // pila. Los atajos hacen lo mismo desde el main (ver hotkeyActions).
+  // Chunk capture: the overlay chip's buttons solve or empty the stack. The
+  // shortcuts do the same from main (see hotkeyActions).
   ipcMain.handle(IPC.scrollCaptureSolve, () => sessionOrchestrator.solveCaptureStack());
   ipcMain.handle(IPC.scrollCaptureClear, () => sessionOrchestrator.clearCaptureStack());
 
@@ -317,13 +317,13 @@ function registerIpcHandlers(): void {
     return image;
   });
 
-  // ── Portapapeles ──
-  // Vive en el main porque en el overlay no hay alternativa: ver `IPC.clipboardWrite`.
+  // ── Clipboard ──
+  // Lives in main because in the overlay there's no alternative: see `IPC.clipboardWrite`.
   ipcMain.handle(IPC.clipboardWrite, (_e, text: string) => {
     clipboard.writeText(text);
   });
 
-  // ── Historial de conversaciones ──
+  // ── Conversation history ──
   ipcMain.handle(IPC.conversationNew, () => {
     sessionOrchestrator.newConversation();
   });
@@ -334,17 +334,17 @@ function registerIpcHandlers(): void {
     return listConversations();
   });
   ipcMain.handle(IPC.historyClear, () => {
-    // Se corta la conversación en curso antes de borrar: si no, el debounce
-    // pendiente volvería a escribir en disco justo después de vaciar la carpeta.
+    // The conversation in progress is cut before deleting: if not, the pending
+    // debounce would write to disk again right after emptying the folder.
     sessionOrchestrator.newConversation();
     clearHistory();
     return listConversations();
   });
   ipcMain.handle(IPC.historyLocation, () => historyLocation());
 
-  // ── Modelos ──
-  // Con `providerId` se puede poblar el selector de un proveedor que NO es el
-  // activo, que es lo que necesita el modelo aparte para la pantalla.
+  // ── Models ──
+  // With `providerId` you can populate the selector of a provider that is NOT
+  // the active one, which is what the separate screen model needs.
   ipcMain.handle(IPC.llmListModels, (_e, providerId?: LLMProviderId) => {
     const settings = settingsStore.get();
     return listModelsFor(providerId ?? settings.llmProviderId, settings);
@@ -357,11 +357,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.skillsFolder, () => skillsFolder());
 
   /*
-   * Con `providerId` se prueba un proveedor que NO es el activo.
+   * With `providerId` a provider that is NOT the active one is tested.
    *
-   * Lo pide el botón que hay junto a cada API key: la pregunta ahí es "¿sirve
-   * esta clave?", y obligar a cambiar de proveedor para averiguarlo convertía
-   * una comprobación en un cambio de configuración que luego hay que deshacer.
+   * The button next to each API key asks for it: the question there is "does this
+   * key work?", and forcing a provider switch to find out turned a check into a
+   * configuration change you then have to undo.
    */
   ipcMain.handle(IPC.llmTestConnection, async (_e, providerId?: LLMProviderId) => {
     try {
@@ -383,12 +383,12 @@ function registerIpcHandlers(): void {
   // ── Ollama ──
   ipcMain.handle(IPC.ollamaGetStatus, () => probeOllama(settingsStore.get().ollamaBaseUrl));
 
-  // ── Máquina ──
+  // ── Machine ──
   ipcMain.handle(IPC.systemGetSpecs, () => getSystemSpecs());
 
-  // Abre un enlace externo en el navegador del sistema. Se valida el esquema —
-  // sólo http(s)— para que esto no pueda convertirse en un `file://` o un
-  // `javascript:` si algún día la URL dejara de ser una constante del código.
+  // Opens an external link in the system browser. The scheme is validated —only
+  // http(s)— so this can't turn into a `file://` or a `javascript:` if some day
+  // the URL stops being a code constant.
   ipcMain.handle(IPC.systemOpenExternal, (_e, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
       void shell.openExternal(url);
@@ -396,13 +396,13 @@ function registerIpcHandlers(): void {
   });
 
   /*
-   * La guía de modelos, como documento.
+   * The model guide, as a document.
    *
-   * Se escribe en `userData` y se abre con el navegador del sistema. Dos motivos
-   * para no montar una ventana propia: cada ventana de Electron hay que
-   * registrarla en la protección de captura —y el modo invisible se verifica, no
-   * se asume—, y un HTML en disco se guarda, se imprime y se consulta con la app
-   * cerrada, que es como se lee una tabla de precios.
+   * It's written to `userData` and opened with the system browser. Two reasons
+   * not to stand up a window of its own: every Electron window has to be
+   * registered in the capture protection —and invisible mode is verified, not
+   * assumed—, and an HTML on disk is saved, printed and consulted with the app
+   * closed, which is how you read a pricing table.
    */
   ipcMain.handle(IPC.guideOpen, async () => {
     try {
@@ -418,20 +418,20 @@ function registerIpcHandlers(): void {
     }
   });
 
-  // ── Espejo en el teléfono ──
+  // ── Phone mirror ──
   ipcMain.handle(IPC.phoneGetStatus, () => phoneBridge.getStatus());
 
-  // ── Broker MQTT ──
+  // ── MQTT broker ──
   ipcMain.handle(IPC.mqttGetStatus, () => mqttBridge.getStatus());
   ipcMain.handle(IPC.mqttTest, () => mqttBridge.test());
 
   /*
-   * ── Asistente de configuración ──
+   * ── Setup wizard ──
    *
-   * Los dos handlers instalan o descargan cosas, así que sólo se llaman desde
-   * un botón que ya dijo qué iba a hacer. `canInstall` existe para que el
-   * asistente ofrezca el botón sólo cuando hay un camino limpio: sin winget,
-   * enseña el enlace a ollama.com en lugar de un botón que va a fallar.
+   * The two handlers install or download things, so they're only called from a
+   * button that already said what it was going to do. `canInstall` exists so the
+   * wizard offers the button only when there's a clean path: with no winget, it
+   * shows the link to ollama.com instead of a button that's going to fail.
    */
   ipcMain.handle(IPC.setupCanInstall, () => wingetAvailable());
   ipcMain.handle(IPC.setupOllamaInstalled, () => ollamaInstalled());
@@ -448,10 +448,10 @@ function registerIpcHandlers(): void {
     )
   );
 
-  // ── Atajos ──
+  // ── Shortcuts ──
   ipcMain.handle(IPC.hotkeysGetFailed, () => failedHotkeys);
 
-  // ── Diagnóstico ──
+  // ── Diagnostics ──
   ipcMain.handle(IPC.logsRead, () => readLogTail());
   ipcMain.handle(IPC.logsLocation, () => logLocation());
   ipcMain.handle(IPC.sttTestConnection, () => testSTTConnection(settingsStore.get()));
@@ -472,15 +472,15 @@ function registerIpcHandlers(): void {
 }
 
 /**
- * Aceleradores que Windows no aceptó en el último registro.
+ * Accelerators Windows didn't accept in the last registration.
  *
- * Se guarda en lugar de descartarse porque es la única forma de que el usuario
- * se entere: un atajo que otra aplicación tiene tomado no da ningún error al
- * pulsarlo, simplemente no hace nada.
+ * It's kept instead of discarded because it's the only way for the user to find
+ * out: a shortcut another application holds gives no error when pressed, it
+ * simply does nothing.
  */
 let failedHotkeys: string[] = [];
 
-/** Registra los atajos y difunde qué se quedó fuera. */
+/** Registers the shortcuts and broadcasts what was left out. */
 function applyHotkeys(): void {
   failedHotkeys = registerHotkeys(hotkeyActions);
   broadcast(IPC.onHotkeyFailures, failedHotkeys);
@@ -496,8 +496,8 @@ const hotkeyActions = {
         sessionOrchestrator.attachImage(image);
         broadcast(IPC.onScreenshot, image);
       }
-      // Se pregunta siempre, con o sin captura: si falló la captura es mejor
-      // responder sin ella que no responder nada.
+      // It always asks, with or without a capture: if the capture failed it's
+      // better to answer without it than answer nothing.
       return sessionOrchestrator.ask('hotkey');
     });
   },
@@ -514,37 +514,37 @@ const hotkeyActions = {
   toggleListening: () => {
     void audioCapture.toggle();
   },
-  // El overlay no tiene el foco, así que no puede oír la tecla por su cuenta:
-  // el atajo global llega aquí y se le reenvía el paso.
+  // The overlay isn't focused, so it can't hear the key on its own: the global
+  // shortcut arrives here and the step is forwarded to it.
   teleprompterNext: () => broadcast(IPC.onTeleprompterMove, 1),
   teleprompterPrev: () => broadcast(IPC.onTeleprompterMove, -1),
 };
 
-// Fija app.name ANTES de cualquier getPath('userData'). El build empaquetado se
-// renombra a un nombre neutro en electron-builder.yml (para que el Administrador
-// de tareas no muestre "Tayori"), pero `app.name` deriva de aquí, no
-// del productName del empaquetado. Sin este anclaje, un cambio de productName
-// podría mover userData y orfanar los settings y la API key cifrada con DPAPI.
+// Set app.name BEFORE any getPath('userData'). The packaged build is renamed to
+// a neutral name in electron-builder.yml (so Task Manager doesn't show
+// "Tayori"), but `app.name` derives from here, not from the packaged
+// productName. Without this anchor, a productName change could move userData and
+// orphan the settings and the DPAPI-encrypted API key.
 //
-// NO se renombró con el resto de la marca en el paso a "Tayori", y no es un
-// olvido: este identificador ES la ruta de `%APPDATA%`. Cambiarlo dejaría los
-// settings y las claves de todo el mundo en la carpeta vieja, sin ningún error
-// que lo delatara — la app simplemente arrancaría como recién instalada.
+// It was NOT renamed with the rest of the brand in the move to "Tayori", and
+// it's not an oversight: this identifier IS the `%APPDATA%` path. Changing it
+// would leave everyone's settings and keys in the old folder, with no error to
+// give it away — the app would simply start up like a fresh install.
 app.setName('interview-helper');
 
-// Inmediatamente después de fijar el nombre, porque la ruta del log sale de
-// `userData` y ésta deriva de `app.name`. Antes de esto no había ningún sitio
-// donde mirar en el .exe empaquetado.
+// Immediately after setting the name, because the log path comes from
+// `userData` and that derives from `app.name`. Before this there was nowhere to
+// look in the packaged .exe.
 initLogging();
 
-// Una sola instancia: dos procesos peleando por los mismos hotkeys globales
-// y el mismo archivo de settings es una fuente de bugs difíciles de ver.
+// A single instance: two processes fighting over the same global hotkeys and the
+// same settings file is a source of hard-to-see bugs.
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  // Intentar abrir una segunda instancia recupera el overlay en lugar de
-  // arrancar otra app; es la vía de escape si se ocultó y no se recuerda el
-  // atajo.
+  // Trying to open a second instance recovers the overlay instead of starting
+  // another app; it's the escape hatch if it was hidden and the shortcut isn't
+  // remembered.
   app.on('second-instance', () => {
     const overlay = getOverlay();
     if (overlay && !overlay.isVisible()) overlay.showInactive();
@@ -560,27 +560,28 @@ if (!app.requestSingleInstanceLock()) {
     enableLoopbackAudio();
     registerPermissionHandlers();
     audioCapture.registerHandlers();
-    // Debe ir tras registerHandlers: el orquestador se suscribe a los eventos
-    // que emite el controlador de captura.
+    // Must go after registerHandlers: the orchestrator subscribes to the events
+    // the capture controller emits.
     sessionOrchestrator.bind();
     registerIpcHandlers();
 
-    // Calienta la cache de specs (GPU incluida) en segundo plano: así la primera
-    // visita a Modelos o Transcripción ya la encuentra lista en vez de esperar a
-    // `getGPUInfo`. No bloquea el arranque —es fire-and-forget— ni el overlay.
+    // Warms the specs cache (GPU included) in the background: that way the first
+    // visit to Models or Transcription finds it ready instead of waiting for
+    // `getGPUInfo`. It doesn't block startup —it's fire-and-forget— or the overlay.
     void getSystemSpecs();
 
     settingsStore.on('change', (settings: Settings) => {
       broadcast(IPC.onSettings, settings);
     });
 
-    // El contador de teléfonos conectados cambia sin que nadie toque nada, así
-    // que el dashboard no puede enterarse preguntando.
+    // The connected-phones counter changes without anyone touching anything, so
+    // the dashboard can't find out by asking.
     phoneBridge.on('status', (status: PhoneMirrorStatus) => {
       broadcast(IPC.onPhoneStatus, status);
     });
-    // Quedó encendido de la sesión anterior: se respeta. Es un ajuste que se
-    // activa a conciencia, y apagarlo solo al arrancar sería perder el ajuste.
+    // Left on from the previous session: it's respected. It's a setting turned on
+    // deliberately, and turning it off on its own at startup would be losing the
+    // setting.
     phoneBridge.apply(settingsStore.get());
 
     mqttBridge.on('status', (status: MqttStatus) => {
@@ -591,28 +592,28 @@ if (!app.requestSingleInstanceLock()) {
     createOverlay();
     applyHotkeys();
 
-    // El dashboard NO se abre solo, ni siquiera en el primer arranque: solo con
-    // el engranaje del overlay. Cuando faltan las keys, el overlay muestra una
-    // llamada a la acción que apunta a ese botón.
+    // The dashboard does NOT open on its own, not even on the first launch: only
+    // with the overlay's gear. When the keys are missing, the overlay shows a
+    // call to action that points to that button.
   });
 
-  // En Windows el overlay es la app: si se cierra, no queda nada que hacer.
+  // On Windows the overlay is the app: if it closes, there's nothing left to do.
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });
 
   app.on('will-quit', () => {
     unregisterHotkeys();
-    // Un servidor con clientes SSE abiertos no deja morir al proceso: las
-    // conexiones son keep-alive y el event loop sigue teniendo trabajo.
+    // A server with open SSE clients won't let the process die: the connections
+    // are keep-alive and the event loop still has work.
     phoneBridge.stop();
-    // Un cliente MQTT con reconexión automática mantiene vivo el event loop.
+    // An MQTT client with automatic reconnection keeps the event loop alive.
     mqttBridge.stop();
-    // El servidor de Whisper es un proceso hijo: si no se mata aquí sobrevive a
-    // la app con el modelo entero en memoria.
+    // The Whisper server is a child process: if it's not killed here it outlives
+    // the app with the whole model in memory.
     whisperServer.stop();
-    // Cerrar por cualquier vía (X de la barra, Alt+F4, apagado) debe consolidar
-    // el historial; `overlayQuit` no es el único camino de salida.
+    // Closing by any route (bar's X, Alt+F4, shutdown) must consolidate the
+    // history; `overlayQuit` isn't the only exit path.
     sessionOrchestrator.flush();
   });
 }

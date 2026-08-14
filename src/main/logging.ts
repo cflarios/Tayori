@@ -4,20 +4,20 @@ import { join } from 'node:path';
 import { m } from './i18n';
 
 /**
- * Log a archivo del proceso principal.
+ * File log of the main process.
  *
- * Hasta ahora los `console.*` del main sólo existían si arrancabas desde una
- * terminal con `npm run dev`. En el `.exe` empaquetado —que es como se usa la
- * app de verdad— **no había ningún sitio donde mirar**: un fallo de Gemini Live
- * o de Whisper se veía exactamente igual que "no responde". Este módulo existe
- * para que esa diferencia sea visible.
+ * Until now the main process's `console.*` only existed if you launched from a
+ * terminal with `npm run dev`. In the packaged `.exe` —which is how the app is
+ * really used— **there was nowhere to look**: a Gemini Live or Whisper failure
+ * looked exactly like "doesn't respond". This module exists to make that
+ * difference visible.
  *
- * Se envuelven los `console.*` en lugar de sustituirlos por un logger propio:
- * así los 15 puntos de log que ya existían empiezan a persistir sin tocarlos, y
- * nadie tiene que acordarse de importar nada para que su mensaje se guarde.
+ * The `console.*` are wrapped instead of replaced by a custom logger: that way
+ * the 15 log points that already existed start persisting without touching them,
+ * and nobody has to remember to import anything for their message to be saved.
  */
 
-/** Por encima de esto se rota. Un log de diagnóstico no debe crecer sin fin. */
+/** Above this it rotates. A diagnostic log must not grow without end. */
 const MAX_BYTES = 1024 * 1024;
 
 let logFile: string | null = null;
@@ -26,14 +26,14 @@ function logDir(): string {
   return join(app.getPath('userData'), 'logs');
 }
 
-/** Rota a `.1` cuando el archivo se pasa de tamaño. Sólo se guarda una vuelta. */
+/** Rotates to `.1` when the file goes over size. Only one round is kept. */
 function rotateIfNeeded(file: string): void {
   try {
     if (!existsSync(file) || statSync(file).size < MAX_BYTES) return;
     renameSync(file, `${file}.1`);
   } catch {
-    // Si la rotación falla se sigue escribiendo en el mismo archivo: perder el
-    // log por no poder rotarlo sería peor que un archivo grande.
+    // If rotation fails we keep writing to the same file: losing the log for not
+    // being able to rotate it would be worse than a big file.
   }
 }
 
@@ -56,14 +56,14 @@ function write(level: string, args: unknown[]): void {
     rotateIfNeeded(logFile);
     appendFileSync(logFile, `${stamp} ${level.padEnd(5)} ${body}\n`, 'utf-8');
   } catch {
-    // Un fallo al escribir el log NUNCA puede tumbar la app: es diagnóstico,
-    // no funcionalidad.
+    // A failure writing the log can NEVER take down the app: it's diagnostics,
+    // not functionality.
   }
 }
 
 /**
- * Empieza a registrar. Hay que llamarlo lo antes posible en el arranque, y
- * siempre DESPUÉS de `app.setName`, porque la ruta sale de `userData`.
+ * Starts logging. It has to be called as early as possible at startup, and
+ * always AFTER `app.setName`, because the path comes from `userData`.
  */
 export function initLogging(): void {
   if (logFile) return;
@@ -94,8 +94,8 @@ export function initLogging(): void {
     write('ERROR', args);
   };
 
-  // Un fallo no capturado en el main deja la app medio viva y sin rastro; con
-  // esto al menos queda escrito qué pasó.
+  // An uncaught failure in main leaves the app half-alive and with no trace;
+  // with this at least what happened gets written down.
   process.on('uncaughtException', (err) => {
     write('FATAL', [err]);
   });
@@ -110,14 +110,14 @@ export function logLocation(): string {
   return logFile ?? logDir();
 }
 
-/** Últimas `lines` líneas, que es lo único que se mira al diagnosticar. */
+/** Last `lines` lines, which is the only thing looked at when diagnosing. */
 export function readLogTail(lines = 300): string {
   if (!logFile || !existsSync(logFile)) return '';
   try {
     const all = readFileSync(logFile, 'utf-8').split('\n');
     return all.slice(-lines).join('\n').trim();
   } catch (err) {
-    // Se lee en Diagnóstico, así que va en el idioma de la interfaz.
+    // It's read in Diagnostics, so it goes in the interface language.
     return m('diag.logUnreadable', {
       detail: err instanceof Error ? err.message : String(err),
     });
