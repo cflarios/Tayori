@@ -7,9 +7,9 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'"
     />
-    <!-- Al cargar la página, este <title> pasa a ser el título de la ventana
-         (se filtra por Alt+Tab y el Administrador de tareas). Gana sobre el
-         `title` del BrowserWindow, así que hay que ponerlo aquí también. -->
+    <!-- On page load, this <title> becomes the window title (it leaks through
+         Alt+Tab and Task Manager). It wins over the BrowserWindow's `title`, so it
+         has to be set here too. -->
     <title>Tayori</title>
   </head>
   <body>

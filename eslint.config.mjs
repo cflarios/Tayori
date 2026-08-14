@@ -7,17 +7,17 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    // Scripts de build y config de tooling: JS plano ejecutado por Node, así que
-    // necesita los globals de Node declarados (los .ts los aporta @types/node vía
-    // tsconfig). Los `.cjs` (p. ej. commitlint.config.cjs) usan `module.exports`.
+    // Build scripts and tooling config: plain JS run by Node, so it needs the
+    // Node globals declared (the .ts ones are provided by @types/node via
+    // tsconfig). The `.cjs` files (e.g. commitlint.config.cjs) use `module.exports`.
     files: ['scripts/**/*.{js,mjs}', '*.config.{js,mjs,cjs}'],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly', module: 'readonly', require: 'readonly' },
     },
   },
   {
-    // eslint-plugin-react-hooks v7 expone el flat config anidado en `configs.flat`;
-    // `configs['recommended-latest']` sigue siendo el formato eslintrc antiguo.
+    // eslint-plugin-react-hooks v7 exposes the flat config nested under `configs.flat`;
+    // `configs['recommended-latest']` is still the old eslintrc format.
     files: ['src/renderer/**/*.{ts,tsx}'],
     ...reactHooks.configs.flat['recommended-latest'],
   },

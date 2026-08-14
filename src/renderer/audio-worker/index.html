@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <!--
-      `blob:` en script-src es necesario: el AudioWorklet se compila desde un
-      Blob URL (ver pcm-worklet.ts) para no depender del nombre con hash que
-      Vite da a los assets en producción. Sin esto addModule() falla con
-      "Unable to load a worklet's module".
+      `blob:` in script-src is necessary: the AudioWorklet is compiled from a Blob
+      URL (see pcm-worklet.ts) so as not to depend on the hashed name Vite gives
+      assets in production. Without this addModule() fails with "Unable to load a
+      worklet's module".
     -->
     <meta
       http-equiv="Content-Security-Policy"
@@ -15,7 +15,7 @@
     <title>Audio Worker</title>
   </head>
   <body>
-    <!-- Ventana sin UI: nunca se muestra. Sólo aloja el pipeline de captura. -->
+    <!-- UI-less window: never shown. It only hosts the capture pipeline. -->
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

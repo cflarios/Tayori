@@ -1,7 +1,7 @@
-# Normaliza a LF en el repo; Git convierte a CRLF en el working tree de Windows.
+# Normalize to LF in the repo; Git converts to CRLF in the Windows working tree.
 * text=auto eol=lf
 
-# Binarios: nunca tocar.
+# Binaries: never touch.
 *.png binary
 *.jpg binary
 *.ico binary

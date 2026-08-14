@@ -4,12 +4,12 @@ dist/
 release/
 .vite/
 
-# Secretos: las API keys se guardan cifradas en userData, nunca en el repo
+# Secrets: the API keys are stored encrypted in userData, never in the repo
 .env
 .env.local
 *.pem
 
-# Modelos de whisper descargados en desarrollo
+# Whisper models downloaded in development
 models/
 *.bin
 *.gguf
@@ -26,10 +26,10 @@ Thumbs.db
 .idea/
 *.swp
 
-# Permisos locales de Claude Code: son de esta máquina, no del proyecto
+# Claude Code local permissions: they belong to this machine, not the project
 .claude/settings.local.json
 
-# Cache de herramientas
+# Tooling cache
 .eslintcache
 coverage/
 *.tsbuildinfo

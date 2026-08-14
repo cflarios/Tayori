@@ -9,8 +9,8 @@ export default defineConfig({
     },
   },
   test: {
-    // Los tests cubren lógica pura del proceso main (buffers, detectores,
-    // factories). Nada que necesite un DOM ni el runtime de Electron.
+    // The tests cover pure logic of the main process (buffers, detectors,
+    // factories). Nothing that needs a DOM or the Electron runtime.
     environment: 'node',
     include: ['tests/**/*.test.ts'],
   },
