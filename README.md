@@ -91,6 +91,20 @@ The first time you open the dashboard, a guided setup measures your machine and
 gets everything running — no need to know what a provider is. Full walkthrough in
 the [Usage guide](USAGE.md#guided-setup).
 
+### Verifying a download
+
+The binary is unsigned, so Windows SmartScreen warns the first time
+("More info" → "Run anyway") — that's expected. Every
+[release](https://github.com/cflarios/Tayori/releases) ships a `SHA256SUMS.txt`,
+so you can confirm the download is byte-for-byte what CI built:
+
+```powershell
+Get-FileHash Tayori-<version>-portable.exe -Algorithm SHA256
+```
+
+Compare the printed hash against the matching line in `SHA256SUMS.txt` — on
+Linux, macOS or WSL, `sha256sum -c SHA256SUMS.txt` checks it for you.
+
 ## 📚 Documentation
 
 Four documents, each with a different job:
