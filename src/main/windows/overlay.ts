@@ -7,7 +7,7 @@ import { loadRenderer, preloadPath } from './resolve';
 let overlay: BrowserWindow | null = null;
 
 const MARGIN = 24;
-/** Píxeles que se desplaza el overlay con los hotkeys de movimiento. */
+/** Pixels the overlay moves with the movement hotkeys. */
 const NUDGE = 40;
 
 export function getOverlay(): BrowserWindow | null {
@@ -25,7 +25,7 @@ export function createOverlay(): BrowserWindow {
   overlay = new BrowserWindow({
     width,
     height,
-    // Arranca arriba a la derecha: la zona con menos UI en Meet/Teams/Zoom.
+    // Starts top-right: the area with the least UI in Meet/Teams/Zoom.
     x: workArea.x + workArea.width - width - MARGIN,
     y: workArea.y + MARGIN,
 
@@ -40,10 +40,10 @@ export function createOverlay(): BrowserWindow {
     skipTaskbar: true,
 
     /**
-     * `focusable: false` es deliberado y es la diferencia entre pasar
-     * desapercibido o no: si el overlay roba el foco, la videollamada muestra
-     * "dejaste de compartir" o el usuario pierde el cursor del campo activo.
-     * Se activa temporalmente sólo cuando hay que escribir en el input.
+     * `focusable: false` is deliberate and is the difference between going
+     * unnoticed or not: if the overlay steals focus, the video call shows "you
+     * stopped sharing" or the user loses the active field's cursor. It's enabled
+     * temporarily only when you have to type in the input.
      */
     focusable: false,
     show: false,
@@ -53,8 +53,8 @@ export function createOverlay(): BrowserWindow {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      // Evita que Chromium ralentice timers y animaciones cuando la ventana
-      // no tiene foco — que en esta app es prácticamente siempre.
+      // Keeps Chromium from slowing timers and animations when the window is
+      // unfocused — which in this app is practically always.
       backgroundThrottling: false,
     },
   });
@@ -62,15 +62,15 @@ export function createOverlay(): BrowserWindow {
   overlay.once('ready-to-show', () => {
     const win = overlay;
     if (!win) return;
-    // Orden importante: aplicar stealth ANTES del primer show, o el overlay
-    // aparece durante un frame en la captura.
+    // Order matters: apply stealth BEFORE the first show, or the overlay appears
+    // for a frame in the capture.
     setStealth(win, settings.stealthEnabled);
     setClickThrough(win, settings.clickThrough);
-    // showInactive, no show: mostrar sin robar el foco a la videollamada.
+    // showInactive, not show: show without stealing focus from the video call.
     win.showInactive();
-    // Gotcha de Electron: en ventanas transparent+frameless, `skipTaskbar` a
-    // veces no "prende" hasta re-aplicarlo tras mostrar. Sólo con stealth ON;
-    // en modo demo (removeStealth) la ventana se muestra a propósito.
+    // Electron gotcha: on transparent+frameless windows, `skipTaskbar`
+    // sometimes doesn't "catch" until re-applied after showing. Only with stealth
+    // ON; in demo mode (removeStealth) the window is shown on purpose.
     if (settings.stealthEnabled) win.setSkipTaskbar(true);
   });
 
@@ -85,21 +85,21 @@ export function createOverlay(): BrowserWindow {
 export function toggleOverlayVisibility(): void {
   const win = getOverlay();
   if (!win) return;
-  // El hook de `show` en stealth.ts re-aplica la protección de contenido.
+  // The `show` hook in stealth.ts re-applies the content protection.
   if (win.isVisible()) {
-    // Ocultarlo mientras está enfocable lo dejaría así al volver, y una ventana
-    // enfocable que reaparece puede robar el foco de la videollamada.
+    // Hiding it while it's focusable would leave it that way on return, and a
+    // focusable window that reappears can steal the video call's focus.
     setOverlayInteractive(false);
     win.hide();
   } else win.showInactive();
 }
 
 /**
- * `true` mientras el overlay está en modo escritura.
+ * `true` while the overlay is in writing mode.
  *
- * Vive en el módulo y no en los settings porque es estado efímero de la ventana,
- * no una preferencia: si la app se reinicia, el overlay debe volver a arrancar
- * no enfocable pase lo que pase.
+ * It lives in the module and not in the settings because it's ephemeral window
+ * state, not a preference: if the app restarts, the overlay must start up
+ * non-focusable no matter what.
  */
 let overlayInteractive = false;
 
@@ -108,13 +108,13 @@ export function isOverlayInteractive(): boolean {
 }
 
 /**
- * Permite escribir en el overlay sin romper la regla de no robar foco:
- * lo vuelve enfocable, enfoca, y al terminar revierte.
+ * Allows typing in the overlay without breaking the no-focus-stealing rule: it
+ * makes it focusable, focuses, and reverts when done.
  *
- * Es la única situación en la que el overlay toma el foco, y es aceptable
- * porque la pide el usuario explícitamente al abrir la pestaña de escritura.
- * Revertir NO es opcional: una ventana que se queda enfocable acaba robando el
- * foco de Teams/Meet, que es justo lo que delata al asistente (ver CONTEXT §4).
+ * It's the only situation in which the overlay takes focus, and it's acceptable
+ * because the user asks for it explicitly by opening the writing tab. Reverting
+ * is NOT optional: a window that stays focusable ends up stealing Teams/Meet's
+ * focus, which is exactly what gives the assistant away (see CONTEXT §4).
  */
 export function setOverlayInteractive(interactive: boolean): void {
   const win = getOverlay();
@@ -131,39 +131,39 @@ export function setOverlayInteractive(interactive: boolean): void {
 }
 
 /**
- * Deja pasar o captura el ratón puntualmente.
+ * Lets the mouse pass through or captures it momentarily.
  *
- * Lo llama el renderer al entrar y salir de la barra del overlay: con los clics
- * atravesables activados —el modo recomendado durante una llamada— la ventana
- * ignora el ratón por completo, y sin esto el engranaje y la X serían
- * inclicables. `forward: true` mantiene los eventos de movimiento llegando al
- * renderer, que es lo que le permite detectar el hover en primer lugar.
+ * The renderer calls it on entering and leaving the overlay bar: with
+ * click-through enabled —the recommended mode during a call— the window ignores
+ * the mouse entirely, and without this the gear and the X would be unclickable.
+ * `forward: true` keeps the movement events reaching the renderer, which is what
+ * lets it detect the hover in the first place.
  */
 export function setOverlayMouseIgnore(ignore: boolean): void {
   const win = getOverlay();
   if (!win) return;
   /*
-   * En modo escritura manda `setOverlayInteractive` y esto no pinta nada. Sin
-   * esta guarda los dos mecanismos se pelean: basta mover el cursor sobre una
-   * zona no interactiva del panel para que el hover devuelva los clics
-   * atravesables a mitad de una frase, y el botón de enviar deje de responder.
-   * La autoridad está aquí, en el main, y no en el orden de los efectos de
-   * React, que es demasiado frágil para sostener una invariante.
+   * In writing mode `setOverlayInteractive` rules and this does nothing. Without
+   * this guard the two mechanisms fight: just moving the cursor over a
+   * non-interactive area of the panel makes the hover turn click-through back on
+   * mid-sentence, and the send button stops responding. The authority is here, in
+   * main, and not in the order of React's effects, which is too fragile to hold an
+   * invariant.
    */
   if (overlayInteractive) return;
-  // Si el usuario desactivó los clics atravesables, la ventana ya es
-  // interactiva por completo y no hay nada que alternar.
+  // If the user disabled click-through, the window is already fully interactive
+  // and there's nothing to toggle.
   if (!settingsStore.get().clickThrough) return;
   setClickThrough(win, ignore);
 }
 
 /**
- * Arrastre manual de la ventana.
+ * Manual window dragging.
  *
- * No se usa `-webkit-app-region: drag` porque no funciona con
- * `focusable: false`, y renunciar a esa opción no es viable: robar el foco de
- * la videollamada es justo lo que delata al asistente. En su lugar se sigue el
- * cursor desde el proceso main y se reposiciona la ventana.
+ * `-webkit-app-region: drag` isn't used because it doesn't work with
+ * `focusable: false`, and giving up that option isn't viable: stealing the video
+ * call's focus is exactly what gives the assistant away. Instead the cursor is
+ * followed from the main process and the window is repositioned.
  */
 let dragTimer: NodeJS.Timeout | null = null;
 
@@ -173,13 +173,13 @@ export function startOverlayDrag(): void {
 
   const cursor = screen.getCursorScreenPoint();
   const pos = win.getPosition();
-  // Desfase entre el cursor y la esquina de la ventana: mantenerlo constante
-  // es lo que hace que la ventana no salte al empezar a arrastrar.
+  // Offset between the cursor and the window's corner: keeping it constant is
+  // what keeps the window from jumping when the drag starts.
   const offsetX = cursor.x - (pos[0] ?? 0);
   const offsetY = cursor.y - (pos[1] ?? 0);
 
-  // ~60 fps. Un intervalo en lugar de seguir los mousemove del renderer porque
-  // el cursor sale de la ventana en cuanto el arrastre va rápido.
+  // ~60 fps. An interval instead of following the renderer's mousemove because
+  // the cursor leaves the window as soon as the drag goes fast.
   dragTimer = setInterval(() => {
     const current = getOverlay();
     if (!current) {
@@ -201,17 +201,17 @@ export function stopOverlayDrag(): void {
 export function nudgeOverlay(dx: number, dy: number): void {
   const win = getOverlay();
   if (!win) return;
-  // getPosition/getSize devuelven number[], no tuplas: indexamos con default.
+  // getPosition/getSize return number[], not tuples: we index with a default.
   const pos = win.getPosition();
   win.setPosition((pos[0] ?? 0) + dx * NUDGE, (pos[1] ?? 0) + dy * NUDGE);
 }
 
 /**
- * Aplica uno de los tamaños predefinidos.
+ * Applies one of the predefined sizes.
  *
- * Se reancla al borde derecho en lugar de crecer hacia la derecha: el overlay
- * arranca arriba a la derecha (la zona con menos UI en Meet/Teams/Zoom) y
- * ensancharlo hacia fuera lo sacaría de la pantalla.
+ * It re-anchors to the right edge instead of growing to the right: the overlay
+ * starts top-right (the area with the least UI in Meet/Teams/Zoom) and widening
+ * it outward would push it off the screen.
  */
 export function setOverlaySize(size: OverlaySize): void {
   const win = getOverlay();

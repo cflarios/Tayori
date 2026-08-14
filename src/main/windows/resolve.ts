@@ -5,11 +5,11 @@ import { is } from '@electron-toolkit/utils';
 export type RendererName = 'overlay' | 'dashboard' | 'audio-worker';
 
 /**
- * Carga una de las tres entradas HTML.
+ * Loads one of the three HTML entries.
  *
- * En dev, electron-vite expone el servidor de Vite en `ELECTRON_RENDERER_URL`
- * y cada entrada se sirve por su ruta relativa al `root` del renderer.
- * En producción, los HTML quedan en `out/renderer/<name>/index.html`.
+ * In dev, electron-vite exposes the Vite server at `ELECTRON_RENDERER_URL` and
+ * each entry is served by its path relative to the renderer's `root`. In
+ * production, the HTML files land at `out/renderer/<name>/index.html`.
  */
 export function loadRenderer(win: BrowserWindow, name: RendererName): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

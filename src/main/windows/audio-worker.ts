@@ -4,16 +4,16 @@ import { loadRenderer, preloadPath } from './resolve';
 let worker: BrowserWindow | null = null;
 
 /**
- * Ventana oculta dedicada a la captura de audio.
+ * Hidden window dedicated to audio capture.
  *
- * Existe como ventana separada por dos razones:
- *  1. `getUserMedia` y `getDisplayMedia` sólo están disponibles en un contexto
- *     de renderer, no en el proceso main.
- *  2. Aislarla del overlay evita que el pipeline de audio se detenga cuando el
- *     usuario oculta el overlay, y que compita con el render de la UI.
+ * It exists as a separate window for two reasons:
+ *  1. `getUserMedia` and `getDisplayMedia` are only available in a renderer
+ *     context, not in the main process.
+ *  2. Isolating it from the overlay keeps the audio pipeline from stopping when
+ *     the user hides the overlay, and from competing with the UI render.
  *
- * Nunca se muestra, así que no necesita stealth: una ventana que no se pinta
- * no aparece en ninguna captura.
+ * It's never shown, so it needs no stealth: a window that isn't painted appears
+ * in no capture.
  */
 export function getAudioWorker(): BrowserWindow | null {
   return worker && !worker.isDestroyed() ? worker : null;
@@ -33,8 +33,8 @@ export function createAudioWorker(): BrowserWindow {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      // Crítico: sin esto Chromium estrangula los timers de una ventana sin
-      // foco y el audio llega a tirones o se corta.
+      // Critical: without this Chromium throttles the timers of an unfocused
+      // window and the audio arrives stuttering or cuts out.
       backgroundThrottling: false,
     },
   });

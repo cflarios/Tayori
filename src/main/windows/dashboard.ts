@@ -12,14 +12,14 @@ export function getDashboard(): BrowserWindow | null {
 }
 
 /**
- * Ventana de configuración. Redimensionable y enfocable (a diferencia del
- * overlay), pero NO aparece en la barra de tareas: reducir la presencia en la
- * interfaz de Windows es el objetivo, y el engranaje del overlay siempre la
- * recupera (`focus()`/`restore()` abajo), así que no hace falta el botón.
+ * Settings window. Resizable and focusable (unlike the overlay), but it does
+ * NOT appear in the taskbar: reducing the presence in the Windows interface is
+ * the goal, and the overlay's gear always recovers it (`focus()`/`restore()`
+ * below), so the button isn't needed.
  *
- * El título es neutro: se filtra por Alt+Tab y por la sección "Aplicaciones"
- * del Administrador de tareas. La marca "Tayori" vive dentro del
- * contenido del dashboard, que sí ve el usuario y no se expone al sistema.
+ * The title is neutral: it leaks through Alt+Tab and the "Apps" section of Task
+ * Manager. The "Tayori" brand lives inside the dashboard content, which the user
+ * does see and which isn't exposed to the system.
  */
 export function openDashboard(): BrowserWindow {
   const existing = getDashboard();
@@ -40,14 +40,14 @@ export function openDashboard(): BrowserWindow {
     backgroundColor: '#0f1115',
     autoHideMenuBar: true,
     /*
-     * Sin marco del sistema: el dashboard pinta su propia barra de título al
-     * estilo de macOS (los tres semáforos a la izquierda), y sus controles van
-     * por IPC (`dashboardMinimize`/`ToggleMaximize`/`Close`). Sigue siendo
-     * redimensionable desde los bordes —Electron conserva las asas de resize en
-     * una ventana `frame: false` que no es `resizable: false`—, así que
-     * `minWidth`/`minHeight` siguen valiendo. El `title` lleva la marca real
-     * ("Tayori") en vez de un nombre neutro: una ventana sin marco sigue teniendo
-     * título en Alt+Tab, y se decidió que ahí también vaya la marca.
+     * No system frame: the dashboard paints its own title bar macOS-style (the
+     * three traffic lights on the left), and its controls go over IPC
+     * (`dashboardMinimize`/`ToggleMaximize`/`Close`). It's still resizable from
+     * the edges —Electron keeps the resize handles on a `frame: false` window
+     * that isn't `resizable: false`—, so `minWidth`/`minHeight` still hold. The
+     * `title` carries the real brand ("Tayori") instead of a neutral name: a
+     * frameless window still has a title in Alt+Tab, and it was decided the brand
+     * goes there too.
      */
     frame: false,
     webPreferences: {
@@ -59,41 +59,42 @@ export function openDashboard(): BrowserWindow {
   });
 
   /*
-   * El dashboard NO es `always-on-top` a propósito, aunque se intentó.
+   * The dashboard is NOT `always-on-top` on purpose, even though it was tried.
    *
-   * Se probó hacerlo persistente (que no se fuera detrás al pulsar otra app),
-   * pero eso lo dejaba a nivel `screen-saver` peleándose con el overlay —la otra
-   * ventana topmost— por el foco. Cada cambio de foco entre las dos rompe el
-   * reenvío de `mousemove` del overlay (del que depende para detectar el hover y
-   * volverse clicable), y el bloqueo se acumulaba cuanto más se usaba el
-   * dashboard, peor en el `.exe`. Con una sola ventana topmost —el overlay— no
-   * hay pelea y el overlay es estable. El coste es que el dashboard se va detrás
-   * como cualquier ventana normal; se recupera con el engranaje del overlay.
+   * Making it persistent (so it wouldn't go behind when clicking another app)
+   * was tried, but that left it at `screen-saver` level fighting the overlay
+   * —the other topmost window— for focus. Each focus change between the two
+   * breaks the overlay's `mousemove` forwarding (which it depends on to detect
+   * hover and become clickable), and the lock-up accumulated the more the
+   * dashboard was used, worse in the `.exe`. With a single topmost window —the
+   * overlay— there's no fight and the overlay is stable. The cost is that the
+   * dashboard goes behind like any normal window; it's recovered with the
+   * overlay's gear.
    */
 
   dashboard.once('ready-to-show', () => {
     const win = dashboard;
     if (!win) return;
-    // Antes del primer `show`, o el dashboard aparecería un frame en la captura.
-    // `content-only`: se excluye de la captura como el overlay, pero conserva la
-    // barra de tareas y el foco de una ventana de ajustes. Sigue el interruptor de
-    // sigilo, así que el modo demo lo vuelve visible igual que al overlay.
+    // Before the first `show`, or the dashboard would appear for a frame in the
+    // capture. `content-only`: it's excluded from capture like the overlay, but
+    // keeps the taskbar and focus of a settings window. It follows the stealth
+    // switch, so demo mode makes it visible just like the overlay.
     setStealthContentOnly(win, settingsStore.get().stealthEnabled);
     win.show();
   });
   dashboard.on('closed', () => {
     dashboard = null;
     /*
-     * Red de seguridad: re-sincroniza el ratón del overlay al cerrar el dashboard.
+     * Safety net: re-syncs the overlay's mouse when the dashboard closes.
      *
-     * Con el dashboard ya sin `always-on-top` el bloqueo no debería darse —el
-     * overlay es la única ventana topmost y no pierde su reenvío—, pero abrir y
-     * cerrar una ventana enfocable puede dejar un hipo puntual en el reenvío de
-     * `mousemove`. Esto lo cura: el renderer resetea su caché de ignore (que pudo
-     * quedar desincronizado) y re-manda el estado, lo que en el main re-aplica
-     * `setIgnoreMouseEvents(..., { forward: true })`, y se reasegura el topmost del
-     * overlay. Con un `setTimeout` porque al dispararse `closed` Windows aún no ha
-     * reasignado el foreground.
+     * With the dashboard no longer `always-on-top` the lock-up shouldn't happen
+     * —the overlay is the only topmost window and doesn't lose its forwarding—,
+     * but opening and closing a focusable window can leave a one-off hiccup in
+     * the `mousemove` forwarding. This cures it: the renderer resets its ignore
+     * cache (which may have gone out of sync) and re-sends the state, which in
+     * main re-applies `setIgnoreMouseEvents(..., { forward: true })`, and the
+     * overlay's topmost is re-secured. With a `setTimeout` because when `closed`
+     * fires Windows hasn't reassigned the foreground yet.
      */
     setTimeout(() => {
       const overlay = getOverlay();
@@ -104,11 +105,11 @@ export function openDashboard(): BrowserWindow {
   });
 
   /*
-   * El dashboard es una SPA: navegar fuera de ella la rompe. Cualquier enlace a
-   * un sitio externo se abre en el navegador del sistema y **nunca** dentro de la
-   * ventana. Cubre las dos vías —clic normal (`will-navigate`) y target=_blank o
-   * middle-click (`setWindowOpenHandler`)— y sólo deja pasar http(s), así que un
-   * `file://` inesperado no abre nada.
+   * The dashboard is an SPA: navigating out of it breaks it. Any link to an
+   * external site opens in the system browser and **never** inside the window. It
+   * covers both paths —normal click (`will-navigate`) and target=_blank or
+   * middle-click (`setWindowOpenHandler`)— and only lets http(s) through, so an
+   * unexpected `file://` opens nothing.
    */
   const openExternally = (url: string): void => {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
@@ -118,14 +119,14 @@ export function openDashboard(): BrowserWindow {
     return { action: 'deny' };
   });
   dashboard.webContents.on('will-navigate', (event, url) => {
-    // Sólo se intercepta lo que va a OTRO origen. Una navegación al mismo origen
-    // es la propia app (incluido el recargado de HMR en `dev`, servido por
-    // localhost), y bloquearla rompería el servidor de desarrollo.
+    // Only what goes to ANOTHER origin is intercepted. A same-origin navigation
+    // is the app itself (including the HMR reload in `dev`, served by localhost),
+    // and blocking it would break the dev server.
     try {
       const current = dashboard?.webContents.getURL() ?? '';
       if (new URL(url).origin === new URL(current).origin) return;
     } catch {
-      return; // URL o página actual sin origen parseable: no tocar.
+      return; // URL or current page with no parseable origin: don't touch.
     }
     event.preventDefault();
     openExternally(url);

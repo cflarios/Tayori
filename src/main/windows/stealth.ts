@@ -1,30 +1,30 @@
 import type { BrowserWindow } from 'electron';
 
 /**
- * Invisibilidad frente a la captura de pantalla.
+ * Invisibility to screen capture.
  *
- * En Windows, `setContentProtection(true)` llama a `SetWindowDisplayAffinity`
- * con `WDA_EXCLUDEFROMCAPTURE`: el compositor (DWM) omite la ventana al
- * construir el buffer de captura, así que no aparece en screen shares,
- * grabadores ni OBS. Requiere Windows 10 2004+; en builds anteriores degrada
- * a `WDA_MONITOR` y la ventana sale como un rectángulo negro.
+ * On Windows, `setContentProtection(true)` calls `SetWindowDisplayAffinity` with
+ * `WDA_EXCLUDEFROMCAPTURE`: the compositor (DWM) omits the window when building
+ * the capture buffer, so it doesn't appear in screen shares, recorders or OBS.
+ * It requires Windows 10 2004+; on earlier builds it degrades to `WDA_MONITOR`
+ * and the window comes out as a black rectangle.
  *
- * LÍMITES REALES de este mecanismo (documentados también en el README):
- *   - No protege frente a una cámara apuntando a la pantalla física.
- *   - No oculta el proceso: software de proctoring que enumere procesos o
- *     ventanas lo verá.
- *   - No oculta el audio del micrófono.
+ * REAL LIMITS of this mechanism (also documented in the README):
+ *   - It doesn't protect against a camera pointed at the physical screen.
+ *   - It doesn't hide the process: proctoring software that enumerates processes
+ *     or windows will see it.
+ *   - It doesn't hide the microphone audio.
  */
 
-/** Ventanas con stealth aplicado, para poder re-aplicarlo y alternarlo en bloque. */
+/** Windows with stealth applied, so it can be re-applied and toggled in bulk. */
 const tracked = new Set<BrowserWindow>();
 
 /**
- * Electron pierde el flag de content protection al ocultar y volver a mostrar
- * la ventana (electron/electron#29085, corregido parcialmente en #45868 pero
- * aún inconsistente entre builds de Windows). Re-aplicarlo en cada `show` es
- * lo que evita que el overlay se vuelva visible tras un toggle — es la causa
- * número uno de fugas en este tipo de app, así que no quitar este hook.
+ * Electron loses the content-protection flag when hiding and re-showing the
+ * window (electron/electron#29085, partially fixed in #45868 but still
+ * inconsistent across Windows builds). Re-applying it on every `show` is what
+ * keeps the overlay from becoming visible after a toggle — it's the number-one
+ * cause of leaks in this kind of app, so don't remove this hook.
  */
 function registerWindow(win: BrowserWindow): void {
   if (tracked.has(win)) return;
@@ -41,15 +41,15 @@ function registerWindow(win: BrowserWindow): void {
   win.once('closed', () => tracked.delete(win));
 }
 
-/** Estado deseado por ventana; `setContentProtection` no tiene getter en Electron. */
+/** Desired state per window; `setContentProtection` has no getter in Electron. */
 const stealthState = new WeakMap<BrowserWindow, boolean>();
 
 /**
- * Ventanas que sólo deben **excluirse de la captura**, sin el resto del trato de
- * overlay (always-on-top a nivel screen-saver, todos los workspaces). Es el
- * dashboard: se ve y se usa como una ventana normal —puedes alt-tabear a ella,
- * no flota sobre la videollamada— pero DWM la omite del buffer de captura igual
- * que al overlay. Sigue el mismo interruptor de sigilo (`setStealthForAll`).
+ * Windows that should only be **excluded from capture**, without the rest of the
+ * overlay treatment (screen-saver-level always-on-top, all workspaces). It's the
+ * dashboard: it's seen and used like a normal window —you can alt-tab to it, it
+ * doesn't float over the video call— but DWM omits it from the capture buffer
+ * just like the overlay. It follows the same stealth switch (`setStealthForAll`).
  */
 const contentOnly = new WeakSet<BrowserWindow>();
 
@@ -58,10 +58,10 @@ export function isStealthOn(win: BrowserWindow): boolean {
 }
 
 /**
- * Excluye una ventana de la captura SIN el comportamiento de overlay. Para el
- * dashboard: mismo `WDA_EXCLUDEFROMCAPTURE` y mismos re-aplicados en
- * show/restore/focus, pero no toca la posición ni la barra de tareas. Llamar
- * antes del primer `show`, o aparece un frame en la captura.
+ * Excludes a window from capture WITHOUT the overlay behavior. For the
+ * dashboard: same `WDA_EXCLUDEFROMCAPTURE` and same re-applies on
+ * show/restore/focus, but it doesn't touch the position or the taskbar. Call
+ * before the first `show`, or a frame appears in the capture.
  */
 export function setStealthContentOnly(win: BrowserWindow, enabled: boolean): void {
   if (win.isDestroyed()) return;
@@ -77,21 +77,21 @@ export function applyStealth(win: BrowserWindow): void {
   stealthState.set(win, true);
 
   win.setContentProtection(true);
-  // 'screen-saver' es el nivel más alto: se mantiene sobre ventanas fullscreen,
-  // que es exactamente el caso de una videollamada maximizada.
+  // 'screen-saver' is the highest level: it stays over fullscreen windows, which
+  // is exactly the case of a maximized video call.
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setSkipTaskbar(true);
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 }
 
 /**
- * Vuelve la ventana detectable. Lo usa el switch del dashboard: sirve para
- * grabar demos, depurar la UI y comprobar que el toggle funciona en ambos
- * sentidos (si nunca lo apagas, no sabes si de verdad estaba encendido).
+ * Makes the window detectable. The dashboard switch uses it: it's for recording
+ * demos, debugging the UI and checking the toggle works both ways (if you never
+ * turn it off, you don't know whether it was really on).
  *
- * Registra la ventana igual que `applyStealth`: aunque el stealth arranque
- * apagado, la ventana debe quedar en `tracked` para que `setStealthForAll`
- * pueda encenderlo más tarde desde el dashboard.
+ * It registers the window just like `applyStealth`: even if stealth starts off,
+ * the window must stay in `tracked` so `setStealthForAll` can turn it on later
+ * from the dashboard.
  */
 export function removeStealth(win: BrowserWindow): void {
   if (win.isDestroyed()) return;
@@ -100,14 +100,15 @@ export function removeStealth(win: BrowserWindow): void {
 
   win.setContentProtection(false);
   win.setSkipTaskbar(false);
-  // El overlay debe seguir por encima de la videollamada aunque sea detectable.
+  // The overlay must stay above the video call even if it's detectable.
   win.setAlwaysOnTop(true, 'screen-saver');
 }
 
 export function setStealth(win: BrowserWindow, enabled: boolean): void {
-  // El dashboard sólo alterna la protección de captura; el resto del trato de
-  // overlay (always-on-top, workspaces) no le corresponde. Así el interruptor
-  // de sigilo del dashboard lo apaga y enciende sin volverlo una ventana flotante.
+  // The dashboard only toggles capture protection; the rest of the overlay
+  // treatment (always-on-top, workspaces) isn't its business. That way the
+  // dashboard's stealth switch turns it off and on without making it a floating
+  // window.
   if (contentOnly.has(win)) {
     setStealthContentOnly(win, enabled);
     return;
@@ -116,7 +117,7 @@ export function setStealth(win: BrowserWindow, enabled: boolean): void {
   else removeStealth(win);
 }
 
-/** Aplica el estado a todas las ventanas registradas (las llama el store de settings). */
+/** Applies the state to all registered windows (the settings store calls them). */
 export function setStealthForAll(enabled: boolean): void {
   for (const win of tracked) {
     if (!win.isDestroyed()) setStealth(win, enabled);
@@ -124,9 +125,9 @@ export function setStealthForAll(enabled: boolean): void {
 }
 
 /**
- * Click-through: el overlay deja pasar los clics a la ventana de abajo.
- * `forward: true` mantiene los eventos de movimiento llegando al renderer,
- * lo que permite seguir mostrando estados hover mientras los clics atraviesan.
+ * Click-through: the overlay lets clicks pass through to the window below.
+ * `forward: true` keeps the movement events reaching the renderer, which allows
+ * still showing hover states while the clicks pass through.
  */
 export function setClickThrough(win: BrowserWindow, enabled: boolean): void {
   if (win.isDestroyed()) return;
