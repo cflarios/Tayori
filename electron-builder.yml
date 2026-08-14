@@ -5,11 +5,11 @@ appId: com.interviewhelper.app
 # image in Task Manager. It used to carry a neutral name ("Audio Helper") so as
 # not to give away at a glance what the app is; it was decided to use the real
 # brand, because the stealth that really matters —invisible when sharing the
-# screen, via setContentProtection— doesn't depend on this name. It's only
-# cosmetic and can be changed without breaking anything: `app.name` (the userData
-# path with the settings and the encrypted API keys) does NOT come from here, but
-# from `package.json` `name` and from `app.setName('interview-helper')` in
-# main/index.ts, which stay intact.
+# screen, via setContentProtection— doesn't depend on this name. But `productName`
+# is NOT only cosmetic: Electron resolves `app.name` from it, so it also decides
+# the userData folder (`%APPDATA%\Tayori`, with the settings and the encrypted API
+# keys). Keep it in sync with `productName` in package.json and `app.setName` in
+# main/index.ts; changing it orphans that data.
 productName: Tayori
 executableName: Tayori
 copyright: MIT

@@ -22,7 +22,7 @@ import { BUILT_IN_SKILLS } from './built-in';
  * calls it, which is how editing a SKILL.md is noticed without restarting.
  */
 
-/** `%APPDATA%\interview-helper\skills`. */
+/** `%APPDATA%\Tayori\skills`. */
 export function skillsFolder(): string {
   return join(app.getPath('userData'), 'skills');
 }

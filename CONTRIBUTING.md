@@ -75,7 +75,9 @@ the build instead of failing at runtime.
 
 ## A note on the app name
 
-`app.name` is `interview-helper` and **must not change**: the user-data path and
-the encrypted secrets key derive from it. The product name is *Tayori*
-(`productName` / `executableName` in `electron-builder.yml`). Don't confuse the
-two.
+`app.name` is `Tayori` — Electron resolves it from `productName` (set in
+`package.json` and `electron-builder.yml`) and `app.setName('Tayori')` reinforces
+it in `main/index.ts`. **It's what the user-data path and the encrypted secrets
+key derive from, so don't change it lightly.** `package.json` `name` stays
+`interview-helper` (npm wants a lowercase id; it's only the fallback if
+`productName` vanished) — don't confuse the two.

@@ -325,7 +325,7 @@ deduplicates near-identical frames with a perceptual `aHash`
 
 ## 6. Where the state lives
 
-Everything under `%APPDATA%\interview-helper` (`app.getPath('userData')`).
+Everything under `%APPDATA%\Tayori` (`app.getPath('userData')`).
 
 | Path | What it is | Format |
 |---|---|---|
@@ -336,10 +336,12 @@ Everything under `%APPDATA%\interview-helper` (`app.getPath('userData')`).
 | `logs/main.log` | Main process log | Text, rotates at 1 MB |
 | `whisper/` | Binaries and GGML models | Downloaded on demand |
 
-**Don't change the `name` field in `package.json`.** `app.getPath('userData')`
-derives from `app.name`, and breaking it orphans the settings and the encrypted
-key. It's pinned with `app.setName('interview-helper')` at the start of
-`main/index.ts`.
+**The folder name comes from `productName` (`Tayori`), not `package.json`
+`name`.** Electron resolves `app.name` from `productName` — set in both
+`package.json` and `electron-builder.yml`, and reinforced by `app.setName('Tayori')`
+at the start of `main/index.ts`. Changing it orphans the settings and the
+encrypted key. See CONTEXT.md for why the folder is `Tayori` and not the old
+`interview-helper` the docs once claimed.
 
 **The audio never touches the disk.** The only exception is the temporary WAV
 that whisper-cli needs, deleted in the `finally` of each invocation. Text is
@@ -398,7 +400,7 @@ the ChatGPT list in
 three screens that decide "is it configured?" with their own condition.
 
 **A new skill:** no code to touch. A folder in
-`%APPDATA%\interview-helper\skills` with a `SKILL.md` inside —frontmatter with
+`%APPDATA%\Tayori\skills` with a `SKILL.md` inside —frontmatter with
 `name` and `description`, the body in Markdown— and "Reload" in the dashboard.
 The built-in ones live in `main/skills/built-in.ts` and a folder with the same
 id replaces them.

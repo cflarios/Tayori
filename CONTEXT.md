@@ -595,34 +595,37 @@ and it can cause a BSOD with PatchGuard. It's not the right tool for a personal
 assistant, and it crosses into rootkit territory. If someone proposes it in the
 future, the answer is no.
 
-**Critical constraint to preserve:** do NOT change the `name` field in
-`package.json` (`interview-helper`). `app.getPath('userData')` derives from
-`app.name`, which Electron takes from that field — not from the packaging's
-`productName`. It's also anchored with `app.setName('interview-helper')` at the
-start of `main/index.ts`, before any `getPath('userData')`. If this breaks, the
-app stops finding the settings and the DPAPI-encrypted API key: they're orphaned
-in the old folder. Always verify that userData is still
-`%APPDATA%\interview-helper` after touching the packaging.
+**Critical constraint to preserve:** the userData folder is `%APPDATA%\Tayori`,
+and it comes from `app.name`, which Electron resolves from **`productName`**
+(`"Tayori"`, set in both `package.json` and `electron-builder.yml`) and which
+`app.setName('Tayori')` at the start of `main/index.ts` reinforces before any
+`getPath('userData')`. `package.json` `name` stays `interview-helper` — npm wants
+a lowercase id and it's only the fallback if `productName` vanished. If the
+resolved name changes, the app stops finding the settings and the DPAPI-encrypted
+API key: they're orphaned in the old folder, with no error to give it away. (This
+section long claimed the folder was `%APPDATA%\interview-helper`, anchored by
+`setName('interview-helper')` — that was wrong: the packaged app has followed
+`productName` to `Tayori` since the August rebrand, and dev was unified to it too.)
 
-### The Tayori rebranding stopped where the data begins
+### The Tayori rebranding, and where the data actually lives
 
-The project was renamed **Tayori**, and the change stopped on purpose at the
-boundary above. Three layers, three criteria:
+The project was renamed **Tayori**. For a long time this section claimed the
+rebranding *stopped* at the data boundary — that userData stayed
+`%APPDATA%\interview-helper`, anchored by `app.setName('interview-helper')`. **That
+was wrong.** Electron resolves `app.name` from `productName`, and `productName`
+became `Tayori` in the August rebrand, so the packaged app has stored everything
+in `%APPDATA%\Tayori` ever since; `setName('interview-helper')` never actually
+moved the path. The evidence was in the logs: every packaged session wrote to
+`Tayori`. So the folder was aligned with the brand all along, and dev was unified
+to it too — a `productName` in `package.json`, so `npm run dev` resolves the same
+name instead of falling back to `interview-helper`. The layers now:
 
-| Layer | What happened | Why |
+| Layer | State | Why |
 |---|---|---|
-| Visible brand (UI, docs, model guide, MQTT client, default theme) | Renamed | It's what the user reads: it's *the* rebranding |
-| `package.json` `name` and `app.setName('interview-helper')` | **Intact** | They are the `%APPDATA%` path. Renaming them leaves the settings and the encrypted keys in the old folder, **with no error**: the app boots as if freshly installed |
+| Visible brand (UI, docs, model guide, MQTT client, default theme) | `Tayori` | It's what the user reads: it's *the* rebranding |
+| `productName` (`package.json` + `electron-builder.yml`) → the userData folder | `Tayori` | Electron resolves `app.name` from it, so this IS the `%APPDATA%` path (`%APPDATA%\Tayori`), reinforced by `app.setName('Tayori')` |
+| `package.json` `name` | **Intact** (`interview-helper`) | npm wants a lowercase id; it's only the fallback if `productName` vanished, and what release-please identifies the package by |
 | `appId` (`com.interviewhelper.app`) | **Intact** | It identifies the installation for NSIS; changing it would orphan existing installations |
-| `productName`, `executableName`, `shortcutName`, window title | Renamed to `Tayori` (August 2026) | They started neutral (`Audio Helper`) for discretion; they were moved to the real brand. It's cosmetic and doesn't touch the data path (`app.name` doesn't come from here) |
-
-The first time, the rebranding stopped at `productName`/`executableName` on
-purpose: `electron-builder.yml` documented that the visible brand lived in the UI
-and that this layer was a discretion disguise. Later it was decided to remove the
-disguise —see «Process and window name» above—, so today this layer also says
-`Tayori`. **What didn't move** is the data boundary: `package.json` `name`,
-`app.setName('interview-helper')` and `appId` remain exactly the same, which is
-the only thing whose change would break something.
 
 **`release-please-config.json` keeps `package-name: interview-helper`.** It's
 cosmetic —it affects the changelog title—, but publishing cost three attempts

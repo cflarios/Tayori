@@ -1,5 +1,6 @@
 {
   "name": "interview-helper",
+  "productName": "Tayori",
   "version": "1.6.2",
   "description": "Real-time AI assistant for meetings and interviews, invisible when you share your screen",
   "license": "MIT",

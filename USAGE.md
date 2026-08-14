@@ -274,7 +274,7 @@ three alternatives without picking one.
 ```
 
 Dashboard → **Skills** → *Open folder* takes you to
-`%APPDATA%\interview-helper\skills`. Create the folder, drop the file in and
+`%APPDATA%\Tayori\skills`. Create the folder, drop the file in and
 press **Reload**: the folder name is what you type after the slash.
 
 The **scripts and assets** the format allows are ignored on purpose. Only the

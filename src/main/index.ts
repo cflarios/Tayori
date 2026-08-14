@@ -521,17 +521,14 @@ const hotkeyActions = {
   teleprompterPrev: () => broadcast(IPC.onTeleprompterMove, -1),
 };
 
-// Set app.name BEFORE any getPath('userData'). The packaged build is renamed to
-// a neutral name in electron-builder.yml (so Task Manager doesn't show
-// "Tayori"), but `app.name` derives from here, not from the packaged
-// productName. Without this anchor, a productName change could move userData and
-// orphan the settings and the DPAPI-encrypted API key.
-//
-// It was NOT renamed with the rest of the brand in the move to "Tayori", and
-// it's not an oversight: this identifier IS the `%APPDATA%` path. Changing it
-// would leave everyone's settings and keys in the old folder, with no error to
-// give it away — the app would simply start up like a fresh install.
-app.setName('interview-helper');
+// The userData folder is `%APPDATA%\Tayori`, and it comes from `app.name`, which
+// Electron resolves from `productName` ("Tayori", set in both package.json and
+// electron-builder.yml). This `setName` reinforces it and must run BEFORE any
+// getPath('userData'). `package.json` `name` stays `interview-helper` (npm wants a
+// lowercase id; it's only the fallback if productName vanished). Changing the
+// resolved name orphans the settings and the DPAPI-encrypted API key in the old
+// folder, with no error to give it away — so all three signals say `Tayori`.
+app.setName('Tayori');
 
 // Immediately after setting the name, because the log path comes from
 // `userData` and that derives from `app.name`. Before this there was nowhere to
