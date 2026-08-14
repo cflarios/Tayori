@@ -60,14 +60,14 @@ import type {
   UpdateInfo,
 } from '@shared/types';
 
-/** Proyectos hermanos que nacen de éste. */
+/** Sibling projects born from this one. */
 const TAYORI_WEB_URL = 'https://tayori-web.cflarios.workers.dev/';
 const TAYORI_ESP32_URL = 'https://github.com/cflarios/TayoriESP32';
 
 /**
- * Enlace a un sitio externo. Se abre en el navegador del sistema, nunca dentro
- * del dashboard: el `onClick` lo delega en `openExternal`, y por si acaso el main
- * deniega toda navegación fuera de la app (ver `windows/dashboard.ts`).
+ * Link to an external site. It opens in the system browser, never inside the
+ * dashboard: the `onClick` delegates it to `openExternal`, and just in case main
+ * denies any navigation out of the app (see `windows/dashboard.ts`).
  */
 function ExtLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
@@ -99,12 +99,12 @@ function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 }
 
 /**
- * Una fila de ajuste: etiqueta, explicación y su control a la derecha.
+ * A settings row: label, explanation and its control on the right.
  *
- * El icono es opcional y no es adorno: en una columna de doce filas seguidas es
- * lo que permite volver a encontrar la que buscas sin releer las etiquetas. Se
- * pone donde ayuda a distinguir —dos interruptores parecidos, una lista de
- * ajustes larga— y se omite donde la fila ya es única en su tarjeta.
+ * The icon is optional and not decoration: in a column of twelve rows in a row
+ * it's what lets you find the one you're looking for again without re-reading the
+ * labels. It's put where it helps distinguish —two similar switches, a long
+ * settings list— and omitted where the row is already unique in its card.
  */
 function Row({
   label,
@@ -134,10 +134,10 @@ function Row({
 }
 
 /**
- * Enlace a otra sección. Existe porque partir el dashboard en secciones tiene
- * un coste: dos ajustes que se explican el uno al otro dejan de verse a la vez.
- * Donde eso pasa —«qué se escucha» y el disparo automático— se pone el salto en
- * lugar de repetir el texto.
+ * Link to another section. It exists because splitting the dashboard into
+ * sections has a cost: two settings that explain each other stop being visible at
+ * the same time. Where that happens —"what's listened to" and the auto-trigger—
+ * the jump is put instead of repeating the text.
  */
 function Jump({
   to,
@@ -157,25 +157,25 @@ function Jump({
 }
 
 /**
- * Campo de API key. El valor guardado nunca se lee de vuelta — el main sólo
- * informa si existe o no. Por eso el input siempre arranca vacío y escribir
- * algo nuevo sobrescribe lo anterior.
+ * API key field. The stored value is never read back — main only reports whether
+ * it exists or not. That's why the input always starts empty and typing something
+ * new overwrites the previous one.
  */
 function SecretField({
   label,
   hint,
   present,
-  /** Qué se pide, si no es una API key. El componente lo reutiliza el broker. */
+  /** What's asked for, if it's not an API key. The broker reuses the component. */
   placeholder = 'keys.placeholder',
   onSave,
   onClear,
   /**
-   * Comprueba que la clave sirve de verdad, aquí mismo.
+   * Checks that the key really works, right here.
    *
-   * Estaba abajo, en la tarjeta del modelo, y probaba **el proveedor activo**:
-   * para saber si la clave de DeepSeek valía había que cambiarse a DeepSeek,
-   * probar y volver. La pregunta que uno se hace al pegar una clave es "¿esta
-   * sirve?", y se responde donde se pega.
+   * It was down below, in the model card, and it tested **the active provider**:
+   * to know whether the DeepSeek key worked you had to switch to DeepSeek, test
+   * and switch back. The question you ask yourself when pasting a key is "does
+   * this one work?", and it's answered where you paste it.
    */
   onTest,
 }: {
@@ -198,8 +198,8 @@ function SecretField({
     try {
       await onSave(draft);
       setDraft('');
-      // Una clave nueva invalida el veredicto anterior: dejarlo puesto diría
-      // "conexión correcta" sobre la clave que se acaba de reemplazar.
+      // A new key invalidates the previous verdict: leaving it up would say
+      // "connection OK" about the key that was just replaced.
       setTested(null);
     } finally {
       setBusy(false);
@@ -262,10 +262,9 @@ function SecretField({
 }
 
 /**
- * Panel de captura. Además de ser el control de encendido, es el instrumento
- * que permite comprobar de un vistazo que los DOS streams llegan por separado:
- * si al hablar sólo se mueve "Yo" y al reproducir un vídeo sólo se mueve
- * "Ellos", el pipeline está bien.
+ * Capture panel. Besides being the on/off control, it's the instrument that lets
+ * you check at a glance that the TWO streams arrive separately: if speaking only
+ * moves "You" and playing a video only moves "Them", the pipeline is fine.
  */
 function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioLevels }) {
   const t = useT();
@@ -312,9 +311,9 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
         </button>
       </Row>
 
-      {/* Los medidores son el instrumento, no un adorno: si al hablar sólo se
-          mueve "Yo" y al reproducir un vídeo sólo se mueve "Ellos", los dos
-          streams llegan de verdad por separado. */}
+      {/* The meters are the instrument, not decoration: if speaking only moves
+          "You" and playing a video only moves "Them", the two streams really do
+          arrive separately. */}
       <div className="meters">
         <div className="meter">
           <span className="meter__label">
@@ -342,26 +341,26 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
   );
 }
 
-// ──────────────────────── Secciones y navegación ────────────────────────
+// ──────────────────────── Sections and navigation ────────────────────────
 
 /**
- * El dashboard era **una sola columna** con doce tarjetas, de los primeros
- * pasos al registro de diagnóstico. Funcionaba mientras hubo cuatro; con doce,
- * encontrar un ajuste era recordar a qué altura del scroll estaba, y los avisos
- * que importan —no hay proveedor configurado, Windows rechazó un atajo— caían
- * fuera de la pantalla justo cuando hacían falta.
+ * The dashboard was **a single column** with twelve cards, from the first steps
+ * to the diagnostics log. It worked while there were four; with twelve, finding
+ * a setting meant remembering how far down the scroll it was, and the warnings
+ * that matter —no provider configured, Windows rejected a shortcut— fell off the
+ * screen exactly when they were needed.
  *
- * Ahora cada grupo es una sección con su propia navegación. Tres consecuencias
- * que van juntas y conviene no separar:
+ * Now each group is a section with its own navigation. Three consequences that go
+ * together and shouldn't be separated:
  *
- * - **La cabecera del panel es la que titula**, así que las tarjetas que son
- *   únicas en su sección ya no repiten título ni explicación. Dos veces lo
- *   mismo en la misma pantalla es ruido, no refuerzo.
- * - **Los avisos suben a la barra lateral** como un punto ámbar. Un problema
- *   que sólo se ve entrando en la sección donde vive es un problema que nadie
- *   ve: el aviso tiene que llegar antes que la navegación.
- * - **El interruptor de escucha vive en la cabecera**, visible desde cualquier
- *   sección. Es el control más usado y estaba enterrado en una tarjeta.
+ * - **The pane's header is what titles**, so cards that are unique in their
+ *   section no longer repeat title or explanation. The same thing twice on the
+ *   same screen is noise, not reinforcement.
+ * - **The warnings rise to the sidebar** as an amber dot. A problem visible only
+ *   by entering the section where it lives is a problem no one sees: the warning
+ *   has to arrive before the navigation.
+ * - **The listen switch lives in the header**, visible from any section. It's the
+ *   most-used control and it was buried in a card.
  */
 type SectionId =
   | 'general'
@@ -379,12 +378,12 @@ type SectionId =
   | 'about';
 
 /**
- * Las secciones, con sus textos como CLAVES y no como texto.
+ * The sections, with their texts as KEYS and not as text.
  *
- * El `hint` era `React.ReactNode` porque uno de ellos llevaba `<strong>`
- * dentro. Ahora todos son claves y el marcado se resuelve con `<Tx>`, que
- * interpreta `**negrita**`: así la tabla de traducciones puede guardarlos como
- * cadenas, que es lo único que sabe guardar.
+ * The `hint` was `React.ReactNode` because one of them carried a `<strong>`
+ * inside. Now they're all keys and the markup is resolved with `<Tx>`, which
+ * interprets `**bold**`: that way the translation table can store them as
+ * strings, which is the only thing it knows how to store.
  */
 const SECTIONS: Record<SectionId, { icon: IconName; label: UIKey; hint: UIKey }> = {
   general: { icon: 'sliders', label: 'sec.general', hint: 'sec.generalHint' },
@@ -423,9 +422,9 @@ const SECTION_ORDER: SectionId[] = [
 ];
 
 /**
- * La sección se recuerda entre aperturas. El dashboard se abre y se cierra
- * muchas veces seguidas mientras se afina algo —cambiar el modelo, probar,
- * volver— y devolver siempre a «General» obliga a repetir el mismo clic.
+ * The section is remembered between openings. The dashboard is opened and closed
+ * many times in a row while tuning something —change the model, test, go back—
+ * and always returning to "General" forces repeating the same click.
  */
 const SECTION_KEY = 'dashboard.section';
 
@@ -434,20 +433,20 @@ function storedSection(): SectionId {
     const saved = localStorage.getItem(SECTION_KEY);
     if (saved && saved in SECTIONS) return saved as SectionId;
   } catch {
-    // Un almacenamiento no disponible no es motivo para no abrir los ajustes.
+    // Unavailable storage is no reason not to open the settings.
   }
   return 'general';
 }
 
 /**
- * Barra de título propia, al estilo de macOS.
+ * Own title bar, macOS-style.
  *
- * La ventana del dashboard es `frame: false` (ver windows/dashboard.ts), así que
- * los botones del sistema los pinta la app: los tres semáforos, a la izquierda.
- * El resto de la barra es zona de arrastre —aquí `-webkit-app-region: drag` SÍ
- * vale, porque el dashboard es una ventana enfocable normal, a diferencia del
- * overlay—. Los glifos (×, −, +) sólo aparecen al pasar el ratón por el grupo,
- * como en macOS. Cerrar cierra SÓLO esta ventana; la app vive en el overlay.
+ * The dashboard window is `frame: false` (see windows/dashboard.ts), so the
+ * system buttons are painted by the app: the three traffic lights, on the left.
+ * The rest of the bar is a drag zone —here `-webkit-app-region: drag` DOES work,
+ * because the dashboard is a normal focusable window, unlike the overlay—. The
+ * glyphs (×, −, +) only appear on hovering the group, as in macOS. Close closes
+ * ONLY this window; the app lives in the overlay.
  */
 function TitleBar() {
   const { window: win } = window.api;
@@ -506,12 +505,12 @@ export function DashboardApp() {
   const [levels, setLevels] = useState<AudioLevels>({ me: 0, them: 0 });
   const [section, setSection] = useState<SectionId>(storedSection);
   /**
-   * Sube aquí desde `HotkeysCard` porque ya no basta con pintarlo dentro: la
-   * barra lateral marca la sección que tiene un problema, y para eso el aviso
-   * tiene que existir aunque esa sección no esté montada.
+   * It rises here from `HotkeysCard` because painting it inside is no longer
+   * enough: the sidebar marks the section that has a problem, and for that the
+   * warning has to exist even if that section isn't mounted.
    */
   const [failedHotkeys, setFailedHotkeys] = useState<string[]>([]);
-  /** Reabierto a mano desde el pie de la barra lateral. */
+  /** Reopened by hand from the sidebar footer. */
   const [wizard, setWizard] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -536,12 +535,12 @@ export function DashboardApp() {
     try {
       localStorage.setItem(SECTION_KEY, next);
     } catch {
-      // Recordar la sección es una comodidad, no un requisito.
+      // Remembering the section is a convenience, not a requirement.
     }
   }, []);
 
-  // Cambiar de sección tiene que empezar por arriba: heredar el scroll de la
-  // anterior deja la nueva empezada por la mitad sin ninguna razón visible.
+  // Switching sections has to start at the top: inheriting the previous one's
+  // scroll leaves the new one starting halfway down for no visible reason.
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [section]);
@@ -567,17 +566,17 @@ export function DashboardApp() {
     );
 
   /*
-   * El asistente sustituye al dashboard entero mientras está abierto, y no es
-   * una sección más: quien lo necesita no sabe todavía qué significan las
-   * secciones. Se abre solo la primera vez y se puede volver a llamar desde el
-   * pie de la barra lateral.
+   * The wizard replaces the whole dashboard while it's open, and it's not just
+   * another section: whoever needs it doesn't yet know what the sections mean. It
+   * opens on its own the first time and can be called again from the sidebar
+   * footer.
    */
   if (!settings.onboardingDone || wizard) {
     return (
       <div className="shell">
-        {/* Mismo marco de "detectable" que el resto del dashboard: el asistente
-            también está protegido de la captura a nivel de ventana, pero sin el
-            marco parecía quedar fuera del switch de sigilo. */}
+        {/* Same "detectable" frame as the rest of the dashboard: the wizard is
+            also protected from capture at the window level, but without the frame
+            it seemed to fall outside the stealth switch. */}
         {!settings.stealthEnabled && <div className="detectable-frame" aria-hidden="true" />}
         <TitleBar />
         <SetupWizard
@@ -587,8 +586,8 @@ export function DashboardApp() {
           saveSecret={saveSecret}
           onClose={() => {
             setWizard(false);
-            // Salir del asistente cuenta como "ya no me lo enseñes": si no,
-            // cerrarlo lo volvería a abrir en el siguiente render.
+            // Leaving the wizard counts as "don't show it to me anymore": if not,
+            // closing it would reopen it on the next render.
             if (!settings.onboardingDone) void patch({ onboardingDone: true });
           }}
         />
@@ -599,17 +598,18 @@ export function DashboardApp() {
   const meta = SECTIONS[section];
 
   /*
-   * Este componente provee el idioma, así que no puede leerlo con `useT()`.
-   * Traduce a mano contra los settings, que es de donde salía igualmente.
+   * This component provides the language, so it can't read it with `useT()`. It
+   * translates by hand against the settings, which is where it came from anyway.
    */
   const t = (key: UIKey, vars?: Record<string, string | number>): string =>
     translate(settings.uiLanguage, key, vars);
 
   /*
-   * Qué secciones piden atención. Son exactamente los avisos que ya existían
-   * dentro de cada tarjeta: lo único nuevo es que ahora se ven sin entrar. Un
-   * aviso que hay que ir a buscar no avisa de nada — el caso que lo motivó es
-   * el auto-disparo inerte, que no da ningún síntoma salvo silencio.
+   * Which sections ask for attention. They're exactly the warnings that already
+   * existed inside each card: the only new thing is that they're now visible
+   * without entering. A warning you have to go looking for warns of nothing — the
+   * case that motivated it is the inert auto-trigger, which gives no symptom but
+   * silence.
    */
   const alerts: Partial<Record<SectionId, boolean>> = {
     general: !settings.stealthEnabled,
@@ -621,9 +621,9 @@ export function DashboardApp() {
 
   return (
     <div className="shell">
-      {/* Marco discontinuo rojo cuando el sigilo está apagado: el dashboard —con
-          las API keys, el CV y el historial— también sale en la captura ahora
-          mismo, así que lo avisa en el propio borde de la ventana. */}
+      {/* Dashed red frame when stealth is off: the dashboard —with the API keys,
+          the CV and the history— also shows in the capture right now, so it warns
+          on the window's edge itself. */}
       {!settings.stealthEnabled && <div className="detectable-frame" aria-hidden="true" />}
       <TitleBar />
       <LangProvider lang={settings.uiLanguage}>
@@ -653,9 +653,9 @@ export function DashboardApp() {
             </nav>
 
             <div className="nav__foot">
-              {/* El asistente se puede volver a llamar: haberlo terminado una vez no
-              debería dejarte sin él. Vive en el pie y no al final de una sección
-              porque no pertenece a ninguna — las cruza todas. */}
+              {/* The wizard can be called again: having finished it once shouldn't
+              leave you without it. It lives in the footer and not at the end of a
+              section because it belongs to none — it crosses them all. */}
               <button className="navitem navitem--ghost" onClick={() => setWizard(true)}>
                 <Icon name="compass" />
                 <span className="navitem__label">{t('nav.wizard')}</span>
@@ -670,8 +670,8 @@ export function DashboardApp() {
                 <h1 className="pane__title">{t(meta.label)}</h1>
                 <p className="pane__sub">{renderMarkup(t(meta.hint))}</p>
               </div>
-              {/* El control más usado de la app, alcanzable desde cualquier sección:
-              antes había que llegar hasta la tarjeta de captura para pulsarlo. */}
+              {/* The app's most-used control, reachable from any section: before
+              you had to get all the way to the capture card to press it. */}
               <ListenButton status={status} />
             </header>
 
@@ -707,8 +707,8 @@ export function DashboardApp() {
                     />
                     <ModelPresetsCard settings={settings} patch={patch} />
                     <ModelCard settings={settings} patch={patch} />
-                    {/* Justo detrás del modelo de respuestas: se lee como "y para la
-                    pantalla, esto otro", que es la decisión que hay que tomar. */}
+                    {/* Right behind the answers model: it reads as "and for the
+                    screen, this other one", which is the decision to make. */}
                     <ScreenModelCard settings={settings} patch={patch} />
                     <LocalModelGuide />
                   </>
@@ -738,20 +738,20 @@ export function DashboardApp() {
 }
 
 /*
- * La regla de "¿puede responder este proveedor?" vive en `shared/types.ts`.
+ * The "can this provider answer?" rule lives in `shared/types.ts`.
  *
- * Estaba escrita aquí y otra vez en el overlay, con cadenas de `if` distintas,
- * y eran dos sitios que había que acordarse de tocar con cada proveedor nuevo
- * sin que nada avisara si se olvidaba uno.
+ * It was written here and again in the overlay, with different `if` chains, and
+ * they were two places you had to remember to touch with every new provider
+ * without anything warning if you forgot one.
  */
 
 /**
- * Estado de la escucha, y el mando para cambiarlo.
+ * The listening state, and the control to change it.
  *
- * Es un botón y no un indicador porque son la misma pregunta: quien mira si
- * está escuchando es porque quiere que escuche. El overlay tomó esta decisión
- * antes —"el indicador **es** el mando"— y separar aquí las dos cosas dejaría
- * dos gramáticas distintas para el mismo control.
+ * It's a button and not an indicator because they're the same question: whoever
+ * checks whether it's listening is because they want it to listen. The overlay
+ * made this decision earlier —"the indicator **is** the control"— and separating
+ * the two things here would leave two different grammars for the same control.
  */
 function ListenButton({ status }: { status: CaptureStatus }) {
   const t = useT();
@@ -791,21 +791,21 @@ function ListenButton({ status }: { status: CaptureStatus }) {
   );
 }
 
-// ────────────────────────── General · visibilidad ──────────────────────────
+// ────────────────────────── General · visibility ──────────────────────────
 
 /**
- * Los dos interruptores que deciden si te delata la app van destacados y
- * primero: son de los pocos ajustes que se cambian **durante** una llamada, y
- * el resto de la sección son preferencias que se tocan una vez.
+ * The two switches that decide whether the app gives you away go highlighted and
+ * first: they're among the few settings changed **during** a call, and the rest
+ * of the section are preferences touched once.
  */
 function VisibilityCards({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
   return (
     <>
       {/*
-        El idioma va lo primero de todo, y no en «Acerca de» ni al final: quien
-        abre los ajustes porque la app está en un idioma que no es el suyo tiene
-        que encontrarlo sin leer nada más.
+        The language goes first of all, and not in "About" or at the end: whoever
+        opens the settings because the app is in a language that isn't theirs has
+        to find it without reading anything else.
       */}
       <section className="card">
         <Row icon="globe" label={t('dash.language')} desc={t('dash.languageDesc')}>
@@ -865,9 +865,9 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
         <p className="card__hint">{t('gen.lookHint')}</p>
 
         {/*
-          La opacidad y el tamaño de letra existían en `Settings` y sólo se
-          podían tocar editando el JSON: el overlay los aplicaba pero nadie
-          tenía cómo cambiarlos.
+          The opacity and font size existed in `Settings` and could only be
+          touched by editing the JSON: the overlay applied them but no one had a
+          way to change them.
         */}
         <Row icon="contrast" label={t('gen.opacity')} desc={t('gen.opacityDesc')}>
           <div className="slider">
@@ -906,9 +906,9 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           />
         </Row>
 
-        {/* Va aquí y no en «Comportamiento» porque no cambia qué responde la
-            app, cambia cómo se lee: es apariencia del overlay, como los dos
-            de arriba. */}
+        {/* It goes here and not in "Behavior" because it doesn't change what the
+            app answers, it changes how it's read: it's overlay appearance, like
+            the two above. */}
         <Row icon="type" label={t('gen.teleprompter')} desc={t('gen.teleprompterDesc')}>
           <Switch
             on={settings.teleprompterEnabled}
@@ -918,10 +918,10 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
 
         {settings.teleprompterEnabled && (
           <div className="warn">
-            {/* Las combinaciones se leen de los ajustes, no se escriben en la
-                clave: son configurables, y una frase que diga Ctrl+Shift+Abajo
-                cuando el usuario lo cambió a otra cosa manda a pulsar la tecla
-                que no es. */}
+            {/* The combinations are read from the settings, not written in the
+                key: they're configurable, and a sentence saying Ctrl+Shift+Down
+                when the user changed it to something else sends you to press the
+                wrong key. */}
             <Tx
               k="gen.teleprompterHint"
               vars={{
@@ -940,13 +940,14 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
   );
 }
 
-// ──────────────────────────── Audio · fuentes ────────────────────────────
+// ──────────────────────────── Audio · sources ────────────────────────────
 
 /**
- * Qué se escucha vivía dentro de «Transcripción», que es donde se implementa y
- * no donde se busca: la pregunta que responde es de micrófonos, no de motores.
- * Su aviso más caro —la combinación que deja el auto-disparo inerte— se explica
- * en Comportamiento, así que aquí va el salto en lugar del texto repetido.
+ * What's listened to lived inside "Transcription", which is where it's
+ * implemented and not where it's looked for: the question it answers is about
+ * microphones, not engines. Its costliest warning —the combination that leaves
+ * the auto-trigger inert— is explained in Behavior, so here the jump goes instead
+ * of the repeated text.
  */
 function AudioSourcesCard({
   settings,
@@ -992,16 +993,15 @@ function AudioSourcesCard({
   );
 }
 
-// ───────────────────────── Espejo en el teléfono ─────────────────────────
+// ───────────────────────── Phone mirror ─────────────────────────
 
 /**
- * El QR, dibujado como SVG a partir de la matriz que manda el main.
+ * The QR, drawn as SVG from the matrix main sends.
  *
- * No es una imagen ni un `data:` URI: son rectángulos, así que sale nítido a
- * cualquier tamaño, no hay que ampliar la CSP y el "quiet zone" —el margen
- * blanco obligatorio de cuatro módulos, sin el cual muchos lectores no
- * enganchan— es aritmética en el `viewBox` en vez de un borde que confiar al
- * CSS.
+ * It's not an image or a `data:` URI: they're rectangles, so it comes out sharp
+ * at any size, there's no need to widen the CSP and the "quiet zone" —the
+ * mandatory four-module white margin, without which many readers don't latch
+ * on— is arithmetic in the `viewBox` instead of a border trusted to the CSS.
  */
 function QrCode({ modules }: { modules: boolean[][] }) {
   const t = useT();
@@ -1031,12 +1031,12 @@ function QrCode({ modules }: { modules: boolean[][] }) {
 }
 
 /**
- * El espejo del teléfono.
+ * The phone mirror.
  *
- * La tarjeta tiene que responder a tres preguntas, en este orden: ¿está
- * encendido?, ¿qué abro en el móvil?, y —la que de verdad importa— ¿lo estoy
- * viendo ya? La última se responde con el contador de teléfonos conectados: sin
- * él, la única forma de saber si funciona es levantarse a mirar.
+ * The card has to answer three questions, in this order: is it on?, what do I
+ * open on the phone?, and —the one that really matters— am I seeing it already?
+ * The last is answered with the connected-phones counter: without it, the only
+ * way to know if it works is to get up and look.
  */
 function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
@@ -1089,8 +1089,8 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
         <Switch on={settings.phoneMirrorLan} onChange={(v) => void patch({ phoneMirrorLan: v })} />
       </div>
 
-      {/* El aviso va donde se toma la decisión, no en el pie: encender la LAN es
-          el momento en que el alcance cambia. */}
+      {/* The warning goes where the decision is made, not in the footer: turning
+          on the LAN is the moment the scope changes. */}
       {on && settings.phoneMirrorLan && (
         <div className="warn">
           <Tx k="ph.lanWarn" />
@@ -1111,8 +1111,8 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
         </div>
       )}
 
-      {/* La comprobación va sobre `status` y no sobre el `running` de arriba
-          para que TypeScript sepa que aquí dentro hay estado. */}
+      {/* The check is on `status` and not on the `running` above so TypeScript
+          knows there's state in here. */}
       {on && status?.running && (
         <section className="card">
           <h2 className="card__title">{t('ph.scan')}</h2>
@@ -1133,9 +1133,9 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
                 </button>
               </div>
               {/*
-                La confirmación que no se puede deducir de nada más. Un QR
-                bonito y un teléfono que no conecta se ven exactamente igual
-                desde aquí hasta que este número se mueve.
+                The confirmation that can't be deduced from anything else. A
+                pretty QR and a phone that doesn't connect look exactly the same
+                from here until this number moves.
               */}
               <div className={status.clients > 0 ? 'pair__live' : 'pair__idle'}>
                 {status.clients === 0
@@ -1152,10 +1152,10 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
           )}
 
           {/*
-            Con VPN, Docker o VirtualBox la máquina tiene varias IPv4 y la
-            heurística puede elegir la que no lleva a ninguna parte. El síntoma
-            es horrible —el navegador del móvil se queda cargando sin decir
-            nada— así que las demás se enseñan en vez de esconderse.
+            With VPN, Docker or VirtualBox the machine has several IPv4s and the
+            heuristic may pick the one that leads nowhere. The symptom is horrible
+            —the phone's browser hangs loading without saying anything— so the
+            others are shown instead of hidden.
           */}
           {status.alternates.length > 0 && (
             <>
@@ -1190,14 +1190,14 @@ function PhoneMirrorCard({ settings, patch }: { settings: Settings; patch: Patch
 // ──────────────────────────────── MQTT ────────────────────────────────
 
 /**
- * Publicar las respuestas en un broker.
+ * Publishing the answers to a broker.
  *
- * La tarjeta responde a tres preguntas en este orden: ¿está conectado?, ¿a qué
- * tema me suscribo?, y —la que de verdad importa— ¿le ha llegado algo a mi
- * cacharro? La última se contesta con el contador de publicadas y con un botón
- * de prueba: un montaje roto y uno bueno se ven idénticos desde aquí hasta que
- * llega el primer mensaje, y enterarse con la primera respuesta real es
- * enterarse en el peor momento.
+ * The card answers three questions in this order: is it connected?, what topic do
+ * I subscribe to?, and —the one that really matters— has anything reached my
+ * gadget? The last is answered with the published counter and a test button: a
+ * broken setup and a good one look identical from here until the first message
+ * arrives, and finding out with the first real answer is finding out at the worst
+ * moment.
  */
 function MqttCard({
   settings,
@@ -1342,10 +1342,10 @@ function MqttCard({
   );
 }
 
-/** Estado de la conexión, con el contador que es la única confirmación real. */
+/** Connection state, with the counter that's the only real confirmation. */
 function MqttStatusLine({ status }: { status: MqttStatus | null }) {
-  // El hook va ANTES del `return null`: React exige que el número de hooks no
-  // cambie entre renders, y salir antes de llamarlo rompe esa regla.
+  // The hook goes BEFORE the `return null`: React requires the number of hooks
+  // not to change between renders, and returning before calling it breaks that rule.
   const t = useT();
   if (!status) return null;
 
@@ -1381,17 +1381,17 @@ function MqttStatusLine({ status }: { status: MqttStatus | null }) {
 // ─────────────────────────────────── Skills ───────────────────────────────────
 
 /**
- * Las skills que hay en disco, y cuál está puesta.
+ * The skills on disk, and which one is set.
  *
- * Se listan también las **rotas**, con su motivo. Es la diferencia entre "no
- * has creado ninguna" y "la tuya tiene un fallo": esconder la segunda deja a
- * alguien mirando una carpeta que sí existe sin ninguna pista de por qué la app
- * no la ve, y ése es exactamente el fallo mudo que este proyecto persigue.
+ * The **broken** ones are also listed, with their reason. It's the difference
+ * between "you haven't created any" and "yours has a bug": hiding the second
+ * leaves someone looking at a folder that does exist with no hint why the app
+ * doesn't see it, and that's exactly the silent failure this project chases.
  *
- * No hay editor. Un SKILL.md se escribe con el editor de cada uno, se versiona
- * y se comparte; meter un textarea aquí sería reinventar peor algo que ya
- * funciona, y además convertiría la carpeta en un formato de esta app en lugar
- * de en el formato que ya es.
+ * There's no editor. A SKILL.md is written with each person's own editor,
+ * versioned and shared; putting a textarea here would be reinventing worse
+ * something that already works, and it would also turn the folder into a format
+ * of this app instead of the format it already is.
  */
 function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
@@ -1493,8 +1493,8 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
               <div className="skill__body">
                 <div className="skill__head">
                   <span className="skill__name">{skillName(t, skill)}</span>
-                  {/* El id va al lado del nombre porque es lo que se teclea tras
-                      la barra, y no tiene por qué parecerse al título. */}
+                  {/* The id goes next to the name because it's what you type
+                      after the slash, and it doesn't have to resemble the title. */}
                   <code className="skill__id">{skill.id}</code>
                   {skill.builtIn && <span className="skill__tag">{t('sk.builtIn')}</span>}
                 </div>
@@ -1517,20 +1517,20 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
   );
 }
 
-// ─────────────────────────────── Acerca de ───────────────────────────────
+// ─────────────────────────────── About ───────────────────────────────
 
 /**
- * Qué es esto, qué versión y qué hace con tus datos.
+ * What this is, what version and what it does with your data.
  *
- * La versión importa más de lo que parece: media hora se fue en investigar un
- * fallo que ya estaba arreglado, porque nadie sabía qué build estaba corriendo
- * en la máquina donde se vio. Un número a la vista lo habría dicho en dos
- * segundos, y por eso está aquí y no escondido en el log.
+ * The version matters more than it seems: half an hour went into investigating a
+ * bug that was already fixed, because no one knew which build was running on the
+ * machine where it was seen. A visible number would have said it in two seconds,
+ * and that's why it's here and not hidden in the log.
  *
- * El resumen de privacidad se repite —está también en el README y en cada
- * sección que abre una salida— y la repetición es deliberada: es lo que alguien
- * necesita saber antes de dejar esto escuchando una entrevista, y no se puede
- * depender de que haya leído el README.
+ * The privacy summary is repeated —it's also in the README and in each section
+ * that opens an outlet— and the repetition is deliberate: it's what someone needs
+ * to know before leaving this listening to an interview, and you can't depend on
+ * them having read the README.
  */
 function AboutCard() {
   const t = useT();
@@ -1648,19 +1648,19 @@ function AboutCard() {
   );
 }
 
-// ──────────────────────────── Modelos · claves ────────────────────────────
+// ──────────────────────────── Models · keys ────────────────────────────
 
 /**
- * Ollama, en la tarjeta de las claves aunque no tenga ninguna.
+ * Ollama, in the keys card even though it has none.
  *
- * Fue una decisión con dudas y ésta es la razón de resolverla así: la tarjeta
- * no va de claves, va de **«¿está esto listo para responder?»**. Ollama entra
- * en esa pregunta igual que los demás; lo único que cambia es que su respuesta
- * no depende de una credencial sino de que el servidor esté vivo. Dejarlo fuera
- * obligaría a buscar esa comprobación en otro sitio sólo porque es local.
+ * It was a decision with doubts and this is the reason for resolving it this way:
+ * the card isn't about keys, it's about **"is this ready to answer?"**. Ollama
+ * enters that question like the others; the only thing that changes is that its
+ * answer doesn't depend on a credential but on the server being alive. Leaving it
+ * out would force looking for that check elsewhere just because it's local.
  *
- * Por eso no tiene campo de texto: no hay nada que pegar. Tiene la etiqueta que
- * dice que no le hace falta, y el mismo botón que los demás.
+ * That's why it has no text field: there's nothing to paste. It has the badge
+ * saying it doesn't need one, and the same button as the others.
  */
 function OllamaCheck() {
   const t = useT();
@@ -1750,27 +1750,28 @@ function ApiKeysCard({
   );
 }
 
-// ───────────────────── Modelo para las acciones de pantalla ─────────────────────
+// ───────────────────── Model for the screen actions ─────────────────────
 
 /**
- * Con qué se resuelven el código y los tests de la pantalla.
+ * What the screen's code and quizzes are solved with.
  *
- * Antes había un solo modelo para todo, y las dos tareas piden cosas opuestas:
- * lo hablado necesita **latencia**, porque la respuesta se lee mientras alguien
- * te mira; lo de la pantalla necesita **vista y cabeza**, porque hay que leer un
- * enunciado en una captura y no equivocarse. Un modelo local pequeño sirve para
- * lo primero y no para lo segundo; uno grande de pago, al revés, es caro para
- * cada frase suelta de una reunión.
+ * Before there was a single model for everything, and the two tasks ask for
+ * opposite things: speech needs **latency**, because the answer is read while
+ * someone looks at you; the screen needs **vision and brains**, because you have
+ * to read a prompt in a capture and not get it wrong. A small local model works
+ * for the first and not the second; a big paid one, the other way around, is
+ * expensive for every stray sentence in a meeting.
  */
 function ScreenModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
   /*
-   * El resultado se guarda JUNTO al proveedor que lo pidió, y se descarta por
-   * comparación al pintar. Es el mismo patrón que el selector principal, y por
-   * la misma razón: la lista de Ollama viaja por red, el usuario puede cambiar
-   * de proveedor mientras llega, y una respuesta lenta del anterior pintaría
-   * los modelos equivocados. Guardar el par también evita tener que limpiar el
-   * estado dentro del efecto, que es lo que caza `set-state-in-effect`.
+   * The result is stored TOGETHER with the provider that requested it, and
+   * discarded by comparison when painting. It's the same pattern as the main
+   * selector, and for the same reason: Ollama's list travels over the network,
+   * the user can switch providers while it arrives, and a slow response from the
+   * previous one would paint the wrong models. Storing the pair also avoids having
+   * to clean up state inside the effect, which is what `set-state-in-effect`
+   * catches.
    */
   const [loaded, setLoaded] = useState<{ providerId: string; list: ModelInfo[] }>({
     providerId: '',
@@ -1813,8 +1814,8 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
           onChange={(e) =>
             void patch({
               screenProviderId: e.target.value as Settings['screenProviderId'],
-              // Cambiar de proveedor invalida el modelo elegido: los ids no se
-              // parecen en nada entre un proveedor y el siguiente.
+              // Switching provider invalidates the chosen model: the ids don't
+              // resemble each other at all between one provider and the next.
               screenModel: '',
             })
           }
@@ -1823,10 +1824,10 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
           <option value="claude">{t('screen.claude')}</option>
           <option value="gemini">{t('screen.gemini')}</option>
           <option value="openai">{t('screen.openai')}</option>
-          {/* DeepSeek no sale aquí: ninguno de sus modelos lee imágenes, y esta
-              tarjeta existe para elegir el que SÍ tiene que leer la pantalla.
-              Ofrecerlo sería ofrecer la opción que garantiza que los dos botones
-              fallen. Se puede escribir a mano si algún día sacan uno con visión. */}
+          {/* DeepSeek isn't here: none of its models read images, and this card
+              exists to pick the one that DOES have to read the screen. Offering it
+              would be offering the option that guarantees both buttons fail. It
+              can be typed by hand if they ever release one with vision. */}
           <option value="ollama">{t('screen.ollama')}</option>
         </select>
       </Row>
@@ -1847,8 +1848,8 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
             providerId={provider}
             models={models.map((m) => ({
               ...m,
-              // La visión decide si este modelo sirve para lo único que hace
-              // esta tarjeta, así que va en la etiqueta y no en una nota aparte.
+              // Vision decides whether this model works for the only thing this
+              // card does, so it goes in the label and not in a separate note.
               label: `${m.label}${m.supportsVision ? t('screen.seesImages') : t('screen.noVision')}`,
             }))}
             value={target.model}
@@ -1872,23 +1873,23 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
   );
 }
 
-// ─────────────────────── Guía de modelos locales ───────────────────────
+// ─────────────────────── Local models guide ───────────────────────
 
 /**
- * Qué modelo local pedirle a esta máquina.
+ * Which local model to ask this machine for.
  *
- * La pregunta no tiene respuesta genérica —el mismo modelo es instantáneo con
- * GPU y tarda un minuto sin ella— y equivocarse cuesta una descarga de varios
- * gigas. Se mide lo que se puede medir y se dice claramente lo que no: la VRAM,
- * que es lo que de verdad decide si un modelo cabe en la tarjeta, no se puede
- * leer de forma fiable desde aquí.
+ * The question has no generic answer —the same model is instant with a GPU and
+ * takes a minute without one— and getting it wrong costs a multi-gig download.
+ * What can be measured is measured and what can't is said clearly: VRAM, which is
+ * what really decides whether a model fits in the card, can't be read reliably
+ * from here.
  */
 function LocalModelGuide() {
   const t = useT();
   const [specs, setSpecs] = useState<SystemSpecs | null>(null);
   const [copied, setCopied] = useState('');
   const [guide, setGuide] = useState<{ ok: boolean; error?: string } | null>(null);
-  /** Lo que Ollama dice tener descargado. Vacío si no está corriendo. */
+  /** What Ollama says it has downloaded. Empty if it's not running. */
   const [installed, setInstalled] = useState<string[]>([]);
 
   useEffect(() => {
@@ -1913,19 +1914,18 @@ function LocalModelGuide() {
   };
 
   /**
-   * Si el modelo recomendado ya está descargado.
+   * Whether the recommended model is already downloaded.
    *
-   * Se compara tolerando la etiqueta implícita: Ollama lista `llama3.2:latest`
-   * para lo que uno descargó como `llama3.2`, así que una comparación exacta
-   * diría que falta algo que está ahí — y mandaría a repetir una descarga de
-   * varios gigas.
+   * It's compared tolerating the implicit tag: Ollama lists `llama3.2:latest` for
+   * what you downloaded as `llama3.2`, so an exact comparison would say something
+   * is missing that's there — and would send you to repeat a multi-gig download.
    */
   const has = (model: string): boolean => {
     const base = model.includes(':') ? model : `${model}:latest`;
     return installed.some((id) => id === model || id === base);
   };
 
-  /** El botón de copiar el `pull`, o la confirmación de que ya no hace falta. */
+  /** The button to copy the `pull`, or the confirmation that it's no longer needed. */
   const action = (model: string): React.ReactNode =>
     has(model) ? (
       <span className="badge badge--ok">{t('local.alreadyInstalled')}</span>
@@ -1969,11 +1969,12 @@ function LocalModelGuide() {
       <div className="warn">{t(advice.caveat)}</div>
 
       {/*
-        La tarjeta responde "¿qué me pongo?" en dos líneas, que es lo que hace
-        falta con la ventana delante. La guía responde a la de al lado —"¿y por
-        qué, y qué más hay, y cuánto cuesta?"—, que necesita tablas y en esta
-        columna sería un muro. Va a un documento y no a otra ventana de la app:
-        cada ventana de Electron hay que registrarla en la protección de captura.
+        The card answers "what do I install?" in two lines, which is what's needed
+        with the window in front of you. The guide answers the next-door question
+        —"and why, and what else is there, and how much does it cost?"—, which
+        needs tables and in this column would be a wall. It goes to a document and
+        not to another app window: every Electron window has to be registered in
+        the capture protection.
       */}
       <Row icon="book" label={t('local.guide')} desc={t('local.guideDesc')}>
         <button
@@ -1999,17 +2000,17 @@ function LocalModelGuide() {
   );
 }
 
-// ─────────────────────────────── Atajos ───────────────────────────────
+// ─────────────────────────────── Shortcuts ───────────────────────────────
 
 /**
- * Un atajo, capturado pulsándolo.
+ * A shortcut, captured by pressing it.
  *
- * Se captura en lugar de escribirse porque el formato es de Electron
- * (`Control+Shift+S`) y nadie tiene por qué conocerlo; y porque teclear un
- * acelerador inválido no da error, sólo un atajo que no se registra.
+ * It's captured instead of typed because the format is Electron's
+ * (`Control+Shift+S`) and no one has to know it; and because typing an invalid
+ * accelerator gives no error, just a shortcut that doesn't register.
  *
- * El `input` es de sólo lectura a propósito: lo que vale es la pulsación, no lo
- * que se pueda pegar dentro.
+ * The `input` is read-only on purpose: what counts is the keypress, not what
+ * could be pasted into it.
  */
 function HotkeyField({
   action,
@@ -2022,7 +2023,7 @@ function HotkeyField({
 }: {
   action: keyof HotkeyMap;
   accelerator: string;
-  /** Apagado = no se registra, así que la combinación queda libre. */
+  /** Off = it doesn't register, so the combination stays free. */
   enabled: boolean;
   failed: boolean;
   duplicated: boolean;
@@ -2036,8 +2037,8 @@ function HotkeyField({
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     event.preventDefault();
 
-    // Escape sale sin cambiar nada: hace falta una salida que no sea asignar
-    // algo, porque el campo se traga todas las pulsaciones mientras captura.
+    // Escape exits without changing anything: an exit that isn't assigning
+    // something is needed, because the field swallows all keypresses while capturing.
     if (event.key === 'Escape') {
       setCapturing(false);
       setRejected(false);
@@ -2047,9 +2048,9 @@ function HotkeyField({
 
     const next = acceleratorFromEvent(event);
     if (!next) {
-      // Sólo se avisa si la tecla no era un modificador suelto: al componer
-      // Ctrl+Shift+X pasas por "Ctrl" y por "Ctrl+Shift", y marcar eso como
-      // error haría parpadear el aviso en cada intento legítimo.
+      // It only warns if the key wasn't a lone modifier: composing Ctrl+Shift+X
+      // you pass through "Ctrl" and "Ctrl+Shift", and marking that as an error
+      // would flash the warning on every legitimate attempt.
       if (!['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) setRejected(true);
       return;
     }
@@ -2064,10 +2065,10 @@ function HotkeyField({
     <Row
       label={t(HOTKEY_LABEL[action])}
       desc={
-        // Apagado manda sobre los avisos: un atajo que no se registra no puede
-        // estar tomado por otra app ni chocar con otro, así que enseñar «lo
-        // rechazó Windows» sobre uno apagado sería un aviso sobre algo que no
-        // está pasando.
+        // Off rules over the warnings: a shortcut that doesn't register can't be
+        // held by another app or clash with another, so showing "Windows rejected
+        // it" over an off one would be a warning about something that isn't
+        // happening.
         !enabled
           ? t('hk.offDesc')
           : rejected
@@ -2094,21 +2095,21 @@ function HotkeyField({
         }}
         onKeyDown={onKeyDown}
       />
-      {/* El campo sigue editable con el atajo apagado: dejar preparada la
-          combinación para cuando lo vuelvas a encender es un caso normal, y
-          bloquearlo obligaría a encender, teclear y volver a apagar. */}
+      {/* The field stays editable with the shortcut off: preparing the
+          combination for when you turn it back on is a normal case, and blocking
+          it would force turning on, typing and turning off again. */}
       <Switch on={enabled} onChange={onToggle} />
     </Row>
   );
 }
 
 /**
- * Los atajos, editables.
+ * The shortcuts, editable.
  *
- * `HotkeyMap` existía desde el principio y sólo se podía cambiar editando
- * `settings.json` a mano. No es un lujo: un acelerador global se lo quita a la
- * aplicación que tenga el foco, así que cualquier elección por defecto choca
- * con el editor, el juego o la distribución de teclado de alguien.
+ * `HotkeyMap` existed from the start and could only be changed by editing
+ * `settings.json` by hand. It's not a luxury: a global accelerator takes it away
+ * from the app that has focus, so any default choice clashes with someone's
+ * editor, game or keyboard layout.
  */
 function HotkeysCard({
   settings,
@@ -2117,13 +2118,13 @@ function HotkeysCard({
 }: {
   settings: Settings;
   patch: PatchFn;
-  /* La lista la mantiene el shell: la barra lateral marca esta sección en rojo
-     aunque no esté abierta, y para eso el aviso no puede vivir aquí dentro. */
+  /* The list is kept by the shell: the sidebar marks this section red even when
+     it's not open, and for that the warning can't live in here. */
   failed: string[];
 }) {
   const t = useT();
-  // Sobre los ACTIVOS: un atajo apagado no se registra, así que no puede chocar
-  // con otro. Contarlo sería marcar en rojo un conflicto que no existe.
+  // Over the ACTIVE ones: an off shortcut doesn't register, so it can't clash
+  // with another. Counting it would mark red a conflict that doesn't exist.
   const duplicated = duplicateAccelerators(activeHotkeys(settings));
   const actions = Object.keys(HOTKEY_LABEL) as (keyof HotkeyMap)[];
   const off = new Set(settings.disabledHotkeys);
@@ -2139,8 +2140,9 @@ function HotkeysCard({
 
       {failed.length > 0 && (
         <div className="warn">
-          {/* La negrita va DENTRO de la clave: en inglés el énfasis no cae en el
-              mismo sitio de la frase, y partirla en tres trozos lo fijaría. */}
+          {/* The bold goes INSIDE the key: in English the emphasis doesn't fall
+              in the same place of the sentence, and splitting it in three would
+              pin it. */}
           <Tx
             k={failed.length === 1 ? 'hk.rejectedOne' : 'hk.rejectedMany'}
             vars={{
@@ -2170,8 +2172,8 @@ function HotkeysCard({
           <div className="row__label">{t('hk.reset')}</div>
           <div className="row__desc">{t('hk.resetDesc')}</div>
         </div>
-        {/* Vuelve también los interruptores a su sitio: «valores de fábrica»
-            con tres atajos apagados no serían los de fábrica. */}
+        {/* It also returns the switches to their place: "factory defaults" with
+            three shortcuts off wouldn't be the factory ones. */}
         <button
           className="btn"
           onClick={() => void patch({ hotkeys: DEFAULT_HOTKEYS, disabledHotkeys: [] })}
@@ -2183,14 +2185,14 @@ function HotkeysCard({
   );
 }
 
-// ────────────────────────────── Diagnóstico ──────────────────────────────
+// ────────────────────────────── Diagnostics ──────────────────────────────
 
 /**
- * Logs y prueba del motor de transcripción.
+ * Logs and transcription-engine test.
  *
- * Existe porque en el `.exe` empaquetado **no había ningún sitio donde mirar**:
- * los `console.*` del main sólo se veían arrancando desde una terminal. Un fallo
- * de Gemini Live y una sala en silencio producían exactamente la misma pantalla.
+ * It exists because in the packaged `.exe` **there was nowhere to look**: the
+ * main process's `console.*` were only seen launching from a terminal. A Gemini
+ * Live failure and a silent room produced exactly the same screen.
  */
 function DiagnosticsCard() {
   const t = useT();
@@ -2213,8 +2215,8 @@ function DiagnosticsCard() {
     setTesting(true);
     setResult(null);
     try {
-      // La prueba escribe en el log, así que se relee después: el detalle
-      // completo (qué modelos se probaron y qué contestó cada uno) está ahí.
+      // The test writes to the log, so it's re-read afterwards: the full detail
+      // (which models were tried and what each answered) is there.
       setResult(await window.api.transcript.testConnection());
       refresh();
     } finally {
@@ -2260,14 +2262,14 @@ function DiagnosticsCard() {
   );
 }
 
-// ────────────────────────────── Historial ──────────────────────────────
+// ────────────────────────────── History ──────────────────────────────
 
 /**
- * La fecha de cada conversación, en el idioma de la interfaz.
+ * Each conversation's date, in the interface language.
  *
- * Estaba clavada a `es-ES`, así que con la app en inglés la lista decía
- * «03 ago, 18:42». Se construye por idioma y no una vez porque `Intl` no acepta
- * que le cambien el locale a un formateador ya creado.
+ * It was pinned to `es-ES`, so with the app in English the list said "03 ago,
+ * 18:42". It's built per language and not once because `Intl` doesn't accept
+ * changing the locale of an already-created formatter.
  */
 const DATE_FORMAT: Record<UILang, Intl.DateTimeFormat> = {
   en: new Intl.DateTimeFormat('en-GB', {
@@ -2285,12 +2287,13 @@ const DATE_FORMAT: Record<UILang, Intl.DateTimeFormat> = {
 };
 
 /**
- * Historial de conversaciones.
+ * Conversation history.
  *
- * Esta tarjeta es la que hace visible que la app **sí** escribe en disco, algo
- * que durante toda su vida anterior no hacía. Por eso enseña la ruta exacta y
- * el botón de borrar todo está aquí y no escondido: si vas a guardar
- * transcripciones de otras personas, tienes que poder ver qué hay y quitarlo.
+ * This card is the one that makes visible that the app **does** write to disk,
+ * something it didn't during its entire previous life. That's why it shows the
+ * exact path and the delete-all button is here and not hidden: if you're going to
+ * save other people's transcripts, you have to be able to see what's there and
+ * remove it.
  */
 function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
@@ -2301,11 +2304,11 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const [location, setLocation] = useState('');
   const [confirmingClear, setConfirmingClear] = useState(false);
   /**
-   * Cuántas conversaciones se pintan de golpe.
+   * How many conversations are painted at once.
    *
-   * Pintarlas todas hacía que la página creciera sin techo: con cincuenta
-   * conversaciones, cualquier ajuste que estuviera debajo quedaba a media
-   * pantalla de scroll. Se enseñan las recientes, que son las que se consultan.
+   * Painting them all made the page grow without a ceiling: with fifty
+   * conversations, any setting below was half a screen of scroll away. The recent
+   * ones are shown, which are the ones consulted.
    */
   const [showAll, setShowAll] = useState(false);
   const VISIBLE = 5;
@@ -2317,13 +2320,13 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   useEffect(() => {
     refresh();
     void window.api.history.location().then(setLocation);
-    // Empezar una conversación nueva desde el overlay debe verse aquí sin
-    // tener que cerrar y reabrir el dashboard.
+    // Starting a new conversation from the overlay must show here without having
+    // to close and reopen the dashboard.
     return window.api.history.onReset(refresh);
   }, [refresh]);
 
-  // El detalle se pide bajo demanda: la lista sólo trae cabeceras, y cargar
-  // cada transcripción completa para pintar una lista no tendría sentido.
+  // The detail is requested on demand: the list only brings headers, and loading
+  // each full transcript to paint a list wouldn't make sense.
   useEffect(() => {
     if (!openId) return;
     let cancelled = false;
@@ -2460,27 +2463,26 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   );
 }
 
-// ─────────────────────────────── Modelo ───────────────────────────────
+// ─────────────────────────────── Model ───────────────────────────────
 
 type PatchFn = (p: Partial<Settings>) => Promise<void>;
 
-/** Valor centinela del desplegable para "voy a escribirlo yo". */
+/** Sentinel dropdown value for "I'll type it myself". */
 const CUSTOM_MODEL = '__custom__';
 
 /**
- * Elegir modelo: del catálogo, o escribiéndolo.
+ * Choosing a model: from the catalog, or by typing it.
  *
- * El catálogo de los proveedores de nube está escrito en el código, así que
- * envejece:
- * cada modelo nuevo del proveedor tarda en llegar aquí lo que tarde una versión
- * de la app, y mientras tanto no hay forma de usarlo aunque tu cuenta tenga
- * acceso. La lista sigue siendo lo primero que se ve —es lo que quiere el 90% y
- * evita teclear un id de memoria— pero deja de ser una frontera.
+ * The cloud providers' catalog is written in the code, so it ages: each new model
+ * from the provider takes as long as an app version to arrive here, and meanwhile
+ * there's no way to use it even if your account has access. The list is still the
+ * first thing seen —it's what 90% want and it avoids typing an id from memory—
+ * but it stops being a boundary.
  *
- * **Con Ollama no se ofrece**, y no es una omisión: esa lista no es un catálogo
- * nuestro, es lo que el servidor local dice tener descargado. Escribir ahí el
- * nombre de un modelo que no está instalado no lo instala; sólo produce un
- * error más tarde y más lejos.
+ * **With Ollama it isn't offered**, and it's not an omission: that list isn't a
+ * catalog of ours, it's what the local server says it has downloaded. Typing
+ * there the name of a model that isn't installed doesn't install it; it only
+ * produces an error later and further away.
  */
 function ModelPicker({
   providerId,
@@ -2494,18 +2496,18 @@ function ModelPicker({
   onChange: (model: string) => void;
 }) {
   const t = useT();
-  /** El usuario pidió escribirlo; se recuerda aunque borre el campo. */
+  /** The user asked to type it; it's remembered even if they clear the field. */
   const [manual, setManual] = useState(false);
 
   const allowCustom = providerId !== 'ollama';
   const known = models.some((m) => m.id === value);
 
   /*
-   * Se escribe a mano si lo pidió, o si lo guardado no está en el catálogo —
-   * que es justo el caso de quien ya tecleó uno y vuelve al dashboard. La
-   * comprobación exige que la lista haya llegado: mientras carga está vacía y
-   * TODO parecería escrito a mano, así que el campo aparecería y desaparecería
-   * solo en cada apertura.
+   * It's typed by hand if they asked, or if the stored one isn't in the catalog —
+   * which is exactly the case of whoever already typed one and comes back to the
+   * dashboard. The check requires the list to have arrived: while loading it's
+   * empty and EVERYTHING would look hand-typed, so the field would appear and
+   * disappear on its own on every opening.
    */
   const typing = allowCustom && (manual || (Boolean(value) && models.length > 0 && !known));
 
@@ -2523,9 +2525,9 @@ function ModelPicker({
           onChange(e.target.value);
         }}
       >
-        {/* Un select controlado necesita SIEMPRE una option con su valor, o el
-            navegador pinta la primera como elegida sin disparar onChange y la
-            UI miente. Ya costó un rato una vez. */}
+        {/* A controlled select ALWAYS needs an option with its value, or the
+            browser paints the first as chosen without firing onChange and the UI
+            lies. It cost a while once. */}
         {!typing && !known && (
           <option value="">{models.length === 0 ? t('model.none') : t('model.pick')}</option>
         )}
@@ -2544,8 +2546,8 @@ function ModelPicker({
           placeholder={t('model.idPlaceholder')}
           value={value}
           autoFocus
-          // Se normaliza en cada tecla: un id pegado desde la documentación
-          // trae espacios que producen un 404 imposible de ver a simple vista.
+          // It's normalized on every key: an id pasted from the docs carries
+          // spaces that produce a 404 impossible to see at a glance.
           onChange={(e) => onChange(normalizeModelId(e.target.value))}
         />
       )}
@@ -2553,8 +2555,8 @@ function ModelPicker({
   );
 }
 
-/** Nombre del motor de transcripción, como clave. El `Record` exhaustivo obliga
- *  a dar etiqueta a cada motor nuevo que se añada a `STTProviderId`. */
+/** Transcription engine name, as a key. The exhaustive `Record` forces giving a
+ *  label to each new engine added to `STTProviderId`. */
 const STT_LABEL: Record<STTProviderId, UIKey> = {
   'openai-live': 'stt.openaiLive',
   'openai-transcribe': 'stt.openaiTranscribe',
@@ -2563,7 +2565,7 @@ const STT_LABEL: Record<STTProviderId, UIKey> = {
   'whisper-local': 'stt.whisperLocal',
 };
 
-/** Nombres de proveedor de respuestas: nombres propios, no se traducen. */
+/** Answer-provider names: proper nouns, not translated. */
 const LLM_LABEL: Record<LLMProviderId, string> = {
   claude: 'Claude',
   gemini: 'Gemini',
@@ -2573,12 +2575,12 @@ const LLM_LABEL: Record<LLMProviderId, string> = {
 };
 
 /**
- * Mini-perfiles de modelos: presets con nombre que fijan de un clic qué motores
- * y modelos usar para un caso (entrevista, reunión, intérprete…).
+ * Model mini-profiles: named presets that fix in one click which engines and
+ * models to use for a case (interview, meeting, interpreter…).
  *
- * No sustituye al perfil de prompt: lo **incluye** como un campo más. Cambiar de
- * perfil de prompt sigue decidiendo la forma de la respuesta; aplicar un preset
- * además pone los modelos. Ver `applyModelPreset` en `shared/types.ts`.
+ * It doesn't replace the prompt profile: it **includes** it as one more field.
+ * Switching prompt profile still decides the shape of the answer; applying a
+ * preset also sets the models. See `applyModelPreset` in `shared/types.ts`.
  */
 function ModelPresetsCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
@@ -2591,7 +2593,7 @@ function ModelPresetsCard({ settings, patch }: { settings: Settings; patch: Patc
       ...presets,
       {
         id: crypto.randomUUID(),
-        // Nombre por defecto: el perfil de prompt actual. Es editable en el acto.
+        // Default name: the current prompt profile. It's editable on the spot.
         name: t(PROFILE_LABEL[settings.promptProfileId]),
         ...presetFromSettings(settings),
       },
@@ -2662,10 +2664,10 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
   const provider = settings.llmProviderId;
 
   /**
-   * El resultado se guarda junto al proveedor al que corresponde, y se descarta
-   * por comparación al renderizar. Así se evita el bug de que un `listModels()`
-   * lento del proveedor A resuelva después de cambiar a B y muestre los modelos
-   * equivocados — y no hace falta limpiar el estado dentro del efecto.
+   * The result is stored together with the provider it corresponds to, and
+   * discarded by comparison when rendering. That avoids the bug where a slow
+   * `listModels()` from provider A resolves after switching to B and shows the
+   * wrong models — and there's no need to clean up state inside the effect.
    */
   const [loaded, setLoaded] = useState<{ provider: LLMProviderId; models: ModelInfo[] } | null>(
     null
@@ -2685,25 +2687,26 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         setLoaded({ provider, models });
 
         /*
-         * Si NO hay modelo guardado, hay que persistir uno. Un <select>
-         * controlado cuyo `value` no existe entre sus <option> pinta la primera
-         * opción como elegida pero no dispara `onChange`: la UI decía
-         * "llama3.2:3b" mientras los settings seguían con "", y cada respuesta
-         * fallaba con "no hay ningún modelo seleccionado".
+         * If there's NO stored model, one has to be persisted. A controlled
+         * <select> whose `value` doesn't exist among its <option>s paints the
+         * first option as chosen but doesn't fire `onChange`: the UI said
+         * "llama3.2:3b" while the settings still had "", and every answer failed
+         * with "no model selected".
          *
-         * La condición es "está vacío", NO "no está en la lista", y la
-         * diferencia importa desde que se pueden escribir modelos a mano: con
-         * la comprobación anterior, un id tecleado —o uno del catálogo que un
-         * día se retire— se sustituía solo por el primero de la lista al
-         * reabrir el dashboard. Cambiar el modelo de alguien a su espalda es
-         * malo con uno local y peor con uno de pago.
+         * The condition is "it's empty", NOT "it's not in the list", and the
+         * difference matters now that models can be typed by hand: with the
+         * previous check, a typed id —or one from the catalog that's one day
+         * retired— replaced itself with the first in the list on reopening the
+         * dashboard. Changing someone's model behind their back is bad with a
+         * local one and worse with a paid one.
          */
         const stored = await window.api.settings.get();
         const currentModel = stored.llmModels[provider];
         const first = models[0];
         if (!first || currentModel) return;
-        // Se relee del main en lugar de usar el `settings` del render: entre
-        // que se pidió la lista y llegó, el usuario ha podido tocar otro ajuste.
+        // It's re-read from main instead of using the render's `settings`:
+        // between requesting the list and it arriving, the user may have touched
+        // another setting.
         await patch({ llmModels: { ...stored.llmModels, [provider]: first.id } });
       })
       .catch(() => {
@@ -2749,8 +2752,8 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         icon="sliders"
         label={t('model.model')}
         desc={
-          // El diagnóstico detallado lo da el panel de estado de abajo; aquí
-          // solo se apunta hacia él para no decir lo mismo dos veces.
+          // The detailed diagnostics come from the status panel below; here it
+          // just points toward it so as not to say the same thing twice.
           provider === 'ollama' && models.length === 0
             ? t('model.noneAvailable')
             : provider !== 'ollama'
@@ -2780,9 +2783,9 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       </div>
 
       {/*
-        La ventana de contexto se enseña si Ollama se usa PARA ALGO, aunque sea
-        sólo para la pantalla: el recorte silencioso es igual de dañino ahí, y
-        más difícil de sospechar, porque una captura ocupa muchos tokens.
+        The context window is shown if Ollama is used FOR ANYTHING, even just for
+        the screen: the silent trimming is just as harmful there, and harder to
+        suspect, because a capture takes up many tokens.
       */}
       {(provider === 'ollama' || settings.screenProviderId === 'ollama') && (
         <Row icon="file" label={t('model.ollamaContext')} desc={t('model.ollamaContextDesc')}>
@@ -2805,19 +2808,19 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
 }
 
 /**
- * Estado de Ollama. Distingue los tres casos que importan, porque "no aparece
- * ningún modelo" tiene causas muy distintas y soluciones distintas: no está
- * instalado, está instalado pero parado, o corre sin modelos descargados.
+ * Ollama status. It tells apart the three cases that matter, because "no model
+ * appears" has very different causes and different solutions: it's not installed,
+ * it's installed but stopped, or it runs with no models downloaded.
  */
 function OllamaStatusPanel() {
   const t = useT();
   const [status, setStatus] = useState<OllamaStatus | null>(null);
   const [checking, setChecking] = useState(true);
-  /** Se incrementa para relanzar el sondeo desde el botón. */
+  /** Incremented to relaunch the probe from the button. */
   const [attempt, setAttempt] = useState(0);
 
-  // El efecto solo llama a setState desde el callback de la promesa; poner el
-  // `setChecking(true)` aquí dentro dispararía renders en cascada.
+  // The effect only calls setState from the promise's callback; putting
+  // `setChecking(true)` in here would fire cascading renders.
   useEffect(() => {
     let cancelled = false;
     void window.api.ollama
@@ -2891,7 +2894,7 @@ function OllamaStatusPanel() {
   );
 }
 
-// ──────────────────────────── Transcripción ────────────────────────────
+// ──────────────────────────── Transcription ────────────────────────────
 
 function TranscriptionCard({
   settings,
@@ -2936,13 +2939,13 @@ function TranscriptionCard({
     }
   };
 
-  /** Instalar desde una fila: primero se elige (el main descarga el activo). */
+  /** Install from a row: first it's chosen (main downloads the active one). */
   const installModel = async (id: string): Promise<void> => {
     await patch({ whisperModel: id });
     await install();
   };
 
-  /** Añade o quita un modelo de los favoritos, devolviendo la lista nueva. */
+  /** Adds or removes a model from favorites, returning the new list. */
   const toggleFavorite = (id: string): string[] =>
     settings.favoriteLocalModels.includes(id)
       ? settings.favoriteLocalModels.filter((m) => m !== id)
@@ -3015,9 +3018,10 @@ function TranscriptionCard({
       </Row>
 
       {/*
-        El aviso es fuerte porque el fallo es silencioso y muy desconcertante:
-        pasó de verdad con el idioma en inglés y alguien hablando español.
-        Whisper devolvía "Are y'all gonna eat?" y el modelo respondía a eso.
+        The warning is strong because the failure is silent and very confusing:
+        it really happened with the language in English and someone speaking
+        Spanish. Whisper returned "Are y'all gonna eat?" and the model answered
+        that.
       */}
       {settings.language !== 'auto' && (
         <div className="warn">
@@ -3120,10 +3124,10 @@ function TranscriptionCard({
 }
 
 /**
- * Por defecto el auto-disparo ignora tu propia voz (solo evalúa intervenciones
- * del interlocutor), así que esta opción decide sobre todo qué entra en el
- * CONTEXTO enviado al modelo. Los textos lo dicen explícitamente porque es la
- * confusión natural — y avisan de la combinación que deja el disparo inerte.
+ * By default the auto-trigger ignores your own voice (it only evaluates the other
+ * party's utterances), so this option mainly decides what enters the CONTEXT sent
+ * to the model. The texts say so explicitly because it's the natural confusion —
+ * and they warn about the combination that leaves the trigger inert.
  */
 const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], UIKey> = {
   both: 'aud.hintBoth',
@@ -3132,8 +3136,8 @@ const AUDIO_SOURCE_HINT: Record<Settings['audioSources'], UIKey> = {
 };
 
 /**
- * El equilibrio correcto depende de para qué uses la app, así que los textos
- * describen el caso de uso y no el algoritmo: nadie elige "recall" a ciegas.
+ * The right balance depends on what you use the app for, so the texts describe
+ * the use case and not the algorithm: no one chooses "recall" blindly.
  */
 const SENSITIVITY_HINT: Record<Settings['autoTriggerSensitivity'], UIKey> = {
   strict: 'beh.sensStrictHint',
@@ -3141,7 +3145,7 @@ const SENSITIVITY_HINT: Record<Settings['autoTriggerSensitivity'], UIKey> = {
   all: 'beh.sensAllHint',
 };
 
-/** Nombres de los hablantes en los avisos, para no repetirlos en cada texto. */
+/** Speaker names in the warnings, so as not to repeat them in every text. */
 const SPEAKER_LABEL: Record<'me' | 'them' | 'any', UIKey> = {
   them: 'beh.speakerThemShort',
   me: 'beh.speakerMeShort',
@@ -3149,11 +3153,11 @@ const SPEAKER_LABEL: Record<'me' | 'them' | 'any', UIKey> = {
 };
 
 /**
- * El idioma del reconocedor, escrito en el idioma de la interfaz.
+ * The recognizer's language, written in the interface language.
  *
- * Son las mismas claves que rotulan el desplegable de arriba: el aviso de
- * «estás forzando X» tiene que decir X exactamente igual que la opción que se
- * acaba de elegir, o parecen dos ajustes distintos.
+ * They're the same keys that label the dropdown above: the "you're forcing X"
+ * warning has to say X exactly like the option just chosen, or they look like two
+ * different settings.
  */
 const LANGUAGE_LABEL: Record<string, UIKey> = {
   es: 'stt.langEs',
@@ -3177,7 +3181,7 @@ const ACC_KEY: Record<ModelAccuracy, UIKey> = {
   'very-high': 'mdl.accVeryHigh',
 };
 
-// ────────────────────────────── Comportamiento ──────────────────────────────
+// ────────────────────────────── Behavior ──────────────────────────────
 
 function BehaviourCard({
   settings,
@@ -3248,9 +3252,9 @@ function BehaviourCard({
             </select>
           </Row>
 
-          {/* La combinación imposible no da ningún síntoma: el audio llega, se
-              transcribe, y el disparo descarta todo en silencio. Por eso se
-              avisa aquí y no solo en el log del proceso principal. */}
+          {/* The impossible combination gives no symptom: audio arrives, it's
+              transcribed, and the trigger discards everything silently. That's
+              why it warns here and not only in the main process's log. */}
           {autoTriggerIsInert(settings) && (
             <div className="warn">
               <Tx
@@ -3356,10 +3360,10 @@ function BehaviourCard({
       )}
 
       {/*
-        Se enseña siempre, no sólo con el perfil "Código" puesto: el camino
-        normal al modo código es Ctrl+Alt+C, que resuelve la pantalla SIN tocar
-        el perfil. Esconder este ajuste detrás del perfil lo dejaría invisible
-        justo para quien más lo va a usar.
+        Shown always, not only with the "Code" profile set: the normal path to
+        code mode is Ctrl+Alt+C, which solves the screen WITHOUT touching the
+        profile. Hiding this setting behind the profile would leave it invisible
+        exactly for whoever's going to use it most.
       */}
       <Row icon="monitor" label={t('beh.codeLang')} desc={t('beh.codeLangDesc')}>
         <input
@@ -3371,8 +3375,8 @@ function BehaviourCard({
         />
       </Row>
 
-      {/* Captura por trozos: para una prueba en pantalla compartida que se
-          revela con scroll. El modo decide cómo se recolectan los frames. */}
+      {/* Chunk capture: for a test on a shared screen revealed by scrolling. The
+          mode decides how the frames are collected. */}
       <Row
         icon="monitor"
         label={t('scroll.title')}
@@ -3416,7 +3420,7 @@ const PROFILE_LABEL: Record<Settings['promptProfileId'], UIKey> = {
   custom: 'beh.profCustom',
 };
 
-/** Qué pedirle al usuario en cada hueco, y por qué le conviene rellenarlo. */
+/** What to ask the user for in each slot, and why it's worth filling in. */
 const SLOT_HELP: Record<ContextKind, { placeholder: UIKey; hint: UIKey }> = {
   cv: { placeholder: 'ctx.cvPlaceholder', hint: 'ctx.cvHint' },
   job: { placeholder: 'ctx.jobPlaceholder', hint: 'ctx.jobHint' },
@@ -3426,13 +3430,13 @@ const SLOT_HELP: Record<ContextKind, { placeholder: UIKey; hint: UIKey }> = {
 };
 
 /**
- * El nombre de cada tipo, **para la interfaz**.
+ * The name of each kind, **for the interface**.
  *
- * `CONTEXT_KIND_LABEL` de `shared/types.ts` se queda como está y en español: lo
- * usa `prompt.ts` para rotular los bloques que se le mandan al modelo, y los
- * prompts no se traducen. Son dos usos del mismo concepto con destinatarios
- * distintos —una persona y un modelo— y mezclarlos metería una clave sin
- * traducir dentro del system prompt.
+ * `CONTEXT_KIND_LABEL` from `shared/types.ts` stays as it is and in Spanish:
+ * `prompt.ts` uses it to label the blocks sent to the model, and the prompts
+ * aren't translated. They're two uses of the same concept with different
+ * recipients —a person and a model— and mixing them would put an untranslated key
+ * inside the system prompt.
  */
 const CONTEXT_KIND_KEY: Record<ContextKind, UIKey> = {
   cv: 'ctx.kindCv',
@@ -3443,18 +3447,18 @@ const CONTEXT_KIND_KEY: Record<ContextKind, UIKey> = {
 };
 
 /**
- * Contexto guiado por perfil.
+ * Profile-guided context.
  *
- * Antes esto era una lista de cajas de texto libre con nombre, todas activas a
- * la vez en cualquier reunión. Funcionaba, pero dejaba dos cosas al usuario que
- * no tenía por qué resolver: **qué** conviene preparar, y **acordarse de
- * activar y desactivar** los packs al cambiar de tipo de reunión.
+ * Before, this was a list of named free-text boxes, all active at once in any
+ * meeting. It worked, but it left the user two things they shouldn't have to
+ * solve: **what** to prepare, and **remembering to enable and disable** the packs
+ * when switching meeting type.
  *
- * Ahora el perfil activo manda: enseña sus huecos con nombre y sólo ese
- * material llega al modelo. Por debajo siguen siendo packs, así que quien
- * quiera algo distinto lo añade abajo.
+ * Now the active profile rules: it shows its named slots and only that material
+ * reaches the model. Underneath they're still packs, so whoever wants something
+ * different adds it below.
  */
-/** Icono de cada tipo de contexto en su tarjeta. */
+/** Icon of each context kind in its tile. */
 const KIND_ICON: Record<ContextKind, IconName> = {
   cv: 'user',
   job: 'briefcase',
@@ -3469,8 +3473,8 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const profile = settings.promptProfileId;
   const slots = PROFILE_SLOTS[profile];
 
-  // Qué tarjeta está abierta en el editor: un hueco del perfil (por kind) o un
-  // pack propio (por id). `null` = sólo la cuadrícula.
+  // Which tile is open in the editor: a profile slot (by kind) or an own pack
+  // (by id). `null` = just the grid.
   const [sel, setSel] = useState<
     { type: 'slot'; kind: ContextKind } | { type: 'pack'; id: string } | null
   >(null);
@@ -3485,14 +3489,14 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
     setSel(null);
   };
 
-  /** El pack de este hueco para el perfil activo, si ya existe. */
+  /** This slot's pack for the active profile, if it already exists. */
   const slotPack = (kind: ContextKind): ContextPack | undefined =>
     packs.find((p) => p.kind === kind && p.profiles.includes(profile));
 
   /**
-   * Escribe en un hueco, creándolo si hace falta. Se crea al primer carácter y
-   * no al seleccionarlo: si no, pasear por las tarjetas dejaría packs vacíos
-   * sembrados.
+   * Writes to a slot, creating it if needed. It's created on the first character
+   * and not on selecting it: otherwise strolling through the tiles would leave
+   * empty packs scattered around.
    */
   const writeSlot = (kind: ContextKind, content: string): void => {
     const existing = slotPack(kind);
@@ -3523,16 +3527,17 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         content: '',
         enabled: true,
         kind: 'notes',
-        // Sin perfiles = se aplica siempre, que es como se comportaba todo
-        // antes de que los perfiles existieran.
+        // No profiles = applied always, which is how everything behaved before
+        // the profiles existed.
         profiles: [],
       },
     ]);
     setSel({ type: 'pack', id });
   };
 
-  // Los que no ocupan un hueco del perfil activo: packs propios del usuario y
-  // los de otros perfiles, que conviene poder ver y editar sin cambiar de modo.
+  // The ones that don't fill a slot of the active profile: the user's own packs
+  // and those of other profiles, worth being able to see and edit without
+  // switching mode.
   const others = packs.filter((p) => !slots.includes(p.kind) || !p.profiles.includes(profile));
   const activeNow = packsForProfile(packs, profile).filter((p) => p.content.trim());
   const isActive = (pack?: ContextPack): boolean =>
@@ -3660,7 +3665,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   );
 }
 
-/** Una tarjeta de la cuadrícula: un hueco tipado o un pack propio. */
+/** A grid tile: a typed slot or an own pack. */
 function ContextTile({
   icon,
   name,
@@ -3699,7 +3704,7 @@ function ContextTile({
   );
 }
 
-/** Editor de un hueco tipado del perfil activo (CV, oferta, Q&A…). */
+/** Editor of a typed slot of the active profile (CV, job offer, Q&A…). */
 function SlotEditor({
   kind,
   pack,
@@ -3737,13 +3742,13 @@ function SlotEditor({
 }
 
 /**
- * Zona de subida de archivos de contexto.
+ * Context-file upload zone.
  *
- * El texto plano —`.txt`/`.md`— se lee aquí mismo con FileReader, sin cruzar el
- * IPC. El PDF y el Word (`.docx`) van al main a parsear (`context.parseFile`),
- * que es donde viven las librerías pesadas; mientras tanto se enseña «Leyendo…»
- * y, si el archivo no se deja leer —un PDF sin texto, un escaneo, algo
- * corrupto—, un aviso en rojo en vez de tragárselo en silencio.
+ * Plain text —`.txt`/`.md`— is read right here with FileReader, without crossing
+ * the IPC. PDF and Word (`.docx`) go to main to parse (`context.parseFile`),
+ * which is where the heavy libraries live; meanwhile "Reading…" is shown and, if
+ * the file can't be read —a PDF with no text, a scan, something corrupt—, a red
+ * warning instead of swallowing it silently.
  */
 function FileDrop({ onText }: { onText: (text: string) => void }) {
   const t = useT();
@@ -3755,8 +3760,8 @@ function FileDrop({ onText }: { onText: (text: string) => void }) {
   const read = async (file: File): Promise<void> => {
     setError(null);
     const ext = file.name.toLowerCase().split('.').pop();
-    // PDF y Word: los parsea el main. El resto (.txt/.md) es texto plano y lo
-    // lee el propio renderer.
+    // PDF and Word: main parses them. The rest (.txt/.md) is plain text and the
+    // renderer reads it itself.
     if (ext === 'pdf' || ext === 'docx') {
       setBusy(true);
       try {
@@ -3809,8 +3814,7 @@ function FileDrop({ onText }: { onText: (text: string) => void }) {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) void read(file);
-          // Se limpia para que elegir el MISMO archivo otra vez vuelva a
-          // disparar el evento.
+          // It's cleared so choosing the SAME file again fires the event.
           e.target.value = '';
         }}
       />
