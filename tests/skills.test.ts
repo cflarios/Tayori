@@ -26,14 +26,15 @@ const skill = (patch: Partial<Skill> = {}): Skill => ({
 });
 
 /**
- * El parser de SKILL.md.
+ * The SKILL.md parser.
  *
- * Es el sitio donde un fallo se ve poco: un frontmatter mal leído no revienta,
- * produce una skill con la descripción metida dentro de las instrucciones o al
- * revés, y eso llega al modelo sin que nada lo diga.
+ * It's the place where a failure shows little: a badly read frontmatter doesn't
+ * blow up, it produces a skill with the description tucked inside the
+ * instructions or the other way around, and that reaches the model without
+ * anything saying so.
  */
 describe('parseSkillFile', () => {
-  it('separa el frontmatter del cuerpo', () => {
+  it('separates the frontmatter from the body', () => {
     const parsed = parseSkillFile(
       ['---', 'name: Humanizar', 'description: Que no suene a IA.', '---', '', 'No uses jerga.'].join(
         '\n'
@@ -47,9 +48,9 @@ describe('parseSkillFile', () => {
     expect(parsed.error).toBeUndefined();
   });
 
-  it('junta una descripción partida en varias líneas', () => {
-    // Una `description` de verdad no cabe en 80 columnas, y quien escriba el
-    // archivo la va a partir. Sin esto, la segunda línea desaparecería.
+  it('joins a description split across several lines', () => {
+    // A real `description` doesn't fit in 80 columns, and whoever writes the file
+    // is going to split it. Without this, the second line would disappear.
     const parsed = parseSkillFile(
       ['---', 'name: X', 'description: Primera parte', '  y la continuación.', '---', 'Cuerpo.'].join(
         '\n'
@@ -60,10 +61,10 @@ describe('parseSkillFile', () => {
     expect(parsed.description).toBe('Primera parte y la continuación.');
   });
 
-  it('ignora las claves que no conoce en vez de fallar', () => {
-    // Un SKILL.md escrito para otra herramienta trae campos de más (license,
-    // allowed-tools…). Rechazarlo por eso sería romper la compatibilidad con el
-    // formato que hemos elegido seguir.
+  it("ignores keys it doesn't know instead of failing", () => {
+    // A SKILL.md written for another tool brings extra fields (license,
+    // allowed-tools…). Rejecting it for that would break compatibility with the
+    // format we've chosen to follow.
     const parsed = parseSkillFile(
       ['---', 'name: X', 'license: MIT', 'allowed-tools: none', '---', 'Cuerpo.'].join('\n'),
       'x'
@@ -73,34 +74,34 @@ describe('parseSkillFile', () => {
     expect(parsed.error).toBeUndefined();
   });
 
-  it('tolera el BOM y los saltos de Windows', () => {
-    // Un archivo creado con Notepad trae las dos cosas, y con el BOM delante el
-    // `---` de apertura deja de casar: la skill entera se caería sin motivo
-    // visible.
+  it('tolerates the BOM and the Windows line breaks', () => {
+    // A file created with Notepad brings both, and with the BOM in front the
+    // opening `---` stops matching: the whole skill would fall over with no
+    // visible reason.
     const parsed = parseSkillFile('﻿---\r\nname: X\r\n---\r\nCuerpo.\r\n', 'x');
 
     expect(parsed.name).toBe('X');
     expect(parsed.instructions).toBe('Cuerpo.');
   });
 
-  it('quita las comillas de un valor entrecomillado', () => {
+  it('removes the quotes of a quoted value', () => {
     const parsed = parseSkillFile(['---', 'name: "X: con dos puntos"', '---', 'Cuerpo.'].join('\n'), 'x');
     expect(parsed.name).toBe('X: con dos puntos');
   });
 
-  it('sin frontmatter da error en lugar de tragarse el archivo entero', () => {
+  it('with no frontmatter it errors instead of swallowing the whole file', () => {
     const parsed = parseSkillFile('Sólo instrucciones, sin cabecera.', 'x');
     expect(parsed.error).toBeTruthy();
   });
 
-  it('un cuerpo vacío es un error, aunque el frontmatter esté bien', () => {
-    // Es el único fallo que importa de verdad: una skill sin instrucciones no
-    // hace NADA, y aparecería encendida en el desplegable diciendo lo contrario.
+  it('an empty body is an error, even if the frontmatter is fine', () => {
+    // It's the only failure that really matters: a skill without instructions does
+    // NOTHING, and would appear on in the dropdown saying the opposite.
     const parsed = parseSkillFile(['---', 'name: X', 'description: Y', '---', ''].join('\n'), 'x');
     expect(parsed.error).toBeTruthy();
   });
 
-  it('sin name usa el id de la carpeta, y eso no es un error', () => {
+  it("with no name it uses the folder's id, and that's not an error", () => {
     const parsed = parseSkillFile(['---', 'description: Y', '---', 'Cuerpo.'].join('\n'), 'mi-skill');
     expect(parsed.name).toBe('mi-skill');
     expect(parsed.error).toBeUndefined();
@@ -108,53 +109,53 @@ describe('parseSkillFile', () => {
 });
 
 describe('skillIdFromFolder', () => {
-  it('normaliza el nombre de la carpeta', () => {
+  it('normalizes the folder name', () => {
     expect(skillIdFromFolder('Humanizar Texto')).toBe('humanizar-texto');
     expect(skillIdFromFolder('  QUIZ_helper  ')).toBe('quiz_helper');
   });
 
-  it('no deja guiones sueltos en los extremos', () => {
-    // Se teclean tras la barra: `/-mi-skill-` sería imposible de adivinar.
+  it("doesn't leave stray dashes at the ends", () => {
+    // They're typed after the slash: `/-mi-skill-` would be impossible to guess.
     expect(skillIdFromFolder('¡Mi Skill!')).toBe('mi-skill');
   });
 });
 
 /**
- * El prefijo `/skill`.
+ * The `/skill` prefix.
  *
- * Lo que se protege aquí no es el caso bueno, es el malo: una invocación que se
- * reconoce cuando no debía se come la primera palabra de la pregunta, y el
- * modelo responde a otra cosa sin que nada lo avise.
+ * What's protected here isn't the good case, it's the bad one: an invocation
+ * recognized when it shouldn't be eats the first word of the question, and the
+ * model answers something else without anything warning of it.
  */
 describe('parseSkillInvocation', () => {
   const known = [{ id: 'humanizar' }, { id: 'quiz' }];
 
-  it('separa la skill de la pregunta', () => {
+  it('separates the skill from the question', () => {
     expect(parseSkillInvocation('/humanizar explícame Kubernetes', known)).toEqual({
       skillId: 'humanizar',
       text: 'explícame Kubernetes',
     });
   });
 
-  it('acepta también $, porque en algunos teclados la barra cuesta', () => {
+  it('also accepts $, because on some keyboards the slash is awkward', () => {
     expect(parseSkillInvocation('$quiz ¿cuál es la respuesta?', known).skillId).toBe('quiz');
   });
 
-  it('NO toca el texto si la skill no existe', () => {
-    // El caso que justifica la comprobación: sin ella, "/etc" se tomaría por una
-    // invocación y la pregunta perdería su primera palabra.
+  it("does NOT touch the text if the skill doesn't exist", () => {
+    // The case that justifies the check: without it, "/etc" would be taken for an
+    // invocation and the question would lose its first word.
     expect(parseSkillInvocation('/etc está lleno de configuración', known)).toEqual({
       text: '/etc está lleno de configuración',
     });
   });
 
-  it('una skill sin pregunta detrás deja el texto vacío', () => {
-    // Sigue siendo válido: se responde a lo que haya en la transcripción, con
-    // la skill puesta.
+  it('a skill with no question after it leaves the text empty', () => {
+    // It's still valid: it answers whatever is in the transcript, with the skill
+    // set.
     expect(parseSkillInvocation('/humanizar', known)).toEqual({ skillId: 'humanizar', text: '' });
   });
 
-  it('no confunde una barra en medio de la frase', () => {
+  it("doesn't confuse a slash in the middle of the sentence", () => {
     expect(parseSkillInvocation('qué opinas de /humanizar', known).skillId).toBeUndefined();
   });
 });
@@ -162,55 +163,55 @@ describe('parseSkillInvocation', () => {
 describe('matchSkills', () => {
   const all = [skill(), skill({ id: 'quiz', name: 'Modo examen' })];
 
-  it('devuelve null si no se está invocando nada', () => {
-    // `null` y lista vacía significan cosas distintas: sin esa diferencia, el
-    // menú no podría decir "no hay ninguna que se llame así".
+  it("returns null if nothing is being invoked", () => {
+    // `null` and empty list mean different things: without that difference, the
+    // menu couldn't say "there's none by that name".
     expect(matchSkills('hola qué tal', all)).toBeNull();
   });
 
-  it('con sólo la barra ofrece todas', () => {
+  it('with only the slash it offers all', () => {
     expect(matchSkills('/', all)).toHaveLength(2);
   });
 
-  it('filtra por id y por nombre', () => {
+  it('filters by id and by name', () => {
     expect(matchSkills('/hum', all)?.map((s) => s.id)).toEqual(['humanizar']);
     expect(matchSkills('/examen', all)?.map((s) => s.id)).toEqual(['quiz']);
   });
 
-  it('no ofrece una skill rota', () => {
-    // Elegirla no haría nada, porque `getSkill` la descarta igualmente.
+  it("doesn't offer a broken skill", () => {
+    // Choosing it would do nothing, because `getSkill` discards it anyway.
     const rota = [skill({ id: 'rota', error: 'sk.errNoBody' })];
     expect(matchSkills('/', rota)).toHaveLength(0);
   });
 
-  it('deja de ofrecer en cuanto hay un espacio', () => {
-    // Con un espacio ya se está escribiendo la pregunta, no el nombre.
+  it('stops offering as soon as there is a space', () => {
+    // With a space the question is already being written, not the name.
     expect(matchSkills('/humanizar explica', all)).toBeNull();
   });
 });
 
 /**
- * La skill dentro del prompt.
+ * The skill inside the prompt.
  *
- * El reparto de autoridad es lo que hace que esto funcione, y es justo lo que un
- * refactor puede tirar sin que ningún test lo note: una skill que se limita a
- * concatenarse pierde contra unas reglas de formato que llevan la palabra
- * "obligatorias" encima.
+ * The distribution of authority is what makes this work, and it's exactly what a
+ * refactor can throw away without any test noticing: a skill that merely
+ * concatenates itself loses against format rules that carry the word "mandatory"
+ * on top.
  */
-describe('buildSystemPrompt con skill', () => {
-  it('no cambia nada si no hay skill', () => {
+describe('buildSystemPrompt with a skill', () => {
+  it("doesn't change anything if there's no skill", () => {
     expect(buildSystemPrompt(settings())).toBe(buildSystemPrompt(settings(), undefined, undefined));
   });
 
-  it('mete las instrucciones de la skill', () => {
+  it("puts in the skill's instructions", () => {
     const prompt = buildSystemPrompt(settings(), undefined, skill());
     expect(prompt).toContain('Nunca escribas "es importante destacar"');
     expect(prompt).toContain('Que no suene a IA');
   });
 
-  it('va la última, después incluso del contexto', () => {
-    // Es la posición que el modelo atiende con más fuerza, y una skill existe
-    // para corregir la manera de escribir que traen las reglas de arriba.
+  it('goes last, even after the context', () => {
+    // It's the position the model attends to most strongly, and a skill exists to
+    // correct the manner of writing the rules above bring.
     const prompt = buildSystemPrompt(
       settings({
         contextPacks: [
@@ -231,39 +232,39 @@ describe('buildSystemPrompt con skill', () => {
     expect(prompt.indexOf('<instruccion_activa>')).toBeGreaterThan(prompt.indexOf('</contexto>'));
   });
 
-  it('declara el reparto: manda en la manera, no en la forma', () => {
-    // Sin esto, una skill de tono y unas reglas de formato se contradicen y el
-    // empate lo rompe el modelo en silencio — distinto según el proveedor y
-    // según la frase, que es la peor clase de comportamiento.
+  it('declares the split: it rules the manner, not the shape', () => {
+    // Without this, a tone skill and format rules contradict each other and the
+    // tie is broken by the model in silence — different depending on the provider
+    // and on the sentence, which is the worst kind of behavior.
     const prompt = buildSystemPrompt(settings(), undefined, skill());
 
     expect(prompt).toContain('NO cambia el formato');
     expect(prompt).toContain('gana la regla de formato');
-    // Y las reglas del perfil siguen ahí enteras.
+    // And the profile's rules are still there in full.
     expect(prompt).toContain('Máximo 4 viñetas');
   });
 
-  it('convive con el perfil forzado del modo código', () => {
+  it("coexists with code mode's forced profile", () => {
     const prompt = buildSystemPrompt(settings(), 'coding', skill());
     expect(prompt).toContain('El código COMPLETO');
     expect(prompt).toContain('<instruccion_activa>');
   });
 
-  it('una skill sin instrucciones no añade bloque', () => {
-    // Un `<instruccion_activa>` vacío le diría al modelo que hay una instrucción
-    // activa sin decirle cuál, que es peor que no decir nada.
+  it("a skill without instructions doesn't add a block", () => {
+    // An empty `<instruccion_activa>` would tell the model there's an active
+    // instruction without saying which, which is worse than saying nothing.
     const prompt = buildSystemPrompt(settings(), undefined, skill({ instructions: '   ' }));
     expect(prompt).not.toContain('<instruccion_activa>');
   });
 });
 
 /**
- * «¿Puede responder el proveedor elegido?»
+ * «Can the chosen provider answer?»
  *
- * Esta cuenta la hacían tres pantallas por separado, cada una con su cadena de
- * `if`, y ninguna rompía el build al añadir un proveedor: la cadena caía al
- * último caso y contestaba por otro. El síntoma real fue el peor de los suyos —
- * el overlay diciendo «Falta configurar la IA» con la IA configurada.
+ * Three screens made this calculation separately, each with its own `if` chain,
+ * and none broke the build when adding a provider: the chain fell to the last
+ * case and answered for another. The real symptom was the worst of theirs — the
+ * overlay saying «The AI needs configuring» with the AI configured.
  */
 describe('providerIsReady', () => {
   const presence = (patch: Partial<SecretsPresence> = {}): SecretsPresence => ({
@@ -275,7 +276,7 @@ describe('providerIsReady', () => {
     ...patch,
   });
 
-  it('cada proveedor mira SU credencial y no la del vecino', () => {
+  it("each provider looks at ITS credential and not the neighbor's", () => {
     expect(providerIsReady(settings({ llmProviderId: 'claude' }), presence({ anthropic: true }))).toBe(true);
     expect(providerIsReady(settings({ llmProviderId: 'claude' }), presence({ google: true }))).toBe(false);
     expect(providerIsReady(settings({ llmProviderId: 'openai' }), presence({ openai: true }))).toBe(true);
@@ -283,9 +284,9 @@ describe('providerIsReady', () => {
     expect(providerIsReady(settings({ llmProviderId: 'gemini' }), presence({ google: true }))).toBe(true);
   });
 
-  it('la clave que falta en OTRO proveedor no apaga al elegido', () => {
-    // El caso exacto del fallo: con Ollama puesto y un modelo elegido, no tener
-    // clave de OpenAI no tiene por qué decir nada.
+  it("a key missing in ANOTHER provider doesn't turn off the chosen one", () => {
+    // The exact case of the failure: with Ollama set and a model chosen, not
+    // having an OpenAI key has no reason to say anything.
     const current = settings({
       llmProviderId: 'ollama',
       llmModels: { ...DEFAULT_SETTINGS.llmModels, ollama: 'qwen2.5vl:latest' },
@@ -293,9 +294,9 @@ describe('providerIsReady', () => {
     expect(providerIsReady(current, presence())).toBe(true);
   });
 
-  it('Ollama no necesita clave, pero sí un modelo', () => {
-    // Sin modelo, cada pregunta falla con "no hay ningún modelo seleccionado", y
-    // antes ese caso pasaba por configurado sin enseñar ningún aviso.
+  it("Ollama doesn't need a key, but it does need a model", () => {
+    // Without a model, every question fails with "no model selected", and before
+    // that case passed as configured without showing any warning.
     const sinModelo = settings({
       llmProviderId: 'ollama',
       llmModels: { ...DEFAULT_SETTINGS.llmModels, ollama: '' },

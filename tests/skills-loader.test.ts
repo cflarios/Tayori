@@ -4,13 +4,12 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 /**
- * La carga desde disco, contra carpetas de verdad.
+ * The load from disk, against real folders.
  *
- * Lo que se comprueba aquí no es el parser —eso está en `skills.test.ts`— sino
- * las reglas de la carpeta: qué se considera una skill, qué pasa con una que
- * está a medias, y quién gana cuando el usuario crea una con el id de una de
- * serie. Las tres se ven igual desde fuera si se rompen: una lista con un
- * elemento de menos.
+ * What's checked here isn't the parser —that's in `skills.test.ts`— but the
+ * folder rules: what counts as a skill, what happens with a half-finished one,
+ * and who wins when the user creates one with a built-in's id. All three look the
+ * same from the outside if they break: a list with one element short.
  */
 
 let userData = '';
@@ -24,7 +23,7 @@ async function skills(): Promise<typeof import('../src/main/skills')> {
   return import('../src/main/skills');
 }
 
-/** Deja una skill en disco, como la habría dejado el usuario con su editor. */
+/** Leaves a skill on disk, as the user would have left it with their editor. */
 function write(folder: string, contents: string | null): void {
   const dir = join(userData, 'skills', folder);
   mkdirSync(dir, { recursive: true });
@@ -43,10 +42,10 @@ afterEach(() => {
   rmSync(userData, { recursive: true, force: true });
 });
 
-describe('carga de skills', () => {
-  it('sin carpeta, sólo están las de serie', async () => {
-    // Arrancar sin haber creado nada tiene que dar una lista usable, no un
-    // error: la carpeta se crea cuando alguien la abre, no al instalar.
+describe('skill loading', () => {
+  it('with no folder, only the built-in ones are there', async () => {
+    // Starting without having created anything has to give a usable list, not an
+    // error: the folder is created when someone opens it, not on install.
     const { listSkills } = await skills();
     const all = listSkills();
 
@@ -54,7 +53,7 @@ describe('carga de skills', () => {
     expect(all.every((skill) => skill.builtIn)).toBe(true);
   });
 
-  it('lee una carpeta con su SKILL.md', async () => {
+  it('reads a folder with its SKILL.md', async () => {
     write('mi-skill', file('Mi Skill'));
 
     const { listSkills } = await skills();
@@ -65,18 +64,18 @@ describe('carga de skills', () => {
     expect(found?.builtIn).toBe(false);
   });
 
-  it('el id sale de la carpeta, no del name', async () => {
-    // Es lo que hace que `/mi-skill` siga funcionando cuando alguien cambia el
-    // título del archivo, y que el id se pueda deducir mirando el explorador.
+  it('the id comes from the folder, not from the name', async () => {
+    // It's what keeps `/mi-skill` working when someone changes the file's title,
+    // and what lets the id be deduced by looking at the explorer.
     write('Carpeta Con Espacios', file('Un nombre muy distinto'));
 
     const { listSkills } = await skills();
     expect(listSkills().some((skill) => skill.id === 'carpeta-con-espacios')).toBe(true);
   });
 
-  it('una carpeta sin SKILL.md se lista con su motivo', async () => {
-    // Desaparecer sin decir nada dejaría a alguien mirando una carpeta que sí
-    // existe, preguntándose por qué la app no la ve.
+  it('a folder without a SKILL.md is listed with its reason', async () => {
+    // Disappearing without saying anything would leave someone staring at a
+    // folder that does exist, wondering why the app doesn't see it.
     write('vacia', null);
 
     const { listSkills } = await skills();
@@ -85,9 +84,9 @@ describe('carga de skills', () => {
     expect(found?.error).toBeTruthy();
   });
 
-  it('getSkill no devuelve una skill rota', async () => {
-    // Es lo que impide que un `activeSkillId` apuntando a una carpeta rota
-    // mande medio prompt: sin skill se responde como siempre.
+  it("getSkill doesn't return a broken skill", async () => {
+    // It's what prevents an `activeSkillId` pointing at a broken folder from
+    // sending half a prompt: with no skill it answers as usual.
     write('rota', ['---', 'name: Rota', '---', ''].join('\n'));
 
     const { getSkill, listSkills } = await skills();
@@ -96,11 +95,11 @@ describe('carga de skills', () => {
     expect(getSkill('rota')).toBeUndefined();
   });
 
-  it('una carpeta del usuario sustituye a la de serie con su id', async () => {
+  it("a user folder replaces the built-in one with its id", async () => {
     /*
-     * La forma natural de ajustar la skill de serie es copiarla y editarla. Si
-     * en ese caso aparecieran las dos en la lista, habría que adivinar cuál se
-     * está aplicando — y las dos se llamarían igual en el desplegable.
+     * The natural way to tweak the built-in skill is to copy it and edit it. If
+     * in that case both appeared in the list, you'd have to guess which is being
+     * applied — and both would be called the same in the dropdown.
      */
     const { listSkills: first } = await skills();
     const builtIn = first().find((skill) => skill.builtIn)!;
@@ -116,9 +115,9 @@ describe('carga de skills', () => {
     expect(matching[0]!.builtIn).toBe(false);
   });
 
-  it('recargar recoge una skill creada después de arrancar', async () => {
-    // Es lo único que hace el botón de recargar, y sin él habría que reiniciar
-    // la app para estrenar una skill recién escrita.
+  it('reloading picks up a skill created after startup', async () => {
+    // It's the only thing the reload button does, and without it you'd have to
+    // restart the app to debut a just-written skill.
     const { listSkills, reloadSkills } = await skills();
     expect(listSkills().some((skill) => skill.id === 'nueva')).toBe(false);
 
@@ -126,9 +125,9 @@ describe('carga de skills', () => {
     expect(reloadSkills().some((skill) => skill.id === 'nueva')).toBe(true);
   });
 
-  it('ignora los archivos sueltos que no están en una carpeta', async () => {
-    // Una skill es una carpeta: es lo que deja sitio a los assets del formato,
-    // y lo que evita tratar un README suelto como si fuera una instrucción.
+  it("ignores loose files that aren't in a folder", async () => {
+    // A skill is a folder: it's what leaves room for the format's assets, and
+    // what avoids treating a loose README as if it were an instruction.
     mkdirSync(join(userData, 'skills'), { recursive: true });
     writeFileSync(join(userData, 'skills', 'SUELTO.md'), file('Suelto'), 'utf-8');
 

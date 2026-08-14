@@ -5,12 +5,12 @@ import { DeepSeekProvider, DEEPSEEK_MODELS } from '../src/main/llm/deepseek';
 import type { AnswerRequest } from '../src/main/llm/types';
 
 /**
- * DeepSeek contra un servidor de verdad.
+ * DeepSeek against a real server.
  *
- * Su API es compatible con la de OpenAI, y precisamente por eso conviene
- * comprobarlo en lugar de darlo por hecho: "compatible" no es "idéntica", y lo
- * que aquí se usa es Chat Completions, no la Responses API. Un mock validaría
- * la llamada que escribimos, no la que el servidor entiende.
+ * Its API is compatible with OpenAI's, and precisely for that reason it's worth
+ * checking instead of taking it for granted: "compatible" isn't "identical", and
+ * what's used here is Chat Completions, not the Responses API. A mock would
+ * validate the call we write, not the one the server understands.
  */
 
 let received: Record<string, unknown>[] = [];
@@ -62,20 +62,20 @@ const provider = (model = 'deepseek-v4-flash'): DeepSeekProvider =>
   new DeepSeekProvider('sk-test', model, baseUrl);
 
 describe('DeepSeekProvider', () => {
-  it('devuelve el texto que llega en trozos', async () => {
+  it('returns the text that arrives in pieces', async () => {
     const text = await collect(
       provider().streamAnswer(request(), new AbortController().signal)
     );
     expect(text).toBe('DevOps es una cultura.');
   });
 
-  it('manda el system prompt y el historial como mensajes reales', async () => {
+  it('sends the system prompt and the history as real messages', async () => {
     await collect(
       provider().streamAnswer(
         request({
           history: [
             { question: '¿A qué te dedicas?', answer: 'Soy comercial.' },
-            // Un turno a medias no se manda: ocupa y no aporta.
+            // A half-finished turn isn't sent: it takes up room and adds nothing.
             { question: 'Y esto', answer: '  ' },
           ],
         }),
@@ -90,18 +90,19 @@ describe('DeepSeekProvider', () => {
     expect(messages).toHaveLength(4);
   });
 
-  it('respeta el tope de tokens', async () => {
+  it('respects the token cap', async () => {
     await collect(
       provider().streamAnswer(request({ maxTokens: 2_200 }), new AbortController().signal)
     );
     expect(received[0]!.max_tokens).toBe(2_200);
   });
 
-  it('NO manda la captura, porque ningún modelo suyo la entiende', async () => {
+  it("does NOT send the capture, because none of its models understands it", async () => {
     /*
-     * Enviarla sería la forma más cara de que no pase nada: se paga el ancho de
-     * banda y el modelo contesta igual que sin ella. Y tampoco se le dice que
-     * hay una imagen — decírselo sin mandarla es invitarle a inventársela.
+     * Sending it would be the most expensive way for nothing to happen: you pay
+     * the bandwidth and the model answers the same as without it. And it isn't
+     * told there's an image either — telling it without sending it is inviting it
+     * to invent it.
      */
     await collect(
       provider().streamAnswer(
@@ -115,7 +116,7 @@ describe('DeepSeekProvider', () => {
     expect(cuerpo).not.toContain('captura');
   });
 
-  it('cancelar no es un error que enseñar', async () => {
+  it("cancelling isn't an error to show", async () => {
     const controller = new AbortController();
     controller.abort();
     await expect(
@@ -124,21 +125,21 @@ describe('DeepSeekProvider', () => {
   });
 });
 
-describe('catálogo de DeepSeek', () => {
-  it('declara que NINGUNO lee imágenes', () => {
+describe('DeepSeek catalog', () => {
+  it('declares that NONE reads images', () => {
     /*
-     * Es lo que hace que el selector del modelo de pantalla los marque «sin
-     * visión» y avise. Ponerlos a `true` por descuido dejaría los dos botones
-     * de pantalla fallando con un modelo que la app dijo que servía.
+     * It's what makes the screen-model selector mark them «no vision» and warn.
+     * Setting them to `true` by oversight would leave both screen buttons
+     * failing with a model the app said was usable.
      */
     for (const model of DEEPSEEK_MODELS) {
       expect(model.supportsVision, model.id).toBe(false);
     }
   });
 
-  it('son los dos ids que DeepSeek publica hoy', () => {
-    // R1 y deepseek-chat ya no están en su catálogo; quien conserve acceso los
-    // escribe a mano en «Otro…».
+  it('are the two ids DeepSeek publishes today', () => {
+    // R1 and deepseek-chat are no longer in its catalog; whoever keeps access
+    // writes them by hand in «Other…».
     expect(DEEPSEEK_MODELS.map((m) => m.id)).toEqual(['deepseek-v4-flash', 'deepseek-v4-pro']);
   });
 });

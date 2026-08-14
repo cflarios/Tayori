@@ -5,17 +5,17 @@ import { DEFAULT_SETTINGS, mqttTopics, type Answer, type Settings } from '../src
 import { IPC } from '../src/shared/ipc';
 
 /**
- * El puente MQTT, contra un broker de verdad.
+ * The MQTT bridge, against a real broker.
  *
- * Se levanta un broker en proceso en lugar de simular el cliente: lo que hay
- * que comprobar no es que llamemos a `publish`, es **qué recibe el que está
- * suscrito**. Un test con el cliente mockeado pasaría igual publicando en el
- * tema equivocado, con el payload equivocado, o publicando los cuarenta ticks
- * del streaming en lugar de la respuesta final — que son justo los tres fallos
- * que importan aquí.
+ * An in-process broker is brought up instead of mocking the client: what has to
+ * be checked isn't that we call `publish`, it's **what the subscriber
+ * receives**. A test with a mocked client would pass just as well publishing to
+ * the wrong topic, with the wrong payload, or publishing the forty streaming
+ * ticks instead of the final answer — which are exactly the three failures that
+ * matter here.
  */
 
-// El puente lee la contraseña del almacén cifrado, que necesita Electron.
+// The bridge reads the password from the encrypted store, which needs Electron.
 vi.mock('electron', () => ({
   app: { getPath: () => process.cwd() },
   safeStorage: {
@@ -25,7 +25,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-// Aedes 1.x quitó el export por defecto: el broker se crea de forma asíncrona.
+// Aedes 1.x removed the default export: the broker is created asynchronously.
 let broker: Awaited<ReturnType<typeof Aedes.createBroker>>;
 let server: Server;
 let port = 0;
@@ -71,7 +71,7 @@ function answer(patch: Partial<Answer> = {}): Answer {
   };
 }
 
-/** Espera a que el puente diga que está conectado. */
+/** Waits for the bridge to say it's connected. */
 async function connect(config: Settings): Promise<typeof import('../src/main/bridge/mqtt')> {
   const mod = await import('../src/main/bridge/mqtt');
   const connected = new Promise<void>((resolve) => {
@@ -88,11 +88,11 @@ async function connect(config: Settings): Promise<typeof import('../src/main/bri
   return mod;
 }
 
-/** Recoge los mensajes que publique el puente, como haría el ESP32. */
+/** Collects the messages the bridge publishes, as the ESP32 would. */
 function collect(): { seen: { topic: string; payload: string }[] } {
   const seen: { topic: string; payload: string }[] = [];
   broker.on('publish', (packet, client) => {
-    // Aedes emite también los mensajes internos ($SYS) y sin cliente.
+    // Aedes also emits the internal messages ($SYS) and with no client.
     if (!client || !packet.topic.startsWith('pruebas/')) return;
     seen.push({ topic: packet.topic, payload: packet.payload.toString('utf-8') });
   });
@@ -101,8 +101,8 @@ function collect(): { seen: { topic: string; payload: string }[] } {
 
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 250));
 
-describe('el puente MQTT', () => {
-  it('publica la respuesta terminada en los dos temas', async () => {
+describe('the MQTT bridge', () => {
+  it('publishes the finished answer to the two topics', async () => {
     const { seen } = collect();
     const { mqttBridge } = await connect(settings());
 
@@ -112,8 +112,8 @@ describe('el puente MQTT', () => {
     const topics = mqttTopics('pruebas/respuesta');
     expect(seen.map((m) => m.topic).sort()).toEqual([topics.json, topics.text].sort());
 
-    // El tema de texto lleva la respuesta EN CRUDO: es lo que permite que una
-    // placa la use sin un parser de JSON.
+    // The text topic carries the answer RAW: it's what lets a board use it
+    // without a JSON parser.
     const plain = seen.find((m) => m.topic === topics.text);
     expect(plain?.payload).toBe('1. B) El índice se recalcula\n2. C) O(n log n)');
 
@@ -127,22 +127,22 @@ describe('el puente MQTT', () => {
     expect(json.answer).toContain('1. B)');
   });
 
-  it('NO publica los ticks del streaming, sólo el final', async () => {
+  it('does NOT publish the streaming ticks, only the final', async () => {
     const { seen } = collect();
     const { mqttBridge } = await connect(settings());
 
-    // Así llega de verdad: el mismo id, creciendo, y `done` sólo al final.
+    // This is how it actually arrives: the same id, growing, and `done` only at the end.
     mqttBridge.publish(IPC.onAnswer, answer({ status: 'thinking', text: '' }));
     mqttBridge.publish(IPC.onAnswer, answer({ status: 'streaming', text: '1. B' }));
     mqttBridge.publish(IPC.onAnswer, answer({ status: 'streaming', text: '1. B) El índ' }));
     mqttBridge.publish(IPC.onAnswer, answer());
     await settle();
 
-    // Dos mensajes: el JSON y el texto de UNA sola respuesta.
+    // Two messages: the JSON and the text of ONE single answer.
     expect(seen).toHaveLength(2);
   });
 
-  it('no publica errores ni respuestas abortadas', async () => {
+  it("doesn't publish errors or aborted answers", async () => {
     const { seen } = collect();
     const { mqttBridge } = await connect(settings());
 
@@ -150,12 +150,12 @@ describe('el puente MQTT', () => {
     mqttBridge.publish(IPC.onAnswer, answer({ id: 'e2', status: 'aborted', text: 'a medias' }));
     await settle();
 
-    // Un dispositivo que actúa sobre la respuesta de un test no puede
-    // distinguir un error de una respuesta si le llegan por el mismo tema.
+    // A device that acts on a quiz's answer can't distinguish an error from an
+    // answer if they arrive over the same topic.
     expect(seen).toHaveLength(0);
   });
 
-  it('ignora todo lo que no sean respuestas', async () => {
+  it("ignores everything that isn't an answer", async () => {
     const { seen } = collect();
     const { mqttBridge } = await connect(settings());
 
@@ -163,11 +163,11 @@ describe('el puente MQTT', () => {
     mqttBridge.publish(IPC.onCaptureStatus, { state: 'listening' });
     await settle();
 
-    // La transcripción es lo que dijo la otra persona: no sale de aquí.
+    // The transcription is what the other person said: it doesn't leave from here.
     expect(seen).toHaveLength(0);
   });
 
-  it('no publica nada mientras está apagado', async () => {
+  it('publishes nothing while off', async () => {
     const { seen } = collect();
     const { mqttBridge } = await import('../src/main/bridge/mqtt');
 
@@ -179,7 +179,7 @@ describe('el puente MQTT', () => {
     expect(mqttBridge.getStatus().state).toBe('off');
   });
 
-  it('cuenta lo publicado, que es la única confirmación de que funciona', async () => {
+  it('counts what was published, which is the only confirmation that it works', async () => {
     const { mqttBridge } = await connect(settings());
     expect(mqttBridge.getStatus().published).toBe(0);
 
@@ -192,17 +192,17 @@ describe('el puente MQTT', () => {
   });
 });
 
-describe('los temas que se derivan del tema base', () => {
-  it('añade «/text» al tema configurado', () => {
+describe('the topics derived from the base topic', () => {
+  it('adds «/text» to the configured topic', () => {
     expect(mqttTopics('casa/quiz')).toEqual({ json: 'casa/quiz', text: 'casa/quiz/text' });
   });
 
-  it('quita la barra final para no crear un nivel vacío', () => {
-    // "a//text" es un tema legal y DISTINTO en MQTT: el suscriptor no lo vería.
+  it('removes the trailing slash so as not to create an empty level', () => {
+    // "a//text" is a legal and DIFFERENT topic in MQTT: the subscriber wouldn't see it.
     expect(mqttTopics('casa/quiz/')).toEqual({ json: 'casa/quiz', text: 'casa/quiz/text' });
   });
 
-  it('cae a un tema por defecto si lo dejan vacío', () => {
+  it('falls back to a default topic if left empty', () => {
     expect(mqttTopics('   ').json).toBe('tayori/answer');
   });
 });

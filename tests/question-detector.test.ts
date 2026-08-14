@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { looksLikeQuestion } from '../src/main/core/question-detector';
 import { worthClassifying } from '../src/main/core/question-classifier';
 
-/** Helper para que los casos se lean como una tabla. */
+/** Helper so the cases read like a table. */
 const isQ = (text: string): boolean => looksLikeQuestion(text).isQuestion;
 
 describe('looksLikeQuestion', () => {
-  describe('detecta preguntas de entrevista', () => {
+  describe('detects interview questions', () => {
     it.each([
       '¿Cuál es tu mayor debilidad?',
       '¿Por qué quieres trabajar aquí?',
@@ -24,20 +24,20 @@ describe('looksLikeQuestion', () => {
     });
   });
 
-  describe('funciona sin signo de interrogación', () => {
-    // Muchos motores de STT no puntúan de forma fiable; si dependiéramos del
-    // signo perderíamos la mayoría de las preguntas reales.
-    it('detecta interrogativo inicial sin signo', () => {
+  describe('works without a question mark', () => {
+    // Many STT engines don't punctuate reliably; if we depended on the mark we'd
+    // lose most of the real questions.
+    it('detects a leading interrogative without a mark', () => {
       expect(isQ('cuales son tus fortalezas')).toBe(true);
       expect(isQ('como manejarias un cliente difícil')).toBe(true);
     });
 
-    it('detecta pese a acentos ausentes', () => {
+    it('detects despite absent accents', () => {
       expect(isQ('Por que dejaste tu ultimo trabajo')).toBe(true);
     });
   });
 
-  describe('rechaza lo que no pide respuesta', () => {
+  describe("rejects what doesn't ask for an answer", () => {
     it.each([
       'Sí',
       'Vale, entiendo',
@@ -49,34 +49,34 @@ describe('looksLikeQuestion', () => {
       expect(isQ(text)).toBe(false);
     });
 
-    it('rechaza muletillas y comprobaciones de audio', () => {
-      // Estas empiezan por interrogativo y/o llevan signo, y aun así no se
-      // responden: una sugerencia aquí distrae en el peor momento.
+    it('rejects fillers and audio checks', () => {
+      // These start with an interrogative and/or carry a mark, and still aren't
+      // answered: a suggestion here distracts at the worst moment.
       expect(isQ('¿Me escuchas?')).toBe(false);
       expect(isQ('¿Cómo estás?')).toBe(false);
       expect(isQ('Can you hear me?')).toBe(false);
       expect(isQ('¿Qué tal?')).toBe(false);
     });
 
-    it('rechaza frases demasiado cortas', () => {
+    it('rejects sentences that are too short', () => {
       expect(isQ('¿Y?')).toBe(false);
       expect(isQ('claro')).toBe(false);
     });
 
-    it('rechaza texto vacío o en blanco', () => {
+    it('rejects empty or blank text', () => {
       expect(isQ('')).toBe(false);
       expect(isQ('   ')).toBe(false);
     });
   });
 
-  describe('devuelve el motivo de la decisión', () => {
-    it('nombra el marcador encontrado', () => {
+  describe("returns the decision's reason", () => {
+    it('names the marker found', () => {
       expect(looksLikeQuestion('Cuéntame sobre ti').reason).toContain('imperativa');
       expect(looksLikeQuestion('¿Sabes qué es esto?').reason).toContain('interrogación');
       expect(looksLikeQuestion('cuales son tus metas').reason).toContain('interrogativo');
     });
 
-    it('explica el rechazo', () => {
+    it('explains the rejection', () => {
       expect(looksLikeQuestion('¿Me escuchas?').reason).toContain('muletilla');
       expect(looksLikeQuestion('vale ya').reason).toContain('corto');
     });
@@ -84,21 +84,21 @@ describe('looksLikeQuestion', () => {
 });
 
 /**
- * Casos salidos de una prueba de escucha real (julio 2026). De cinco frases
- * seguidas solo disparó la primera, y el usuario lo vivió como "la app dejó de
- * responder". Los tres primeros describen lo que fallaba.
+ * Cases from a real listening test (July 2026). Of five sentences in a row only
+ * the first fired, and the user experienced it as "the app stopped responding".
+ * The first three describe what was failing.
  */
-describe('recall sobre habla real transcrita por Whisper', () => {
-  it('detecta la pregunta aunque el interrogativo no vaya al principio', () => {
-    // Whisper no pone "¿", y el interrogativo llega en la palabra nueve. Las
-    // reglas de apertura solo miran las dos primeras.
+describe('recall over real speech transcribed by Whisper', () => {
+  it("detects the question even when the interrogative isn't at the start", () => {
+    // Whisper doesn't put "¿", and the interrogative arrives in the ninth word.
+    // The opener rules only look at the first two.
     const verdict = looksLikeQuestion(
       'Si yo quiero programar una aplicación escritorio qué lenguaje de programación debería usar ahora.'
     );
     expect(verdict.isQuestion).toBe(true);
   });
 
-  it('acepta fórmulas de consulta sin interrogativo ni signo', () => {
+  it('accepts query phrasings without an interrogative or mark', () => {
     expect(looksLikeQuestion('Me recomiendas Postgres o MySQL para esto.').isQuestion).toBe(true);
     expect(looksLikeQuestion('Cuál es la diferencia entre un proceso y un hilo.').isQuestion).toBe(
       true
@@ -108,9 +108,9 @@ describe('recall sobre habla real transcrita por Whisper', () => {
     );
   });
 
-  it('el acento es la señal, no el verbo', () => {
-    // El mismo verbo, dos frases distintas. Es la razón de que no haya ninguna
-    // variante de "debería" entre los marcadores.
+  it('the accent is the signal, not the verb', () => {
+    // The same verb, two different sentences. It's the reason there's no variant
+    // of "debería" among the markers.
     expect(
       looksLikeQuestion('Qué base de datos debería usar para esto.').isQuestion
     ).toBe(true);
@@ -119,16 +119,16 @@ describe('recall sobre habla real transcrita por Whisper', () => {
     ).toBe(false);
   });
 
-  it('sigue descartando las comprobaciones de audio', () => {
-    // "me puedes escuchar" no estaba en la lista y no lo cazaba nada más.
+  it('keeps discarding the audio checks', () => {
+    // "me puedes escuchar" wasn't in the list and nothing else caught it.
     for (const filler of ['Me puedes escuchar.', 'Se escucha bien', 'Hola buenos días']) {
       expect(looksLikeQuestion(filler).isQuestion).toBe(false);
     }
   });
 
-  it('no dispara con afirmaciones que suenan parecido', () => {
-    // El precio de subir el recall: estas NO pueden empezar a disparar. Por eso
-    // los marcadores son multi-palabra y no "deberia" a secas.
+  it("doesn't fire on statements that sound similar", () => {
+    // The price of raising recall: these must NOT start firing. That's why the
+    // markers are multi-word and not plain "deberia".
     const statements = [
       'Creo que debería haber estudiado más matemáticas en su momento.',
       'Trabajé tres años en una empresa que hacía aplicaciones de escritorio.',
@@ -142,9 +142,9 @@ describe('recall sobre habla real transcrita por Whisper', () => {
 });
 
 /**
- * Transcripciones LITERALES de una sesión real con Whisper local, sacadas del
- * historial guardado. Son la mejor prueba disponible de lo irregular que es un
- * ASR: la misma persona, seguidas, unas con signos y otras sin ellos.
+ * LITERAL transcriptions from a real session with Whisper local, taken from the
+ * saved history. They're the best available proof of how irregular an ASR is:
+ * the same person, in a row, some with marks and some without.
  */
 const REALES = {
   conSignos: '¿Qué tanto sabes de genería software?',
@@ -154,41 +154,41 @@ const REALES = {
   saludoYPrueba: 'Hola, ¿cómo estás? ¿Me escuchas?',
 };
 
-describe('sensibilidad del auto-disparo', () => {
-  it('las muletillas no disparan en ningún modo, ni con signo de interrogación', () => {
-    // Este caso disparaba: no EMPIEZA por muletilla y trae "?", así que pasaba
-    // los dos filtros. Es un saludo, no una pregunta.
+describe('auto-trigger sensitivity', () => {
+  it('the fillers fire in no mode, not even with a question mark', () => {
+    // This case fired: it doesn't START with a filler and it carries "?", so it
+    // passed both filters. It's a greeting, not a question.
     for (const mode of ['strict', 'balanced', 'all'] as const) {
       expect(looksLikeQuestion(REALES.saludoYPrueba, mode).isQuestion).toBe(false);
     }
   });
 
-  it('estricto solo acepta señales inequívocas', () => {
+  it('strict only accepts unambiguous signals', () => {
     expect(looksLikeQuestion(REALES.conSignos, 'strict').isQuestion).toBe(true);
-    // "que" inicial es un interrogativo de apertura, así que también pasa.
+    // Leading "que" is an opener interrogative, so it also passes.
     expect(looksLikeQuestion(REALES.sinSignos, 'strict').isQuestion).toBe(true);
-    // Ésta no: el interrogativo va en la palabra nueve y sin acento.
+    // This one doesn't: the interrogative is in the ninth word and without an accent.
     expect(looksLikeQuestion(REALES.condicional, 'strict').isQuestion).toBe(false);
   });
 
-  it('equilibrado no cambia lo que estricto ya aceptaba', () => {
+  it("balanced doesn't change what strict already accepted", () => {
     expect(looksLikeQuestion(REALES.conSignos, 'balanced').isQuestion).toBe(true);
     expect(looksLikeQuestion(REALES.sinSignos, 'balanced').isQuestion).toBe(true);
   });
 
-  it('todo responde a cualquier intervención que no sea muletilla', () => {
-    // El caso del usuario: dicta él las preguntas, no hay ruido del que
-    // protegerse, y cualquier heurística sobra.
+  it('all responds to any utterance that is not a filler', () => {
+    // The user's case: they dictate the questions, there's no noise to protect
+    // against, and any heuristic is superfluous.
     expect(looksLikeQuestion(REALES.condicional, 'all').isQuestion).toBe(true);
     expect(
       looksLikeQuestion('Es posible utilizar Kotlin para aplicaciones de escritorio.', 'all')
         .isQuestion
     ).toBe(true);
-    // Pero sigue sin responder a un "Hola" suelto.
+    // But it still doesn't respond to a lone "Hola".
     expect(looksLikeQuestion('Hola', 'all').isQuestion).toBe(false);
   });
 
-  it('el default es equilibrado', () => {
+  it('the default is balanced', () => {
     expect(looksLikeQuestion(REALES.conSignos)).toEqual(
       looksLikeQuestion(REALES.conSignos, 'balanced')
     );
@@ -196,12 +196,12 @@ describe('sensibilidad del auto-disparo', () => {
 });
 
 /**
- * Transcripciones LITERALES de una sesión de prueba (log del 27/07, 21:05-21:12).
- * Son la mejor referencia que hay de lo que llega de verdad, con las erratas del
- * reconocedor incluidas.
+ * LITERAL transcriptions from a test session (log of 27/07, 21:05-21:12). They're
+ * the best reference there is of what actually arrives, with the recognizer's
+ * typos included.
  */
-describe('casos del log de una sesión real', () => {
-  it('un saludo encadenado con una prueba de audio no dispara', () => {
+describe('cases from a real session log', () => {
+  it("a greeting chained with an audio check doesn't fire", () => {
     for (const text of [
       'Hola, ¿cómo estás? ¿Me escuchas?',
       'Hola, ¿puedes oírme?',
@@ -212,15 +212,15 @@ describe('casos del log de una sesión real', () => {
     }
   });
 
-  it('pero una pregunta que EMPIEZA como muletilla sí dispara', () => {
-    // Se descartaba porque el filtro miraba el prefijo: "qué tal" es muletilla,
-    // luego "¿Qué tal es la idea de software?" tambien lo era. No lo es.
+  it('but a question that STARTS like a filler does fire', () => {
+    // It was discarded because the filter looked at the prefix: "qué tal" is a
+    // filler, so "¿Qué tal es la idea de software?" was too. It isn't.
     expect(looksLikeQuestion('¿Qué tal es la idea de software?').isQuestion).toBe(true);
     expect(looksLikeQuestion('¿Cómo estás gestionando el despliegue?').isQuestion).toBe(true);
   });
 
-  it('en modo "todo" también pasan las que el reconocedor destroza', () => {
-    // Ninguna de estas tiene marcador aprovechable, y las tres eran preguntas.
+  it('in "all" mode the ones the recognizer mangles also pass', () => {
+    // None of these has a usable marker, and all three were questions.
     for (const text of [
       'Quiero usar Jenkins como CI/CD que sugerencias me das.',
       'si yo creo ser quien quince en CI/CD como funcionaría.',
@@ -233,21 +233,21 @@ describe('casos del log de una sesión real', () => {
 });
 
 /**
- * Sesión del 28/07, 04:00-04:03. El idioma estaba forzado a inglés mientras se
- * hablaba español, así que estas transcripciones son literalmente lo que
- * Whisper inventó — y siguen siendo el mejor material de prueba que hay.
+ * Session of 28/07, 04:00-04:03. The language was forced to English while Spanish
+ * was being spoken, so these transcriptions are literally what Whisper invented —
+ * and they're still the best test material there is.
  */
-describe('casos del log del 28/07', () => {
-  it('acepta preguntas de dos palabras con signo', () => {
-    // Se descartaba por "demasiado corto (2 palabras)". Es una pregunta entera.
+describe('cases from the 28/07 log', () => {
+  it('accepts two-word questions with a mark', () => {
+    // It was discarded for "too short (2 words)". It's a whole question.
     expect(looksLikeQuestion('Podrías presentarte?').isQuestion).toBe(true);
     expect(looksLikeQuestion('¿Qué recomiendas?').isQuestion).toBe(true);
     expect(looksLikeQuestion('¿Cómo funciona?').isQuestion).toBe(true);
   });
 
-  it('pero dos palabras sin marcador siguen sin bastar', () => {
-    // El mínimo sólo baja cuando hay señal inequívoca; si no, cualquier
-    // confirmación suelta empezaría a disparar.
+  it('but two words without a marker still aren\'t enough', () => {
+    // The minimum only drops when there's an unambiguous signal; otherwise any
+    // lone confirmation would start firing.
     expect(looksLikeQuestion('vale ya').isQuestion).toBe(false);
     expect(looksLikeQuestion('perfecto gracias').isQuestion).toBe(false);
     expect(looksLikeQuestion('¿Y?').isQuestion).toBe(false);
@@ -255,16 +255,16 @@ describe('casos del log del 28/07', () => {
 });
 
 /**
- * El filtro de coste del clasificador.
+ * The classifier's cost filter.
  *
- * El segundo escalón cuesta una consulta por intervención, así que sólo puede
- * escalar lo que la heurística no supo decidir. Preguntarle a un modelo si
- * "vale, perfecto" es una pregunta cuesta lo mismo que preguntarle algo útil, y
- * la respuesta ya se sabe.
+ * The second step costs one query per utterance, so it can only escalate what the
+ * heuristic couldn't decide. Asking a model whether "vale, perfecto" is a
+ * question costs the same as asking it something useful, and the answer is
+ * already known.
  */
 describe('worthClassifying', () => {
-  it('escala lo ambiguo: las frases sin ningún marcador', () => {
-    // El caso real que motivó todo esto: una pregunta dicha como afirmación.
+  it('escalates the ambiguous: sentences with no marker at all', () => {
+    // The real case that motivated all this: a question said as a statement.
     const verdict = looksLikeQuestion(
       'Una persona que conozca de DevOps debería conocer también de seguridad.'
     );
@@ -272,21 +272,21 @@ describe('worthClassifying', () => {
     expect(worthClassifying(verdict)).toBe(true);
   });
 
-  it('NO escala una muletilla', () => {
+  it("does NOT escalate a filler", () => {
     const verdict = looksLikeQuestion('¿me escuchas?');
     expect(verdict.isQuestion).toBe(false);
     expect(worthClassifying(verdict)).toBe(false);
   });
 
-  it('NO escala una frase demasiado corta', () => {
+  it('does NOT escalate a sentence that is too short', () => {
     const verdict = looksLikeQuestion('ya');
     expect(verdict.isQuestion).toBe(false);
     expect(worthClassifying(verdict)).toBe(false);
   });
 
-  it('escala también en modo estricto: la sensibilidad no decide esto', () => {
-    // `strict` decide cuánto se arriesga la heurística, no si el modelo puede
-    // opinar. Estricto + clasificador es la combinación más precisa que hay.
+  it("escalates in strict mode too: the sensitivity doesn't decide this", () => {
+    // `strict` decides how much the heuristic risks, not whether the model can
+    // weigh in. Strict + classifier is the most precise combination there is.
     const verdict = looksLikeQuestion('Si una persona sabe DevOps, sabría de seguridad.', 'strict');
     expect(verdict.isQuestion).toBe(false);
     expect(worthClassifying(verdict)).toBe(true);
@@ -294,23 +294,23 @@ describe('worthClassifying', () => {
 });
 
 /**
- * El imperativo pelado: «explica X» en lugar de «¿podrías explicar X?».
+ * The bare imperative: «explica X» instead of «¿podrías explicar X?».
  *
- * Salió de una prueba real y del log: «Explica un poco el rol de un SRE» se
- * descartó, y la misma petición formulada como pregunta disparó sin problema.
- * Las dos piden lo mismo y la gente usa las dos — apoyarse en que venga
- * formulada como pregunta es perder la mitad.
+ * It came out of a real test and the log: «Explica un poco el rol de un SRE» was
+ * discarded, and the same request phrased as a question fired without a problem.
+ * Both ask for the same thing and people use both — relying on it being phrased
+ * as a question is losing half.
  *
- * Era además una asimetría entre idiomas: en inglés `explain` y `describe` ya
- * estaban cubiertos y en español sólo las formas con pronombre.
+ * It was also a cross-language asymmetry: in English `explain` and `describe`
+ * were already covered and in Spanish only the forms with a pronoun.
  */
-describe('peticiones en imperativo', () => {
-  it('caza el caso exacto que falló', () => {
+describe('imperative requests', () => {
+  it('catches the exact case that failed', () => {
     const verdict = looksLikeQuestion('Explica un poco el rol de un SRE');
     expect(verdict.isQuestion).toBe(true);
   });
 
-  it('reconoce los verbos de petición más habituales', () => {
+  it('recognizes the most common request verbs', () => {
     for (const texto of [
       'Explica qué es un SRE',
       'Describe el proceso de despliegue',
@@ -323,22 +323,22 @@ describe('peticiones en imperativo', () => {
     }
   });
 
-  it('también en modo estricto, porque pedir es tan explícito como preguntar', () => {
-    // Que no lleve signo de interrogación no vuelve dudosa a una petición.
+  it('in strict mode too, because asking is as explicit as questioning', () => {
+    // Not carrying a question mark doesn't make a request doubtful.
     expect(looksLikeQuestion('Explica el rol de un SRE', 'strict').isQuestion).toBe(true);
   });
 
-  it('las formas con "-nos" valen en cualquier posición', () => {
-    // Nadie dice "explícanos" sin estar pidiendo algo, así que no hace falta
-    // que encabece la frase.
+  it('the "-nos" forms count in any position', () => {
+    // Nobody says "explícanos" without asking for something, so it doesn't need
+    // to head the sentence.
     expect(looksLikeQuestion('Y ahora explicanos cómo lo desplegarías').isQuestion).toBe(true);
   });
 
-  it('NO dispara con el mismo verbo en tercera persona', () => {
+  it("does NOT fire with the same verb in the third person", () => {
     /*
-     * Es el precio de esta regla y por eso los verbos sólo cuentan al PRINCIPIO:
-     * en mitad de una frase son indistinguibles del indicativo, que aparece a
-     * todas horas.
+     * It's the price of this rule and that's why the verbs only count at the
+     * START: mid-sentence they're indistinguishable from the indicative, which
+     * appears all the time.
      */
     for (const texto of [
       'El informe explica que hubo una caída del servicio',
@@ -349,9 +349,9 @@ describe('peticiones en imperativo', () => {
     }
   });
 
-  it('deja fuera los verbos que se confunden con una afirmación', () => {
-    // `cuenta` es sustantivo y "cuenta con" significa otra cosa; `indica` y
-    // `desarrolla` abren frases afirmativas de lo más normal.
+  it('leaves out the verbs that get confused with a statement', () => {
+    // `cuenta` is a noun and "cuenta con" means something else; `indica` and
+    // `desarrolla` open perfectly normal affirmative sentences.
     for (const texto of [
       'Cuenta con tres años de experiencia en AWS',
       'Indica que el despliegue falló por un timeout',

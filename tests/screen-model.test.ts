@@ -14,14 +14,14 @@ import { translate } from '../src/shared/i18n';
 const settings = (patch: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, ...patch });
 
 describe('screenModelFor', () => {
-  it('por defecto hereda el modelo de respuestas', () => {
-    // Es lo que garantiza que quien no toque nada siga teniendo el
-    // comportamiento de antes de que este ajuste existiera.
+  it('by default inherits the answer model', () => {
+    // It's what guarantees that whoever touches nothing keeps the behavior from
+    // before this setting existed.
     const target = screenModelFor(settings());
     expect(target).toEqual({ providerId: 'claude', model: 'claude-sonnet-5', inherited: true });
   });
 
-  it('un proveedor propio para la pantalla no toca el de conversar', () => {
+  it("a dedicated provider for the screen doesn't touch the conversing one", () => {
     const current = settings({
       llmProviderId: 'claude',
       screenProviderId: 'ollama',
@@ -33,20 +33,20 @@ describe('screenModelFor', () => {
       model: 'qwen2.5vl:7b',
       inherited: false,
     });
-    // El de conversar sigue intacto.
+    // The conversing one stays intact.
     expect(current.llmProviderId).toBe('claude');
   });
 
-  it('sin modelo elegido cae al del proveedor en lugar de quedarse vacío', () => {
-    // Un campo vacío daría un error del proveedor sobre un ajuste que el
-    // usuario no sabe que existe; responder con algo es preferible.
+  it("with no model chosen it falls back to the provider's instead of staying empty", () => {
+    // An empty field would give a provider error about a setting the user doesn't
+    // know exists; answering with something is preferable.
     const target = screenModelFor(settings({ screenProviderId: 'gemini', screenModel: '' }));
     expect(target.model).toBe('gemini-3.6-flash');
   });
 
-  it('el mismo proveedor puede llevar otro modelo', () => {
-    // El caso de Ollama: uno pequeño y rápido para hablar, un multimodal para
-    // la pantalla, ambos locales.
+  it('the same provider can carry a different model', () => {
+    // The Ollama case: a small fast one to talk, a multimodal one for the screen,
+    // both local.
     const target = screenModelFor(
       settings({
         llmProviderId: 'ollama',
@@ -66,7 +66,7 @@ describe('screenModelFor', () => {
 });
 
 describe('isScreenTrigger', () => {
-  it('distingue los disparos de pantalla de los demás', () => {
+  it('distinguishes the screen triggers from the rest', () => {
     expect(isScreenTrigger('code')).toBe(true);
     expect(isScreenTrigger('quiz')).toBe(true);
     expect(isScreenTrigger('hotkey')).toBe(false);
@@ -75,8 +75,8 @@ describe('isScreenTrigger', () => {
   });
 });
 
-describe('perfil de test', () => {
-  it('trae sus propias reglas, no las de hablar ni las de código', () => {
+describe('quiz profile', () => {
+  it('brings its own rules, not the speaking or the code ones', () => {
     const prompt = buildSystemPrompt(settings(), 'quiz');
 
     expect(prompt).toContain('UNA línea por pregunta');
@@ -85,9 +85,9 @@ describe('perfil de test', () => {
     expect(prompt).not.toContain('El código COMPLETO');
   });
 
-  it('pide TODAS las preguntas y ninguna explicación', () => {
-    // Las dos cosas que salieron mal al usarlo de verdad, y las dos eran del
-    // prompt: pedía quedarse con una sola pregunta y pedía el porqué.
+  it('asks for ALL the questions and no explanation', () => {
+    // The two things that went wrong using it for real, and both were the
+    // prompt's: it asked to keep a single question and asked for the why.
     const prompt = buildSystemPrompt(settings(), 'quiz');
 
     expect(prompt).toContain('Responde TODAS las preguntas');
@@ -95,20 +95,20 @@ describe('perfil de test', () => {
     expect(prompt).not.toMatch(/línea con el porqué/);
   });
 
-  it('prohíbe el markdown en los tres perfiles que se leen en el panel', () => {
-    // Los modelos marcan en negrita por su cuenta y el overlay enseñaba los
-    // asteriscos. Se ataca por prompt Y por render; esto cubre la mitad del
-    // prompt.
+  it('bans markdown in the three profiles read in the panel', () => {
+    // The models mark things in bold on their own and the overlay showed the
+    // asterisks. It's attacked by prompt AND by render; this covers the prompt
+    // half.
     for (const profile of ['interview', 'coding', 'quiz'] as const) {
       expect(buildSystemPrompt(settings(), profile).toLowerCase()).toContain('asterisco');
     }
   });
 
-  it('avisa de las negaciones del enunciado, que es donde se falla', () => {
+  it("warns about the prompt's negations, which is where mistakes are made", () => {
     expect(buildSystemPrompt(settings(), 'quiz')).toContain('cuál NO');
   });
 
-  it('el perfil forzado no toca el configurado', () => {
+  it("the forced profile doesn't touch the configured one", () => {
     const current = settings({ promptProfileId: 'interview' });
     expect(buildSystemPrompt(current, 'quiz')).toContain('DUDA:');
     expect(buildSystemPrompt(current)).toContain('Máximo 4 viñetas');
@@ -116,26 +116,26 @@ describe('perfil de test', () => {
 });
 
 describe('adviseLocalModels', () => {
-  it('recomienda algo para cada tramo de memoria', () => {
+  it('recommends something for each memory tier', () => {
     for (const totalMemoryGB of [4, 8, 16, 32, 64]) {
       const advice = adviseLocalModels({ totalMemoryGB, cpuModel: 'x', cpuCores: 8 });
       expect(advice.chat.model).toBeTruthy();
       expect(advice.vision.model).toBeTruthy();
       expect(advice.caveat).toBeTruthy();
-      // El tramo sale como clave con un hueco: la cifra la pone quien pinta.
+      // The tier comes out as a key with a slot: the figure is put by whoever paints.
       expect(translate('en', advice.tier, { ram: totalMemoryGB })).toContain(String(totalMemoryGB));
     }
   });
 
-  it('a más memoria, no recomienda un modelo más pequeño', () => {
+  it("with more memory, it doesn't recommend a smaller model", () => {
     const poco = adviseLocalModels({ totalMemoryGB: 4, cpuModel: 'x', cpuCores: 4 });
     const mucho = adviseLocalModels({ totalMemoryGB: 64, cpuModel: 'x', cpuCores: 16 });
     expect(poco.chat.model).not.toBe(mucho.chat.model);
   });
 
-  it('con poca memoria dice que lo local no vale para la pantalla', () => {
-    // Es la parte honesta de la recomendación: con 4 GB el modelo cabe y aun
-    // así se equivoca leyendo capturas, que es lo que hay que advertir.
+  it("with little memory it says local is no good for the screen", () => {
+    // It's the honest part of the recommendation: with 4 GB the model fits and
+    // still gets captures wrong, which is what has to be warned about.
     const advice = adviseLocalModels({ totalMemoryGB: 4, cpuModel: 'x', cpuCores: 4 });
     expect(translate('es', advice.caveat)).toContain('nube');
     expect(translate('en', advice.caveat)).toContain('cloud');
@@ -143,49 +143,50 @@ describe('adviseLocalModels', () => {
 });
 
 /**
- * El catálogo de Claude y Gemini está en el código, así que envejece: un modelo
- * nuevo del proveedor no se puede usar hasta que salga una versión de la app.
- * Escribir el id a mano es la salida, y esto cubre la parte con lógica.
+ * The Claude and Gemini catalog is in the code, so it ages: a new model from the
+ * provider can't be used until an app version comes out. Writing the id by hand
+ * is the way out, and this covers the part with logic.
  */
 describe('normalizeModelId', () => {
-  it('deja intacto un id bien escrito', () => {
+  it('leaves a well-written id intact', () => {
     expect(normalizeModelId('claude-opus-4-8')).toBe('claude-opus-4-8');
   });
 
-  it('quita el espacio final que deja un copiar y pegar', () => {
-    // Es el caso real: se copia el id de una página de documentación, llega con
-    // un espacio detrás, y el proveedor responde 404. El mensaje dice "el
-    // modelo no existe", que manda a buscar el modelo bueno cuando ya lo era.
+  it('removes the trailing space a copy-paste leaves', () => {
+    // It's the real case: you copy the id from a documentation page, it arrives
+    // with a space after it, and the provider responds 404. The message says "the
+    // model doesn't exist", which sends you to look for the right model when it
+    // already was.
     expect(normalizeModelId('claude-opus-4-8 ')).toBe('claude-opus-4-8');
     expect(normalizeModelId('  gemini-2.5-pro\n')).toBe('gemini-2.5-pro');
   });
 
-  it('quita también los espacios de en medio', () => {
-    // Ningún proveedor usa espacios en un id, así que un espacio interior sólo
-    // puede venir de un salto de línea del portapapeles.
+  it('also removes the spaces in the middle', () => {
+    // No provider uses spaces in an id, so an interior space can only come from a
+    // clipboard line break.
     expect(normalizeModelId('claude-sonnet\n-5')).toBe('claude-sonnet-5');
     expect(normalizeModelId('qwen2.5vl: 7b')).toBe('qwen2.5vl:7b');
   });
 
-  it('un campo vacío o con sólo espacios queda vacío', () => {
+  it('a field that is empty or only spaces ends up empty', () => {
     expect(normalizeModelId('   ')).toBe('');
     expect(normalizeModelId('')).toBe('');
   });
 });
 
 /**
- * El idioma, visto en una conversación real: pregunta y respuesta en inglés,
- * pero los rótulos de la estructura en español, copiados literalmente del
- * prompt ("**Situación:** I manage a web application…"). Estas pruebas fijan
- * las dos mitades del arreglo — la regla existe en TODOS los perfiles, y ya no
- * se le dan al modelo etiquetas en español que copiar.
+ * The language, seen in a real conversation: question and answer in English, but
+ * the structure labels in Spanish, copied literally from the prompt
+ * ("**Situación:** I manage a web application…"). These tests pin the two halves
+ * of the fix — the rule exists in ALL profiles, and the model is no longer given
+ * Spanish labels to copy.
  */
-describe('idioma de la respuesta', () => {
+describe('the answer language', () => {
   const perfiles = ['interview', 'meeting', 'lecture', 'support', 'coding', 'quiz'] as const;
 
-  it('todos los perfiles llevan la regla de idioma', () => {
-    // Antes vivía dentro de las reglas de hablar, así que código y test —que
-    // las sustituyen enteras— se quedaban sin ninguna.
+  it('all profiles carry the language rule', () => {
+    // It used to live inside the speaking rules, so code and quiz —which replace
+    // them entirely— were left without any.
     for (const profile of perfiles) {
       const prompt = buildSystemPrompt(settings(), profile);
       expect(prompt, profile).toContain('idioma de la conversación');
@@ -193,19 +194,19 @@ describe('idioma de la respuesta', () => {
     }
   });
 
-  it('avisa de que las instrucciones estén en español no obliga a nada', () => {
-    // Es la confusión concreta del modelo: prompt en español, luego respondo
-    // con trozos en español.
+  it("warns that the instructions being in Spanish obliges nothing", () => {
+    // It's the model's specific confusion: prompt in Spanish, so I answer with
+    // Spanish bits.
     expect(buildSystemPrompt(settings())).toContain('no en el de estas');
   });
 
-  it('el perfil de entrevista ya no dicta rótulos copiables', () => {
+  it('the interview profile no longer dictates copyable labels', () => {
     const prompt = buildSystemPrompt(settings(), 'interview');
     expect(prompt).not.toMatch(/situación → acción → resultado/i);
     expect(prompt).toContain('No escribas rótulos');
   });
 
-  it('el modo test manda traducir sus dos marcas fijas', () => {
+  it('quiz mode orders its two fixed markers translated', () => {
     const prompt = buildSystemPrompt(settings(), 'quiz');
     expect(prompt).toContain('UNSURE:');
     expect(prompt).toContain("CAN'T SEE:");
@@ -213,11 +214,11 @@ describe('idioma de la respuesta', () => {
 });
 
 /**
- * Pulsar "Ellos" tiene que dar respuestas, no silencio. Es el fallo que se
- * arregló a mano desde el dashboard sin que la relación fuera evidente.
+ * Pressing "Them" has to give answers, not silence. It's the failure that was
+ * fixed by hand from the dashboard without the relationship being obvious.
  */
 describe('alignAutoTrigger', () => {
-  it('elegir sólo la salida del sistema pasa el disparo al interlocutor', () => {
+  it('choosing only the system output passes the trigger to the other party', () => {
     const current = settings({ audioSources: 'both', autoTriggerSpeaker: 'me' });
     expect(alignAutoTrigger(current, { audioSources: 'system' })).toEqual({
       audioSources: 'system',
@@ -225,7 +226,7 @@ describe('alignAutoTrigger', () => {
     });
   });
 
-  it('elegir sólo el micrófono pasa el disparo a ti', () => {
+  it('choosing only the microphone passes the trigger to you', () => {
     const current = settings({ audioSources: 'both', autoTriggerSpeaker: 'them' });
     expect(alignAutoTrigger(current, { audioSources: 'mic' })).toEqual({
       audioSources: 'mic',
@@ -233,15 +234,15 @@ describe('alignAutoTrigger', () => {
     });
   });
 
-  it('no toca nada si la combinación ya podía disparar', () => {
+  it("doesn't touch anything if the combination could already fire", () => {
     const current = settings({ audioSources: 'mic', autoTriggerSpeaker: 'them' });
-    // Con las dos fuentes se oye a todo el mundo: no hay nada que realinear.
+    // With both sources everyone is heard: there's nothing to realign.
     expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({ audioSources: 'both' });
   });
 
-  it('respeta "cualquiera" y el disparo apagado', () => {
-    // Ninguno de los dos puede quedar inerte, así que cambiarlos sería tocar un
-    // ajuste sin motivo.
+  it('respects "any" and the trigger being off', () => {
+    // Neither of the two can end up inert, so changing them would be touching a
+    // setting for no reason.
     const any = settings({ autoTriggerSpeaker: 'any' });
     expect(alignAutoTrigger(any, { audioSources: 'mic' })).toEqual({ audioSources: 'mic' });
 
@@ -249,8 +250,8 @@ describe('alignAutoTrigger', () => {
     expect(alignAutoTrigger(off, { audioSources: 'mic' })).toEqual({ audioSources: 'mic' });
   });
 
-  it('no se mete cuando el patch no cambia las fuentes', () => {
-    // Cambiar el hablante a mano desde el dashboard es una elección explícita.
+  it("doesn't interfere when the patch doesn't change the sources", () => {
+    // Changing the speaker by hand from the dashboard is an explicit choice.
     const current = settings({ audioSources: 'system' });
     expect(alignAutoTrigger(current, { autoTriggerSpeaker: 'me' })).toEqual({
       autoTriggerSpeaker: 'me',
@@ -259,32 +260,32 @@ describe('alignAutoTrigger', () => {
 });
 
 /**
- * La marca "DUDA:" del modo test, que dejó de servir por usarse siempre.
+ * The quiz mode's "DUDA:" marker, which stopped being useful by being used always.
  *
- * Probado con un modelo local pequeño, respondía TODAS las líneas con "DUDA:"
- * delante. Y estaba pedido: la regla decía «si dudas, empieza esa línea por
- * DUDA:» sin decir en ningún sitio que fuera la excepción. Un modelo que marca
- * todo está obedeciendo, y la marca deja de informar de nada — que es
- * exactamente igual que no tenerla.
+ * Tested with a small local model, it answered ALL the lines with "DUDA:" in
+ * front. And it was asked for: the rule said «if you doubt, start that line with
+ * DUDA:» without saying anywhere that it was the exception. A model that marks
+ * everything is obeying, and the marker stops informing of anything — which is
+ * exactly the same as not having it.
  */
-describe('la regla de la duda en el modo test', () => {
-  it('dice que es la excepción, no el formato', () => {
-    // Se comprueban trozos que caben en una línea: el prompt va envuelto a 80
-    // columnas y afirmar una frase larga rompería el test al reajustar el texto.
+describe('the doubt rule in quiz mode', () => {
+  it("says it's the exception, not the format", () => {
+    // Pieces that fit on one line are checked: the prompt is wrapped at 80
+    // columns and asserting a long sentence would break the test on rewrapping.
     const prompt = buildSystemPrompt(settings(), 'quiz');
     expect(prompt).toContain('es la EXCEPCIÓN, no el formato');
     expect(prompt).toContain('si está en todas las líneas');
   });
 
-  it('prohíbe explícitamente marcarlo todo', () => {
-    // Sin esta frase, un modelo pequeño se cura en salud y marca cada línea.
+  it('explicitly bans marking everything', () => {
+    // Without this sentence, a small model plays it safe and marks every line.
     const prompt = buildSystemPrompt(settings(), 'quiz');
     expect(prompt).toContain('Marcarlo todo no informa de nada');
   });
 
-  it('sigue exigiendo la mejor opción detrás de la marca', () => {
-    // Negarse a responder tampoco ayuda a nadie: en un test con penalización
-    // hay que poder decidir si se arriesga, y para eso hace falta la opción.
+  it('still requires the best option behind the marker', () => {
+    // Refusing to answer doesn't help anyone either: in a quiz with a penalty you
+    // have to be able to decide whether to risk it, and for that you need the option.
     expect(buildSystemPrompt(settings(), 'quiz')).toContain('Nunca es "DUDA:" a secas');
   });
 });

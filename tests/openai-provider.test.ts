@@ -5,20 +5,20 @@ import { OpenAIProvider } from '../src/main/llm/openai';
 import { LLMError, type AnswerRequest } from '../src/main/llm/types';
 
 /**
- * El proveedor de OpenAI contra un servidor **de verdad**.
+ * The OpenAI provider against a **real** server.
  *
- * Es la misma decisión que con el broker de MQTT y por el mismo motivo: con el
- * cliente simulado, mandar el parámetro equivocado —o el evento equivocado—
- * pasaría el test igual. Lo que hay que comprobar aquí no es que llamemos al
- * SDK, es qué llega al otro lado y qué se hace con lo que vuelve.
+ * It's the same decision as with the MQTT broker and for the same reason: with a
+ * mocked client, sending the wrong parameter —or the wrong event— would pass the
+ * test just the same. What has to be checked here isn't that we call the SDK,
+ * it's what reaches the other side and what's done with what comes back.
  *
- * El servidor habla la Responses API por SSE: la app no ve la diferencia, y
- * los eventos son los mismos que fija el SDK instalado.
+ * The server speaks the Responses API over SSE: the app sees no difference, and
+ * the events are the same ones the installed SDK pins.
  */
 
-/** Lo que el servidor recibió en la última petición, para poder afirmarlo. */
+/** What the server received in the last request, to be able to assert it. */
 let received: Record<string, unknown>[] = [];
-/** Respuestas que dará el servidor, en orden. Una por petición. */
+/** Responses the server will give, in order. One per request. */
 let scripted: Array<{ status: number; events?: unknown[]; body?: unknown }> = [];
 let server: Server;
 
@@ -76,8 +76,8 @@ async function collect(iterable: AsyncIterable<string>): Promise<string> {
   return out;
 }
 
-describe('OpenAIProvider · lo que sale hacia la API', () => {
-  it('devuelve el texto que llega en trozos', async () => {
+describe('OpenAIProvider · what goes out to the API', () => {
+  it('returns the text that arrives in pieces', async () => {
     scripted.push({ status: 200, events: textEvents('Kubernetes ', 'orquesta contenedores.') });
 
     const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
@@ -86,11 +86,11 @@ describe('OpenAIProvider · lo que sale hacia la API', () => {
     expect(text).toBe('Kubernetes orquesta contenedores.');
   });
 
-  it('no deja que OpenAI guarde la respuesta', async () => {
-    // El defecto de la Responses API es `store: true`: la respuesta se queda en
-    // la cuenta y se puede recuperar luego por API. Esta app existe para que lo
-    // que se dice en una reunión no se quede en ningún sitio, así que este
-    // parámetro es de los que no se tocan.
+  it("doesn't let OpenAI store the answer", async () => {
+    // The Responses API's default is `store: true`: the answer stays in the
+    // account and can be retrieved later via API. This app exists so that what's
+    // said in a meeting stays nowhere, so this parameter is one of the ones that
+    // aren't touched.
     scripted.push({ status: 200, events: textEvents('ok') });
 
     const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
@@ -99,9 +99,9 @@ describe('OpenAIProvider · lo que sale hacia la API', () => {
     expect(received[0]!.store).toBe(false);
   });
 
-  it('presta presupuesto para razonar además del tope de la respuesta', async () => {
-    // `max_output_tokens` cuenta razonamiento y texto juntos: con el tope seco,
-    // un modelo que piensa se lo gasta entero y termina sin escribir nada.
+  it("lends budget for reasoning on top of the answer's cap", async () => {
+    // `max_output_tokens` counts reasoning and text together: with a bare cap, a
+    // model that thinks spends it all and finishes without writing anything.
     scripted.push({ status: 200, events: textEvents('ok') });
 
     const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
@@ -111,9 +111,9 @@ describe('OpenAIProvider · lo que sale hacia la API', () => {
     expect(received[0]!.max_output_tokens).toBeGreaterThan(2_200 * 2);
   });
 
-  it('manda el historial como mensajes de verdad, no dentro del prompt', async () => {
-    // Es lo que hace que el modelo trate sus respuestas anteriores como cosas
-    // que dijo él. Resumirlas en el texto no produce el mismo efecto.
+  it('sends the history as real messages, not inside the prompt', async () => {
+    // It's what makes the model treat its previous answers as things it said.
+    // Summarizing them in the text doesn't produce the same effect.
     scripted.push({ status: 200, events: textEvents('ok') });
 
     const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
@@ -122,7 +122,7 @@ describe('OpenAIProvider · lo que sale hacia la API', () => {
         request({
           history: [
             { question: '¿A qué te dedicas?', answer: 'Soy comercial.' },
-            // Un turno a medias no se manda: ocupa y no aporta.
+            // A half-finished turn isn't sent: it takes up room and adds nothing.
             { question: 'Y esto', answer: '   ' },
           ],
         }),
@@ -137,7 +137,7 @@ describe('OpenAIProvider · lo que sale hacia la API', () => {
     expect(received[0]!.instructions).toBe('Eres un asistente.');
   });
 
-  it('adjunta la captura como imagen y deja la instrucción detrás', async () => {
+  it('attaches the capture as an image and leaves the instruction behind it', async () => {
     scripted.push({ status: 200, events: textEvents('ok') });
 
     const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
@@ -152,17 +152,17 @@ describe('OpenAIProvider · lo que sale hacia la API', () => {
     const content = input.at(-1)!.content;
     expect(content[0]!.type).toBe('input_image');
     expect(content[0]!.image_url).toBe('data:image/jpeg;base64,QUJD');
-    // El texto va después de la imagen: el modelo la interpreta mejor cuando la
-    // instrucción viene a continuación y puede referirse a ella.
+    // The text goes after the image: the model interprets it better when the
+    // instruction comes next and can refer to it.
     expect(content[1]!.type).toBe('input_text');
   });
 });
 
-describe('OpenAIProvider · lo que vuelve', () => {
-  it('una negativa no deja el panel en blanco', async () => {
-    // Llega dentro de un 200, como contenido de otro tipo — igual que el
-    // `stop_reason: refusal` de Claude. Sin mirarlo, el overlay se quedaría
-    // vacío sin decir por qué.
+describe('OpenAIProvider · what comes back', () => {
+  it("a refusal doesn't leave the panel blank", async () => {
+    // It arrives inside a 200, as content of another type — just like Claude's
+    // `stop_reason: refusal`. Without looking at it, the overlay would be left
+    // empty without saying why.
     scripted.push({
       status: 200,
       events: [
@@ -177,9 +177,9 @@ describe('OpenAIProvider · lo que vuelve', () => {
     ).rejects.toThrow(LLMError);
   });
 
-  it('quedarse sin presupuesto se explica, no se calla', async () => {
-    // El stream termina limpio y sin texto. Decir "no devolvió texto" no lleva
-    // a ninguna parte; esto sí señala qué tocar.
+  it('running out of budget is explained, not kept quiet', async () => {
+    // The stream ends clean and with no text. Saying "it returned no text" leads
+    // nowhere; this does point at what to touch.
     scripted.push({
       status: 200,
       events: [
@@ -191,18 +191,17 @@ describe('OpenAIProvider · lo que vuelve', () => {
     });
 
     const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
-    // Sin ajustes legibles, `m()` cae al idioma por defecto, que es el inglés.
+    // Without readable settings, `m()` falls back to the default language, English.
     await expect(
       collect(provider.streamAnswer(request(), new AbortController().signal))
     ).rejects.toThrow(/spent its whole budget reasoning/);
   });
 
-  it('un modelo que no razona se aprende en caliente y no vuelve a fallar', async () => {
+  it("a model that doesn't reason is learned on the fly and doesn't fail again", async () => {
     /*
-     * Es el fallo que dejó a Haiku 4.5 muerto en Claude, calcado: un parámetro
-     * que el usuario no sabe que se envía hace fallar TODAS sus preguntas. Con
-     * los ids escritos a mano en «Otro…», aquí puede pasar con cualquier modelo
-     * antiguo.
+     * It's the failure that left Haiku 4.5 dead in Claude, traced over: a
+     * parameter the user doesn't know is sent makes ALL their questions fail.
+     * With the ids hand-typed in «Other…», here it can happen with any old model.
      */
     scripted.push({
       status: 400,
@@ -214,15 +213,15 @@ describe('OpenAIProvider · lo que vuelve', () => {
     const text = await collect(provider.streamAnswer(request(), new AbortController().signal));
 
     expect(text).toBe('respuesta sin razonar');
-    // El reintento va sin el bloque y sin el préstamo de tokens: no hay nada
-    // que pensar, así que el tope corto vuelve a ser el bueno.
+    // The retry goes without the block and without the token loan: there's
+    // nothing to think about, so the short cap is the right one again.
     expect(received[1]!.reasoning).toBeUndefined();
     expect(received[1]!.max_output_tokens).toBe(700);
   });
 
-  it('cancelar no es un error que enseñar', async () => {
-    // Cuando llega otra pregunta se aborta la anterior a propósito. Eso no debe
-    // pintar un error en el overlay: la respuesta obsoleta es lo que sobra.
+  it("cancelling isn't an error to show", async () => {
+    // When another question arrives the previous one is aborted on purpose. That
+    // mustn't paint an error in the overlay: the stale answer is what's surplus.
     scripted.push({ status: 200, events: textEvents('lo que sea') });
 
     const controller = new AbortController();

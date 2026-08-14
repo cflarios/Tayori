@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { mathToReadable, parseAnswerBlocks, parseInline } from '../src/shared/answer-format';
 
 /**
- * El parser se ejercita contra lo que de verdad llega: texto en streaming, con
- * la valla de cierre pendiente durante segundos. Ese estado intermedio es el
- * que rompía el render y por eso tiene más casos que el resto.
+ * The parser is exercised against what actually arrives: streaming text, with
+ * the closing fence pending for seconds. That intermediate state is the one that
+ * broke the render and that's why it has more cases than the rest.
  */
 describe('parseAnswerBlocks', () => {
-  it('deja una respuesta sin código como un solo bloque de texto', () => {
+  it('leaves an answer without code as a single text block', () => {
     const blocks = parseAnswerBlocks('- Primera viñeta\n- Segunda viñeta');
     expect(blocks).toEqual([{ type: 'text', content: '- Primera viñeta\n- Segunda viñeta' }]);
   });
 
-  it('separa prosa y código, y se queda con el lenguaje de la valla', () => {
+  it("separates prose and code, and keeps the fence's language", () => {
     const blocks = parseAnswerBlocks(
       'Hash map, una pasada · O(n)\n\n```python\ndef solve(n):\n    return n\n```\n\n- Cuidado con n=0'
     );
@@ -27,12 +27,12 @@ describe('parseAnswerBlocks', () => {
     expect(blocks[2]).toEqual({ type: 'text', content: '- Cuidado con n=0' });
   });
 
-  it('conserva la indentación y las líneas en blanco de dentro del código', () => {
+  it("preserves the indentation and the blank lines inside the code", () => {
     const blocks = parseAnswerBlocks('```js\nfunction f() {\n\n  return 1;\n}\n```');
     expect(blocks[0]?.content).toBe('function f() {\n\n  return 1;\n}');
   });
 
-  it('marca como abierto el bloque cuya valla de cierre aún no ha llegado', () => {
+  it("marks as open the block whose closing fence hasn't arrived yet", () => {
     const blocks = parseAnswerBlocks('Enfoque\n\n```java\nclass Solution {');
 
     expect(blocks[1]).toEqual({
@@ -43,47 +43,47 @@ describe('parseAnswerBlocks', () => {
     });
   });
 
-  it('abre la caja en cuanto llega la valla, aún sin una sola línea de código', () => {
+  it('opens the box as soon as the fence arrives, even without a single line of code', () => {
     const blocks = parseAnswerBlocks('```python\n');
     expect(blocks).toEqual([{ type: 'code', lang: 'python', content: '', open: true }]);
   });
 
-  it('acepta una valla sin lenguaje', () => {
+  it('accepts a fence without a language', () => {
     const blocks = parseAnswerBlocks('```\nx = 1\n```');
     expect(blocks[0]).toEqual({ type: 'code', content: 'x = 1' });
   });
 
-  it('admite varios bloques en la misma respuesta', () => {
+  it('allows several blocks in the same answer', () => {
     const blocks = parseAnswerBlocks('```py\na\n```\nentre medias\n```py\nb\n```');
     expect(blocks.map((b) => b.type)).toEqual(['code', 'text', 'code']);
   });
 
-  it('no deja bloques de texto vacíos entre dos vallas seguidas', () => {
+  it("doesn't leave empty text blocks between two consecutive fences", () => {
     const blocks = parseAnswerBlocks('```py\na\n```\n\n```py\nb\n```');
     expect(blocks.map((b) => b.type)).toEqual(['code', 'code']);
   });
 });
 
 /**
- * La negrita y el código en línea se interpretan porque los modelos los ponen
- * hagas lo que hagas: Claude marcaba así la opción correcta de cada test y el
- * panel enseñaba "**B)** El índice…" con los asteriscos a la vista.
+ * The bold and inline code are interpreted because the models put them there no
+ * matter what you do: Claude marked the correct option of each quiz that way and
+ * the panel showed "**B)** El índice…" with the asterisks in view.
  */
 describe('parseInline', () => {
-  it('deja el texto sin marcas en un solo trozo', () => {
+  it('leaves text without marks in a single piece', () => {
     expect(parseInline('B) El índice se recalcula')).toEqual([
       { type: 'plain', text: 'B) El índice se recalcula' },
     ]);
   });
 
-  it('reconoce la negrita y se queda con lo de dentro', () => {
+  it('recognizes the bold and keeps what is inside', () => {
     expect(parseInline('**B)** El índice')).toEqual([
       { type: 'bold', text: 'B)' },
       { type: 'plain', text: ' El índice' },
     ]);
   });
 
-  it('reconoce el código en línea', () => {
+  it('recognizes inline code', () => {
     expect(parseInline('usa `num_ctx` para eso')).toEqual([
       { type: 'plain', text: 'usa ' },
       { type: 'code', text: 'num_ctx' },
@@ -91,31 +91,31 @@ describe('parseInline', () => {
     ]);
   });
 
-  it('admite varias marcas en la misma línea', () => {
+  it('allows several marks on the same line', () => {
     const spans = parseInline('**1. A)** verdadero · **2. C)** falso');
     expect(spans.map((s) => s.type)).toEqual(['bold', 'plain', 'bold', 'plain']);
   });
 
-  it('una marca sin cerrar se queda como texto', () => {
-    // Es el caso del streaming: mientras llega "**B" no puede desaparecer nada
-    // de la pantalla.
+  it('an unclosed mark stays as text', () => {
+    // It's the streaming case: while "**B" arrives nothing can disappear from the
+    // screen.
     expect(parseInline('**B')).toEqual([{ type: 'plain', text: '**B' }]);
     expect(parseInline('valor `num_ctx')).toEqual([{ type: 'plain', text: 'valor `num_ctx' }]);
   });
 
-  it('no se come un asterisco suelto de multiplicación', () => {
+  it("doesn't eat a lone multiplication asterisk", () => {
     expect(parseInline('n * 2 elementos')).toEqual([{ type: 'plain', text: 'n * 2 elementos' }]);
   });
 
-  it('no cruza saltos de línea', () => {
-    // Dos respuestas de test seguidas no deben fundirse en una negrita gigante
-    // porque una línea abriera y la siguiente cerrara.
+  it("doesn't cross line breaks", () => {
+    // Two consecutive quiz answers mustn't merge into a giant bold because one
+    // line opened and the next closed.
     const spans = parseInline('**A)** uno\n**B)** dos');
     expect(spans.map((s) => s.type)).toEqual(['bold', 'plain', 'bold', 'plain']);
     expect(spans[1]?.text).toBe(' uno\n');
   });
 
-  it('la marca vacía o con espacio no cuenta como negrita', () => {
+  it("the empty or spaced mark doesn't count as bold", () => {
     expect(parseInline('** no es negrita **')).toEqual([
       { type: 'plain', text: '** no es negrita **' },
     ]);
@@ -123,77 +123,77 @@ describe('parseInline', () => {
 });
 
 /**
- * La matemática se normaliza porque los modelos escriben LaTeX hagas lo que
- * hagas: OpenAI devolvía "\(O(n^2d)\)" y el panel enseñaba las barras y el
- * acento a la vista. El prompt pide que no lo hagan y esto lo arregla cuando lo
- * hacen igual — la misma defensa de dos lados que la negrita.
+ * The math is normalized because the models write LaTeX no matter what you do:
+ * OpenAI returned "\(O(n^2d)\)" and the panel showed the backslashes and the
+ * circumflex in view. The prompt asks them not to and this fixes it when they do
+ * anyway — the same two-sided defense as the bold.
  */
 describe('mathToReadable', () => {
-  it('deja el texto sin matemática intacto (atajo rápido)', () => {
+  it('leaves text without math intact (fast path)', () => {
     expect(mathToReadable('Hash map, una pasada · O(n) tiempo')).toBe(
       'Hash map, una pasada · O(n) tiempo'
     );
   });
 
-  it('quita los delimitadores de fórmula y deja el interior', () => {
+  it('removes the formula delimiters and leaves the interior', () => {
     expect(mathToReadable('coste \\(O(n)\\) por token')).toBe('coste O(n) por token');
     expect(mathToReadable('$$E = mc^2$$')).toBe('E = mc²');
     expect(mathToReadable('la matriz \\[A\\] es densa')).toBe('la matriz A es densa');
   });
 
-  it('convierte exponentes a superíndices Unicode', () => {
+  it('converts exponents to Unicode superscripts', () => {
     expect(mathToReadable('O(n^2)')).toBe('O(n²)');
     expect(mathToReadable('O(n^{2d})')).toBe('O(n²ᵈ)');
     expect(mathToReadable('2^{32} entradas')).toBe('2³² entradas');
   });
 
-  it('traduce la transpuesta escrita como QK^\\top', () => {
+  it('translates the transpose written as QK^\\top', () => {
     expect(mathToReadable('la matriz QK^\\top es n×n')).toBe('la matriz QKᵀ es n×n');
   });
 
-  it('convierte fracciones simples, con paréntesis sólo cuando hacen falta', () => {
+  it('converts simple fractions, with parentheses only when needed', () => {
     expect(mathToReadable('\\frac{n}{2}')).toBe('n/2');
     expect(mathToReadable('\\frac{a+b}{c}')).toBe('(a+b)/c');
     expect(mathToReadable('\\sqrt{n} pasos')).toBe('√n pasos');
   });
 
-  it('traduce símbolos griegos y operadores de la tabla', () => {
+  it('translates Greek symbols and operators from the table', () => {
     expect(mathToReadable('\\theta óptimo con \\lambda \\leq 1')).toBe('θ óptimo con λ ≤ 1');
     expect(mathToReadable('n \\times d \\rightarrow salida')).toBe('n × d → salida');
     expect(mathToReadable('coste \\approx O(nd^2 + n^2d)')).toBe('coste ≈ O(nd² + n²d)');
   });
 
-  it('convierte subíndices con llaves o dígito', () => {
+  it('converts subscripts with braces or a digit', () => {
     expect(mathToReadable('x_{ij} de la matriz')).toBe('xᵢⱼ de la matriz');
     expect(mathToReadable('H_2O y CO_2')).toBe('H₂O y CO₂');
   });
 
-  it('NO toca un guion bajo suelto entre letras (snake_case)', () => {
-    // El caso que obliga a limitar los subíndices: file_name saldría con la ene
-    // bajada si se convirtiera cualquier "_letra".
+  it('does NOT touch a lone underscore between letters (snake_case)', () => {
+    // The case that forces limiting the subscripts: file_name would come out with
+    // the n lowered if any "_letter" were converted.
     expect(mathToReadable('usa el campo file_name del objeto')).toBe(
       'usa el campo file_name del objeto'
     );
   });
 
-  it('NO se come una cifra en dólares', () => {
+  it('does NOT eat a figure in dollars', () => {
     expect(mathToReadable('cuesta $5 y a veces $10')).toBe('cuesta $5 y a veces $10');
   });
 
-  it('deja literal lo que no reconoce: comando desconocido y fórmula a medias', () => {
-    // Durante el streaming un delimitador sin cerrar no debe tragarse el resto,
-    // y un comando que no está en la tabla es mejor verlo que mutilarlo.
+  it("leaves literal what it doesn't recognize: unknown command and half formula", () => {
+    // During streaming an unclosed delimiter mustn't swallow the rest, and a
+    // command that isn't in the table is better seen than mangled.
     expect(mathToReadable('empieza \\(O(n')).toBe('empieza \\(O(n');
     expect(mathToReadable('el operador \\bowtie une')).toBe('el operador \\bowtie une');
   });
 });
 
 /**
- * La normalización vive en `parseAnswerBlocks`, así que se aplica a la prosa y
- * NUNCA al código: un "^" dentro de un bloque es un operador que se copia.
+ * The normalization lives in `parseAnswerBlocks`, so it applies to the prose and
+ * NEVER to the code: a "^" inside a block is an operator that gets copied.
  */
-describe('parseAnswerBlocks + matemática', () => {
-  it('normaliza la prosa pero deja el código de la valla intacto', () => {
+describe('parseAnswerBlocks + math', () => {
+  it('normalizes the prose but leaves the fence code intact', () => {
     const blocks = parseAnswerBlocks('Complejidad O(n^2)\n\n```python\nx = n ^ 2\n```');
     expect(blocks[0]).toEqual({ type: 'text', content: 'Complejidad O(n²)' });
     expect(blocks[1]).toEqual({ type: 'code', lang: 'python', content: 'x = n ^ 2' });

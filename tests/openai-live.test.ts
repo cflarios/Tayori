@@ -6,21 +6,21 @@ import { OpenAILiveSTT } from '../src/main/stt/openai-live';
 import type { TranscriptEvent } from '../src/main/stt/types';
 
 /**
- * El motor en directo, contra un **servidor WebSocket real**.
+ * The live engine, against a **real WebSocket server**.
  *
- * Este archivo existe por un fallo concreto: la primera versión mandaba
- * `turn_detection: { type: 'semantic_vad' }` porque parecía razonable, y la API
- * lo rechazó con *"Turn detection is not supported for this transcription
- * model"*. La referencia decía `null` y no se copió. Un test con el cliente
- * simulado habría pasado igual de contento.
+ * This file exists because of a concrete failure: the first version sent
+ * `turn_detection: { type: 'semantic_vad' }` because it seemed reasonable, and the
+ * API rejected it with *"Turn detection is not supported for this transcription
+ * model"*. The reference said `null` and it wasn't copied. A test with a mocked
+ * client would have passed just as happily.
  *
- * Y el segundo fallo era peor porque no da ningún error: sin
- * `input_audio_buffer.commit` el modelo emite parciales para siempre y **nunca
- * llega un segmento final**. La transcripción se ve en pantalla, todo parece
- * funcionar, y el auto-disparo —que sólo evalúa finales— no salta ni una vez.
+ * And the second failure was worse because it gives no error: without
+ * `input_audio_buffer.commit` the model emits partials forever and **a final
+ * segment never arrives**. The transcription shows on screen, everything seems to
+ * work, and the auto-trigger —which only evaluates finals— doesn't fire once.
  */
 
-/** Todo lo que el cliente mandó, ya parseado. */
+/** Everything the client sent, already parsed. */
 let received: Array<Record<string, unknown>> = [];
 let sockets: WebSocket[] = [];
 let server: Server;
@@ -52,7 +52,7 @@ afterEach(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 
-/** Un tono que el VAD toma por voz. */
+/** A tone the VAD takes for voice. */
 function tono(ms: number, sampleRate = 16_000): Buffer {
   const n = Math.round((sampleRate * ms) / 1000);
   const pcm = new Int16Array(n);
@@ -67,7 +67,7 @@ const silencio = (ms: number, sampleRate = 16_000): Buffer =>
 
 const esperar = (ms = 60): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Arranca el motor contra el servidor local. */
+/** Starts the engine against the local server. */
 async function arrancar(vocabulary?: string[]): Promise<OpenAILiveSTT> {
   const stt = new OpenAILiveSTT('sk-test', 'gpt-live-transcribe', baseUrl);
   await stt.start({
@@ -83,13 +83,13 @@ async function arrancar(vocabulary?: string[]): Promise<OpenAILiveSTT> {
 const primero = (type: string): Record<string, unknown> | undefined =>
   received.find((event) => event.type === type);
 
-describe('OpenAILiveSTT · la sesión', () => {
-  it('apaga la detección de turnos, que es lo que este modelo exige', async () => {
+describe('OpenAILiveSTT · the session', () => {
+  it('turns off turn detection, which is what this model requires', async () => {
     /*
-     * El fallo real: con cualquier otra cosa aquí, la API contesta "Turn
-     * detection is not supported for this transcription model" y la sesión no
-     * arranca. Se fija el valor exacto porque es una copia de la referencia y
-     * no una preferencia.
+     * The real failure: with anything else here, the API replies "Turn detection
+     * is not supported for this transcription model" and the session doesn't
+     * start. The exact value is pinned because it's a copy of the reference and
+     * not a preference.
      */
     const stt = await arrancar();
     await stt.stop();
@@ -101,7 +101,7 @@ describe('OpenAILiveSTT · la sesión', () => {
     expect(update?.session?.audio?.input?.turn_detection).toBeNull();
   });
 
-  it('pide PCM a 24 kHz, que es lo único que acepta', async () => {
+  it('asks for PCM at 24 kHz, which is the only thing it accepts', async () => {
     const stt = await arrancar();
     await stt.stop();
 
@@ -112,7 +112,7 @@ describe('OpenAILiveSTT · la sesión', () => {
     expect(update?.session?.audio?.input?.format).toEqual({ type: 'audio/pcm', rate: 24_000 });
   });
 
-  it('pasa el modelo, el idioma y el vocabulario', async () => {
+  it('passes the model, the language and the vocabulary', async () => {
     const stt = await arrancar(['Kubernetes', 'Tayori']);
     await stt.stop();
 
@@ -126,9 +126,9 @@ describe('OpenAILiveSTT · la sesión', () => {
     expect(String(transcription?.prompt)).toContain('Kubernetes, Tayori');
   });
 
-  it('con idioma automático no manda ninguno', async () => {
-    // Forzar el idioma equivocado es el fallo que produjo aquel "Are y'all
-    // gonna eat?" a partir de una frase en español.
+  it('with automatic language it sends none', async () => {
+    // Forcing the wrong language is the failure that produced that "Are y'all
+    // gonna eat?" from a Spanish sentence.
     const stt = new OpenAILiveSTT('sk-test', 'gpt-live-transcribe', baseUrl);
     await stt.start({ sampleRate: 16_000, language: 'auto', speakers: ['them'] });
     await esperar();
@@ -142,8 +142,8 @@ describe('OpenAILiveSTT · la sesión', () => {
   });
 });
 
-describe('OpenAILiveSTT · el audio y el turno', () => {
-  it('manda el audio remuestreado a 24 kHz', async () => {
+describe('OpenAILiveSTT · the audio and the turn', () => {
+  it('sends the audio resampled to 24 kHz', async () => {
     const stt = await arrancar();
     stt.push('them', tono(100));
     await esperar();
@@ -152,32 +152,33 @@ describe('OpenAILiveSTT · el audio y el turno', () => {
     const append = primero('input_audio_buffer.append');
     expect(append).toBeDefined();
 
-    // 100 ms a 16 kHz son 1.600 muestras; a 24 kHz son 2.400, o sea 4.800
-    // bytes. Es la comprobación de que el remuestreo ocurre de verdad y no se
-    // manda el PCM original, que la API aceptaría interpretándolo más rápido.
+    // 100 ms at 16 kHz is 1,600 samples; at 24 kHz it's 2,400, i.e. 4,800 bytes.
+    // It's the check that the resampling actually happens and the original PCM
+    // isn't sent, which the API would accept interpreting it faster.
     const bytes = Buffer.from(String(append!.audio), 'base64').length;
     expect(Math.abs(bytes - 4_800)).toBeLessThanOrEqual(4);
   });
 
-  it('cierra el turno con un commit cuando el hablante calla', async () => {
+  it('closes the turn with a commit when the speaker goes quiet', async () => {
     /*
-     * ESTE es el test que importa. Sin el commit no llega nunca un segmento
-     * final: la transcripción se ve, parece que todo va bien, y el auto-disparo
-     * no salta jamás porque sólo evalúa finales. Un fallo sin ningún error.
+     * THIS is the test that matters. Without the commit a final segment never
+     * arrives: the transcription shows, everything seems fine, and the
+     * auto-trigger never fires because it only evaluates finals. A failure with
+     * no error at all.
      */
     const stt = await arrancar();
 
     stt.push('them', tono(1_200));
-    stt.push('them', silencio(1_000)); // más que los 700 ms del VAD
+    stt.push('them', silencio(1_000)); // more than the VAD's 700 ms
     await esperar(120);
     await stt.stop();
 
     expect(received.some((event) => event.type === 'input_audio_buffer.commit')).toBe(true);
   });
 
-  it('no hace commit mientras se sigue hablando', async () => {
-    // Un commit por chunk partiría cada frase en trozos de 100 ms y el modelo
-    // devolvería palabras sueltas sin contexto.
+  it("doesn't commit while still speaking", async () => {
+    // A commit per chunk would split each sentence into 100 ms pieces and the
+    // model would return stray words with no context.
     const stt = await arrancar();
 
     for (let i = 0; i < 8; i += 1) stt.push('them', tono(100));
@@ -189,9 +190,9 @@ describe('OpenAILiveSTT · el audio y el turno', () => {
     expect(commits).toBe(0);
   });
 
-  it('no hace commit sobre un buffer casi vacío', async () => {
-    // La API rechaza un commit con menos de ~100 ms de audio, así que un
-    // carraspeo suelto produciría un error de sesión por cada uno.
+  it("doesn't commit over an almost-empty buffer", async () => {
+    // The API rejects a commit with less than ~100 ms of audio, so a lone throat
+    // clear would produce a session error for each one.
     const stt = await arrancar();
 
     stt.push('them', tono(30));
@@ -205,8 +206,8 @@ describe('OpenAILiveSTT · el audio y el turno', () => {
   });
 });
 
-describe('OpenAILiveSTT · lo que vuelve', () => {
-  it('emite los parciales y el final por separado', async () => {
+describe('OpenAILiveSTT · what comes back', () => {
+  it('emits the partials and the final separately', async () => {
     const stt = await arrancar();
     const segments: TranscriptEvent[] = [];
     stt.events.on('segment', (event: TranscriptEvent) => segments.push(event));
@@ -226,20 +227,20 @@ describe('OpenAILiveSTT · lo que vuelve', () => {
     await esperar();
     await stt.stop();
 
-    // Los dos van marcados como acumulativos: el parcial porque lo acumula el
-    // propio carril, y el final porque la API manda el turno entero.
+    // Both are marked cumulative: the partial because the lane itself accumulates
+    // it, and the final because the API sends the whole turn.
     expect(segments).toEqual([
-      // Se acumula tal cual llega, espacio final incluido: recortar aquí
-      // partiría un token que todavía puede continuar. De limpiarlo se encarga
-      // el buffer al guardarlo.
+      // It's accumulated as it arrives, trailing space included: trimming here
+      // would split a token that can still continue. The buffer handles cleaning
+      // it up when saving it.
       { speaker: 'them', text: 'hola ', isFinal: false, cumulative: true },
       { speaker: 'them', text: 'hola qué tal', isFinal: true, cumulative: true },
     ]);
   });
 
-  it('un error de la sesión no se queda callado', async () => {
-    // Llega dentro de un socket que sigue abierto: sin mirarlo, la sesión se
-    // quedaría viva y muda — audio entrando y ni una palabra saliendo.
+  it("a session error doesn't stay silent", async () => {
+    // It arrives inside a socket that stays open: without looking at it, the
+    // session would stay alive and mute — audio coming in and not a word out.
     const stt = await arrancar();
     const errors: Error[] = [];
     stt.events.on('error', (err: Error) => errors.push(err));
@@ -253,18 +254,18 @@ describe('OpenAILiveSTT · lo que vuelve', () => {
     expect(errors[0]?.message).toContain('algo se rompió');
   });
 
-  it('si rechaza el prompt, se reconecta sin él en vez de morir', async () => {
+  it('if it rejects the prompt, it reconnects without it instead of dying', async () => {
     /*
-     * Perder el sesgo de vocabulario es perder calidad en los nombres propios.
-     * Perder la sesión es perder la transcripción entera. Ante la duda sobre
-     * qué acepta cada modelo, se degrada.
+     * Losing the vocabulary bias is losing quality on proper names. Losing the
+     * session is losing the whole transcription. When in doubt about what each
+     * model accepts, it degrades.
      */
     const stt = await arrancar(['Kubernetes']);
 
     sockets[0]!.send(
       JSON.stringify({ type: 'error', error: { message: 'Unknown parameter: prompt' } })
     );
-    // El backoff más corto son 500 ms.
+    // The shortest backoff is 500 ms.
     await esperar(900);
 
     const updates = received.filter((e) => e.type === 'session.update');
@@ -279,21 +280,21 @@ describe('OpenAILiveSTT · lo que vuelve', () => {
 });
 
 /**
- * La duplicación, que se vio en pantalla antes que en ningún test.
+ * The duplication, seen on screen before in any test.
  *
- * Los `delta` son incrementales y el `completed` trae el turno ENTERO. La
- * primera versión los emitía tal cual y el buffer los concatenaba, así que la
- * frase aparecía dos veces — y la primera copia con las palabras partidas,
- * porque pegar trozos de token con la heurística de espacios del buffer mete
- * separadores donde no van ("conoz ca", "ingen ieros").
+ * The `delta`s are incremental and the `completed` brings the WHOLE turn. The
+ * first version emitted them as-is and the buffer concatenated them, so the
+ * sentence appeared twice — and the first copy with the words split, because
+ * gluing token pieces with the buffer's space heuristic inserts separators where
+ * they don't go ("conoz ca", "ingen ieros").
  */
-describe('OpenAILiveSTT · el texto no se duplica', () => {
-  it('acumula los deltas en crudo y los marca como acumulativos', async () => {
+describe("OpenAILiveSTT · the text isn't duplicated", () => {
+  it('accumulates the deltas raw and marks them as cumulative', async () => {
     const stt = await arrancar();
     const segments: TranscriptEvent[] = [];
     stt.events.on('segment', (event: TranscriptEvent) => segments.push(event));
 
-    // Trozos de token, tal y como llegan: sin espacios entre "conoz" y "ca".
+    // Token pieces, just as they arrive: no spaces between "conoz" and "ca".
     for (const delta of ['Una persona que ', 'conoz', 'ca de DevOps']) {
       sockets[0]!.send(
         JSON.stringify({ type: 'conversation.item.input_audio_transcription.delta', delta })
@@ -302,12 +303,12 @@ describe('OpenAILiveSTT · el texto no se duplica', () => {
     await esperar();
     await stt.stop();
 
-    // Sin espacios inventados: la palabra no se parte.
+    // No invented spaces: the word isn't split.
     expect(segments.at(-1)?.text).toBe('Una persona que conozca de DevOps');
     expect(segments.every((s) => s.cumulative)).toBe(true);
   });
 
-  it('el final reemplaza a los parciales, no se suma', async () => {
+  it('the final replaces the partials, it does not add', async () => {
     const stt = await arrancar();
     const segments: TranscriptEvent[] = [];
     stt.events.on('segment', (event: TranscriptEvent) => segments.push(event));
@@ -333,9 +334,10 @@ describe('OpenAILiveSTT · el texto no se duplica', () => {
     expect(final.text).toBe('Una persona que conozca de DevOps debería saber de seguridad.');
   });
 
-  it('el turno siguiente empieza de cero', async () => {
-    // Si `turnText` no se vaciara al cerrar, la segunda frase saldría pegada a
-    // la primera y el transcript crecería sin parar dentro de un solo segmento.
+  it('the next turn starts from scratch', async () => {
+    // If `turnText` weren't cleared on close, the second sentence would come out
+    // glued to the first and the transcript would grow endlessly inside a single
+    // segment.
     const stt = await arrancar();
     const segments: TranscriptEvent[] = [];
     stt.events.on('segment', (event: TranscriptEvent) => segments.push(event));
