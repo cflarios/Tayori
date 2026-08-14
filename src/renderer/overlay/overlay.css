@@ -1,7 +1,7 @@
 /*
- * El fondo de la página debe ser totalmente transparente: la ventana es
- * `transparent: true` y cualquier color aquí produciría un rectángulo opaco
- * flotando sobre la pantalla.
+ * The page background must be fully transparent: the window is
+ * `transparent: true` and any color here would produce an opaque rectangle
+ * floating over the screen.
  */
 * {
   box-sizing: border-box;
@@ -20,22 +20,22 @@ body,
 body {
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   color: #e8eaed;
-  /* El texto sobre fondo translúcido necesita suavizado para seguir legible. */
+  /* Text over a translucent background needs smoothing to stay legible. */
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
 
 /*
- * Aviso de que el overlay ES visible en la captura ahora mismo (sigilo apagado):
- * un marco discontinuo rojo pegado al borde de la ventana, imposible de pasar por
- * alto. Va `fixed` sobre el viewport —que en el overlay coincide con el panel— y
- * con `pointer-events: none` para no estorbar a los clics atravesables.
+ * Warning that the overlay IS visible in the capture right now (stealth off): a
+ * dashed red frame stuck to the window's edge, impossible to overlook. It's
+ * `fixed` over the viewport —which in the overlay coincides with the panel— and
+ * with `pointer-events: none` so as not to get in the way of click-through.
  */
 .detectable-frame {
   position: fixed;
-  /* Pegado al borde de la ventana: como el panel se aparta 4px (ver `.panel`),
-     el marco queda por FUERA del panel, con un hueco transparente entre medias
-     —igual que la referencia—, no encima del contenido. */
+  /* Stuck to the window's edge: since the panel is set in 4px (see `.panel`),
+     the frame ends up OUTSIDE the panel, with a transparent gap in between
+     —like the reference—, not on top of the content. */
   inset: 0;
   border: 2px dashed #ef4444;
   border-radius: 16px;
@@ -45,21 +45,21 @@ body {
 
 .panel {
   /*
-   * Escala del texto de contenido. La fija el ajuste `overlayFontScale` como
-   * variable en línea; el 1 de aquí es sólo la red de seguridad si el estilo no
-   * llegara. Se aplica al contenido y NO a la barra ni a los chips: los cuatro
-   * presets de tamaño agrandan la ventana, así que con la letra grande unos
-   * controles igual de grandes dejarían el panel sin sitio para leer.
+   * Content text scale. The `overlayFontScale` setting fixes it as an inline
+   * variable; the 1 here is only the safety net if the style didn't arrive. It's
+   * applied to the content and NOT to the bar or the chips: the four size presets
+   * enlarge the window, so with large text equally large controls would leave the
+   * panel no room to read.
    */
   --font-scale: 1;
 
   /*
-   * Paleta, en tres niveles y un acento.
+   * Palette, in three levels and one accent.
    *
-   * La jerarquía del panel es de contraste, no de tamaño: lo que importa ahora
-   * es blanco, lo que acompaña es gris, y el azul aparece SÓLO en lo que se
-   * puede pulsar o está activo. Esa última regla es la que mantiene el panel
-   * calmado — en cuanto el azul decora, deja de significar "aquí".
+   * The panel's hierarchy is one of contrast, not of size: what matters now is
+   * white, what accompanies is gray, and blue appears ONLY in what can be pressed
+   * or is active. That last rule is what keeps the panel calm — as soon as blue
+   * decorates, it stops meaning "here".
    */
   --text: #f4f5f7;
   --text-dim: #9aa0a6;
@@ -69,9 +69,9 @@ body {
 
   display: flex;
   flex-direction: column;
-  /* Un pequeño margen deja sitio para que el marco de "detectable" quede por
-     fuera del panel. Como la ventana es transparente, ese hueco no se ve cuando
-     el sigilo está activo. */
+  /* A small margin leaves room for the "detectable" frame to sit outside the
+     panel. Since the window is transparent, that gap isn't seen when stealth is
+     active. */
   margin: 4px;
   height: calc(100% - 8px);
   gap: 10px;
@@ -79,27 +79,26 @@ body {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   /*
-   * Fondo sólido a propósito. `backdrop-filter: blur()` no compone de forma
-   * fiable sobre una ventana con `transparent: true` en Windows: se verificó
-   * por captura que el contenido de la ventana de atrás se leía nítido a
-   * través del panel. Y una translucidez baja (4%) no da la sensación de ver
-   * lo que hay detrás: sólo añade ruido que compite con las respuestas largas.
-   * La ventana sigue siendo `transparent: true` para que las esquinas
-   * redondeadas no dejen un rectángulo negro.
+   * Solid background on purpose. `backdrop-filter: blur()` doesn't compose
+   * reliably over a `transparent: true` window on Windows: it was verified by
+   * capture that the content of the window behind was read sharp through the
+   * panel. And a low translucency (4%) gives no sense of seeing what's behind: it
+   * only adds noise that competes with the long answers. The window is still
+   * `transparent: true` so the rounded corners don't leave a black rectangle.
    */
   background: #111317;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* ── Estado central ── */
+/* ── Central state ── */
 
 /*
- * El vacío, cuando todavía no hay nada que leer.
+ * The empty, when there's still nothing to read.
  *
- * Ocupa todo el hueco libre y centra en los dos ejes: el espacio en blanco es
- * el que hace que un icono de 26 px se lea como el elemento principal de la
- * pantalla. Si esto fuera una caja de altura fija con el resto del panel debajo,
- * el mismo icono parecería un adorno en una interfaz a medio hacer.
+ * It takes up all the free space and centers on both axes: the white space is
+ * what makes a 26 px icon read as the screen's main element. If this were a
+ * fixed-height box with the rest of the panel below, the same icon would look
+ * like an ornament in a half-finished interface.
  */
 .hero {
   flex: 1;
@@ -110,15 +109,15 @@ body {
   justify-content: center;
   gap: 4px;
   /*
-   * El relleno inferior de más es centrado óptico, no un descuido: centrado a
-   * la perfección dentro de su banda, el grupo caía 25 px por debajo del medio
-   * del panel —medido— y se leía como "hundido". Subirlo un poco es lo que hace
-   * que el hueco de arriba y el de abajo parezcan iguales aunque no lo sean.
+   * The extra bottom padding is optical centering, not an oversight: centered
+   * perfectly within its band, the group fell 25 px below the panel's middle
+   * —measured— and read as "sunk". Raising it a bit is what makes the top and
+   * bottom gaps look equal even though they aren't.
    */
   padding: 16px 20px 44px;
   text-align: center;
-  /* Aparece al terminar una conversación, no sólo al arrancar: sin la entrada
-     suave el panel daría un salto al vaciarse. */
+  /* It appears when a conversation ends, not just on startup: without the soft
+     entrance the panel would jump when emptied. */
   animation: heroIn 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -130,8 +129,8 @@ body {
 }
 
 /*
- * El micrófono ES el botón. Único elemento con relleno de color del overlay, y
- * por eso el ojo va ahí antes que a ningún otro sitio.
+ * The microphone IS the button. The overlay's only element with a color fill,
+ * and that's why the eye goes there before anywhere else.
  */
 .hero__mic {
   position: relative;
@@ -159,7 +158,7 @@ body {
   transform: scale(1.04);
 }
 
-/* El clic responde en el sitio: sin esto el botón parece una imagen. */
+/* The click responds in place: without this the button looks like an image. */
 .hero__mic:active:not(:disabled) {
   transform: scale(0.97);
 }
@@ -168,7 +167,7 @@ body {
   cursor: default;
 }
 
-/* Escuchando: relleno pleno y latido. Es el único estado que se anima. */
+/* Listening: full fill and pulse. It's the only state that animates. */
 .hero__mic--listening {
   background: var(--accent);
   color: #ffffff;
@@ -203,11 +202,12 @@ body {
 }
 
 /*
- * El latido.
+ * The pulse.
  *
- * Un anillo aparte que escala y se desvanece, en lugar de animar el botón: así
- * el círculo no se mueve ni un píxel. La diferencia entre "la app está viva" y
- * "algo late en la pantalla mientras intentas leer" es exactamente ésa.
+ * A separate ring that scales and fades, instead of animating the button: this
+ * way the circle doesn't move a single pixel. The difference between "the app is
+ * alive" and "something pulses on the screen while you try to read" is exactly
+ * that.
  */
 .hero__ring {
   position: absolute;
@@ -250,7 +250,7 @@ body {
   max-width: 30ch;
 }
 
-/* La segunda vía, deliberadamente en voz baja: existe, pero no compite. */
+/* The second way, deliberately in a low voice: it exists, but doesn't compete. */
 .hero__alt {
   display: flex;
   align-items: center;
@@ -285,8 +285,8 @@ body {
 }
 
 /*
- * Un panel que respira no puede tener nada parpadeando para quien no lo tolera.
- * El estado sigue leyéndose entero sin una sola animación.
+ * A panel that breathes can't have anything blinking for those who can't tolerate
+ * it. The state still reads in full without a single animation.
  */
 @media (prefers-reduced-motion: reduce) {
   .hero,
@@ -301,18 +301,18 @@ body {
   }
 }
 
-/* ── Barra de estado ── */
+/* ── Status bar ── */
 
 .statusbar {
   display: flex;
   align-items: center;
   gap: 10px;
   /*
-   * Envuelve en lugar de recortar. El contenido de la barra ya no cabe a
-   * tamaño S —se midió: 407 px de contenido en 354 disponibles, y con el aviso
-   * "VISIBLE" y el idioma forzado sube a 496—, y lo que se perdía por el borde
-   * era el grupo de botones, la X incluida. Envolver reparte el coste en alto,
-   * que es lo que sobra en el panel, y no en controles inalcanzables.
+   * Wraps instead of clipping. The bar's content no longer fits at size S —it was
+   * measured: 407 px of content in 354 available, and with the "VISIBLE" warning
+   * and the forced language it rises to 496—, and what was lost off the edge was
+   * the button group, the X included. Wrapping spreads the cost in height, which
+   * is what there's spare of in the panel, and not in unreachable controls.
    */
   flex-wrap: wrap;
   row-gap: 6px;
@@ -320,10 +320,10 @@ body {
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   /*
-   * El arrastre se implementa en JS (useOverlayDrag + setPosition desde main),
-   * no con `-webkit-app-region: drag`: esa propiedad no funciona con
-   * `focusable: false`, y no podemos renunciar a eso porque robar el foco de la
-   * videollamada es lo que delata al asistente.
+   * The drag is implemented in JS (useOverlayDrag + setPosition from the main
+   * process), not with `-webkit-app-region: drag`: that property doesn't work
+   * with `focusable: false`, and we can't give that up because stealing the video
+   * call's focus is what gives the assistant away.
    */
   cursor: grab;
 }
@@ -333,19 +333,20 @@ body {
 }
 
 /*
- * El interruptor de escucha: estado y mando en el mismo control.
+ * The listen switch: state and control in the same element.
  *
- * El punto de color ya existía como indicador; ahora vive dentro del botón. Es
- * el control más usado de la app y estaba sólo en el dashboard, que hay que
- * abrir con el engranaje y roba el foco.
+ * The color dot already existed as an indicator; now it lives inside the button.
+ * It's the app's most-used control and was only in the dashboard, which has to be
+ * opened with the gear and steals the focus.
  */
 /*
- * Sin relleno ni borde: la barra acompaña, no manda.
+ * No fill or border: the bar accompanies, it doesn't rule.
  *
- * Cuando el mando de escucha era una píldora con fondo y borde, competía con el
- * botón central por ser "lo que hay que pulsar", y en el estado vacío eran dos
- * cosas azules diciendo lo mismo. Ahora es texto con un punto de color, y el
- * relleno sólido existe en un único sitio del overlay: el círculo del centro.
+ * When the listen control was a pill with a background and border, it competed
+ * with the central button to be "the thing to press", and in the empty state
+ * they were two blue things saying the same thing. Now it's text with a color
+ * dot, and the solid fill exists in a single place in the overlay: the center
+ * circle.
  */
 .listen {
   display: flex;
@@ -400,8 +401,8 @@ body {
   background: rgba(52, 211, 153, 0.14);
 }
 
-/* El error sí conserva el marco: es el único estado de la barra que hay que ver
-   sin buscarlo. */
+/* The error does keep the frame: it's the only bar state that has to be seen
+   without looking for it. */
 .listen--error {
   color: #fca5a5;
   background: rgba(248, 113, 113, 0.12);
@@ -418,19 +419,20 @@ body {
 }
 
 /*
- * Las dos fuentes de audio, como interruptores.
+ * The two audio sources, as switches.
  *
- * Sustituyen a los medidores de sólo lectura: la barra sigue diciendo qué entra
- * de verdad, y ahora el mismo control dice qué se ESPERA escuchar y permite
- * cambiarlo sin abrir el dashboard.
+ * They replace the read-only meters: the bar still says what's actually coming
+ * in, and now the same control says what's EXPECTED to be heard and lets you
+ * change it without opening the dashboard.
  */
 /*
- * Un solo control segmentado, no tres botones sueltos.
+ * A single segmented control, not three loose buttons.
  *
- * Antes eran tres píldoras con borde propio: los bordes competían entre sí y el
- * segmento activo apenas se distinguía de los apagados. `AudioSourceMode`
- * siempre fue "una de tres", así que se pinta como tal — el borde vive en el
- * contenedor y los segmentos comparten fondo, como un segmented control.
+ * They used to be three pills with their own border: the borders competed with
+ * each other and the active segment was barely distinguishable from the off ones.
+ * `AudioSourceMode` was always "one of three", so it's painted as such — the
+ * border lives in the container and the segments share a background, like a
+ * segmented control.
  */
 .sources {
   display: flex;
@@ -443,7 +445,7 @@ body {
 }
 
 .source {
-  /* Ancla del medidor, que ahora va integrado en el borde inferior. */
+  /* Anchor for the meter, now integrated into the bottom edge. */
   position: relative;
   display: flex;
   align-items: center;
@@ -454,7 +456,7 @@ body {
   background: transparent;
   border: 0;
   border-radius: 6px;
-  /* Algo más de abajo: el hueco por donde asoma la línea del medidor. */
+  /* A bit more at the bottom: the gap where the meter's line peeks out. */
   padding: 4px 9px 6px;
   cursor: pointer;
   transition:
@@ -467,16 +469,16 @@ body {
   color: #e8eaed;
 }
 
-/* El segmento activo va relleno con el azul de acento: eso es el "una de tres". */
+/* The active segment is filled with the accent blue: that's the "one of three". */
 .source--on {
   color: var(--text);
   background: rgba(76, 141, 255, 0.16);
 }
 
 /*
- * Configurada pero sin abrirse. Es el estado que antes no se veía en ninguna
- * parte: la app decía "Escuchando" con el micrófono cerrado, y por fuera eso
- * es idéntico a una sala en silencio. El relleno del segmento pasa a ámbar.
+ * Configured but not opened. It's the state that used to be visible nowhere: the
+ * app said "Listening" with the microphone closed, and from the outside that's
+ * identical to a silent room. The segment's fill turns amber.
  */
 .source--mute {
   color: #fbbf24;
@@ -488,9 +490,9 @@ body {
 }
 
 /*
- * El medidor ya no es una barra que flota al lado del rótulo: es una línea fina
- * pegada al borde inferior del segmento, del ancho de la fuente. Dice lo mismo
- * —qué entra de verdad— sin parecer un indicador de debug suelto.
+ * The meter is no longer a bar floating next to the label: it's a thin line stuck
+ * to the segment's bottom edge, the width of the source. It says the same thing
+ * —what's actually coming in— without looking like a loose debug indicator.
  */
 .source__bar {
   position: absolute;
@@ -515,32 +517,32 @@ body {
   background: #fbbf24;
 }
 
-/* Cuando la fuente activa no llegó a abrirse, su medidor también va en ámbar. */
+/* When the active source didn't open, its meter also goes amber. */
 .source--mute .source__fill {
   background: #fbbf24;
 }
 
 /*
- * A tamaño S el nombre de la fuente es lo primero que sobra: el icono ya
- * distingue micrófono de altavoz, y así el caso normal sigue cabiendo en una
- * sola línea. El ancho de la ventana ES el viewport, así que una media query
- * equivale aquí a "qué preset de tamaño está puesto".
+ * At size S the source name is the first thing that's surplus: the icon already
+ * tells microphone from speaker apart, so the normal case still fits on a single
+ * line. The window's width IS the viewport, so a media query here is equivalent
+ * to "which size preset is set".
  */
 /*
- * Hasta L, las fuentes concretas van sólo con su icono.
+ * Up to L, the concrete sources go with only their icon.
  *
- * El selector pasó de dos segmentos a tres, y con los tres rótulos la barra
- * envolvía a dos líneas ya en el tamaño M —que es el de por defecto—, robándole
- * 28 px al panel para no decir nada nuevo. Un micrófono y un altavoz se
- * distinguen sin leerlos; "Ambos" no tiene icono, así que conserva su texto.
+ * The selector went from two segments to three, and with all three labels the bar
+ * wrapped to two lines already at size M —which is the default—, stealing 28 px
+ * from the panel to say nothing new. A microphone and a speaker are told apart
+ * without reading them; "Both" has no icon, so it keeps its text.
  */
 @media (max-width: 520px) {
   .source__label:not(.source__label--keep) {
     display: none;
   }
 
-  /* Sin rótulo el segmento se aprieta a icono; el medidor sigue integrado
-     abajo, así que ya no hay un ancho de barra que retocar aquí. */
+  /* Without a label the segment tightens to just the icon; the meter is still
+     integrated below, so there's no longer a bar width to adjust here. */
   .source {
     padding: 4px 7px 6px;
     gap: 4px;
@@ -553,18 +555,18 @@ body {
   }
 
   /*
-   * Aquí NO se retoca el centrado del estado central, y es una decisión.
+   * The central state's centering is NOT adjusted here, and it's a decision.
    *
-   * A tamaño S el grupo cae 26 px bajo el centro en lugar de 12, pero la causa
-   * no es el panel más corto: es que la barra superior envuelve a dos líneas
-   * (medido: 60 px contra 32) y empuja la banda hacia abajo. Compensarlo con
-   * más relleno dejaría el grupo demasiado alto en cuanto la barra NO envuelva
-   * —lo hace o no según haya aviso de "visible" o idioma forzado—, y una
-   * corrección que sólo acierta a veces es peor que una desviación constante.
+   * At size S the group falls 26 px below the center instead of 12, but the cause
+   * isn't the shorter panel: it's that the top bar wraps to two lines (measured:
+   * 60 px versus 32) and pushes the band down. Compensating with more padding
+   * would leave the group too high as soon as the bar does NOT wrap —it does or
+   * doesn't depending on whether there's a "visible" warning or forced language—,
+   * and a correction that's only right sometimes is worse than a constant offset.
    */
 }
 
-/* Aviso de que el overlay SÍ sale en una captura: el estado peligroso. */
+/* Warning that the overlay DOES show in a capture: the dangerous state. */
 .statusbar__flag {
   flex-shrink: 0;
   font-size: 9px;
@@ -587,8 +589,8 @@ body {
 }
 
 /*
- * Ámbar y no gris: un idioma forzado que no coincide con el que se habla no da
- * ningún error, sólo transcripciones inventadas. Tiene que verse.
+ * Amber and not gray: a forced language that doesn't match what's spoken gives no
+ * error, only invented transcriptions. It has to be seen.
  */
 .statusbar__lang {
   flex-shrink: 0;
@@ -602,8 +604,8 @@ body {
 }
 
 /*
- * El grupo de botones se mantiene junto y pegado a la derecha, esté en la
- * primera línea o haya bajado a la segunda.
+ * The button group stays together and pinned to the right, whether it's on the
+ * first line or has dropped to the second.
  */
 .statusbar__actions {
   display: flex;
@@ -612,15 +614,15 @@ body {
   margin-left: auto;
 }
 
-/* ── Botones de la barra (engranaje y cerrar) ── */
+/* ── Bar buttons (gear and close) ── */
 
 /*
- * En reposo son apenas visibles y se encienden al pasar el ratón.
+ * At rest they're barely visible and light up on hover.
  *
- * Son seis, y seis iconos a pleno contraste en la esquina superior tiran del
- * ojo tanto como el estado central. Bajarlos a gris apagado no los esconde
- * —siguen ahí y siguen teniendo su tooltip— pero los saca de la competición
- * hasta que alguien los busca, que es cuando importan.
+ * There are six, and six full-contrast icons in the top corner pull at the eye as
+ * much as the central state. Dropping them to dim gray doesn't hide them —they're
+ * still there and still have their tooltip— but takes them out of the competition
+ * until someone looks for them, which is when they matter.
  */
 .iconbtn {
   display: flex;
@@ -635,7 +637,7 @@ body {
   background: transparent;
   color: var(--text-faint);
   cursor: pointer;
-  /* El cursor de arrastre de la barra no debe heredarse en los botones. */
+  /* The bar's drag cursor mustn't be inherited on the buttons. */
   transition:
     background 120ms ease,
     color 120ms ease;
@@ -651,7 +653,7 @@ body {
   color: #fca5a5;
 }
 
-/* ── Paneles de contenido ── */
+/* ── Content panels ── */
 
 .section {
   display: flex;
@@ -676,12 +678,12 @@ body {
   flex-shrink: 0;
 }
 
-/* Dentro de la cabecera el margen lo pone el contenedor. */
+/* Inside the header the margin is set by the container. */
 .section__head .section__title {
   margin-bottom: 0;
 }
 
-/* Con qué modelo se está respondiendo. Dato, no adorno: ver el comentario del componente. */
+/* Which model is answering. Data, not adornment: see the component's comment. */
 .section__meta {
   flex: 1;
   font-size: 9.5px;
@@ -692,7 +694,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* Navegación por las respuestas anteriores. Sólo aparece si hay más de una. */
+/* Navigation through the previous answers. Only appears if there's more than one. */
 .nav {
   display: flex;
   align-items: center;
@@ -728,7 +730,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Memoria del asistente. Dato discreto que además se puede pulsar para vaciar. */
+/* Assistant's memory. A discreet datum that can also be pressed to clear it. */
 .memory {
   font-family: inherit;
   font-size: 9.5px;
@@ -748,7 +750,7 @@ body {
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Llena: cada consulta reenvía ocho intercambios y el prompt ya no crece más. */
+/* Full: each query resends eight exchanges and the prompt no longer grows. */
 .memory--full {
   color: #fbbf24;
   border-color: rgba(251, 191, 36, 0.35);
@@ -772,7 +774,7 @@ body {
   background: rgba(248, 113, 113, 0.12);
 }
 
-/* Continuar una solución de código cortada: mismo peso que Parar, acento azul. */
+/* Continue a cut-off code solution: same weight as Stop, blue accent. */
 .section__continue {
   font-family: inherit;
   font-size: 10px;
@@ -791,7 +793,7 @@ body {
   background: rgba(76, 141, 255, 0.14);
 }
 
-/* Copiar la respuesta entera: mismo peso que Parar/Continuar, acento verde. */
+/* Copy the whole answer: same weight as Stop/Continue, green accent. */
 .section__copy {
   font-family: inherit;
   font-size: 10px;
@@ -810,7 +812,7 @@ body {
   background: rgba(52, 211, 153, 0.12);
 }
 
-/* ── Chip de captura por trozos ── */
+/* ── Chunk-capture chip ── */
 
 .scrollchip {
   display: inline-flex;
@@ -829,7 +831,7 @@ body {
   white-space: nowrap;
 }
 
-/* Rojo tipo REC mientras el bucle automático está grabando. */
+/* REC-style red while the automatic loop is recording. */
 .scrollchip__label--rec {
   color: #f87171;
   animation: recpulse 1.2s ease-in-out infinite;
@@ -876,7 +878,7 @@ body {
   color: var(--text);
 }
 
-/* ── Chips de perfil ── */
+/* ── Profile chips ── */
 
 .chips {
   display: flex;
@@ -886,8 +888,8 @@ body {
 }
 
 .chip {
-  /* Flex por el icono: reconocer una forma es más rápido que leer una palabra,
-     y estos chips se miran de reojo con alguien delante. */
+  /* Flex for the icon: recognizing a shape is faster than reading a word, and
+     these chips are glanced at with someone in front of you. */
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -912,12 +914,12 @@ body {
 }
 
 /*
- * El activo se marca con color, no con un bloque relleno.
+ * The active one is marked with color, not with a filled block.
  *
- * Un chip azul sólido en una fila de seis era la mancha más fuerte del panel
- * después del contenido, y competía con el centro sin ser nunca la acción
- * principal: el perfil se elige una vez y se olvida. Con el texto en azul y un
- * fondo apenas insinuado se lee igual de rápido y pesa la mitad.
+ * A solid blue chip in a row of six was the panel's strongest spot after the
+ * content, and it competed with the center without ever being the main action:
+ * the profile is chosen once and forgotten. With the text in blue and a barely
+ * hinted background it reads just as fast and weighs half.
  */
 .chip--active {
   color: #a8c7ff;
@@ -931,7 +933,7 @@ body {
   color: #ffffff;
 }
 
-/* ── Acciones rápidas sobre la respuesta ── */
+/* ── Quick actions on the answer ── */
 
 .quick {
   display: flex;
@@ -962,7 +964,7 @@ body {
   border-color: rgba(96, 165, 250, 0.45);
 }
 
-/* ── Selector de tamaño ── */
+/* ── Size selector ── */
 
 .sizes {
   display: flex;
@@ -991,18 +993,18 @@ body {
 }
 
 /*
- * Marcado con texto claro, no con un bloque relleno.
+ * Marked with light text, not with a filled block.
  *
- * Era el otro relleno sólido del panel además del botón central, y en el pie:
- * una mancha gris compitiendo desde la esquina por una preferencia que se toca
- * dos veces en la vida.
+ * It was the panel's other solid fill besides the central button, and in the
+ * footer: a gray spot competing from the corner for a preference touched twice in
+ * a lifetime.
  */
 .sizes__btn--active {
   color: var(--text);
   background: rgba(255, 255, 255, 0.09);
 }
 
-/* ── Pestañas: escuchar o escribir ── */
+/* ── Tabs: listen or write ── */
 
 .tabs {
   display: flex;
@@ -1016,8 +1018,8 @@ body {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  /* Mismo tono que `.section__title`: las pestañas OCUPAN su sitio, así que
-     deben leerse como el rótulo que sustituyen y no como dos botones más. */
+  /* Same tone as `.section__title`: the tabs TAKE their place, so they should
+     read as the label they replace and not as two more buttons. */
   color: #7c8288;
   background: transparent;
   border: none;
@@ -1041,10 +1043,10 @@ body {
 /* ── Skills ── */
 
 /*
- * En el overlay las skills sólo tienen esta cara: el autocompletado de `/skill`
- * dentro de la pestaña de escritura. El desplegable que hubo aquí se quitó —
- * ocupaba sitio permanente en un panel que existe para leer, por un ajuste que
- * se toca una vez. Elegir la skill fija es cosa del dashboard.
+ * In the overlay the skills only have this face: the `/skill` autocomplete inside
+ * the write tab. The dropdown that was here was removed — it took up permanent
+ * room in a panel that exists to read, for a setting touched once. Choosing the
+ * fixed skill is the dashboard's business.
  */
 
 .skillmenu {
@@ -1092,15 +1094,15 @@ body {
   white-space: nowrap;
 }
 
-/* «No hay ninguna que se llame así» es información: sin esto, escribir un
-   nombre inventado se ve igual que un autocompletado roto. */
+/* «There's none by that name» is information: without this, typing an invented
+   name looks the same as a broken autocomplete. */
 .skillmenu__empty {
   font-size: 10.5px;
   color: #6b7075;
   padding: 4px 6px;
 }
 
-/* ── Pestaña de escritura ── */
+/* ── Write tab ── */
 
 .compose {
   display: flex;
@@ -1114,9 +1116,9 @@ body {
   font-size: calc(12.5px * var(--font-scale));
   line-height: 1.5;
   color: #f1f3f4;
-  /* `body` tiene `user-select: none` para que arrastrar el overlay no seleccione
-     texto; en un campo de escritura hay que devolverlo o no se puede ni
-     seleccionar lo que acabas de escribir. */
+  /* `body` has `user-select: none` so dragging the overlay doesn't select text;
+     in a write field it has to be given back or you can't even select what you
+     just typed. */
   user-select: text;
   resize: none;
   height: 74px;
@@ -1174,9 +1176,9 @@ body {
 }
 
 /*
- * Aviso del foco. Es la única situación en la que el overlay lo toma, y el
- * resto de la app existe para evitarlo: callarlo sería justo el tipo de
- * promesa a medias que el README se esfuerza en no hacer.
+ * Focus warning. It's the only situation in which the overlay takes it, and the
+ * rest of the app exists to avoid it: staying quiet about it would be exactly the
+ * kind of half-promise the README works hard not to make.
  */
 .compose__warn {
   font-size: 10px;
@@ -1199,8 +1201,8 @@ body {
   gap: 6px;
 }
 
-/* Tabular para que las marcas queden alineadas en columna y el ojo pueda
-   saltarse la columna entera al leer. */
+/* Tabular so the timestamps stay aligned in a column and the eye can skip the
+   whole column when reading. */
 .transcript__time {
   flex-shrink: 0;
   font-size: 10px;
@@ -1248,17 +1250,17 @@ body {
 }
 
 /*
- * Bloque de código dentro de una respuesta.
+ * Code block inside an answer.
  *
- * Dos cosas que no son cosméticas:
+ * Two things that aren't cosmetic:
  *
- *  - `white-space: pre` y NO `pre-wrap`. En prosa partir una línea larga es lo
- *    correcto; en código es lo contrario, porque una expresión partida se lee
- *    como otra cosa y la indentación deja de alinear. Se paga con scroll
- *    horizontal, que es justo el trato que se quiere.
- *  - `user-select: text` en el padre ya estaba, pero el botón de copiar existe
- *    igualmente: seleccionar a mano dentro de una ventana sin foco, con los
- *    clics atravesándola, es más difícil de lo que parece.
+ *  - `white-space: pre` and NOT `pre-wrap`. In prose splitting a long line is the
+ *    right thing; in code it's the opposite, because a split expression reads as
+ *    something else and the indentation stops aligning. It's paid for with
+ *    horizontal scroll, which is exactly the trade wanted.
+ *  - `user-select: text` on the parent was already there, but the copy button
+ *    exists anyway: selecting by hand inside an unfocused window, with the clicks
+ *    passing through it, is harder than it looks.
  */
 .code {
   margin: 8px 0;
@@ -1324,22 +1326,22 @@ body {
   tab-size: 2;
 }
 
-/* La prosa que rodea al código sí sigue partiendo líneas. */
+/* The prose around the code does keep wrapping lines. */
 .answer__text {
   white-space: pre-wrap;
 }
 
 /*
- * Negrita del modelo. Se marca con color y no sólo con grosor: en una lista de
- * respuestas de test lo que se busca de un vistazo es la opción, y el peso de
- * la fuente solo apenas destaca sobre un panel oscuro.
+ * The model's bold. Marked with color and not just weight: in a list of quiz
+ * answers what's looked for at a glance is the option, and the font weight alone
+ * barely stands out on a dark panel.
  */
 .answer__text strong {
   font-weight: 600;
   color: #ffffff;
 }
 
-/* Código en línea: nombres de función, valores, banderas. */
+/* Inline code: function names, values, flags. */
 .answer__code {
   font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
   font-size: 0.92em;
@@ -1355,9 +1357,9 @@ body {
 }
 
 /*
- * Explicación de un descarte. Ni rojo ni alarmante: no ha fallado nada, sólo
- * se ha decidido no responder. Pero tiene que verse, porque el silencio sin
- * motivo es lo que hace pensar que la app está rota.
+ * Explanation of a skip. Neither red nor alarming: nothing has failed, it's just
+ * been decided not to answer. But it has to be seen, because silence with no
+ * reason is what makes you think the app is broken.
  */
 .skip {
   display: flex;
@@ -1377,7 +1379,7 @@ body {
   color: #7c8288;
 }
 
-/* Scrollbars discretas: una barra clara delata el overlay en una demo. */
+/* Discreet scrollbars: a light bar gives the overlay away in a demo. */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -1391,7 +1393,7 @@ body {
   background: transparent;
 }
 
-/* ── Aviso de primer arranque ── */
+/* ── First-run warning ── */
 
 .setup {
   flex-shrink: 0;
@@ -1424,7 +1426,7 @@ body {
   background: #fde68a;
 }
 
-/* ── Error del motor de transcripción ── */
+/* ── Transcription engine error ── */
 
 .sttError {
   display: flex;
@@ -1442,8 +1444,8 @@ body {
   font-size: 11.5px;
   line-height: 1.45;
   color: #fca5a5;
-  /* Los mensajes de Gemini traen el modelo y la causa; poder copiarlos es
-     justamente el punto de enseñarlos. */
+  /* Gemini's messages carry the model and the cause; being able to copy them is
+     precisely the point of showing them. */
   user-select: text;
   max-height: 68px;
   overflow-y: auto;
@@ -1464,7 +1466,7 @@ body {
   background: rgba(248, 113, 113, 0.2);
 }
 
-/* ── Thumbnail de captura adjunta ── */
+/* ── Attached-capture thumbnail ── */
 
 .shot {
   display: flex;
@@ -1490,7 +1492,7 @@ body {
   color: #9aa0a6;
 }
 
-/* ── Pie con atajos ── */
+/* ── Footer with shortcuts ── */
 
 .hints {
   display: flex;
@@ -1518,19 +1520,20 @@ body {
 /*
  * ── Teleprompter ──
  *
- * Lo que delata que alguien lee no es el tamaño de la letra: es el movimiento
- * horizontal de los ojos. De ahí las medidas de aquí abajo, que no son estéticas:
+ * What gives away that someone is reading isn't the font size: it's the
+ * horizontal movement of the eyes. Hence the measures below, which aren't
+ * aesthetic:
  *
- * - `max-width` en CH, no en píxeles. La unidad es el ancho de un carácter, que
- *   es exactamente lo que hay que acotar para que la vista abarque la línea sin
- *   moverse. En píxeles, subir el tamaño de letra ensancharía la columna y
- *   devolvería el barrido.
- * - La línea activa está SIEMPRE a la misma altura, con una vecina arriba y otra
- *   abajo de altura fija. Sin eso hay que buscar por dónde ibas cada vez que
- *   avanzas, y buscar en una pantalla se ve más que leer.
- * - Las vecinas se atenúan en vez de esconderse: ver lo que viene es lo que
- *   permite encadenar sin la pausa de leer, y quitarlas dejaría la línea activa
- *   saltando sola sobre el fondo.
+ * - `max-width` in CH, not in pixels. The unit is the width of a character, which
+ *   is exactly what has to be bounded so the sight takes in the line without
+ *   moving. In pixels, raising the font size would widen the column and bring back
+ *   the sweep.
+ * - The active line is ALWAYS at the same height, with a fixed-height neighbor
+ *   above and one below. Without that you have to hunt for where you were every
+ *   time you advance, and hunting on a screen shows more than reading.
+ * - The neighbors dim instead of hiding: seeing what's coming is what lets you
+ *   chain on without the pause of reading, and removing them would leave the
+ *   active line jumping alone over the background.
  */
 .prompter {
   display: flex;
@@ -1550,8 +1553,8 @@ body {
   transition: opacity 90ms ease-out;
 }
 
-/* Altura fija aunque estén vacías: son los topes que mantienen quieta la
-   línea activa en la primera y en la última: sin ellas, el texto salta. */
+/* Fixed height even when empty: they're the stops that keep the active line
+   still on the first and last: without them, the text jumps. */
 .prompter__line--past,
 .prompter__line--next {
   min-height: 1.35em;
@@ -1566,7 +1569,7 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* Dónde vas, sin números que leer: se capta de reojo y no se lee. */
+/* Where you are, with no numbers to read: caught out of the corner of the eye, not read. */
 .prompter__rail {
   display: flex;
   gap: 3px;
@@ -1589,12 +1592,12 @@ body {
 }
 
 /*
- * ── Acciones de llamada: las dos que sí llevan nombre ──
+ * ── Call actions: the two that do carry a name ──
  *
- * Resolver código y resolver un test son lo único de esta barra que se pulsa
- * con alguien delante, y eran dos iconos de 22 px sin etiqueta. Sacar del grupo
- * las cuatro acciones que no son de llamada dejó sitio para escribir qué hacen,
- * que es lo que faltaba para no tener que adivinarlo.
+ * Solve code and solve a quiz are the only things on this bar pressed with
+ * someone in front of you, and they were two 22 px unlabeled icons. Taking the
+ * four non-call actions out of the group left room to spell out what they do,
+ * which is what was missing so you don't have to guess.
  */
 .actionbtn {
   display: flex;
@@ -1624,9 +1627,9 @@ body {
 }
 
 /*
- * A tamaño S la barra va justa —el motivo por el que estas acciones van
- * agrupadas— así que ahí la etiqueta se retira y quedan los iconos. El nombre
- * sigue en el `title`, y el atajo también.
+ * At size S the bar runs tight —the reason these actions are grouped— so there
+ * the label withdraws and the icons remain. The name is still in the `title`, and
+ * the shortcut too.
  */
 @media (max-width: 400px) {
   .actionbtn__label {
@@ -1634,7 +1637,7 @@ body {
   }
 }
 
-/* ── Menú de lo que no es de llamada ── */
+/* ── Menu of the non-call things ── */
 .more {
   position: relative;
   display: flex;
@@ -1646,10 +1649,10 @@ body {
 }
 
 /*
- * El menú se ancla a la derecha y por debajo del botón.
+ * The menu anchors to the right and below the button.
  *
- * `z-index` alto porque cae sobre la respuesta, que es justo lo que hay debajo:
- * un menú medio tapado por el texto sería peor que no tenerlo.
+ * High `z-index` because it falls over the answer, which is exactly what's below:
+ * a menu half-covered by the text would be worse than not having it.
  */
 .more__menu {
   position: absolute;
@@ -1668,12 +1671,12 @@ body {
 }
 
 /*
- * Puente sobre la separación con el botón.
+ * Bridge over the gap with the button.
  *
- * Los 5 px de aire entre el botón y el menú se ven mejor, pero eran píxeles
- * MUERTOS: el cursor que bajaba hacia las opciones pasaba por ahí, salía de
- * `.more` y cerraba el menú antes de llegar. Este pseudo-elemento los cubre sin
- * pintarlos, así que el recorrido del ratón es continuo.
+ * The 5 px of air between the button and the menu look better, but they were DEAD
+ * pixels: the cursor moving down toward the options passed through there, left
+ * `.more` and closed the menu before arriving. This pseudo-element covers them
+ * without painting them, so the mouse's path is continuous.
  */
 .more__menu::before {
   content: '';
@@ -1708,8 +1711,8 @@ body {
   color: var(--text);
 }
 
-/* Separa lo que no se deshace: nueva conversación borra la transcripción y la
-   memoria, y la X cierra la app. Estaban a un píxel de «plegar». */
+/* Separates what can't be undone: new conversation clears the transcript and the
+   memory, and the X closes the app. They were a pixel away from «collapse». */
 .more__sep {
   height: 1px;
   margin: 4px 2px;
@@ -1721,8 +1724,8 @@ body {
   color: #fca5a5;
 }
 
-/* Atenuado en reposo y pleno en el activo: el color hace de segunda señal de
-   cuál está puesto, además del fondo. */
+/* Dimmed at rest and full when active: the color acts as a second signal of
+   which is set, besides the background. */
 .chip svg {
   opacity: 0.65;
 }

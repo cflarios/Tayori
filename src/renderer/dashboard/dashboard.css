@@ -5,9 +5,9 @@
 }
 
 /*
- * Los colores estaban repetidos en literales por todo el archivo, y el
- * dashboard pasó de una columna a un panel con barra lateral: cambiar un tono
- * significaba buscar catorce sitios. Aquí están una vez.
+ * The colors were repeated as literals throughout the file, and the dashboard
+ * went from a column to a panel with a sidebar: changing one tone meant hunting
+ * fourteen places. Here they are once.
  */
 :root {
   --bg: #0f1115;
@@ -36,20 +36,20 @@ body {
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  /* El scroll lo lleva el panel de contenido, no la página: la barra lateral y
-     la cabecera tienen que quedarse quietas. */
+  /* The scroll is on the content panel, not the page: the sidebar and the header
+     have to stay still. */
   overflow: hidden;
 }
 
 /*
- * Scrollbars al estilo de la app, no la gris nativa de Windows.
+ * Scrollbars in the app's style, not Windows's native gray.
  *
- * El overlay ya llevaba la suya —fina y discreta, para no delatarse en una
- * demo—; el dashboard se había quedado con la del sistema, que sobre el fondo
- * oscuro cantaba. Aquí una versión un poco más agarrable, porque es una ventana
- * de ajustes y no el overlay: una pastilla translúcida al estilo de macOS. El
- * borde transparente + `background-clip: padding-box` le dan aire a los lados,
- * así que parece flotar en vez de pegarse al borde.
+ * The overlay already had its own —thin and discreet, so as not to give itself
+ * away in a demo—; the dashboard had been left with the system's, which stood out
+ * against the dark background. Here a slightly more grabbable version, because
+ * it's a settings window and not the overlay: a translucent macOS-style pill. The
+ * transparent border + `background-clip: padding-box` give it air at the sides, so
+ * it seems to float instead of sticking to the edge.
  */
 ::-webkit-scrollbar {
   width: 12px;
@@ -64,8 +64,8 @@ body {
   background-color: rgba(255, 255, 255, 0.13);
   border: 3px solid transparent;
   border-radius: 999px;
-  /* Sólo `background-color` en el hover: el atajo `background` reiniciaría el
-     clip a border-box y la pastilla perdería su aire. */
+  /* Only `background-color` on hover: the `background` shorthand would reset the
+     clip to border-box and the pill would lose its air. */
   background-clip: padding-box;
 }
 
@@ -84,16 +84,16 @@ body {
 }
 
 /*
- * Aviso de que el dashboard ES visible en la captura ahora mismo (sigilo
- * apagado): un marco discontinuo rojo pegado al borde de la ventana. La ventana
- * tiene las API keys, el CV y el historial, así que su visibilidad importa tanto
- * como la del overlay. `fixed` sobre el viewport y `pointer-events: none`.
+ * Warning that the dashboard IS visible in the capture right now (stealth off): a
+ * dashed red frame stuck to the window's edge. The window has the API keys, the
+ * CV and the history, so its visibility matters as much as the overlay's. `fixed`
+ * over the viewport and `pointer-events: none`.
  */
 .detectable-frame {
   position: fixed;
-  /* Pegado al borde de la ventana. El contenido se aparta con el `padding` de
-     `.shell`, así que el marco queda por FUERA, con un hueco entre medias (del
-     mismo color de fondo, así que sólo se ve la línea roja). */
+  /* Stuck to the window's edge. The content is set in with `.shell`'s `padding`,
+     so the frame ends up OUTSIDE, with a gap in between (the same background
+     color, so only the red line is seen). */
   inset: 1px;
   border: 2px dashed #ef4444;
   border-radius: 9px;
@@ -101,24 +101,24 @@ body {
   z-index: 1000;
 }
 
-/* ── Estructura: barra lateral + panel ── */
+/* ── Structure: sidebar + panel ── */
 
 /*
- * Barra de título propia (la ventana es `frame: false`), al estilo de macOS.
+ * Own title bar (the window is `frame: false`), macOS-style.
  *
- * `.shell` es una columna: la barra arriba y, debajo, lo que toque —panel,
- * asistente o el «cargando»—. El segundo hijo ocupa el resto y se queda con su
- * propio scroll; `height: auto` desarma el `height: 100%` que `.app` y `.wiz`
- * traen para llenar la ventana entera cuando eran la raíz.
+ * `.shell` is a column: the bar on top and, below it, whatever fits —panel,
+ * wizard or the «loading»—. The second child takes the rest and keeps its own
+ * scroll; `height: auto` undoes the `height: 100%` that `.app` and `.wiz`
+ * bring to fill the whole window when they were the root.
  */
 .shell {
   display: flex;
   flex-direction: column;
   height: 100%;
-  /* Aparta el contenido del borde de la ventana para dejar un hueco donde vive
-     el marco rojo de "detectable" (ver `.detectable-frame`). El hueco es del
-     mismo `--bg` que la ventana, así que sólo se nota cuando la línea roja está.
-     `box-sizing: border-box` mantiene el tamaño; sólo se encoge el contenido. */
+  /* Keeps the content off the window's edge to leave a gap where the red
+     "detectable" frame lives (see `.detectable-frame`). The gap is the same
+     `--bg` as the window, so it only shows when the red line is there.
+     `box-sizing: border-box` keeps the size; only the content shrinks. */
   padding: 6px;
 }
 
@@ -136,8 +136,8 @@ body {
   padding-left: 13px;
   background: var(--bg-nav);
   border-bottom: 1px solid var(--line);
-  /* Toda la barra arrastra la ventana; los semáforos se excluyen abajo. Esto
-     sólo funciona porque el dashboard SÍ es enfocable (el overlay no lo es). */
+  /* The whole bar drags the window; the traffic lights are excluded below. This
+     only works because the dashboard IS focusable (the overlay isn't). */
   -webkit-app-region: drag;
 }
 
@@ -171,7 +171,7 @@ body {
   background: #28c840;
 }
 
-/* Los glifos, como en macOS, sólo asoman al pasar el ratón por el grupo. */
+/* The glyphs, as in macOS, only appear on hovering the group. */
 .light svg {
   width: 100%;
   height: 100%;
@@ -307,9 +307,9 @@ body {
 }
 
 /*
- * El punto ámbar dice "aquí dentro hay algo que mirar". Es deliberadamente el
- * mismo color que los avisos de las tarjetas: quien lo ve y entra encuentra
- * exactamente ese tono otra vez, y no tiene que preguntarse si son dos cosas.
+ * The amber dot says "there's something to look at in here". It's deliberately
+ * the same color as the cards' warnings: whoever sees it and goes in finds
+ * exactly that tone again, and doesn't have to wonder whether they're two things.
  */
 .navitem__dot {
   width: 6px;
@@ -362,9 +362,9 @@ body {
 }
 
 /*
- * La explicación de la sección vive aquí y ya no dentro de la tarjeta: cuando
- * una sección tiene una sola tarjeta, el título y el resumen se decían dos
- * veces en la misma pantalla.
+ * The section's explanation lives here and no longer inside the card: when a
+ * section has a single card, the title and the summary were said twice on the
+ * same screen.
  */
 .pane__sub {
   font-size: 12.5px;
@@ -385,7 +385,7 @@ body {
   max-width: 720px;
 }
 
-/* ── Interruptor de escucha de la cabecera ── */
+/* ── The header's listen switch ── */
 
 .listen {
   display: flex;
@@ -438,7 +438,7 @@ body {
   background: var(--danger);
 }
 
-/* ── Tarjetas ── */
+/* ── Cards ── */
 
 .card {
   background: var(--surface);
@@ -461,16 +461,16 @@ body {
   margin-bottom: 14px;
 }
 
-/* Un aviso que abre la tarjeta no necesita separarse de nada. */
+/* A warning that opens the card doesn't need separating from anything. */
 .card > .warn:first-child,
 .card > .row:first-child {
   margin-top: 0;
 }
 
 /*
- * Interruptor destacado. Los dos que deciden si la app te delata se cambian
- * durante una llamada; el resto de la sección son preferencias que se tocan
- * una vez, así que no comparten peso visual.
+ * Highlighted switch. The two that decide whether the app gives you away get
+ * changed during a call; the rest of the section are preferences touched once,
+ * so they don't share visual weight.
  */
 .hero {
   display: flex;
@@ -513,15 +513,15 @@ body {
   max-width: 56ch;
 }
 
-/* ── Filas ── */
+/* ── Rows ── */
 
 .row {
   display: flex;
   align-items: center;
   gap: 14px;
-  /* Con la ventana en su ancho mínimo (720 px menos la barra lateral) un select
-     largo junto a su etiqueta no cabe. Envolver baja el control a la línea
-     siguiente en lugar de recortarlo. */
+  /* With the window at its minimum width (720 px minus the sidebar) a long
+     select next to its label doesn't fit. Wrapping drops the control to the
+     next line instead of clipping it. */
   flex-wrap: wrap;
   padding: 11px 0;
 }
@@ -659,7 +659,7 @@ button.btn--danger {
   color: #fca5a5;
 }
 
-/* La acción principal de su tarjeta: encender la escucha, no "otro botón más". */
+/* Its card's main action: turn on listening, not "just another button". */
 button.btn--primary {
   color: #0c1220;
   background: #93c5fd;
@@ -672,9 +672,9 @@ button.btn--primary:hover:not(:disabled) {
 }
 
 /*
- * Salto a otra sección. Partir el dashboard tiene un coste —dos ajustes que se
- * explican el uno al otro dejan de verse a la vez— y esto es lo que lo paga.
- * Se lee como un enlace, no como un botón: no hace nada, sólo lleva.
+ * Jump to another section. Splitting the dashboard has a cost —two settings
+ * that explain each other stop being seen at once— and this is what pays it.
+ * It reads as a link, not a button: it does nothing, it only takes you.
  */
 .jump {
   display: inline-flex;
@@ -721,7 +721,7 @@ button.btn--primary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.07);
 }
 
-/* ── Medidores de nivel ── */
+/* ── Level meters ── */
 
 .meters {
   display: flex;
@@ -760,7 +760,7 @@ button.btn--primary:hover:not(:disabled) {
   height: 100%;
   border-radius: 3px;
   background: var(--accent);
-  /* Subida instantánea, bajada suave: así el pico se ve aunque sea corto. */
+  /* Instant rise, smooth fall: that way the peak shows even if it's short. */
   transition: width 90ms ease-out;
 }
 
@@ -768,7 +768,7 @@ button.btn--primary:hover:not(:disabled) {
   background: var(--warn);
 }
 
-/* ── Barra de progreso de descarga ── */
+/* ── Download progress bar ── */
 
 .progress {
   margin-top: 12px;
@@ -794,7 +794,7 @@ button.btn--primary:hover:not(:disabled) {
   transition: width 200ms ease-out;
 }
 
-/* ── Model Manager (modelos de Whisper) ── */
+/* ── Model Manager (Whisper models) ── */
 
 .mm__head {
   margin: 14px 0 10px;
@@ -887,7 +887,7 @@ button.btn--primary:hover:not(:disabled) {
   cursor: default;
 }
 
-/* La estrella de favoritos: apagada y discreta hasta que se marca. */
+/* The favorites star: off and discreet until it's marked. */
 .mm__fav {
   flex-shrink: 0;
   display: inline-flex;
@@ -909,7 +909,7 @@ button.btn--primary:hover:not(:disabled) {
   color: var(--warn);
 }
 
-/* ── Mini-perfiles de modelos ── */
+/* ── Model mini-profiles ── */
 .preset__empty {
   font-size: 12.5px;
   color: var(--text-faint);
@@ -993,13 +993,13 @@ button.btn--primary:hover:not(:disabled) {
 }
 
 /*
- * Trabajo en curso del que NO se sabe el porcentaje.
+ * Work in progress whose percentage is NOT known.
  *
- * winget no informa del avance de su descarga, así que durante la instalación
- * de Ollama no hay ninguna cifra que enseñar. Una barra parada al 0% durante
- * tres minutos se lee como "esto se ha colgado" — que es exactamente lo que
- * pasó al probarlo. Un fragmento que recorre la barra dice lo único cierto:
- * está trabajando y no se sabe cuánto falta.
+ * winget doesn't report the progress of its download, so during Ollama's
+ * install there's no figure to show. A bar stuck at 0% for three minutes reads
+ * as "this has hung" — which is exactly what happened when testing it. A
+ * fragment that runs across the bar says the only true thing: it's working and
+ * how much is left isn't known.
  */
 .progress__fill--idle {
   width: 35%;
@@ -1023,7 +1023,7 @@ button.btn--primary:hover:not(:disabled) {
   }
 }
 
-/* ── Estado de Ollama ── */
+/* ── Ollama status ── */
 
 .ollama {
   margin-top: 14px;
@@ -1095,7 +1095,7 @@ button.btn--primary:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* ── Historial de conversaciones ── */
+/* ── Conversation history ── */
 
 .conv {
   margin-top: 10px;
@@ -1110,8 +1110,8 @@ button.btn--primary:hover:not(:disabled) {
 }
 
 /*
- * La cabecera entera es el disparador de abrir/cerrar, no un chevron de 12 px:
- * el área clicable debe ser el elemento que se lee, no un adorno al lado.
+ * The whole header is the open/close trigger, not a 12 px chevron: the
+ * clickable area should be the element you read, not an ornament beside it.
  */
 .conv__title {
   flex: 1;
@@ -1161,8 +1161,8 @@ button.btn--primary:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  /* Una entrevista de una hora son cientos de líneas: acotar y dejar scrollar
-     evita que una sola conversación empuje el resto de la página fuera. */
+  /* A one-hour interview is hundreds of lines: capping and letting it scroll
+     keeps a single conversation from pushing the rest of the page out. */
   max-height: 260px;
   overflow-y: auto;
   font-size: 12.5px;
@@ -1218,7 +1218,7 @@ button.btn--primary:hover:not(:disabled) {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
 }
 
-/* ── Diagnóstico ── */
+/* ── Diagnostics ── */
 
 .diag {
   font-size: 12px;
@@ -1235,9 +1235,9 @@ button.btn--primary:hover:not(:disabled) {
 }
 
 /*
- * Monoespaciado y con scroll propio: son cientos de líneas y lo que se busca
- * son marcas de tiempo alineadas. `pre-wrap` porque los errores de Gemini traen
- * líneas largísimas y el scroll horizontal las haría ilegibles.
+ * Monospaced and with its own scroll: it's hundreds of lines and what you look
+ * for are aligned timestamps. `pre-wrap` because Gemini's errors bring very
+ * long lines and horizontal scroll would make them illegible.
  */
 .logview {
   margin-top: 12px;
@@ -1256,12 +1256,12 @@ button.btn--primary:hover:not(:disabled) {
   user-select: text;
 }
 
-/* ── Contexto guiado por perfil ── */
+/* ── Profile-guided context ── */
 
 /*
- * Barra que dice para qué perfil se está preparando y qué hay activo ahora
- * mismo. Existe porque el fallo natural es preparar material a conciencia y no
- * darse cuenta de que está atado a otro perfil.
+ * Bar that says which profile you're preparing for and what's active right now.
+ * It exists because the natural mistake is preparing material carefully and not
+ * realizing it's tied to another profile.
  */
 .ctxbar {
   display: flex;
@@ -1296,7 +1296,7 @@ button.btn--primary:hover:not(:disabled) {
   font-size: 11.5px;
   color: var(--text-faint);
   text-align: right;
-  /* Con muchos packs la lista se alarga; que no empuje la barra. */
+  /* With many packs the list grows long; don't let it push the bar. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1333,7 +1333,7 @@ button.btn--primary:hover:not(:disabled) {
   cursor: pointer;
 }
 
-/* ── Contexto: cuadrícula de tarjetas ── */
+/* ── Context: card grid ── */
 
 .ctxgrid {
   display: grid;
@@ -1364,12 +1364,12 @@ button.btn--primary:hover:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.16);
 }
 
-/* En uso para el perfil activo: un realce tenue en azul de acento. */
+/* In use for the active profile: a faint highlight in accent blue. */
 .ctxtile--on {
   border-color: rgba(96, 165, 250, 0.35);
 }
 
-/* Abierta en el editor de abajo: el acento a plena intensidad. */
+/* Open in the editor below: the accent at full intensity. */
 .ctxtile--sel {
   border-color: var(--accent);
 }
@@ -1456,7 +1456,7 @@ button.btn--primary:hover:not(:disabled) {
   font-size: 12px;
 }
 
-/* ── Contexto: editor de la tarjeta abierta ── */
+/* ── Context: editor for the open card ── */
 
 .ctxeditor {
   margin-top: 14px;
@@ -1527,7 +1527,7 @@ button.btn--primary:hover:not(:disabled) {
   color: var(--danger);
 }
 
-/* ── Deslizadores (opacidad, tamaño de texto) ── */
+/* ── Sliders (opacity, text size) ── */
 
 .slider {
   display: flex;
@@ -1542,7 +1542,7 @@ button.btn--primary:hover:not(:disabled) {
   cursor: pointer;
 }
 
-/* Ancho fijo y cifras tabulares: el número no debe bailar al arrastrar. */
+/* Fixed width and tabular figures: the number mustn't dance while dragging. */
 .slider__value {
   font-size: 12px;
   color: var(--text-dim);
@@ -1551,11 +1551,11 @@ button.btn--primary:hover:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Primeros pasos ── */
+/* ── First steps ── */
 
 /*
- * Se distingue del resto de tarjetas con un borde azul: es una tarea
- * pendiente, no un ajuste más, y desaparece cuando deja de serlo.
+ * It's set apart from the rest of the cards with a blue border: it's a pending
+ * task, not just another setting, and it disappears when it stops being one.
  */
 .card--onboarding {
   border-color: rgba(96, 165, 250, 0.35);
@@ -1605,7 +1605,7 @@ button.btn--primary:hover:not(:disabled) {
   font-size: 13px;
 }
 
-/* Hecho: sigue visible —da sensación de avance— pero deja de pedir atención. */
+/* Done: still visible —it gives a sense of progress— but stops asking for attention. */
 .step--done .step__title {
   color: #8b9096;
   text-decoration: line-through;
@@ -1634,12 +1634,12 @@ button.btn--ghost {
   color: var(--text-faint);
 }
 
-/* ── Atajos ── */
+/* ── Shortcuts ── */
 
 /*
- * El campo no se escribe, se pulsa: lo que vale es la combinación de teclas.
- * De ahí la fuente monoespaciada (los aceleradores se leen como código) y el
- * cursor de puntero en lugar del de texto.
+ * The field isn't typed, it's pressed: what counts is the key combination.
+ * Hence the monospaced font (accelerators read like code) and the pointer
+ * cursor instead of the text one.
  */
 .hotkey {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace !important;
@@ -1659,12 +1659,12 @@ button.btn--ghost {
 }
 
 /*
- * Atajo apagado: la combinación sigue a la vista pero atenuada.
+ * Off shortcut: the combination stays in view but dimmed.
  *
- * No se oculta ni se vacía el campo porque el valor no se ha perdido —está
- * guardado, esperando a que lo vuelvas a encender— y un hueco en blanco diría
- * lo contrario. Se atenúa en lugar de deshabilitarse para que se pueda dejar
- * preparada la combinación con el atajo apagado.
+ * The field isn't hidden or emptied because the value hasn't been lost —it's
+ * saved, waiting for you to turn it back on— and a blank gap would say the
+ * opposite. It's dimmed instead of disabled so the combination can be left
+ * prepared with the shortcut off.
  */
 .hotkey--off {
   opacity: 0.45;
@@ -1676,7 +1676,7 @@ button.btn--ghost {
   text-decoration: none;
 }
 
-/* ── Especificaciones de la máquina ── */
+/* ── Machine specs ── */
 
 .specs {
   display: flex;
@@ -1698,7 +1698,7 @@ button.btn--ghost {
   color: var(--text);
 }
 
-/* Los comandos de `ollama pull` van en monoespaciada: se copian y se pegan. */
+/* The `ollama pull` commands go in monospace: they're copied and pasted. */
 #local-models button.btn--small {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
 }
@@ -1712,7 +1712,7 @@ kbd {
   padding: 1px 5px;
 }
 
-/* ── Selector de modelo (catálogo + id a mano) ── */
+/* ── Model selector (catalog + id by hand) ── */
 
 .modelpick {
   display: flex;
@@ -1722,9 +1722,9 @@ kbd {
 }
 
 /*
- * Monoespaciada: lo que se escribe aquí es un identificador que se compara
- * carácter a carácter contra el del proveedor, y en una fuente proporcional un
- * guión de más o un 1 por una l no se ven.
+ * Monospaced: what's typed here is an identifier compared character by
+ * character against the provider's, and in a proportional font an extra dash
+ * or a 1 for an l don't show.
  */
 .modelpick__id {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace !important;
@@ -1733,12 +1733,12 @@ kbd {
   flex: none !important;
 }
 
-/* ── Asistente de configuración ── */
+/* ── Setup wizard ── */
 
 /*
- * Ocupa la ventana entera y no una sección: quien lo necesita todavía no sabe
- * qué significan las secciones, así que enseñar la navegación al lado sería
- * ofrecerle nueve sitios donde perderse.
+ * It takes the whole window and not a section: whoever needs it doesn't yet
+ * know what the sections mean, so showing the navigation beside it would be
+ * offering them nine places to get lost.
  */
 .wiz {
   display: flex;
@@ -1769,15 +1769,14 @@ kbd {
   margin-top: 5px;
 }
 
-/* Cinco puntos: cuántos pasos son y por cuál vas. Un asistente sin final
-   visible se vive como un formulario sin fondo. */
+/* Five dots: how many steps there are and which one you're on. A wizard with
+   no visible end feels like a form with no bottom. */
 /*
- * La barra de navegación: atrás, el progreso, y saltar.
+ * The navigation bar: back, the progress, and skip.
  *
- * Los dos botones flanquean los puntos en lugar de ir dentro del paso porque
- * son de la MISMA naturaleza que ellos: dicen dónde estás y te dejan moverte.
- * Las acciones de cada paso —instalar, guardar— siguen dentro, que es donde
- * pertenecen.
+ * The two buttons flank the dots instead of going inside the step because they
+ * are of the SAME nature as them: they say where you are and let you move. Each
+ * step's actions —install, save— stay inside, which is where they belong.
  */
 .wiz__nav {
   display: flex;
@@ -1819,10 +1818,10 @@ kbd {
 }
 
 /*
- * El asistente vive en una columna centrada, no pegada a la izquierda: la
- * ventana del dashboard es ancha (980 px y redimensionable) y con el contenido a
- * la izquierda quedaba medio panel vacío a la derecha. Cabecera, navegación y
- * cuerpo comparten el mismo ancho y centrado para que todo se alinee.
+ * The wizard lives in a centered column, not stuck to the left: the dashboard
+ * window is wide (980 px and resizable) and with the content on the left there
+ * was half a panel empty on the right. Header, navigation and body share the
+ * same width and centering so everything aligns.
  */
 .wiz__head,
 .wiz__nav,
@@ -1888,7 +1887,7 @@ kbd {
   margin-top: 20px;
 }
 
-/* ── Los dos caminos ── */
+/* ── The two paths ── */
 
 .wiz__paths {
   display: flex;
@@ -1907,9 +1906,9 @@ kbd {
   padding: 18px;
 }
 
-/* El recomendado se marca, pero el otro no se esconde: la recomendación se
-   calcula con la RAM y la GPU, y quien sabe más que la heurística sobre su
-   propia máquina tiene que poder llevarle la contraria. */
+/* The recommended one is marked, but the other isn't hidden: the recommendation
+   is computed from the RAM and the GPU, and whoever knows more than the
+   heuristic about their own machine has to be able to overrule it. */
 .pathcard--pick {
   border-color: rgba(96, 165, 250, 0.4);
   background: linear-gradient(180deg, rgba(96, 165, 250, 0.07), transparent 140px), var(--surface);
@@ -1951,7 +1950,7 @@ kbd {
   color: var(--text-faint);
 }
 
-/* ── Elecciones en línea (proveedor, motor de voz) ── */
+/* ── Inline choices (provider, voice engine) ── */
 
 .wiz__choices {
   display: flex;
@@ -2003,7 +2002,7 @@ kbd {
   color: var(--text-faint);
 }
 
-/* ── Modelos que se van a descargar ── */
+/* ── Models that are going to be downloaded ── */
 
 .wiz__models {
   display: flex;
@@ -2030,8 +2029,8 @@ kbd {
   color: var(--text-faint);
 }
 
-/* El id va en monoespaciada por lo de siempre: es lo que se teclea en
-   `ollama pull` y lo que se compara carácter a carácter. */
+/* The id goes in monospace for the usual reason: it's what you type in
+   `ollama pull` and what's compared character by character. */
 .wizmodel__id {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
   font-size: 13px;
@@ -2045,7 +2044,7 @@ kbd {
   color: var(--text-dim);
 }
 
-/* ── Resumen final ── */
+/* ── Final summary ── */
 
 .wiz__summary {
   list-style: none;
@@ -2076,8 +2075,8 @@ kbd {
 
 /* ── MQTT ── */
 
-/* Reutiliza el punto de la cabecera: el mismo vocabulario visual para "hay
-   conexión" en toda la app, en lugar de un indicador nuevo por sección. */
+/* Reuses the header's dot: the same visual vocabulary for "there's a
+   connection" across the whole app, instead of a new indicator per section. */
 .mqttdot--connected {
   background: var(--ok);
   box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.16);
@@ -2091,7 +2090,7 @@ kbd {
   background: var(--danger);
 }
 
-/* ── Espejo en el teléfono ── */
+/* ── Phone mirror ── */
 
 .pair {
   display: flex;
@@ -2102,9 +2101,9 @@ kbd {
 }
 
 /*
- * Fondo blanco propio y tamaño generoso: un QR sobre fondo oscuro o demasiado
- * pequeño es un QR que la cámara del móvil no engancha, y el fallo se vive como
- * "no funciona" sin más pista.
+ * Its own white background and generous size: a QR on a dark background or too
+ * small is a QR the phone's camera doesn't latch onto, and the failure feels
+ * like "it doesn't work" with no further clue.
  */
 .qr {
   width: 176px;
@@ -2129,7 +2128,7 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 7px;
   padding: 9px 11px;
-  /* El token es largo: que rompa por donde sea antes que desbordar la tarjeta. */
+  /* The token is long: let it break anywhere rather than overflow the card. */
   word-break: break-all;
   user-select: text;
 }
@@ -2168,8 +2167,8 @@ kbd {
 
 /* ── Skills ── */
 
-/* El botón de recargar vive con el título: es lo que se pulsa justo después de
-   editar un SKILL.md, no al final de una lista que puede ser larga. */
+/* The reload button lives with the title: it's what you press right after
+   editing a SKILL.md, not at the end of a list that can be long. */
 .skillhead {
   display: flex;
   align-items: flex-start;
@@ -2215,8 +2214,8 @@ kbd {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
   font-size: 11.5px;
   color: var(--text-dim);
-  /* La ruta lleva el nombre del perfil de Windows y puede ser larga: se parte
-     en lugar de estirar la tarjeta y sacar un scroll horizontal a la ventana. */
+  /* The path carries the Windows profile name and can be long: it breaks
+     instead of stretching the card and giving the window a horizontal scroll. */
   word-break: break-all;
   user-select: text;
 }
@@ -2239,8 +2238,8 @@ kbd {
   padding: 13px 15px;
 }
 
-/* La activa se marca con el borde de acento y no con un badge más: la fila ya
-   lleva dos etiquetas y una tercera dejaría de leerse de un vistazo. */
+/* The active one is marked with the accent border and not one more badge: the
+   row already carries two labels and a third would stop reading at a glance. */
 .skill--on {
   border-color: rgba(96, 165, 250, 0.45);
   background: rgba(96, 165, 250, 0.07);
@@ -2301,12 +2300,12 @@ kbd {
   color: #fcd34d;
 }
 
-/* ── Ventana estrecha ── */
+/* ── Narrow window ── */
 
 /*
- * `minWidth` de la ventana son 720 px (windows/dashboard.ts). Con la barra
- * lateral a 218 quedan 500 para el contenido, así que ahí se estrecha la barra
- * y se reduce el aire lateral en lugar de dejar que los controles se aplasten.
+ * The window's `minWidth` is 720 px (windows/dashboard.ts). With the sidebar at
+ * 218 that leaves 500 for the content, so there the bar narrows and the side
+ * air is reduced instead of letting the controls get squashed.
  */
 @media (max-width: 880px) {
   .nav {
@@ -2322,7 +2321,7 @@ kbd {
   }
 }
 
-/* ── Acerca de ── */
+/* ── About ── */
 
 .aboutval {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
@@ -2331,13 +2330,12 @@ kbd {
   background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
   padding: 3px 8px;
-  /* Seleccionable: el número de versión existe para poder pegarlo en un
-     informe de fallo, y un texto que no se puede copiar obliga a transcribirlo
-     a mano. */
+  /* Selectable: the version number exists so it can be pasted into a bug
+     report, and text that can't be copied forces transcribing it by hand. */
   user-select: text;
 }
 
-/* Enlace a un sitio externo (se abre en el navegador del sistema). */
+/* Link to an external site (opens in the system browser). */
 .extlink {
   color: var(--accent);
   text-decoration: none;
@@ -2348,7 +2346,7 @@ kbd {
   text-decoration: underline;
 }
 
-/* Notas del release en el bloque de actualización: crudas, acotadas y con scroll. */
+/* Release notes in the update block: raw, capped and with scroll. */
 .update__notes {
   margin: 8px 0;
   max-height: 160px;
