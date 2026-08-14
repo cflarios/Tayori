@@ -27,6 +27,7 @@ import {
 import {
   createOverlay,
   getOverlay,
+  recoverOverlay,
   resizeOverlay,
   setOverlayInteractive,
   setOverlayMouseIgnore,
@@ -546,8 +547,10 @@ if (!app.requestSingleInstanceLock()) {
   // another app; it's the escape hatch if it was hidden and the shortcut isn't
   // remembered.
   app.on('second-instance', () => {
-    const overlay = getOverlay();
-    if (overlay && !overlay.isVisible()) overlay.showInactive();
+    // Recover the overlay even when it's still "visible" but buried behind
+    // another window (Windows dropped its topmost): re-assert always-on-top and
+    // raise it, not just re-show it when hidden.
+    recoverOverlay();
   });
 
   app.whenReady().then(() => {

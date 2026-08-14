@@ -5,6 +5,8 @@ import { setClickThrough, setStealth } from './stealth';
 import { loadRenderer, preloadPath } from './resolve';
 
 let overlay: BrowserWindow | null = null;
+/** Interval that keeps re-asserting the overlay's topmost level (see below). */
+let topmostTimer: NodeJS.Timeout | null = null;
 
 const MARGIN = 24;
 /** Pixels the overlay moves with the movement hotkeys. */
@@ -76,7 +78,17 @@ export function createOverlay(): BrowserWindow {
 
   overlay.on('closed', () => {
     overlay = null;
+    if (topmostTimer) {
+      clearInterval(topmostTimer);
+      topmostTimer = null;
+    }
   });
+
+  // Re-assert the topmost level whenever the window is shown and, alongside, on a
+  // slow interval: Windows drops it on its own over time and it was otherwise set
+  // only once at startup. See reassertOverlayTopmost.
+  overlay.on('show', () => reassertOverlayTopmost());
+  topmostTimer = setInterval(reassertOverlayTopmost, 1000);
 
   loadRenderer(overlay, 'overlay');
   return overlay;
@@ -128,6 +140,40 @@ export function setOverlayInteractive(interactive: boolean): void {
   } else {
     setClickThrough(win, settingsStore.get().clickThrough);
   }
+}
+
+/**
+ * Re-asserts the overlay's topmost level.
+ *
+ * `setAlwaysOnTop(true, 'screen-saver')` is applied once at startup, but Windows
+ * drops HWND_TOPMOST on its own over time —another app claiming topmost, a
+ * foreground change, a UAC prompt— and nothing was re-asserting it. Left alone,
+ * the overlay slips behind other windows after a while and, being
+ * `focusable: false` + `skipTaskbar`, becomes unreachable: its buttons only work
+ * while the cursor is over it (useChromeMouse), which can't happen once it's
+ * behind another window, so the only way out was killing the process. The `show`
+ * hook and a slow interval keep it on top. Skipped in writing mode, where the
+ * window is deliberately focusable and already on top by focus.
+ */
+function reassertOverlayTopmost(): void {
+  const win = getOverlay();
+  if (!win || overlayInteractive || !win.isVisible()) return;
+  win.setAlwaysOnTop(true, 'screen-saver');
+}
+
+/**
+ * Brings the overlay back to the front. The escape hatch when it slipped behind
+ * another window or was hidden: opening the app again calls this from the
+ * `second-instance` handler. Re-shows it if hidden, then re-asserts topmost and
+ * raises it —`moveTop()` doesn't steal focus, so the no-focus-stealing rule
+ * holds—. Does nothing in writing mode, where it's focused and already on top.
+ */
+export function recoverOverlay(): void {
+  const win = getOverlay();
+  if (!win || overlayInteractive) return;
+  if (!win.isVisible()) win.showInactive();
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.moveTop();
 }
 
 /**
