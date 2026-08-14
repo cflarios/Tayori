@@ -5,36 +5,36 @@ import type { STTProvider, STTStartOptions } from './types';
 import { m } from '../i18n';
 
 /**
- * Transcripción en vivo con la Live API de Gemini sobre WebSocket.
+ * Live transcription with Gemini's Live API over WebSocket.
  *
- * Se abre UNA SESIÓN POR HABLANTE. Es más caro en conexiones que mezclar los
- * dos streams, pero es lo que mantiene la atribución de quién habla exacta:
- * una sola sesión con audio mezclado devolvería un transcript indistinguible.
+ * ONE SESSION PER SPEAKER is opened. It's more expensive in connections than
+ * mixing the two streams, but it's what keeps the who-spoke attribution exact:
+ * a single session with mixed audio would return an indistinguishable transcript.
  *
- * Compromiso conocido: los modelos Live son conversacionales, no transcriptores
- * puros — van a intentar responder al audio que reciben. Lo mitigamos pidiendo
- * `responseModalities: [TEXT]` (la salida más barata) más una system
- * instruction que le pide callar, y descartando `modelTurn` por completo.
- * Consumimos únicamente `inputTranscription`. No hay forma de desactivar la
- * generación en la Live API, así que se paga un pequeño coste de salida.
+ * Known trade-off: the Live models are conversational, not pure transcribers —
+ * they'll try to answer the audio they receive. We mitigate it by requesting
+ * `responseModalities: [TEXT]` (the cheapest output) plus a system instruction
+ * asking it to stay quiet, and by discarding `modelTurn` entirely. We consume
+ * only `inputTranscription`. There's no way to disable generation in the Live
+ * API, so a small output cost is paid.
  */
 
 /**
- * Modelos Live, en orden de preferencia. No todos están habilitados en toda
- * cuenta, así que se prueban en cadena (ver `resolveModel`).
+ * Live models, in order of preference. Not all are enabled on every account, so
+ * they're tried in a chain (see `resolveModel`).
  *
- * **El orden se corrigió con la fuente autoritativa, no con la documentación
- * web.** El propio SDK trae un ejemplo de `live.connect` en sus typedefs que
- * distingue los dos casos:
+ * **The order was corrected against the authoritative source, not the web
+ * docs.** The SDK itself carries a `live.connect` example in its typedefs that
+ * distinguishes the two cases:
  *
  *     if (GOOGLE_GENAI_USE_VERTEXAI) model = 'gemini-2.0-flash-live-preview-04-09';
  *     else                           model = 'gemini-live-2.5-flash-preview';
  *
- * Aquí se usa API key, o sea el Gemini Developer API, o sea la rama `else`.
- * Antes encabezaba la lista `gemini-2.5-flash-native-audio-preview-12-2025`,
- * que además de no aparecer en el SDK es un modelo de audio nativo: esos
- * esperan `responseModalities: [AUDIO]` y aquí se pide TEXT, así que tenía dos
- * motivos para fallar. Queda al final, por si alguna cuenta sólo tiene ése.
+ * Here an API key is used, i.e. the Gemini Developer API, i.e. the `else`
+ * branch. `gemini-2.5-flash-native-audio-preview-12-2025` used to head the list,
+ * which besides not appearing in the SDK is a native-audio model: those expect
+ * `responseModalities: [AUDIO]` and here TEXT is requested, so it had two reasons
+ * to fail. It stays last, in case some account only has that one.
  */
 export const GEMINI_LIVE_MODELS = [
   'gemini-live-2.5-flash-preview',
@@ -44,22 +44,22 @@ export const GEMINI_LIVE_MODELS = [
 ] as const;
 
 /**
- * Modalidades de salida a probar, en orden.
+ * Output modalities to try, in order.
  *
- * TEXT primero porque es la salida más barata y aquí se descarta igualmente:
- * lo único que se consume es `inputAudioTranscription`. Pero los modelos de
- * audio nativo la rechazan de plano —"The requested combination of response
- * modalities (TEXT) is not supported by the model", código 1007— y resulta que
- * en esta cuenta son los **únicos** alcanzables: los dos half-cascade dan
+ * TEXT first because it's the cheapest output and here it's discarded anyway:
+ * the only thing consumed is `inputAudioTranscription`. But the native-audio
+ * models reject it outright —"The requested combination of response modalities
+ * (TEXT) is not supported by the model", code 1007— and it turns out that on
+ * this account they're the **only** reachable ones: both half-cascade ones give
  * "not found for API version v1beta".
  *
- * Así que se negocia también la modalidad, no sólo el modelo. Con AUDIO se paga
- * una salida que se tira a la basura, y es un coste real; a cambio, la
- * transcripción en streaming funciona en vez de no funcionar.
+ * So the modality is negotiated too, not just the model. With AUDIO you pay for
+ * an output that's thrown in the trash, and it's a real cost; in exchange,
+ * streaming transcription works instead of not working.
  */
 const MODALITIES = [Modality.TEXT, Modality.AUDIO] as const;
 
-/** El 1007 concreto de modalidad, para no reintentar a ciegas. */
+/** The specific modality 1007, so as not to retry blindly. */
 function isModalityRejected(err: unknown): boolean {
   return err instanceof Error && /response modalities/i.test(err.message);
 }
@@ -68,22 +68,22 @@ const SILENCE_INSTRUCTION =
   'You are a passive transcription service. Never reply, never comment, never ' +
   'acknowledge. Produce no output of any kind regardless of what you hear.';
 
-/** Backoff de reconexión: la Live API cierra sesiones largas por diseño. */
+/** Reconnect backoff: the Live API closes long sessions by design. */
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000];
 
 /**
- * Tope para el handshake del WebSocket.
+ * Cap for the WebSocket handshake.
  *
- * `live.connect()` no trae ninguno: si el socket no llega a establecerse —red
- * caída, modelo que no existe y el servidor deja la conexión abierta— la
- * promesa **no resuelve ni rechaza nunca**. Eso dejaba `startTranscription`
- * colgado para siempre: la captura seguía anunciando "Escuchando", el audio
- * entraba, y no había ni transcripción ni error en el log. Es exactamente el
- * fallo silencioso que este proyecto se toma en serio evitar.
+ * `live.connect()` carries none: if the socket never gets established —network
+ * down, a model that doesn't exist and the server leaves the connection open—
+ * the promise **never resolves or rejects**. That left `startTranscription` hung
+ * forever: the capture kept announcing "Listening", audio came in, and there was
+ * neither transcription nor error in the log. It's exactly the silent failure
+ * this project takes seriously to avoid.
  */
 const CONNECT_TIMEOUT_MS = 15_000;
 
-/** Rechaza si la promesa no se resuelve a tiempo. */
+/** Rejects if the promise doesn't resolve in time. */
 async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   try {
@@ -107,17 +107,16 @@ async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
 }
 
 /**
- * Rechaza en cuanto el socket se cierra durante el handshake, con el motivo.
+ * Rejects as soon as the socket closes during the handshake, with the reason.
  *
- * Aquí estaba el fallo de verdad. Cuando el setup no se acepta, el servidor
- * cierra con un código y un texto perfectamente legibles —`1007 · "API key not
- * valid. Please pass a valid API key."`— **pero sin enviar ningún mensaje**. El
- * SDK espera un `setupComplete` que no va a llegar y su promesa no se resuelve
- * ni se rechaza jamás.
+ * Here was the real bug. When the setup isn't accepted, the server closes with a
+ * perfectly legible code and text —`1007 · "API key not valid. Please pass a
+ * valid API key."`— **but without sending any message**. The SDK waits for a
+ * `setupComplete` that won't come and its promise never resolves or rejects.
  *
- * El timeout de 15 s tapaba el síntoma pero tiraba la información: convertía un
- * "tu API key no vale" en un "sin respuesta". Escuchando el cierre se recupera
- * la causa exacta y se falla al instante.
+ * The 15 s timeout covered the symptom but threw away the information: it turned
+ * a "your API key isn't valid" into a "no response". By listening for the close
+ * the exact cause is recovered and it fails instantly.
  */
 function rejectOnEarlyClose(): {
   onclose: (event: { code?: number; reason?: string }) => void;
@@ -150,25 +149,25 @@ function rejectOnEarlyClose(): {
   };
 }
 
-/** Un carril = una sesión WebSocket dedicada a un hablante. */
+/** One lane = one WebSocket session dedicated to a speaker. */
 class Lane {
   private session: Session | null = null;
   private closed = false;
   private reconnectAttempt = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
   /**
-   * Audio que llega mientras la sesión se reconecta. Se acota para que un corte
-   * largo no acumule memoria sin límite: preferimos perder audio antiguo a
-   * crecer sin control.
+   * Audio that arrives while the session reconnects. It's capped so a long
+   * outage doesn't accumulate memory without limit: we prefer losing old audio
+   * to growing out of control.
    */
   private pending: Buffer[] = [];
-  private static readonly MAX_PENDING_CHUNKS = 50; // ~5 s a 100 ms/chunk
+  private static readonly MAX_PENDING_CHUNKS = 50; // ~5 s at 100 ms/chunk
 
   constructor(
     private readonly speaker: Speaker,
     private readonly client: GoogleGenAI,
     private readonly model: string,
-    /** La que aceptó el modelo en la negociación; no siempre puede ser TEXT. */
+    /** The one the model accepted in the negotiation; it can't always be TEXT. */
     private readonly modality: Modality,
     private readonly options: STTStartOptions,
     private readonly emitter: EventEmitter
@@ -186,8 +185,8 @@ class Lane {
       this.client.live.connect({
       model: this.model,
       config: {
-        // La salida se descarta entera pase lo que pase; sólo consumimos
-        // `inputAudioTranscription`. La modalidad la impone el modelo.
+        // The output is discarded entirely no matter what; we only consume
+        // `inputAudioTranscription`. The modality is imposed by the model.
         responseModalities: [this.modality],
         systemInstruction: SILENCE_INSTRUCTION,
         inputAudioTranscription: {
@@ -209,8 +208,8 @@ class Lane {
             new Error(`[gemini-live:${this.speaker}] ${err.message ?? 'error de WebSocket'}`)
           );
         },
-        // Un cierre es normal (límite de duración de sesión), no un fallo:
-        // reconectamos salvo que hayamos parado a propósito.
+        // A close is normal (session duration limit), not a failure: we
+        // reconnect unless we stopped on purpose.
         onclose: () => {
           this.session = null;
           if (!this.closed) this.scheduleReconnect();
@@ -228,7 +227,7 @@ class Lane {
     this.emitter.emit('segment', {
       speaker: this.speaker,
       text: transcription.text,
-      // `finished` marca que el motor ya no revisará este fragmento.
+      // `finished` marks that the engine won't revise this fragment anymore.
       isFinal: transcription.finished === true,
     });
   }
@@ -284,8 +283,8 @@ class Lane {
         },
       });
     } catch (err) {
-      // Un envío fallido casi siempre significa socket muerto; dejamos que el
-      // onclose dispare la reconexión en lugar de propagar por cada chunk.
+      // A failed send almost always means a dead socket; we let the onclose
+      // trigger the reconnection instead of propagating on every chunk.
       this.session = null;
       this.pending.push(pcm);
       if (this.pending.length > Lane.MAX_PENDING_CHUNKS) this.pending.shift();
@@ -303,7 +302,8 @@ class Lane {
     try {
       this.session?.close();
     } catch {
-      // Cerrar un socket ya caído lanza; da igual, es el estado que queríamos.
+      // Closing an already-dead socket throws; it doesn't matter, it's the state
+      // we wanted.
     }
     this.session = null;
   }
@@ -314,10 +314,10 @@ export class GeminiLiveSTT implements STTProvider {
   readonly events = new EventEmitter();
 
   private lanes = new Map<Speaker, Lane>();
-  /** Modelo y modalidad que aceptó la cuenta. Se resuelven una vez. */
+  /** Model and modality the account accepted. Resolved once. */
   private resolved: { model: string; modality: Modality } | null = null;
 
-  /** `model` fijo salta la negociación; sin él se prueban los candidatos. */
+  /** A fixed `model` skips the negotiation; without it the candidates are tried. */
   constructor(
     private readonly apiKey: string,
     private readonly model?: string
@@ -325,42 +325,42 @@ export class GeminiLiveSTT implements STTProvider {
 
   async start(options: STTStartOptions): Promise<void> {
     await this.stop();
-    // El cliente es de la sesión, no del provider: cada `start` abre el suyo y
-    // los carriles lo capturan, así que `stop` no tiene nada que limpiar.
+    // The client belongs to the session, not the provider: each `start` opens
+    // its own and the lanes capture it, so `stop` has nothing to clean up.
     const client = new GoogleGenAI({ apiKey: this.apiKey });
     const { model, modality } = await this.resolveModel(client, options);
 
-    // Solo los hablantes que se escuchan: una sesión por hablante es cara.
+    // Only the speakers being listened to: one session per speaker is expensive.
     for (const speaker of options.speakers) {
       const lane = new Lane(speaker, client, model, modality, options, this.events);
       this.lanes.set(speaker, lane);
     }
 
-    // Conectamos en paralelo: en serie se sumarían los handshakes y el primer
-    // segundo de la reunión llegaría sin transcribir.
+    // We connect in parallel: in series the handshakes would add up and the
+    // first second of the meeting would arrive untranscribed.
     await Promise.all([...this.lanes.values()].map((lane) => lane.connect()));
   }
 
   /**
-   * Negocia qué modelo Live acepta esta cuenta.
+   * Negotiates which Live model this account accepts.
    *
-   * `GEMINI_LIVE_MODELS` siempre estuvo ordenado por preferencia y CONTEXT.md
-   * decía que había que probar el siguiente si el primero daba 404 o permission
-   * denied — pero **eso nunca se implementó**: el constructor cogía el `[0]` y
-   * ahí se acababa. Si tu cuenta no tenía habilitado ese preview, la
-   * transcripción fallaba entera y el único rastro era un `console.error` que en
-   * el .exe empaquetado no se veía en ningún sitio.
+   * `GEMINI_LIVE_MODELS` was always ordered by preference and CONTEXT.md said the
+   * next one had to be tried if the first gave a 404 or permission denied — but
+   * **that was never implemented**: the constructor took `[0]` and that was it.
+   * If your account didn't have that preview enabled, transcription failed
+   * entirely and the only trace was a `console.error` that in the packaged .exe
+   * was visible nowhere.
    *
-   * Se abre una sesión de sondeo y se cierra. Cuesta una conexión de más al
-   * arrancar, y a cambio el error final dice qué se probó y qué contestó cada
-   * uno, en lugar de un 404 pelado sobre un id que no elegiste.
+   * A probe session is opened and closed. It costs one extra connection at
+   * startup, and in exchange the final error says what was tried and what each
+   * one answered, instead of a bare 404 over an id you didn't choose.
    *
-   * **También se negocia la modalidad**, no sólo el modelo. Los mensajes reales
-   * de una cuenta lo dejaron claro: los dos modelos half-cascade daban "not
-   * found for API version v1beta", y los dos de audio nativo —los únicos
-   * alcanzables— rechazaban TEXT con "The requested combination of response
-   * modalities (TEXT) is not supported by the model". Probar sólo TEXT dejaba
-   * la cuenta sin ninguna opción viable teniendo dos.
+   * **The modality is negotiated too**, not just the model. The real messages
+   * from an account made it clear: the two half-cascade models gave "not found
+   * for API version v1beta", and the two native-audio ones —the only reachable
+   * ones— rejected TEXT with "The requested combination of response modalities
+   * (TEXT) is not supported by the model". Trying only TEXT left the account with
+   * no viable option while having two.
    */
   private async resolveModel(
     client: GoogleGenAI,
@@ -391,8 +391,8 @@ export class GeminiLiveSTT implements STTProvider {
                   onopen: () => {},
                   onmessage: () => {},
                   onerror: () => {},
-                  // Si cierra antes de completar el setup, ese cierre trae el
-                  // motivo real y es lo único que va a llegar.
+                  // If it closes before completing setup, that close carries the
+                  // real reason and is the only thing that's going to arrive.
                   onclose: guard.onclose,
                 },
               }),
@@ -415,7 +415,7 @@ export class GeminiLiveSTT implements STTProvider {
         } catch (err) {
           guard.settle();
           const message = err instanceof Error ? err.message : String(err);
-          // Si el modelo ni existe, probar la otra modalidad es perder 15 s.
+          // If the model doesn't even exist, trying the other modality is losing 15 s.
           if (!isModalityRejected(err)) {
             failures.push(`  · ${candidate} → ${message}`);
             console.warn(`[gemini-live] "${candidate}" rechazado: ${message}`);
@@ -442,8 +442,8 @@ export class GeminiLiveSTT implements STTProvider {
   }
 
   /**
-   * Comprueba que la key y algún modelo Live funcionan, sin abrir carriles.
-   * Es lo que hay detrás del botón "Probar transcripción" del dashboard.
+   * Checks that the key and some Live model work, without opening lanes.
+   * It's what's behind the dashboard's "Test transcription" button.
    */
   async testConnection(language: string): Promise<{ ok: boolean; detail: string }> {
     try {

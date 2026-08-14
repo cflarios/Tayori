@@ -8,55 +8,56 @@ import { pcmToInt16 } from './resample';
 import type { STTProvider, STTStartOptions } from './types';
 
 /**
- * Transcripción por turnos con la API de audio de OpenAI.
+ * Turn-based transcription with OpenAI's audio API.
  *
- * Es el mismo camino que `whisper-local` —VAD, WAV, una petición por turno— con
- * el modelo en la nube en lugar de en la máquina. No hay WebSocket, no hay
- * remuestreo y no hay sesión que reconectar: se manda un WAV de 16 kHz y vuelve
- * texto.
+ * It's the same path as `whisper-local` —VAD, WAV, one request per turn— with
+ * the model in the cloud instead of on the machine. There's no WebSocket, no
+ * resampling and no session to reconnect: a 16 kHz WAV is sent and text comes
+ * back.
  *
- * **El modelo es `gpt-transcribe`, y es la recomendación de OpenAI** para
- * transcribir voz grabada, que es exactamente lo que produce un VAD: trozos ya
- * cerrados. Para audio en directo su recomendación es otra —`gpt-live-transcribe`,
- * ver `openai-live.ts`— y la diferencia entre los dos motores es justo ésa:
+ * **The model is `gpt-transcribe`, and it's OpenAI's recommendation** for
+ * transcribing recorded speech, which is exactly what a VAD produces:
+ * already-closed chunks. For live audio its recommendation is another one
+ * —`gpt-live-transcribe`, see `openai-live.ts`— and the difference between the
+ * two engines is exactly that:
  *
- * | | Latencia | Qué manda |
+ * | | Latency | What it sends |
  * |---|---|---|
- * | `openai-live` | ~300 ms, con parciales | Streaming continuo |
- * | `openai-transcribe` | ~1 s por turno | El turno entero de una vez |
+ * | `openai-live` | ~300 ms, with partials | Continuous streaming |
+ * | `openai-transcribe` | ~1 s per turn | The whole turn at once |
  *
- * Este de aquí **oye la frase completa antes de decidir**, así que acierta más
- * en nombres propios y en finales de palabra; el otro empieza a escribir antes.
- * Cuál conviene depende de si lo que duele es la latencia o los errores.
+ * This one **hears the complete sentence before deciding**, so it does better on
+ * proper nouns and word endings; the other starts writing sooner. Which suits
+ * you depends on whether what hurts is the latency or the errors.
  *
- * **Y aquí sí se puede sesgar el reconocedor.** `prompt` acepta texto libre, así
- * que el vocabulario que sale de los context packs —nombres de empresa, siglas,
- * tecnologías— entra igual que entra en Whisper por `--prompt` y en Gemini por
- * `customVocabulary`. Es la palanca de calidad más barata que tiene esta app y
- * la razón de que `gpt-4o-transcribe-diarize` no esté aquí: ese modelo **no
- * admite prompt**, y a cambio ofrece separar hablantes, que es un dato que esta
- * app ya tiene por construcción (micrófono contra salida del sistema).
+ * **And here the recognizer can be biased.** `prompt` accepts free text, so the
+ * vocabulary that comes from the context packs —company names, acronyms,
+ * technologies— goes in just as it does in Whisper via `--prompt` and in Gemini
+ * via `customVocabulary`. It's the cheapest quality lever this app has and the
+ * reason `gpt-4o-transcribe-diarize` isn't here: that model **doesn't accept a
+ * prompt**, and in exchange it offers speaker separation, which is a datum this
+ * app already has by construction (microphone versus system output).
  */
 
-/** El recomendado por OpenAI para voz ya grabada, que es lo que da un VAD. */
+/** OpenAI's recommendation for already-recorded speech, which is what a VAD gives. */
 export const OPENAI_TRANSCRIBE_MODEL = 'gpt-transcribe';
 
 /**
- * Tope de términos del sesgo.
+ * Cap on bias terms.
  *
- * El `prompt` gasta contexto del propio reconocedor, y un CV entero metido ahí
- * deja de ser una pista para convertirse en ruido que compite con el audio. Es
- * el mismo número que se le pasa a Whisper.
+ * The `prompt` spends the recognizer's own context, and a whole CV put in there
+ * stops being a hint and becomes noise that competes with the audio. It's the
+ * same number passed to Whisper.
  */
 const MAX_VOCABULARY_TERMS = 60;
 
-/** Carril por hablante: su VAD y su cola en serie. */
+/** Per-speaker lane: its VAD and its serial queue. */
 class Lane {
   private readonly vad: EnergyVAD;
   /**
-   * En serie y no en paralelo. Dos turnos del mismo hablante a la vez pueden
-   * volver desordenados, y una transcripción con las frases cambiadas de sitio
-   * es peor que una lenta: el detector de preguntas ve otra conversación.
+   * Serial and not parallel. Two turns from the same speaker at once can come
+   * back out of order, and a transcript with the sentences swapped around is
+   * worse than a slow one: the question detector sees a different conversation.
    */
   private queue: Promise<void> = Promise.resolve();
   private pending = 0;
@@ -160,8 +161,8 @@ export class OpenAITranscribeSTT implements STTProvider {
 
   async stop(): Promise<void> {
     this.stopped = true;
-    // Cerrar el turno que estuviera abierto: si alguien para justo después de
-    // hablar, esa última frase todavía vale.
+    // Close whatever turn was open: if someone stops right after speaking, that
+    // last sentence still counts.
     for (const lane of this.lanes.values()) {
       lane.flush();
       lane.reset();
@@ -176,41 +177,41 @@ export class OpenAITranscribeSTT implements STTProvider {
     const wav = toWav(utterance.pcm, options.sampleRate);
     const file = await toFile(wav, 'turn.wav', { type: 'audio/wav' });
 
-    // `unknown` a propósito: el SDK tipa esto como `string` con
-    // `response_format: 'text'`, y la comprobación de abajo dejaría de
-    // compilar por "imposible". Es una comprobación barata sobre lo que
-    // devuelve un servidor, que es justo donde no conviene fiarse del tipo.
+    // `unknown` on purpose: the SDK types this as `string` with
+    // `response_format: 'text'`, and the check below would stop compiling as
+    // "impossible". It's a cheap check over what a server returns, which is
+    // exactly where you shouldn't trust the type.
     const result: unknown = await this.client.audio.transcriptions.create({
       file,
       model: this.model,
-      // `auto` se omite: el modelo detecta el idioma, y forzar el equivocado es
-      // el fallo que produjo aquel "Are y'all gonna eat?" a partir de una frase
-      // en español (ver CONTEXT §4).
+      // `auto` is omitted: the model detects the language, and forcing the wrong
+      // one is the bug that produced that "Are y'all gonna eat?" out of a Spanish
+      // sentence (see CONTEXT §4).
       ...(options.language && options.language !== 'auto' ? { language: options.language } : {}),
       ...(options.vocabulary?.length
         ? { prompt: options.vocabulary.slice(0, MAX_VOCABULARY_TERMS).join(', ') }
         : {}),
-      // Texto plano: no se usan ni marcas de tiempo ni segmentos, y pedir JSON
-      // verboso sería pagar por campos que nadie lee.
+      // Plain text: neither timestamps nor segments are used, and asking for
+      // verbose JSON would be paying for fields no one reads.
       response_format: 'text',
     });
 
-    // Con `response_format: 'text'` la API devuelve la cadena pelada, pero el
-    // SDK la tipa como el objeto del formato JSON. Se acepta cualquiera de las
-    // dos formas en lugar de confiar en una.
+    // With `response_format: 'text'` the API returns the bare string, but the
+    // SDK types it as the JSON-format object. Either of the two shapes is
+    // accepted instead of trusting one.
     const text =
       typeof result === 'string' ? result : ((result as { text?: string }).text ?? '');
     return text.trim();
   }
 
-  /** Lo que hay detrás de «Probar transcripción» en el dashboard. */
+  /** What's behind "Test transcription" in the dashboard. */
   async testConnection(): Promise<{ ok: boolean; detail: string }> {
     try {
       /*
-       * Se manda medio segundo de silencio de verdad. Comprobar sólo que la
-       * clave existe no habría detectado ninguno de los fallos que se han dado
-       * en este proyecto: una cuenta sin acceso al modelo contesta igual de
-       * bien a "¿tienes clave?" y falla en la primera frase.
+       * Half a second of real silence is sent. Checking only that the key exists
+       * wouldn't have caught any of the failures that have happened in this
+       * project: an account without access to the model answers just as well to
+       * "do you have a key?" and fails on the first sentence.
        */
       const silence = new Int16Array(8_000);
       const file = await toFile(toWav(silence, 16_000), 'probe.wav', { type: 'audio/wav' });
@@ -226,7 +227,7 @@ export class OpenAITranscribeSTT implements STTProvider {
   }
 }
 
-/** Mensajes accionables, con las clases tipadas del SDK. */
+/** Actionable messages, with the SDK's typed classes. */
 export function toDetail(err: unknown): string {
   if (err instanceof OpenAI.AuthenticationError) return m('err.openaiBadKeyStt');
   if (err instanceof OpenAI.PermissionDeniedError) {

@@ -7,114 +7,112 @@ import { pcmToInt16, Upsampler16to24 } from './resample';
 import type { STTProvider, STTStartOptions } from './types';
 
 /**
- * Transcripción en vivo con la API en tiempo real de OpenAI.
+ * Live transcription with OpenAI's real-time API.
  *
- * Misma forma que `gemini-live` y por el mismo motivo: **una sesión por
- * hablante**. Cuesta una conexión más que mezclar los dos streams, y es lo que
- * mantiene exacta la atribución de quién dijo qué — con el audio mezclado el
- * transcript sale indistinguible.
+ * Same shape as `gemini-live` and for the same reason: **one session per
+ * speaker**. It costs one more connection than mixing the two streams, and it's
+ * what keeps the who-said-what attribution exact — with mixed audio the
+ * transcript comes out indistinguishable.
  *
- * Tiene, además, una ventaja que Gemini Live no tiene: se abre con
- * `intent=transcription`, así que la sesión **es** un transcriptor. Gemini
- * obliga a pelear con un modelo conversacional que intenta responder —de ahí su
- * instrucción de silencio y el `modelTurn` que se tira— y aquí eso no existe:
- * no hay salida generada que pagar ni que descartar.
+ * It also has an advantage Gemini Live doesn't: it opens with
+ * `intent=transcription`, so the session **is** a transcriber. Gemini forces you
+ * to fight a conversational model that tries to answer —hence its silence
+ * instruction and the `modelTurn` that gets thrown away— and here that doesn't
+ * exist: there's no generated output to pay for or to discard.
  *
- * Dos cosas de esta API que condicionan el archivo entero:
+ * Two things about this API that shape the whole file:
  *
- *  - **Sólo acepta PCM a 24 kHz.** Los tipos del SDK lo dicen sin matices y
- *    todo el pipeline de la app va a 16 kHz, así que hay que subir de
- *    frecuencia en el camino. Ver `resample.ts`, que explica por qué aquí la
- *    interpolación lineal basta y por qué el estado entre bloques no es
- *    opcional.
- *  - **El turno lo decide ESTA app, no el servidor.** `gpt-live-transcribe`
- *    **no admite `turn_detection`** —lo rechaza con "Turn detection is not
- *    supported for this transcription model"— así que va en `null` y es el
- *    cliente quien cierra cada turno con `input_audio_buffer.commit`. Se usa el
- *    `EnergyVAD` de siempre, el mismo que whisper-local, para saber cuándo.
+ *  - **It only accepts PCM at 24 kHz.** The SDK's types say so plainly and the
+ *    app's whole pipeline runs at 16 kHz, so the frequency has to be raised
+ *    along the way. See `resample.ts`, which explains why linear interpolation
+ *    is enough here and why the state between blocks isn't optional.
+ *  - **THIS app decides the turn, not the server.** `gpt-live-transcribe`
+ *    **doesn't accept `turn_detection`** —it rejects it with "Turn detection is
+ *    not supported for this transcription model"— so it goes as `null` and it's
+ *    the client that closes each turn with `input_audio_buffer.commit`. The
+ *    usual `EnergyVAD`, the same one as whisper-local, is used to know when.
  *
- * **La segunda es la que de verdad importa, y es fácil no verla.** El modelo
- * emite los parciales solo, según llega el audio, así que sin hacer commit la
- * transcripción **se ve en pantalla y parece que todo funciona** — pero no
- * llega nunca un segmento final, y el auto-disparo sólo evalúa finales. El
- * resultado sería una app que transcribe perfectamente y no responde jamás,
- * sin un solo error por ninguna parte. De ahí que el commit tenga test.
+ * **The second one is what really matters, and it's easy to miss.** The model
+ * emits the partials on its own as the audio arrives, so without committing the
+ * transcription **shows on screen and looks like everything works** — but a final
+ * segment never arrives, and auto-trigger only evaluates finals. The result would
+ * be an app that transcribes perfectly and never answers, without a single error
+ * anywhere. That's why the commit has a test.
  */
 
 /**
- * El modelo, y por qué éste.
+ * The model, and why this one.
  *
- * Es la recomendación de OpenAI para audio en directo —micrófonos, llamadas,
- * streams—, que es literalmente el caso de esta app. Los otros dos que se
- * barajaron no encajan, y conviene dejarlo escrito para que nadie los "añada"
- * más adelante creyendo que mejoran algo:
+ * It's OpenAI's recommendation for live audio —mics, calls, streams—, which is
+ * literally this app's case. The other two that were considered don't fit, and
+ * it's worth writing down so no one "adds" them later thinking they improve
+ * something:
  *
- *  - `gpt-transcribe` es el recomendado para voz **grabada**. No es peor: es
- *    para otra cosa. Está disponible en el motor `openai-transcribe`, que
- *    trabaja por turnos ya cerrados y ahí sí es el bueno.
- *  - `gpt-4o-transcribe-diarize` separa hablantes. **Esta app ya sabe quién
- *    habla** —el micrófono es "yo" y el loopback son "ellos"— y esa decisión
- *    está tomada a conciencia desde el principio: el origen del stream es más
- *    exacto que cualquier diarización. Encima no admite `prompt`, así que
- *    costaría el sesgo de vocabulario, que es la palanca de calidad más barata
- *    que hay aquí. Lo único que aportaría es distinguir a varias personas
- *    **dentro** de "ellos" en una reunión de cuatro, que es una función
- *    distinta y no una mejora de ésta.
+ *  - `gpt-transcribe` is the one recommended for **recorded** speech. It's not
+ *    worse: it's for something else. It's available in the `openai-transcribe`
+ *    engine, which works on already-closed turns and there it is the right one.
+ *  - `gpt-4o-transcribe-diarize` separates speakers. **This app already knows
+ *    who's talking** —the mic is "me" and the loopback is "them"— and that
+ *    decision was made deliberately from the start: the stream's origin is more
+ *    exact than any diarization. On top of that it doesn't accept a `prompt`, so
+ *    it would cost the vocabulary bias, which is the cheapest quality lever there
+ *    is here. The only thing it would add is telling several people apart
+ *    **within** "them" in a four-person meeting, which is a different feature and
+ *    not an improvement to this one.
  */
 export const OPENAI_LIVE_MODEL = 'gpt-live-transcribe';
 
 /**
- * La API en tiempo real, en modo transcripción.
+ * The real-time API, in transcription mode.
  *
- * Se puede sustituir por otra URL, y no es un adorno: es lo que permite montar
- * un WebSocket de verdad en los tests y comprobar **qué se manda por el cable**.
- * Los dos fallos que ha tenido este archivo —`turn_detection` mal y el commit
- * que faltaba— estaban ahí exactamente, y un cliente simulado los habría dado
- * los dos por buenos.
+ * It can be replaced with another URL, and it's not decoration: it's what lets
+ * you stand up a real WebSocket in the tests and check **what's sent over the
+ * wire**. The two bugs this file has had —`turn_detection` wrong and the missing
+ * commit— were exactly there, and a mocked client would have passed both.
  */
 const REALTIME_URL = 'wss://api.openai.com/v1/realtime?intent=transcription';
 
-/** Lo que la API exige. Ver `resample.ts`. */
+/** What the API requires. See `resample.ts`. */
 const REALTIME_SAMPLE_RATE = 24_000;
 
-/** Backoff de reconexión: una sesión larga se cierra por diseño, como en Gemini. */
+/** Reconnect backoff: a long session is closed by design, as in Gemini. */
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 5_000, 10_000];
 
 /**
- * Bytes mínimos antes de cerrar un turno.
+ * Minimum bytes before closing a turn.
  *
- * La API rechaza un commit sobre un buffer con menos de ~100 ms de audio. A
- * 24 kHz y 16 bits eso son 4.800 bytes; se piden 5.000 para no jugársela al
- * borde. Sin esta guarda, un turno que el VAD cierra justo al empezar produce
- * un error de la sesión por cada carraspeo.
+ * The API rejects a commit over a buffer with less than ~100 ms of audio. At
+ * 24 kHz and 16 bits that's 4,800 bytes; 5,000 are required so as not to risk it
+ * at the edge. Without this guard, a turn the VAD closes right at the start
+ * produces a session error for every throat-clear.
  */
 const MIN_COMMIT_BYTES = 5_000;
 
 /**
- * Modelos que rechazan el sesgo por `prompt`.
+ * Models that reject the `prompt` bias.
  *
- * Mismo patrón que `EFFORT_UNSUPPORTED` en `claude.ts` y `KNOWN_THINKERS` en
- * `ollama.ts`, y por el mismo motivo: qué parámetros acepta cada modelo de
- * transcripción no se puede saber desde aquí con certeza, y equivocarse **tumba
- * la sesión entera** en lugar de degradar. La documentación dice que este
- * modelo admite "keyword hints", así que se manda; si algún día un modelo lo
- * rechaza, la primera sesión lo aprende, reintenta sin él y las siguientes
- * salen bien — con el aviso en el log, porque perder el vocabulario es perder
- * calidad de verdad.
+ * Same pattern as `EFFORT_UNSUPPORTED` in `claude.ts` and `KNOWN_THINKERS` in
+ * `ollama.ts`, and for the same reason: which parameters each transcription
+ * model accepts can't be known from here with certainty, and getting it wrong
+ * **takes down the whole session** instead of degrading. The docs say this model
+ * supports "keyword hints", so it's sent; if some day a model rejects it, the
+ * first session learns it, retries without it and the following ones come out
+ * fine — with the warning in the log, because losing the vocabulary is really
+ * losing quality.
  */
 const PROMPT_UNSUPPORTED = new Set<string>();
 
 /**
- * Tope del handshake.
+ * Handshake cap.
  *
- * Mismo motivo que en `gemini-live`, donde costó una tarde: si el socket no
- * llega a establecerse, la promesa no resuelve ni rechaza y `startTranscription`
- * se queda colgado para siempre — la captura anunciando "Escuchando", el audio
- * entrando, y ni transcripción ni error por ninguna parte.
+ * Same reason as in `gemini-live`, where it cost an afternoon: if the socket
+ * never gets established, the promise neither resolves nor rejects and
+ * `startTranscription` stays hung forever — the capture announcing "Listening",
+ * audio coming in, and neither transcription nor error anywhere.
  */
 const CONNECT_TIMEOUT_MS = 15_000;
 
-/** Un carril = un WebSocket dedicado a un hablante. */
+/** One lane = one WebSocket dedicated to a speaker. */
 class Lane {
   private socket: WebSocket | null = null;
   private closed = false;
@@ -122,22 +120,22 @@ class Lane {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private readonly upsampler = new Upsampler16to24();
   /**
-   * El detector de turnos. Es el mismo de whisper-local y con los mismos
-   * umbrales: que "cuándo termina una frase" se decida en un solo sitio es lo
-   * que hace que cambiar de motor no cambie la sensación de la app.
+   * The turn detector. It's the same as whisper-local's and with the same
+   * thresholds: having "when a sentence ends" decided in a single place is what
+   * makes switching engines not change the feel of the app.
    */
   private readonly vad: EnergyVAD;
-  /** Audio enviado y aún sin cerrar. La API rechaza un commit casi vacío. */
+  /** Audio sent and not yet closed. The API rejects a nearly-empty commit. */
   private uncommittedBytes = 0;
-  /** Lo transcrito del turno en curso, pegado en crudo. Ver `handleMessage`. */
+  /** What's transcribed of the current turn, glued raw. See `handleMessage`. */
   private turnText = '';
 
   /**
-   * Audio que llega mientras la sesión se reconecta. Acotado: preferimos perder
-   * audio viejo a crecer sin techo durante un corte largo.
+   * Audio that arrives while the session reconnects. Capped: we prefer losing
+   * old audio to growing without a ceiling during a long outage.
    */
   private pending: Buffer[] = [];
-  private static readonly MAX_PENDING_CHUNKS = 50; // ~5 s a 100 ms/chunk
+  private static readonly MAX_PENDING_CHUNKS = 50; // ~5 s at 100 ms/chunk
 
   constructor(
     private readonly speaker: Speaker,
@@ -155,11 +153,11 @@ class Lane {
   }
 
   /**
-   * Cierra el turno abierto.
+   * Closes the open turn.
    *
-   * `maxUtteranceMs` del VAD hace además de tope duro: alguien que se enrolla
-   * veinte segundos produce un corte forzado y ahí se cierra igual, en lugar de
-   * dejar crecer el buffer del servidor sin límite.
+   * The VAD's `maxUtteranceMs` also acts as a hard cap: someone who rambles for
+   * twenty seconds produces a forced cut and it closes there anyway, instead of
+   * letting the server's buffer grow without limit.
    */
   private commit(): void {
     if (this.uncommittedBytes < MIN_COMMIT_BYTES) return;
@@ -167,7 +165,7 @@ class Lane {
     try {
       this.socket?.send(JSON.stringify({ type: 'input_audio_buffer.commit' }));
     } catch {
-      // Socket muerto: lo recoge el `close` y su reconexión.
+      // Dead socket: the `close` and its reconnection pick it up.
     }
   }
 
@@ -199,8 +197,8 @@ class Lane {
       socket.on('open', () => {
         socket.send(JSON.stringify(this.sessionConfig()));
         this.reconnectAttempt = 0;
-        // Estado nuevo con sesión nueva: el buffer del servidor está vacío, así
-        // que arrastrar la cuenta de la anterior haría commit sobre nada.
+        // Fresh state with a fresh session: the server's buffer is empty, so
+        // carrying over the previous count would commit over nothing.
         this.upsampler.reset();
         this.vad.reset();
         this.uncommittedBytes = 0;
@@ -212,9 +210,9 @@ class Lane {
       socket.on('message', (raw) => this.handleMessage(raw.toString()));
 
       socket.on('error', (err: Error) => {
-        // Durante el handshake es la causa real —401, red caída— y hay que
-        // devolverla en lugar de dejar que venza el reloj y decir "sin
-        // respuesta", que manda a mirar donde no es.
+        // During the handshake it's the real cause —401, network down— and it
+        // has to be returned instead of letting the clock run out and saying "no
+        // response", which sends you looking in the wrong place.
         if (!settled) {
           settle(new Error(`[openai-live:${this.speaker}] ${err.message}`));
           return;
@@ -234,24 +232,24 @@ class Lane {
           );
           return;
         }
-        // Un cierre después de estar en marcha es normal: la sesión tiene
-        // límite de duración. Se reconecta salvo que hayamos parado a propósito.
+        // A close after being up and running is normal: the session has a
+        // duration limit. It reconnects unless we stopped on purpose.
         if (!this.closed) this.scheduleReconnect();
       });
     });
   }
 
   /**
-   * La configuración de la sesión, copiada de la referencia y no deducida.
+   * The session config, copied from the reference and not deduced.
    *
-   * `turn_detection: null` es obligatorio con este modelo: cualquier otra cosa
-   * la rechaza de plano —"Turn detection is not supported for this
-   * transcription model"— y la sesión no llega a arrancar. Se descubrió
-   * ejecutándolo, después de haber puesto un `semantic_vad` que parecía
-   * razonable y que la propia documentación no usaba. La lección es la de
-   * siempre en este archivo: lo que dice la referencia se copia, no se mejora.
+   * `turn_detection: null` is mandatory with this model: anything else it rejects
+   * outright —"Turn detection is not supported for this transcription model"— and
+   * the session never starts. It was discovered by running it, after putting in a
+   * `semantic_vad` that seemed reasonable and that the docs themselves didn't use.
+   * The lesson is the usual one in this file: what the reference says is copied,
+   * not improved.
    *
-   * Con el turno apagado, quien lo cierra es esta app. Ver `send()`.
+   * With the turn off, the one closing it is this app. See `send()`.
    */
   private sessionConfig(): unknown {
     const languages =
@@ -271,8 +269,8 @@ class Lane {
             transcription: {
               model: this.model,
               ...languages,
-              // El sesgo de vocabulario, que en una entrevista es oro: nombres
-              // de empresa y siglas son justo lo que un ASR generalista falla.
+              // The vocabulary bias, which in an interview is gold: company
+              // names and acronyms are exactly what a generalist ASR botches.
               ...(vocabulary && !PROMPT_UNSUPPORTED.has(this.model)
                 ? {
                     prompt: `Expect these terms: ${this.options.vocabulary!.slice(0, 60).join(', ')}`,
@@ -291,29 +289,29 @@ class Lane {
     try {
       event = JSON.parse(raw) as typeof event;
     } catch {
-      return; // Un mensaje que no es JSON no es asunto nuestro.
+      return; // A message that isn't JSON is none of our business.
     }
 
     switch (event.type) {
       /*
-       * Los parciales llegan por `delta` y el cierre por `completed`. Se emiten
-       * los dos: el overlay pinta el parcial para que se vea que la cosa está
-       * viva, y `isFinal` es lo que deja al detector de preguntas evaluar el
-       * turno una sola vez, cuando ya no va a cambiar.
+       * The partials arrive via `delta` and the close via `completed`. Both are
+       * emitted: the overlay paints the partial so you can see the thing is
+       * alive, and `isFinal` is what lets the question detector evaluate the turn
+       * a single time, once it's no longer going to change.
        */
       /*
-       * Los dos se emiten como **acumulativos**, y ahí está el arreglo de un
-       * fallo que se vio en pantalla: la frase salía dos veces.
+       * Both are emitted as **cumulative**, and that's the fix for a bug seen on
+       * screen: the sentence came out twice.
        *
-       * Los `delta` son incrementales y el `completed` trae el turno ENTERO, así
-       * que dejar que el buffer concatenara los dos escribía todo por duplicado.
-       * Y encima la primera copia salía con las palabras partidas —"conoz ca",
-       * "ingen ieros"— porque unir trozos de token con la heurística de espacios
-       * del buffer mete separadores donde no van.
+       * The `delta`s are incremental and the `completed` brings the WHOLE turn,
+       * so letting the buffer concatenate the two wrote everything twice. And on
+       * top of that the first copy came out with split words —"conoz ca",
+       * "ingen ieros"— because joining token fragments with the buffer's space
+       * heuristic inserts separators where they don't belong.
        *
-       * Se resuelve acumulando aquí, que es donde se sabe cómo funciona este
-       * protocolo: los deltas se pegan **en crudo**, sin inventar espacios, y lo
-       * que se manda hacia fuera es siempre el turno completo hasta ahora.
+       * It's solved by accumulating here, which is where you know how this
+       * protocol works: the deltas are glued **raw**, without inventing spaces,
+       * and what's sent outward is always the complete turn so far.
        */
       case 'conversation.item.input_audio_transcription.delta':
         if (event.delta) {
@@ -328,7 +326,7 @@ class Lane {
         return;
 
       case 'conversation.item.input_audio_transcription.completed':
-        // El texto del `completed` es el bueno: viene ya revisado y puntuado.
+        // The `completed` text is the good one: it comes already revised and punctuated.
         if (event.transcript) {
           this.emitter.emit('segment', {
             speaker: this.speaker,
@@ -341,23 +339,23 @@ class Lane {
         return;
 
       /*
-       * Un `error` llega **dentro** de un socket que sigue abierto, así que sin
-       * mirarlo la sesión se quedaría viva y muda: audio entrando, ni una
-       * palabra saliendo y ningún fallo a la vista. Es el patrón que este
-       * proyecto persigue en todas partes.
+       * An `error` arrives **inside** a socket that's still open, so without
+       * looking at it the session would stay alive and mute: audio coming in, not
+       * a word going out and no failure in sight. It's the pattern this project
+       * chases everywhere.
        */
       case 'error': {
         const message = event.error?.message ?? m('err.sessionError');
 
         /*
-         * Un rechazo del `prompt` no puede costar la sesión entera.
+         * A `prompt` rejection can't cost the whole session.
          *
-         * Qué parámetros acepta cada modelo de transcripción no se puede saber
-         * desde aquí con certeza —la documentación habla de "keyword hints" sin
-         * dar el nombre del campo— y equivocarse aquí **tumba la transcripción
-         * completa** en lugar de degradar. Así que si lo rechaza, se apunta el
-         * modelo y se reconecta sin sesgo: se pierde calidad en los nombres
-         * propios, que es mucho mejor que perder la transcripción.
+         * Which parameters each transcription model accepts can't be known from
+         * here with certainty —the docs talk about "keyword hints" without giving
+         * the field name— and getting it wrong here **takes down the whole
+         * transcription** instead of degrading. So if it's rejected, the model is
+         * noted and it reconnects without bias: quality is lost on proper nouns,
+         * which is much better than losing the transcription.
          */
         if (/prompt/i.test(message) && !PROMPT_UNSUPPORTED.has(this.model)) {
           PROMPT_UNSUPPORTED.add(this.model);
@@ -420,9 +418,9 @@ class Lane {
 
   private send(pcm: Buffer): void {
     /*
-     * El remuestreo va aquí y no en quien llama porque el upsampler **tiene
-     * estado**: es por carril, y compartir uno entre los dos hablantes mezclaría
-     * la fase de dos audios distintos.
+     * The resampling goes here and not in the caller because the upsampler **has
+     * state**: it's per lane, and sharing one between the two speakers would mix
+     * the phase of two different audios.
      */
     const samples = pcmToInt16(pcm);
     const up = this.upsampler.process(samples);
@@ -434,19 +432,19 @@ class Lane {
       this.uncommittedBytes += up.length * 2;
 
       /*
-       * Y aquí se cierra el turno. El VAD se alimenta con el audio ORIGINAL a
-       * 16 kHz —el que tiene los umbrales calibrados— y sólo se usa como señal
-       * de "aquí terminó una frase": el audio ya viajó por el append, así que
-       * lo que devuelve se descarta.
+       * And here the turn is closed. The VAD is fed with the ORIGINAL 16 kHz
+       * audio —the one with calibrated thresholds— and is only used as a signal
+       * of "a sentence ended here": the audio already traveled via the append, so
+       * what it returns is discarded.
        *
-       * Sin esto la transcripción se vería en pantalla y no llegaría nunca un
-       * segmento final, así que el auto-disparo no saltaría ni una vez. Es el
-       * tipo de fallo que se ve como "la app transcribe pero no responde".
+       * Without this the transcription would show on screen and a final segment
+       * would never arrive, so auto-trigger wouldn't fire even once. It's the
+       * kind of failure that looks like "the app transcribes but doesn't answer".
        */
       if (this.vad.push(samples).length > 0) this.commit();
     } catch {
-      // Un envío que falla casi siempre es un socket muerto: se deja que el
-      // `close` dispare la reconexión en vez de gritar por cada chunk.
+      // A failed send is almost always a dead socket: the `close` is left to
+      // trigger the reconnection instead of screaming on every chunk.
       this.socket = null;
       this.pending.push(pcm);
       if (this.pending.length > Lane.MAX_PENDING_CHUNKS) this.pending.shift();
@@ -454,9 +452,9 @@ class Lane {
   }
 
   close(): void {
-    // Cerrar el turno que estuviera abierto antes de irse: si alguien para la
-    // escucha justo después de hablar, esa última frase todavía vale y sin el
-    // commit se quedaría como parcial para siempre.
+    // Close whatever turn was open before leaving: if someone stops listening
+    // right after speaking, that last sentence still counts and without the
+    // commit it would stay a partial forever.
     this.vad.flush();
     this.commit();
 
@@ -469,7 +467,7 @@ class Lane {
     try {
       this.socket?.close();
     } catch {
-      // Cerrar un socket ya caído lanza; da igual, es el estado que queríamos.
+      // Closing an already-dead socket throws; it doesn't matter, it's the state we wanted.
     }
     this.socket = null;
   }
@@ -484,7 +482,7 @@ export class OpenAILiveSTT implements STTProvider {
   constructor(
     private readonly apiKey: string,
     private readonly model: string = OPENAI_LIVE_MODEL,
-    /** Sólo lo usan los tests, para hablar contra un WebSocket local. */
+    /** Only the tests use it, to talk to a local WebSocket. */
     private readonly url: string = REALTIME_URL
   ) {}
 
@@ -498,8 +496,8 @@ export class OpenAILiveSTT implements STTProvider {
       );
     }
 
-    // En paralelo: en serie se sumarían los handshakes y el primer segundo de
-    // la reunión entraría sin transcribir.
+    // In parallel: in series the handshakes would add up and the first second of
+    // the meeting would come in untranscribed.
     await Promise.all([...this.lanes.values()].map((lane) => lane.connect()));
   }
 
@@ -513,9 +511,9 @@ export class OpenAILiveSTT implements STTProvider {
   }
 
   /**
-   * Abre una sesión de verdad y la cierra. Es lo que hay detrás de «Probar
-   * transcripción»: comprobar que existe la clave no habría detectado ninguno
-   * de los fallos reales de este proyecto.
+   * Opens a real session and closes it. It's what's behind "Test transcription":
+   * checking that the key exists wouldn't have caught any of the real failures
+   * of this project.
    */
   async testConnection(language: string): Promise<{ ok: boolean; detail: string }> {
     const probe = new Lane(

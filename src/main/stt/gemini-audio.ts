@@ -7,32 +7,32 @@ import { toWav } from './wav';
 import type { STTProvider, STTStartOptions } from './types';
 
 /**
- * Audio directo al modelo: sin capa de transcripción por medio.
+ * Audio straight to the model: no transcription layer in between.
  *
- * El resto de motores hacen `audio → texto → modelo`, y ese primer salto es
- * donde se rompía todo: si el reconocedor entiende "Are y'all gonna eat?" a
- * partir de una frase en español, el modelo responde impecablemente a algo que
- * nadie dijo. Aquí el WAV del turno va **al propio modelo de lenguaje**, que
- * oye el acento, la entonación y las palabras a medio pronunciar, y devuelve
- * transcripción y respuesta en la misma llamada.
+ * The other engines do `audio → text → model`, and that first jump is where
+ * everything broke: if the recognizer hears "Are y'all gonna eat?" out of a
+ * Spanish sentence, the model answers impeccably to something no one said. Here
+ * the turn's WAV goes **to the language model itself**, which hears the accent,
+ * the intonation and the half-pronounced words, and returns transcription and
+ * answer in the same call.
  *
- * Consecuencias que conviene tener presentes:
+ * Consequences worth keeping in mind:
  *
- * - **Ya no hay dos oportunidades de fallar.** Una mala transcripción sigue
- *   siendo posible, pero deja de contaminar la respuesta: el modelo no la lee,
- *   la escribe.
- * - **Sigue haciendo falta el VAD.** Alguien tiene que decidir cuándo termina
- *   el turno; esto no es streaming. Para eso está Gemini Live.
- * - **El audio sale de la máquina.** Es el precio, y es el mismo que ya se
- *   pagaba con Gemini Live.
+ * - **There are no longer two chances to fail.** A bad transcription is still
+ *   possible, but it stops contaminating the answer: the model doesn't read it,
+ *   it writes it.
+ * - **The VAD is still needed.** Someone has to decide when the turn ends; this
+ *   isn't streaming. That's what Gemini Live is for.
+ * - **The audio leaves the machine.** That's the price, and it's the same one
+ *   already paid with Gemini Live.
  *
- * Se pide salida estructurada en lugar de parsear texto libre: con
- * `responseSchema` la separación entre lo que se oyó y lo que se contesta viene
- * garantizada por la API, no por una expresión regular que se rompe el día que
- * el modelo decide adornar la respuesta.
+ * Structured output is requested instead of parsing free text: with
+ * `responseSchema` the separation between what was heard and what's answered is
+ * guaranteed by the API, not by a regular expression that breaks the day the
+ * model decides to embellish the answer.
  */
 
-/** Qué se le pide al modelo por cada turno de audio. */
+/** What the model is asked for on each audio turn. */
 const INSTRUCTION = [
   'Escucha el audio adjunto.',
   '',
@@ -53,20 +53,20 @@ const RESPONSE_SCHEMA = {
   required: ['transcripcion', 'respuesta'],
 };
 
-/** Lo que el orquestador aporta en cada turno: prompt y memoria. */
+/** What the orchestrator provides on each turn: prompt and memory. */
 export interface AudioAnswerContext {
   systemPrompt: string;
   history: { question: string; answer: string }[];
 }
 
 /**
- * Lee la respuesta estructurada, tolerando que venga cortada.
+ * Reads the structured response, tolerating that it comes cut off.
  *
- * `responseSchema` garantiza la forma cuando el modelo llega al final, pero no
- * que llegue: si se agota `maxOutputTokens` el JSON sale truncado y `JSON.parse`
- * lanza. Ya no debería pasar con el razonamiento desactivado, pero una respuesta
- * larga siempre puede rozar el tope, y perder el turno entero por una comilla
- * que falta es un mal negocio: se rescata al menos la transcripción.
+ * `responseSchema` guarantees the shape when the model reaches the end, but not
+ * that it reaches it: if `maxOutputTokens` runs out the JSON comes truncated and
+ * `JSON.parse` throws. It shouldn't happen anymore with reasoning off, but a long
+ * answer can always graze the cap, and losing the whole turn over a missing
+ * quote is a bad deal: at least the transcript is salvaged.
  */
 export function parseAudioResponse(raw: string): { transcript: string; answer: string } | null {
   try {
@@ -76,8 +76,8 @@ export function parseAudioResponse(raw: string): { transcript: string; answer: s
       answer: (parsed.respuesta ?? '').trim(),
     };
   } catch {
-    // Rescate: el campo `transcripcion` va primero en el esquema, así que suele
-    // estar completo aunque `respuesta` se haya quedado a medias.
+    // Salvage: the `transcripcion` field goes first in the schema, so it's
+    // usually complete even if `respuesta` was left half-done.
     const salvaged = /"transcripcion"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(raw);
     if (!salvaged?.[1]) return null;
     try {
@@ -88,10 +88,10 @@ export function parseAudioResponse(raw: string): { transcript: string; answer: s
   }
 }
 
-/** Carril por hablante: su VAD y su cola en serie. */
+/** Per-speaker lane: its VAD and its serial queue. */
 class Lane {
   private readonly vad: EnergyVAD;
-  /** En serie: dos llamadas a la vez desordenarían la conversación. */
+  /** Serial: two calls at once would scramble the conversation. */
   private queue: Promise<void> = Promise.resolve();
 
   constructor(
@@ -131,7 +131,7 @@ export class GeminiAudioSTT implements STTProvider {
   constructor(
     private readonly apiKey: string,
     readonly model: string,
-    /** Se consulta en cada turno, no al arrancar: el prompt y la memoria cambian. */
+    /** Queried on each turn, not at startup: the prompt and the memory change. */
     private readonly context: () => AudioAnswerContext
   ) {}
 
@@ -179,7 +179,7 @@ export class GeminiAudioSTT implements STTProvider {
       const response = await client.models.generateContent({
         model: this.model,
         contents: [
-          // La memoria va como turnos reales, igual que en el proveedor de texto.
+          // Memory goes as real turns, same as in the text provider.
           ...history
             .filter((turn) => turn.question.trim() && turn.answer.trim())
             .flatMap((turn) => [
@@ -199,12 +199,12 @@ export class GeminiAudioSTT implements STTProvider {
           responseMimeType: 'application/json',
           responseSchema: RESPONSE_SCHEMA,
           /*
-           * Sin esto llegaban JSON cortados a media cadena
-           * ("Unterminated string in JSON at position 59"). Gemini 2.5 razona
-           * por defecto, y **los tokens de razonamiento se descuentan de
-           * `maxOutputTokens`**: se gastaban pensando y la respuesta se cortaba
-           * antes de cerrar las comillas. Aquí el razonamiento no aporta —hay
-           * que transcribir y contestar breve— y además es latencia pura.
+           * Without this, JSON came cut off mid-string ("Unterminated string in
+           * JSON at position 59"). Gemini 2.5 reasons by default, and **the
+           * reasoning tokens are deducted from `maxOutputTokens`**: they were
+           * spent thinking and the answer was cut before closing the quotes.
+           * Here reasoning adds nothing —you have to transcribe and answer
+           * briefly— and on top of that it's pure latency.
            */
           thinkingConfig: { thinkingBudget: 0 },
           maxOutputTokens: 1_200,
@@ -221,8 +221,8 @@ export class GeminiAudioSTT implements STTProvider {
 
       const parsed = parseAudioResponse(raw);
       if (!parsed) {
-        // Un JSON roto no puede tumbar el turno: se registra el crudo recortado
-        // para poder diagnosticarlo y se sigue escuchando.
+        // A broken JSON can't take down the turn: the trimmed raw is logged so it
+        // can be diagnosed and listening continues.
         console.warn(
           `[gemini-audio:${speaker}] respuesta no parseable, se descarta el turno: ` +
             JSON.stringify(raw.slice(0, 200))
@@ -237,8 +237,8 @@ export class GeminiAudioSTT implements STTProvider {
           `${answer ? `respuesta de ${answer.length} car.` : 'sin respuesta (no pedía nada)'}`
       );
 
-      // La transcripción se emite siempre: el overlay y el historial la
-      // necesitan aunque el modelo decida que no había nada que responder.
+      // The transcript is always emitted: the overlay and the history need it
+      // even if the model decides there was nothing to answer.
       if (transcript) {
         this.events.emit('segment', { speaker, text: transcript, isFinal: true });
       }
@@ -256,7 +256,7 @@ export class GeminiAudioSTT implements STTProvider {
     }
   }
 
-  /** Una llamada mínima para el botón de prueba del dashboard. */
+  /** A minimal call for the dashboard's test button. */
   async testConnection(): Promise<{ ok: boolean; detail: string }> {
     try {
       const client = new GoogleGenAI({ apiKey: this.apiKey });
