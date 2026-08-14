@@ -4,31 +4,30 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 /**
- * Lanza electron-builder eligiendo un directorio de salida que OneDrive no
- * sincronice.
+ * Launches electron-builder choosing an output directory that OneDrive doesn't
+ * sync.
  *
- * El problema es real y reproducible: si el proyecto vive dentro de OneDrive,
- * electron-builder falla al desempaquetar Electron con
+ * The problem is real and reproducible: if the project lives inside OneDrive,
+ * electron-builder fails to unpack Electron with
  *
  *   EPERM: operation not permitted, rename 'release\\win-unpacked.tmp' -> 'release\\win-unpacked'
  *
- * porque OneDrive mantiene un lock sobre la carpeta mientras la sincroniza. El
- * build son ~215 MB de artefactos que además no tiene ningún sentido subir a la
- * nube, así que cuando detectamos que el proyecto está sincronizado sacamos la
- * salida a una ruta local.
+ * because OneDrive holds a lock on the folder while it syncs it. The build is
+ * ~215 MB of artifacts that also makes no sense to upload to the cloud, so when
+ * we detect that the project is synced we send the output to a local path.
  *
- * Se puede forzar con la variable de entorno IH_BUILD_OUT.
+ * It can be forced with the IH_BUILD_OUT environment variable.
  */
 
 const projectRoot = resolve(import.meta.dirname, '..');
 
-/** Heurística: ¿está la ruta dentro de una carpeta sincronizada por OneDrive? */
+/** Heuristic: is the path inside a OneDrive-synced folder? */
 function isCloudSynced(path) {
   const normalized = path.toLowerCase();
   const markers = ['onedrive', 'dropbox', 'google drive', 'icloud'];
   if (markers.some((marker) => normalized.includes(marker))) return true;
 
-  // OneDrive también puede redirigir Documentos sin que aparezca en la ruta.
+  // OneDrive can also redirect Documents without it showing up in the path.
   for (const env of ['OneDrive', 'OneDriveCommercial', 'OneDriveConsumer']) {
     const root = process.env[env];
     if (root && normalized.startsWith(root.toLowerCase())) return true;
@@ -61,10 +60,11 @@ if (relocated) {
   );
 }
 
-// Se invoca el cli.js con el propio node en lugar de `npx ... {shell:true}`:
-// pasar argumentos con shell los concatena sin escapar, y Node avisa de ello
-// (DEP0190). Sin shell tampoco hay que preocuparse por rutas con espacios,
-// que es justo el caso de este proyecto si vive bajo una carpeta con espacios.
+// cli.js is invoked with node itself instead of `npx ... {shell:true}`:
+// passing arguments with a shell concatenates them without escaping, and Node
+// warns about it (DEP0190). Without a shell there's also no need to worry about
+// paths with spaces, which is exactly this project's case if it lives under a
+// folder with spaces.
 const cli = join(projectRoot, 'node_modules', 'electron-builder', 'cli.js');
 if (!existsSync(cli)) {
   console.error('[build] No se encontró electron-builder. Ejecuta `npm install` primero.');

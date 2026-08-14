@@ -1,10 +1,10 @@
 /**
- * Contrato IPC. Los nombres de canal viven aquí para que main y preload
- * no puedan desincronizarse con un string mal escrito.
+ * IPC contract. The channel names live here so main and preload can't desync
+ * with a mistyped string.
  *
- * Convención:
- *   - `invoke`: renderer → main, con respuesta (request/response).
- *   - `send`:   renderer → main, sin respuesta (fire-and-forget, alta frecuencia).
+ * Convention:
+ *   - `invoke`: renderer → main, with a response (request/response).
+ *   - `send`:   renderer → main, no response (fire-and-forget, high frequency).
  *   - `event`:  main → renderer (broadcast).
  */
 
@@ -21,39 +21,39 @@ export const IPC = {
   overlayHide: 'overlay:hide',
   overlayResize: 'overlay:resize',
   overlayMouseIgnore: 'overlay:mouse-ignore',
-  /** Vuelve el overlay enfocable para poder escribir en él. Ver `overlay.ts`. */
+  /** Makes the overlay focusable so you can write in it. See `overlay.ts`. */
   overlayInteractive: 'overlay:interactive',
   overlayDragStart: 'overlay:drag-start',
   overlayDragEnd: 'overlay:drag-end',
   overlayQuit: 'overlay:quit',
   dashboardOpen: 'dashboard:open',
   /**
-   * Controles de la barra de título propia del dashboard.
+   * Controls for the dashboard's own title bar.
    *
-   * La ventana es `frame: false` para poder pintar una barra al estilo de macOS
-   * —los tres semáforos a la izquierda—, así que minimizar, maximizar y cerrar
-   * dejan de tener botones del sistema y se piden por aquí. Actúan sobre la
-   * ventana que emite (`fromWebContents`), no sobre una global. Cerrar cierra
-   * SÓLO el dashboard: el overlay es la app y sigue vivo, igual que hacía la X
-   * nativa.
+   * The window is `frame: false` so it can paint a macOS-style bar —the three
+   * traffic lights on the left—, so minimize, maximize and close no longer have
+   * system buttons and are requested through here. They act on the emitting
+   * window (`fromWebContents`), not a global one. Close closes ONLY the
+   * dashboard: the overlay is the app and stays alive, just as the native X did.
    */
   dashboardMinimize: 'dashboard:minimize',
   dashboardToggleMaximize: 'dashboard:toggle-maximize',
   dashboardClose: 'dashboard:close',
 
   /**
-   * Extrae texto de un archivo de contexto (PDF, Word) en el main.
+   * Extracts text from a context file (PDF, Word) in the main process.
    *
-   * El renderer manda los bytes y recibe el texto ya plano. Va al main porque
-   * parsear un PDF o un .docx es trabajo pesado con librerías, y el proyecto
-   * concentra eso en el proceso con Node. El texto plano (.txt/.md) no pasa por
-   * aquí: lo lee el renderer con FileReader.
+   * The renderer sends the bytes and receives the already-plain text. It goes to
+   * the main process because parsing a PDF or a .docx is heavy work with
+   * libraries, and the project concentrates that in the Node process. Plain text
+   * (.txt/.md) doesn't go through here: the renderer reads it with FileReader.
    */
   contextParseFile: 'context:parse-file',
 
   /**
-   * Captura por trozos: resolver la pila acumulada o vaciarla. Los disparan los
-   * atajos (desde el main) y los botones del chip del overlay (por IPC).
+   * Chunk capture: solve the accumulated stack or clear it. They're triggered by
+   * the shortcuts (from the main process) and by the overlay chip's buttons (over
+   * IPC).
    */
   scrollCaptureSolve: 'scroll-capture:solve',
   scrollCaptureClear: 'scroll-capture:clear',
@@ -65,26 +65,26 @@ export const IPC = {
   askNow: 'ask:now',
   askAbort: 'ask:abort',
   askWithText: 'ask:with-text',
-  /** Captura la pantalla y resuelve lo que haya en ella: código o test. */
+  /** Captures the screen and solves whatever is on it: code or quiz. */
   askSolveScreen: 'ask:solve-screen',
-  /** Vacía la memoria de la conversación sin tocar nada más. */
+  /** Clears the conversation's memory without touching anything else. */
   askForgetContext: 'ask:forget-context',
-  /** Extiende la última respuesta de código añadiendo a la misma respuesta. */
+  /** Extends the last code answer by appending to the same answer. */
   askContinue: 'ask:continue',
-  /** Cuántos intercambios lleva el modelo en la cabeza. */
+  /** How many exchanges the model has in its head. */
   memoryGet: 'memory:get',
 
   screenshotTake: 'screenshot:take',
 
   /**
-   * Copiar texto al portapapeles, desde el main.
+   * Copy text to the clipboard, from the main process.
    *
-   * `navigator.clipboard` no sirve en el overlay, y no por un descuido: exige
-   * que el documento tenga el foco, y el overlay es `focusable: false` a
-   * propósito para no robárselo a la videollamada. Además, `setPermissionRequest
-   * Handler` sólo concede `clipboard-read`, así que la escritura tampoco
-   * pasaría el filtro. El módulo `clipboard` de Electron no tiene ninguna de las
-   * dos restricciones.
+   * `navigator.clipboard` is no good in the overlay, and not by an oversight: it
+   * requires the document to have the focus, and the overlay is `focusable: false`
+   * on purpose so as not to steal it from the video call. Besides,
+   * `setPermissionRequestHandler` only grants `clipboard-read`, so writing
+   * wouldn't pass the filter either. Electron's `clipboard` module has neither of
+   * the two restrictions.
    */
   clipboardWrite: 'clipboard:write',
 
@@ -98,34 +98,34 @@ export const IPC = {
   llmListModels: 'llm:list-models',
   llmTestConnection: 'llm:test-connection',
 
-  /** Versión y autoría, para la sección «Acerca de». */
+  /** Version and authorship, for the «About» section. */
   appGetInfo: 'app:get-info',
-  /** Consulta a GitHub si hay una versión más nueva. Bajo demanda. */
+  /** Asks GitHub whether there's a newer version. On demand. */
   appCheckUpdate: 'app:check-update',
 
   /**
-   * Las skills que hay ahora mismo en disco.
+   * The skills currently on disk.
    *
-   * Lo piden los dos renderers y por motivos distintos: el dashboard para
-   * listarlas, y el overlay para poder autocompletar `/nombre` y para su
-   * selector. Un `invoke` y no un evento porque el disco no cambia solo —
-   * cambia cuando alguien edita una carpeta, y para eso está `skillsReload`.
+   * Both renderers request it and for different reasons: the dashboard to list
+   * them, and the overlay to autocomplete `/name` and for its selector. An
+   * `invoke` and not an event because the disk doesn't change on its own — it
+   * changes when someone edits a folder, and that's what `skillsReload` is for.
    */
   skillsList: 'skills:list',
-  /** Relee la carpeta. Es lo que hace que editar un SKILL.md se note sin reiniciar. */
+  /** Re-reads the folder. It's what makes editing a SKILL.md noticed without restarting. */
   skillsReload: 'skills:reload',
-  /** Crea la carpeta si hace falta y la abre en el explorador. */
+  /** Creates the folder if needed and opens it in the explorer. */
   skillsOpenFolder: 'skills:open-folder',
-  /** Dónde vive la carpeta, para poder enseñar la ruta como hace el historial. */
+  /** Where the folder lives, to be able to show the path like the history does. */
   skillsFolder: 'skills:folder',
 
   whisperGetStatus: 'whisper:get-status',
   whisperInstall: 'whisper:install',
 
-  /** Conecta de verdad con el motor de transcripción y dice qué falló. */
+  /** Actually connects to the transcription engine and says what failed. */
   sttTestConnection: 'stt:test-connection',
 
-  /** Aceleradores que Windows rechazó, normalmente por estar ya en uso. */
+  /** Accelerators Windows rejected, usually for being already in use. */
   hotkeysGetFailed: 'hotkeys:get-failed',
 
   logsRead: 'logs:read',
@@ -133,51 +133,51 @@ export const IPC = {
 
   ollamaGetStatus: 'ollama:get-status',
 
-  /** RAM, CPU y GPU de la máquina, para recomendar un modelo local. */
+  /** The machine's RAM, CPU and GPU, to recommend a local model. */
   systemGetSpecs: 'system:get-specs',
-  /** Abre una URL http(s) en el navegador del sistema, nunca dentro de la app. */
+  /** Opens an http(s) URL in the system browser, never inside the app. */
   systemOpenExternal: 'system:open-external',
 
   /**
-   * Genera la guía de modelos y la abre en el navegador.
+   * Generates the model guide and opens it in the browser.
    *
-   * Va a un documento y no a una ventana de la app por la regla de oro del
-   * proyecto: cada ventana nueva de Electron es una ventana más que registrar en
-   * la protección de captura, y el modo invisible se verifica, no se asume. Un
-   * HTML además se guarda, se imprime y se lee con la app cerrada.
+   * It goes to a document and not to an app window because of the project's golden
+   * rule: every new Electron window is one more window to register in the capture
+   * protection, and invisible mode is verified, not assumed. An HTML is also
+   * saved, printed and read with the app closed.
    */
   guideOpen: 'guide:open',
 
-  /** Enlace, QR y teléfonos conectados del espejo. Ver `main/bridge/phone.ts`. */
+  /** The mirror's link, QR and connected phones. See `main/bridge/phone.ts`. */
   phoneGetStatus: 'phone:get-status',
 
   /**
-   * El asistente de configuración pone Ollama y un modelo en la máquina.
+   * The setup wizard puts Ollama and a model on the machine.
    *
-   * Van por IPC y no por un script suelto porque hay que **pedir permiso**: uno
-   * instala software con winget y el otro descarga varios gigas. Los dos avisan
-   * de lo que van a hacer antes de hacerlo, y los dos informan por
-   * `onSetupProgress`, que es lo que impide que una descarga de tres minutos se
-   * viva como una app colgada.
+   * They go over IPC and not through a loose script because permission has to be
+   * **asked for**: one installs software with winget and the other downloads
+   * several gigs. Both warn of what they're going to do before doing it, and both
+   * report via `onSetupProgress`, which is what keeps a three-minute download from
+   * being experienced as a hung app.
    */
-  /** Estado de la conexión con el broker MQTT. Ver `main/bridge/mqtt.ts`. */
+  /** State of the connection with the MQTT broker. See `main/bridge/mqtt.ts`. */
   mqttGetStatus: 'mqtt:get-status',
-  /** Publica una respuesta de prueba para comprobar el montaje de una vez. */
+  /** Publishes a test answer to check the setup in one go. */
   mqttTest: 'mqtt:test',
 
   setupCanInstall: 'setup:can-install',
   /**
-   * Si Ollama está instalado, corra o no.
+   * Whether Ollama is installed, running or not.
    *
-   * Distinto de `ollamaGetStatus`, que pregunta por el **servidor**. Confundir
-   * los dos hacía que el asistente ofreciera instalar Ollama a quien ya lo
-   * tenía y sólo lo tenía parado.
+   * Distinct from `ollamaGetStatus`, which asks about the **server**. Confusing
+   * the two made the wizard offer to install Ollama to someone who already had it
+   * and only had it stopped.
    */
   setupOllamaInstalled: 'setup:ollama-installed',
   setupInstallOllama: 'setup:install-ollama',
   setupPullModel: 'setup:pull-model',
 
-  // ── send (renderer → main, sin respuesta) ──
+  // ── send (renderer → main, no response) ──
   audioChunk: 'audio:chunk',
   audioLevels: 'audio:levels',
   audioWorkerReady: 'audio:worker-ready',
@@ -193,112 +193,115 @@ export const IPC = {
   onAudioLevels: 'event:audio-levels',
   onScreenshot: 'event:screenshot',
   onWhisperProgress: 'event:whisper-progress',
-  /** Se empezó una conversación nueva: los renderers deben limpiar su estado. */
+  /** A new conversation was started: the renderers must clear their state. */
   onConversationReset: 'event:conversation-reset',
   /**
-   * El overlay debe re-sincronizar su seguimiento del ratón.
+   * The overlay must re-sync its mouse tracking.
    *
-   * `useChromeMouse` cachea localmente si está ignorando el ratón y sólo avisa al
-   * main en los cambios. Cuando otra ventana (el dashboard) roba el foco y se
-   * cierra, el reenvío de `mousemove` se interrumpe y el caché queda
-   * desincronizado del estado real; sin este aviso el overlay se queda inclicable.
+   * `useChromeMouse` caches locally whether it's ignoring the mouse and only
+   * notifies the main process on changes. When another window (the dashboard)
+   * steals the focus and closes, the `mousemove` forwarding is interrupted and the
+   * cache is left desynced from the real state; without this notice the overlay is
+   * left unclickable.
    */
   onOverlayResync: 'event:overlay-resync',
-  /** Fallo del motor de transcripción. La captura sigue viva; hay que enseñarlo. */
+  /** Transcription engine failure. The capture is still alive; it must be shown. */
   onSTTError: 'event:stt-error',
   /**
-   * El detector decidió no responder a una intervención.
+   * The detector decided not to answer an utterance.
    *
-   * Sin esto el descarte es invisible: aparece la transcripción y no pasa nada
-   * más, que desde fuera es indistinguible de una app rota. Pasó de verdad —
-   * alguien probó cinco veces con "¿me escuchas?" y concluyó que ningún modelo
-   * respondía, cuando cada descarte había sido correcto.
+   * Without this the skip is invisible: the transcription appears and nothing else
+   * happens, which from the outside is indistinguishable from a broken app. It
+   * really happened — someone tried five times with "¿me escuchas?" and concluded
+   * that no model was answering, when each skip had been correct.
    */
   onAutoSkip: 'event:auto-skip',
   /**
-   * Algo falló fuera del audio y hay que enseñarlo tal cual.
+   * Something failed outside the audio and it must be shown as-is.
    *
-   * Existe porque el único canal para "avisar de un fallo" era `onSTTError`, y
-   * el overlay lo pinta con el prefijo "Transcripción:". Mandar por ahí un fallo
-   * de captura de pantalla habría producido un mensaje que culpa al motor
-   * equivocado, que es peor que no avisar: manda a depurar donde no es.
+   * It exists because the only channel to "warn of a failure" was `onSTTError`,
+   * and the overlay paints it with the "Transcription:" prefix. Sending a
+   * screen-capture failure through there would have produced a message blaming the
+   * wrong engine, which is worse than not warning: it sends you to debug where it
+   * isn't.
    */
   onNotice: 'event:notice',
   /**
-   * Mover la línea del teleprompter.
+   * Move the teleprompter line.
    *
-   * Va por evento y no por un `invoke` del overlay porque quien lo dispara es un
-   * atajo GLOBAL: el overlay no tiene el foco —es `focusable: false`— así que no
-   * puede oír una tecla por su cuenta. El main la recibe y la reenvía.
+   * It goes by event and not by an `invoke` from the overlay because what triggers
+   * it is a GLOBAL shortcut: the overlay doesn't have the focus —it's
+   * `focusable: false`— so it can't hear a key on its own. The main process
+   * receives it and forwards it.
    */
   onTeleprompterMove: 'event:teleprompter-move',
   /**
-   * Cambió el resultado de registrar los atajos.
+   * The result of registering the shortcuts changed.
    *
-   * `registerHotkeys` ya devolvía los rechazados y nadie recogía la lista: sólo
-   * salía por el log, que en el `.exe` empaquetado no mira nadie. Un atajo que
-   * otra aplicación tiene tomado no falla al pulsarlo — simplemente no pasa
-   * nada, que es indistinguible de que la app esté rota.
+   * `registerHotkeys` already returned the rejected ones and nobody picked up the
+   * list: it only came out in the log, which nobody looks at in the packaged
+   * `.exe`. A shortcut that another application has taken doesn't fail when
+   * pressed — nothing simply happens, which is indistinguishable from the app
+   * being broken.
    */
   onHotkeyFailures: 'event:hotkey-failures',
   /**
-   * Cambió la memoria de la conversación.
+   * The conversation's memory changed.
    *
-   * Se difunde porque es lo único del coste de cada consulta que el usuario
-   * puede controlar: cada turno recordado se reenvía entero en la siguiente
-   * pregunta, y con Ollama eso choca contra `num_ctx` sin dar ningún error.
+   * It's broadcast because it's the only part of each query's cost the user can
+   * control: each remembered turn is resent whole in the next question, and with
+   * Ollama that runs into `num_ctx` without giving any error.
    */
   onMemory: 'event:memory',
   /**
-   * Cambió algo del espejo del teléfono: arrancó, paró, o entró o salió un
-   * teléfono.
+   * Something about the phone mirror changed: it started, stopped, or a phone came
+   * in or went out.
    *
-   * Lo último es lo que justifica que sea un evento y no sólo un `invoke`: la
-   * pregunta real del usuario es "¿lo estoy viendo en el móvil?", y la única
-   * respuesta honesta es un contador que se mueve solo cuando el teléfono se
-   * conecta de verdad.
+   * The last one is what justifies it being an event and not just an `invoke`: the
+   * user's real question is "am I seeing it on my phone?", and the only honest
+   * answer is a counter that moves by itself when the phone actually connects.
    */
   onPhoneStatus: 'event:phone-status',
 
-  /** Avance de la instalación de Ollama o de la descarga de un modelo. */
+  /** Progress of the Ollama install or of a model download. */
   onSetupProgress: 'event:setup-progress',
 
-  /** Cambió la conexión con el broker, o se publicó algo. */
+  /** The connection with the broker changed, or something was published. */
   onMqttStatus: 'event:mqtt-status',
 
   /**
-   * Se guardó o se borró una API key.
+   * An API key was saved or deleted.
    *
-   * Existe porque el overlay decide con esto si enseña «Falta configurar la
-   * IA», y sin el evento ese aviso sólo se calculaba al arrancar: pegabas la
-   * clave que faltaba en el dashboard y el panel seguía diciendo que faltaba.
-   * Viaja la **presencia**, nunca la clave.
+   * It exists because the overlay decides with this whether to show «The AI needs
+   * configuring», and without the event that warning was only computed on startup:
+   * you pasted the missing key in the dashboard and the panel kept saying it was
+   * missing. The **presence** travels, never the key.
    */
   onSecrets: 'event:secrets',
 
-  /** main pide al audio-worker que arranque o pare la captura. */
+  /** The main process asks the audio-worker to start or stop the capture. */
   onCaptureCommand: 'event:capture-command',
 
   /**
-   * Cambió el estado de la captura por trozos: cuántos frames hay en la pila y
-   * si el bucle automático está grabando. Lo pinta el chip del overlay.
+   * The chunk-capture state changed: how many frames are on the stack and whether
+   * the automatic loop is recording. The overlay chip paints it.
    */
   onScrollCapture: 'event:scroll-capture',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
 
-/** Orden que main envía al audio-worker. */
+/** Command the main process sends to the audio-worker. */
 export interface CaptureCommand {
   action: 'start' | 'stop';
-  /** Qué fuentes abrir. Ignorado cuando `action` es `stop`. */
+  /** Which sources to open. Ignored when `action` is `stop`. */
   sources: 'both' | 'system' | 'mic';
 }
 
 /**
- * Chunk de audio del worker a main.
- * El PCM va como ArrayBuffer (Int16 little-endian) para cruzar el puente
- * con structured clone y sin copiar a base64.
+ * Audio chunk from the worker to the main process.
+ * The PCM goes as an ArrayBuffer (Int16 little-endian) to cross the bridge with
+ * structured clone and without copying to base64.
  */
 export interface AudioChunkMessage {
   speaker: 'me' | 'them';
@@ -306,19 +309,19 @@ export interface AudioChunkMessage {
   sampleRate: number;
 }
 
-/** Estado de la captura por trozos, para el chip del overlay. */
+/** Chunk-capture state, for the overlay chip. */
 export interface ScrollCaptureState {
-  /** Frames acumulados en la pila. */
+  /** Frames accumulated on the stack. */
   frames: number;
-  /** El bucle automático está capturando ahora mismo. */
+  /** The automatic loop is capturing right now. */
   capturing: boolean;
   mode: 'manual' | 'auto';
 }
 
-/** Progreso de descarga de los assets de Whisper local. */
+/** Download progress of the local Whisper assets. */
 export interface WhisperProgress {
   target: 'binary' | 'model';
   receivedBytes: number;
-  /** `0` si el servidor no envía Content-Length. */
+  /** `0` if the server doesn't send Content-Length. */
   totalBytes: number;
 }

@@ -6,20 +6,20 @@ import type { Skill } from '@shared/types';
 import { BUILT_IN_SKILLS } from './built-in';
 
 /**
- * Carga de skills desde disco.
+ * Loading skills from disk.
  *
- * Una skill es **una carpeta con un `SKILL.md`**, no un archivo suelto: es el
- * formato de Anthropic y deja sitio a los scripts y assets que esa
- * especificación admite. Esta versión **los ignora** —sólo se lee el `SKILL.md`—
- * y conviene decir por qué no es una fase pendiente sino una decisión: ejecutar
- * un script que hay en una carpeta de datos es ejecutar código que no ha pasado
- * por ninguna revisión, en un proceso que tiene las API keys descifradas. El día
- * que se quiera, se diseña con esa frase delante.
+ * A skill is **a folder with a `SKILL.md`**, not a loose file: it's Anthropic's
+ * format and leaves room for the scripts and assets that specification allows.
+ * This version **ignores them** —only the `SKILL.md` is read— and it's worth
+ * saying why it's not a pending phase but a decision: running a script that's in
+ * a data folder is running code that hasn't been through any review, in a
+ * process that has the API keys decrypted. The day it's wanted, it's designed
+ * with that sentence in front.
  *
- * La lista se cachea porque se consulta en **cada consulta al modelo**, y leer
- * un puñado de archivos por cada pregunta de una entrevista es trabajo de disco
- * en el peor momento. `reloadSkills()` la tira; lo llama el botón de recargar
- * del dashboard, que es la forma de que editar un SKILL.md se note sin reiniciar.
+ * The list is cached because it's consulted on **every query to the model**, and
+ * reading a handful of files for every question of an interview is disk work at
+ * the worst moment. `reloadSkills()` drops it; the dashboard's reload button
+ * calls it, which is how editing a SKILL.md is noticed without restarting.
  */
 
 /** `%APPDATA%\interview-helper\skills`. */
@@ -29,19 +29,19 @@ export function skillsFolder(): string {
 
 let cache: Skill[] | null = null;
 
-/** Todas las skills: las de serie primero, después las del usuario. */
+/** All the skills: the built-in ones first, then the user's. */
 export function listSkills(): Skill[] {
   if (!cache) cache = loadSkills();
   return cache;
 }
 
 /**
- * Una skill por id, sólo si se puede usar.
+ * A skill by id, only if it can be used.
  *
- * Devuelve `undefined` también para las que cargaron con error, y eso es lo que
- * evita el peor caso: un `activeSkillId` que apunta a una carpeta que alguien
- * rompió editándola no debe mandar un prompt a medias, tiene que comportarse
- * como si no hubiera skill.
+ * It also returns `undefined` for those that loaded with an error, and that's
+ * what avoids the worst case: an `activeSkillId` pointing at a folder someone
+ * broke while editing it mustn't send half a prompt, it has to behave as if
+ * there were no skill.
  */
 export function getSkill(id: string): Skill | undefined {
   if (!id) return undefined;
@@ -49,17 +49,17 @@ export function getSkill(id: string): Skill | undefined {
   return found && !found.error ? found : undefined;
 }
 
-/** Vuelve a leer el disco. Devuelve la lista nueva para no pedirla dos veces. */
+/** Re-reads the disk. Returns the new list so it isn't requested twice. */
 export function reloadSkills(): Skill[] {
   cache = loadSkills();
   return cache;
 }
 
 /**
- * Crea la carpeta si no está y la abre en el explorador.
+ * Creates the folder if it isn't there and opens it in the explorer.
  *
- * Se crea al abrirla y no al arrancar: una carpeta vacía que nadie pidió es
- * basura en el perfil de alguien que quizá nunca use esto.
+ * It's created on opening it and not on startup: an empty folder nobody asked
+ * for is junk in the profile of someone who may never use this.
  */
 export function openSkillsFolder(): void {
   const folder = skillsFolder();
@@ -115,10 +115,11 @@ function loadSkills(): Skill[] {
   }
 
   /*
-   * Las de serie se añaden al final y **sólo si nadie ha puesto una carpeta con
-   * su id**. Que el usuario gane es lo correcto: la forma natural de ajustar la
-   * skill de serie es copiarla a una carpeta y editarla, y si en ese caso
-   * aparecieran las dos en la lista habría que adivinar cuál se está aplicando.
+   * The built-in ones are added at the end and **only if nobody has put a folder
+   * with their id**. The user winning is the right thing: the natural way to
+   * tweak the built-in skill is to copy it to a folder and edit it, and if in
+   * that case both appeared in the list you'd have to guess which is being
+   * applied.
    */
   for (const built of BUILT_IN_SKILLS) {
     if (!skills.some((skill) => skill.id === built.id)) skills.push(built);
@@ -128,13 +129,13 @@ function loadSkills(): Skill[] {
 }
 
 /**
- * El `SKILL.md` de una carpeta.
+ * A folder's `SKILL.md`.
  *
- * Se busca en lugar de componer la ruta: Windows no distingue mayúsculas pero
- * un repositorio clonado de otra máquina puede traer `skill.md` o `Skill.md`, y
- * el mismo archivo dejaría de encontrarse el día que esto corriera en otro
- * sistema. Es la misma razón por la que el binario de Whisper se busca en vez
- * de asumirse.
+ * It's searched for instead of composing the path: Windows is case-insensitive
+ * but a repository cloned from another machine may bring `skill.md` or
+ * `Skill.md`, and the same file would stop being found the day this ran on
+ * another system. It's the same reason the Whisper binary is searched for
+ * instead of assumed.
  */
 function findSkillFile(folder: string): string | undefined {
   try {

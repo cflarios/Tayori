@@ -32,8 +32,8 @@ export default defineConfig({
     },
   },
 
-  // Tres entradas HTML: overlay (siempre visible), dashboard (settings)
-  // y audio-worker (ventana oculta que hace la captura de audio).
+  // Three HTML entries: overlay (always visible), dashboard (settings)
+  // and audio-worker (hidden window that does the audio capture).
   renderer: {
     root: src('renderer'),
     plugins: [react()],

@@ -1,28 +1,29 @@
 /**
- * Los textos de la interfaz, en inglés. **Ésta es la fuente.**
+ * The interface texts, in English. **This is the source.**
  *
- * ## Por qué un módulo de TypeScript y no un `.json`
+ * ## Why a TypeScript module and not a `.json`
  *
- * Se valoró JSON, que es lo estándar, y se eligió esto por una razón concreta:
- * con un objeto tipado, el archivo español se declara como
- * `Record<keyof typeof en, string>` y **una traducción que falte no compila**.
- * Con JSON, una clave sin traducir cae al idioma de reserva y nadie se entera
- * hasta que un usuario ve una frase suelta en otro idioma — que es exactamente
- * la clase de fallo mudo que este proyecto persigue.
+ * JSON was considered, which is the standard, and this was chosen for a concrete
+ * reason: with a typed object, the Spanish file is declared as
+ * `Record<keyof typeof en, string>` and **a missing translation doesn't
+ * compile**. With JSON, an untranslated key falls back to the fallback language
+ * and nobody notices until a user sees a stray sentence in another language —
+ * which is exactly the kind of silent failure this project chases.
  *
- * Lo demás es idéntico a tener dos JSON: los componentes quedan limpios, las
- * traducciones viven juntas y se puede ver la cobertura de un vistazo. Y no hay
- * que tocar `resolveJsonModule` ni la configuración de dos bundlers.
+ * The rest is identical to having two JSONs: the components stay clean, the
+ * translations live together and the coverage can be seen at a glance. And
+ * there's no need to touch `resolveJsonModule` or the configuration of two
+ * bundlers.
  *
- * ## Convenciones
+ * ## Conventions
  *
- * - Las claves se agrupan por pantalla con puntos: `overlay.*`, `dash.*`,
- *   `wiz.*`, `err.*`. No es jerarquía real, es orden alfabético útil.
- * - `{algo}` son huecos que rellena `t()`. El mismo hueco tiene que existir en
- *   las dos versiones o la frase saldrá coja en un idioma.
- * - `**negrita**` y `` `código` `` sólo funcionan en las claves que se pintan
- *   con `<Tx>`. En un `title` o un `placeholder` saldrían los asteriscos tal
- *   cual, igual que pasaba en el overlay antes de `parseInline`.
+ * - The keys are grouped by screen with dots: `overlay.*`, `dash.*`, `wiz.*`,
+ *   `err.*`. It's not real hierarchy, it's useful alphabetical order.
+ * - `{something}` are slots filled by `t()`. The same slot has to exist in both
+ *   versions or the sentence will come out lame in one language.
+ * - `**bold**` and `` `code` `` only work in the keys painted with `<Tx>`. In a
+ *   `title` or a `placeholder` the asterisks would come out as-is, just as
+ *   happened in the overlay before `parseInline`.
  */
 export const en = {
   // ─────────────────────────────── Overlay ───────────────────────────────
@@ -139,9 +140,9 @@ export const en = {
   'overlay.footAsk': 'ask',
   'overlay.footScreen': 'solve screen',
 
-  // Acciones rápidas. La etiqueta se lee; el texto de abajo se le manda al
-  // modelo, y va traducido por coherencia — el idioma de la RESPUESTA lo
-  // gobierna la regla del system prompt, no el idioma de la petición.
+  // Quick actions. The label is read; the text below is sent to the model, and
+  // it's translated for consistency — the ANSWER's language is governed by the
+  // system prompt's rule, not the request's language.
   'overlay.qaMore': 'Go on',
   'overlay.qaMorePrompt': 'Expand your last answer with one short, concrete example.',
   'overlay.qaShorter': 'Shorter',
@@ -177,7 +178,7 @@ export const en = {
   'mqtt.passwordHint': 'Stored encrypted with DPAPI, same as the API keys, and never shown again.',
   'mqtt.passwordPlaceholder': 'Paste the broker password',
 
-  // ───────────────────── Ajustes · modelo ─────────────────────
+  // ───────────────────── Settings · model ─────────────────────
   'presets.title': 'Model presets',
   'presets.hint':
     'Save a set of models for a use case (interview, meeting, interpreter…) and switch to it in one click. A preset sets the transcription engine and model, the answering provider and model, the screen model and the prompt profile — nothing else.',
@@ -207,7 +208,7 @@ export const en = {
   'model.ctxLongCv': '16384 · with a long CV or screenshots',
   'model.ctxHeavy': '32768 · asks for a fair bit of memory',
 
-  // ───────────────────── Ajustes · modelo de pantalla ─────────────────────
+  // ───────────────────── Settings · screen model ─────────────────────
   'screen.title': 'Screen model',
   'screen.hint':
     'The one that solves `Ctrl+Alt+C` (code) and `Ctrl+Alt+Q` (quizzes). It can be different from the one that answers what is being said: that one needs speed, this one needs to read a screenshot properly. **It has to accept images.**',
@@ -229,7 +230,7 @@ export const en = {
   'screen.allOllama':
     'You are using Ollama for everything. If the chosen model does not see images, the screen actions will not work: this is where it pays off to split them and leave a multimodal one just for this.',
 
-  // ───────────────────── Ajustes · general ─────────────────────
+  // ───────────────────── Settings · general ─────────────────────
   'gen.stealth': 'Stealth mode',
   'gen.stealthDesc':
     'The overlay is excluded from screen capture at the Windows compositor level. Turn it off to record demos or debug the interface.',
@@ -258,7 +259,7 @@ export const en = {
   'gen.protects':
     '**What it protects and what it does not.** Stealth mode excludes the window from the capture pipeline (screen share, OBS, recorders). It does not protect you from a camera pointed at the screen, it does not hide the process from proctoring software that enumerates windows, and it does not hide what you say into the microphone.',
 
-  // ───────────────────── Ajustes · transcripción ─────────────────────
+  // ───────────────────── Settings · transcription ─────────────────────
   'stt.engine': 'Engine',
   'stt.engineDesc': 'Which audio sources get opened is decided separately.',
   'stt.goAudio': 'Go to Audio',
@@ -310,7 +311,7 @@ export const en = {
   'stt.progressBinary': 'Executable',
   'stt.progressModel': 'Model',
 
-  // ───────────────────── Ajustes · comportamiento ─────────────────────
+  // ───────────────────── Settings · behavior ─────────────────────
   'beh.auto': 'Automatic answers',
   'beh.autoDesc':
     'With the heuristic on, it detects questions aimed at you and answers without you pressing anything. The manual hotkey works in every mode.',
@@ -369,7 +370,7 @@ export const en = {
   'beh.speakerMeShort': 'you',
   'beh.speakerAnyShort': 'either of the two',
 
-  // ───────────────────── Ajustes · contexto ─────────────────────
+  // ───────────────────── Settings · context ─────────────────────
   'ctx.preparingFor': 'Preparing for',
   'ctx.inUse': '{count} in use: {names}',
   'ctx.nothingActive': 'nothing active yet',
@@ -400,7 +401,7 @@ export const en = {
   'ctx.notesPlaceholder': 'Anything the model had better know.',
   'ctx.notesHint': 'Supporting notes with no special treatment.',
 
-  // ───────────────────── Ajustes · skills ─────────────────────
+  // ───────────────────── Settings · skills ─────────────────────
   'sk.folderTitle': 'Skills folder',
   'sk.folderHint':
     'Each skill is a folder with a `SKILL.md` file inside: frontmatter with `name` and `description`, and the instructions below. The scripts and assets the format allows are **ignored** — see the note below.',
@@ -428,7 +429,7 @@ export const en = {
   'ctx.parsing': 'Reading…',
   'ctx.parseFailed': "Couldn't read that file",
 
-  // ───────────────────── Ajustes · historial ─────────────────────
+  // ───────────────────── Settings · history ─────────────────────
   'hist.save': 'Save conversations',
   'hist.on': 'On. They are written to {where}.',
   'hist.off': 'Off. Nothing touches the disk: the app goes back to listening without saving.',
@@ -446,7 +447,7 @@ export const en = {
   'hist.cancel': 'Cancel',
   'hist.clearAll': 'Delete the whole history',
 
-  // ───────────────────── Ajustes · atajos ─────────────────────
+  // ───────────────────── Settings · shortcuts ─────────────────────
   'hk.rejectedOne':
     'Windows rejected this shortcut: **{keys}**. Another application has it taken, so **it will do nothing** until you pick a different one.',
   'hk.rejectedMany':
@@ -485,7 +486,7 @@ export const en = {
   'hk.moveLeft': 'Move the overlay left',
   'hk.moveRight': 'Move the overlay right',
 
-  // ───────────────────── Ajustes · diagnóstico ─────────────────────
+  // ───────────────────── Settings · diagnostics ─────────────────────
   'diag.testStt': 'Test the transcription',
   'diag.testSttDesc':
     'It really connects to the configured engine: with a cloud engine it negotiates the model, with Whisper it runs the binary over a test audio clip.',
@@ -495,7 +496,7 @@ export const en = {
   'diag.copied': 'Copied',
   'diag.emptyLog': 'Nothing logged in this session yet.',
 
-  // ───────────────────── Ajustes · acerca de ─────────────────────
+  // ───────────────────── Settings · about ─────────────────────
   'about.what':
     'An assistant that listens to a meeting or an interview, transcribes who says what and suggests answers in a floating panel that **does not show up when you share your screen**. It also solves the code or the quiz in front of you, reading it from a screenshot.',
   'about.version': 'Version',
@@ -526,7 +527,7 @@ export const en = {
   'about.legal':
     'Using it is on you: many companies restrict AI assistants in their hiring processes, and technical assessment platforms usually forbid them in their terms. In several jurisdictions, on top of that, keeping the transcript of a conversation counts the same as recording it.',
 
-  // ───────────────────── Ajustes · espejo del móvil ─────────────────────
+  // ───────────────────── Settings · phone mirror ─────────────────────
   'ph.turnOn': 'Turn the mirror on',
   'ph.onLan': 'Serving on your local network. The link expires when you turn it off.',
   'ph.onLocal': 'Serving on this machine. The link expires when you turn it off.',
@@ -552,7 +553,7 @@ export const en = {
   'ph.sentHint':
     'The **answers** go, and whether listening is active. **The transcript does not go**: what the other person said is not duplicated onto a second device for convenience. Everything stays on your network — the bridge is served by your own computer, with no cloud in between, and it shuts down with the app.',
 
-  // ───────────────────── Ajustes · MQTT ─────────────────────
+  // ───────────────────── Settings · MQTT ─────────────────────
   'mq.publish': 'Publish to a broker',
   'mq.brokerTitle': 'Broker',
   'mq.brokerHint':
@@ -591,7 +592,7 @@ export const en = {
   'mq.yourDevice':
     'And what your device does with what it receives is up to you: we publish here, and that is where our part ends.',
 
-  // ───────────────────── Ajustes · audio y flecos ─────────────────────
+  // ───────────────────── Settings · audio and odds and ends ─────────────────────
   'aud.captureTitle': 'Audio capture',
   'aud.listening': 'Listening',
   'aud.paused': 'Paused',
@@ -640,9 +641,10 @@ export const en = {
   'aud.captureHint':
     'Two independent sources: your microphone and the system output. Keeping them apart is what makes it possible to tell who is speaking without diarisation.',
 
-  // ───────────────────── Errores del proceso principal ─────────────────────
-  // Se leen en el OVERLAY, así que van traducidos: sin esto, la app entera en
-  // inglés soltaba un «Falta la API key de Anthropic» en cuanto algo fallaba.
+  // ───────────────────── Main process errors ─────────────────────
+  // They're read in the OVERLAY, so they're translated: without this, the whole
+  // app in English blurted out a «Falta la API key de Anthropic» whenever
+  // something failed.
   'err.noKeyAnthropic':
     'The Anthropic API key is missing. Set it in the dashboard or switch provider.',
   'err.noKeyGoogle': 'The Google API key is missing. Set it in the dashboard or switch provider.',
@@ -843,7 +845,7 @@ export const en = {
   'ol.vision': 'vision',
   'mdl.providerOllama': 'Ollama (local)',
 
-  // ───────────────────── Ajustes · claves ─────────────────────
+  // ───────────────────── Settings · keys ─────────────────────
   'keys.title': 'API keys',
   'keys.hint':
     'Stored encrypted with DPAPI in your Windows profile, and only the main process reads them. They are never shown back and never leave this machine except towards the provider you choose.',
@@ -873,7 +875,7 @@ export const en = {
   'keys.ollamaHint':
     'It runs on your machine, so there is nothing to paste here. What is worth checking is that the server is alive and has some model downloaded.',
 
-  // ───────────────────── Ajustes · secciones ─────────────────────
+  // ───────────────────── Settings · sections ─────────────────────
   'sec.general': 'General',
   'sec.generalHint':
     'Whether the overlay shows up when you share your screen, and how it looks meanwhile.',
@@ -910,7 +912,7 @@ export const en = {
   'sec.about': 'About',
   'sec.aboutHint': 'What Tayori is, which version you have and what it does with your data.',
 
-  // ────────────────────────────── Ajustes ──────────────────────────────
+  // ────────────────────────────── Settings ──────────────────────────────
   'dash.language': 'Language',
   'dash.languageDesc':
     'The interface language. It has nothing to do with the language you speak in the meeting — that one is set under Transcription.',
@@ -927,7 +929,7 @@ export const en = {
   'stt.whisperBase': 'Base (141 MB) — tight outside English',
   'stt.whisperSmall': 'Small (465 MB) — recommended outside English',
 
-  // ───────────────────── Ajustes · atajos ─────────────────────
+  // ───────────────────── Settings · shortcuts ─────────────────────
   'hk.needsModifier':
     'A global shortcut needs at least Ctrl, Alt or Shift: without a modifier, that key would stop working everywhere in the system.',
   'hk.taken':
@@ -939,11 +941,11 @@ export const en = {
     'The switch on each row turns that shortcut off. A global shortcut takes the combination away from whatever application has focus, so turning off one you do not use hands it back — the combination stops being registered and your editor, your game or another app can use it again. The combination is kept, so turning it back on does not mean typing it in again.',
   'hk.offDesc': 'Off: the combination is free for other applications.',
 
-  // ───────────────────── Ajustes · diagnóstico ─────────────────────
+  // ───────────────────── Settings · diagnostics ─────────────────────
   'diag.logAt': 'The main process log is written to `{where}`.',
   'diag.dataFolder': 'your data folder',
   'diag.refresh': 'Refresh the log',
-  // Lo que devuelve «Probar la transcripción». Se lee en la misma tarjeta.
+  // What «Test transcription» returns. Read in the same card.
   'diag.whisperNoBinary': 'whisper-cli.exe was not found. Download it from above.',
   'diag.whisperNoModel': 'The "{model}" model is not downloaded.',
   'diag.whisperOk': 'Whisper works. Executable: {binary}',
@@ -955,11 +957,11 @@ export const en = {
   'diag.openaiLiveOk': 'Session opened with "{model}".',
   'diag.openaiTranscribeOk': 'Connected with "{model}".',
 
-  // ───────────────────── Ajustes · espejo del móvil ─────────────────────
+  // ───────────────────── Settings · phone mirror ─────────────────────
   'ph.serverFailed': 'The server could not be opened:',
   'ph.scanHint':
     'Open the camera on your phone and point it here. If you prefer, type the link by hand — it is the same one.',
-  // La página que se sirve al teléfono. Van a nodos de texto, sin marcado.
+  // The page served to the phone. They go to text nodes, no markup.
   'ph.pgTitle': 'Mirror',
   'ph.pgConnecting': 'Connecting…',
   'ph.pgConnected': 'Connected',
@@ -979,7 +981,7 @@ export const en = {
   'ph.pgExpiredPlain': 'Link expired. Scan the QR code from the dashboard again.',
   'ph.pgNotFound': 'There is nothing here.',
 
-  // ───────────────────── Ajustes · MQTT ─────────────────────
+  // ───────────────────── Settings · MQTT ─────────────────────
   'mq.errNoConnection': 'There is no connection to the broker.',
   'mq.testQuestion': 'Test message from the assistant',
   'mq.testText': 'If you can see this on your device, the setup works.',
@@ -1043,7 +1045,7 @@ export const en = {
   'sk.errNoFile': 'The folder has no SKILL.md in it.',
   'sk.errUnreadable': 'The SKILL.md could not be read:',
 
-  // ───────────────────── Más errores del proceso principal ─────────────────────
+  // ───────────────────── More main process errors ─────────────────────
   'err.noFirstToken':
     '{provider} did not answer within {seconds} s. If it is Ollama, check that the server is still alive (ollama ps).',
   'err.generationTimeout': 'Generation ran past the time limit.',
@@ -1072,16 +1074,16 @@ export const en = {
   'notice.idleStop': 'Listening stopped after inactivity.',
 
   /*
-   * ───────────────────── La guía de modelos ─────────────────────
+   * ───────────────────── The model guide ─────────────────────
    *
-   * Es un DOCUMENTO, no una pantalla: lo genera `shared/model-guide.ts` y se
-   * abre en el navegador. Vive en esta misma tabla y no en un archivo aparte
-   * porque lo lee una persona igual que cualquier ajuste, y separarlo daría dos
-   * mecanismos de traducción con dos formas de olvidarse de una clave.
+   * It's a DOCUMENT, not a screen: `shared/model-guide.ts` generates it and it
+   * opens in the browser. It lives in this same table and not in a separate file
+   * because a person reads it just like any setting, and separating it would give
+   * two translation mechanisms with two ways to forget a key.
    *
-   * Las que se pintan con `raw()` en el generador llevan HTML dentro a
-   * propósito —`<strong>`, `<code>`, `<em>`— porque el énfasis no cae en la
-   * misma palabra en los dos idiomas.
+   * The ones painted with `raw()` in the generator carry HTML inside on purpose
+   * —`<strong>`, `<code>`, `<em>`— because the emphasis doesn't fall on the same
+   * word in the two languages.
    */
   'guide.docTitle': 'Which model to use',
   'guide.lead':
@@ -1169,7 +1171,7 @@ export const en = {
     '<strong>How well a model does on YOUR exam.</strong> Nothing beats trying it: take a screenshot of an exercise you already know how to solve and compare. It is the only figure that matters and it takes two minutes to get.',
   'guide.footer':
     'Generated by Tayori for this machine. This document is not sent anywhere: it was written to your data folder and opened in your browser.',
-  // Notas de los modelos locales.
+  // Notes of the local models.
   'guide.llama1b':
     'The bare minimum that works. Good for rephrasing and summarising, not for reasoning.',
   'guide.llama3b': 'The balance for a modest machine. It answers quickly on CPU.',
@@ -1185,7 +1187,7 @@ export const en = {
   'guide.llava13b': 'A veteran, very well tested. Worse with small print than qwen2.5vl.',
   'guide.qwenvl32b':
     'The best you can run locally for reading screens. It asks for a real machine.',
-  // Precios, visión y notas de los de pago.
+  // Prices, vision and notes of the paid ones.
   'guide.priceHaiku45': '$1 / $5 per million tokens (input / output)',
   'guide.priceSonnet5': '$3 / $15 (introductory $2 / $10 until 31-08-2026)',
   'guide.priceOpus5': '$5 / $25',
@@ -1218,7 +1220,7 @@ export const en = {
   'guide.sol':
     'OpenAI’s frontier model, for complex work. Its output is the most expensive in the table: like Opus, it makes more sense for the screen ONLY than for answering every sentence of a meeting.',
 
-  // Fallos que se leen en Diagnóstico o en el overlay, no en el log.
+  // Failures read in Diagnostics or in the overlay, not in the log.
   'diag.logUnreadable': 'The log could not be read: {detail}',
   'err.whisperUnzip': 'The Whisper binary could not be unzipped: {detail}',
   'err.whisperNoExe': 'The whisper.cpp zip was unpacked but had no executable in it.',

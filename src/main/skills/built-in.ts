@@ -1,29 +1,29 @@
 import type { Skill } from '@shared/types';
 
 /**
- * Las skills que vienen con la app.
+ * The skills that ship with the app.
  *
- * Existe una, y no es de relleno: es el fallo más caro que tiene un asistente
- * como éste. Las respuestas se leen **en voz alta**, y un texto que suena a
- * generado se nota antes hablado que escrito — las muletillas de modelo
- * («es importante destacar», «en el vertiginoso mundo de») cantan en una
- * entrevista de una forma que no cantan en un documento.
+ * There's one, and it's not filler: it's the most expensive failure an assistant
+ * like this has. The answers are read **out loud**, and a text that sounds
+ * generated stands out more spoken than written — the model's tics («it's
+ * important to highlight», «in the fast-paced world of») stand out in an
+ * interview in a way they don't in a document.
  *
- * Van en el código y no como carpeta en disco por dos razones: una skill que
- * el usuario puede borrar sin querer no es un valor de fábrica, y así la
- * carpeta de skills empieza **vacía**, que es lo que deja claro que lo que hay
- * dentro lo ha puesto él.
+ * They go in the code and not as a folder on disk for two reasons: a skill the
+ * user can delete by accident isn't a factory default, and this way the skills
+ * folder starts **empty**, which is what makes clear that whatever is inside was
+ * put there by them.
  *
- * Se puede sustituir: una carpeta con el mismo id gana. Ver `loadSkills()`.
+ * It can be replaced: a folder with the same id wins. See `loadSkills()`.
  */
 export const BUILT_IN_SKILLS: Skill[] = [
   {
     id: 'humanizar',
     /*
-     * El nombre va dos veces a propósito. `name` es lo que se cuela dentro del
-     * system prompt —«ha activado la instrucción "…"»— y los prompts de esta
-     * app se quedan en español; `nameKey` es lo que lee una persona en el
-     * desplegable, y eso sí sigue al idioma de la interfaz.
+     * The name goes twice on purpose. `name` is what slips into the system
+     * prompt —«has activated the instruction "…"»— and this app's prompts stay
+     * in Spanish; `nameKey` is what a person reads in the dropdown, and that one
+     * does follow the interface language.
      */
     name: 'Que no suene a IA',
     nameKey: 'sk.humanizeName',

@@ -30,14 +30,14 @@ import type {
 } from '@shared/types';
 
 /**
- * Puente IPC expuesto al renderer.
+ * IPC bridge exposed to the renderer.
  *
- * `contextIsolation` está activo y `nodeIntegration` desactivado: el renderer
- * no tiene acceso a Node ni a `ipcRenderer` directamente, sólo a estos métodos.
- * Ninguno de ellos puede devolver una API key.
+ * `contextIsolation` is on and `nodeIntegration` off: the renderer has no access
+ * to Node or to `ipcRenderer` directly, only to these methods. None of them can
+ * return an API key.
  */
 
-/** Helper para suscripciones: devuelve la función de baja para usar en useEffect. */
+/** Subscription helper: returns the unsubscribe function to use in useEffect. */
 function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_e: Electron.IpcRendererEvent, payload: T): void => cb(payload);
   ipcRenderer.on(channel, listener);
@@ -58,11 +58,11 @@ const api = {
       ipcRenderer.invoke(IPC.secretsSet, key, value),
     clear: (key: SecretKey): Promise<SecretsPresence> => ipcRenderer.invoke(IPC.secretsClear, key),
     /**
-     * Se guardó o se borró una clave, en cualquier ventana.
+     * A key was saved or deleted, in any window.
      *
-     * Lo escucha el overlay: su aviso de «Falta configurar la IA» depende de
-     * esto, y sin el evento se quedaba con la respuesta del arranque. Viaja la
-     * presencia —cuatro booleanos—, nunca una clave.
+     * The overlay listens to it: its «The AI needs configuring» warning depends
+     * on this, and without the event it was stuck with the startup answer. The
+     * presence travels —four booleans—, never a key.
      */
     onChange: (cb: (p: SecretsPresence) => void) => subscribe<SecretsPresence>(IPC.onSecrets, cb),
   },
@@ -76,31 +76,31 @@ const api = {
     openDashboard: (): Promise<void> => ipcRenderer.invoke(IPC.dashboardOpen),
 
     /**
-     * Controles de la barra de título propia del dashboard (ventana sin marco).
-     * Van por `send`: son un clic puntual y no necesitan respuesta. `close`
-     * cierra SÓLO el dashboard —el overlay es la app y sigue vivo—.
+     * Controls for the dashboard's own title bar (frameless window). They go by
+     * `send`: they're a one-off click and need no response. `close` closes ONLY
+     * the dashboard —the overlay is the app and stays alive—.
      */
     minimizeDashboard: (): void => ipcRenderer.send(IPC.dashboardMinimize),
     toggleMaximizeDashboard: (): void => ipcRenderer.send(IPC.dashboardToggleMaximize),
     closeDashboard: (): void => ipcRenderer.send(IPC.dashboardClose),
 
     /**
-     * Alterna si el overlay deja pasar el ratón. Se envía con `send` y no con
-     * `invoke` porque se dispara en cada mousemove: esperar una respuesta por
-     * cada uno añadiría latencia al hover sin ninguna ventaja.
+     * Toggles whether the overlay lets the mouse through. It's sent with `send`
+     * and not `invoke` because it fires on every mousemove: waiting for a response
+     * on each one would add latency to the hover with no advantage.
      */
     setMouseIgnore: (ignore: boolean): void => ipcRenderer.send(IPC.overlayMouseIgnore, ignore),
 
     /**
-     * El main pide re-sincronizar el seguimiento del ratón (tras cerrarse el
-     * dashboard, que interrumpe el reenvío de mousemove). Ver `useChromeMouse`.
+     * The main process asks to re-sync the mouse tracking (after the dashboard
+     * closes, which interrupts the mousemove forwarding). See `useChromeMouse`.
      */
     onResync: (cb: () => void): (() => void) => subscribe<void>(IPC.onOverlayResync, cb),
 
     /**
-     * Vuelve el overlay enfocable para poder escribir en él. Se envía con
-     * `invoke` y no con `send` porque el renderer necesita saber que ya se
-     * aplicó antes de enfocar el textarea.
+     * Makes the overlay focusable so you can write in it. It's sent with `invoke`
+     * and not `send` because the renderer needs to know it's already applied
+     * before focusing the textarea.
      */
     setInteractive: (interactive: boolean): Promise<void> =>
       ipcRenderer.invoke(IPC.overlayInteractive, interactive),
@@ -120,9 +120,9 @@ const api = {
   transcript: {
     onSegment: (cb: (s: TranscriptSegment) => void) =>
       subscribe<TranscriptSegment>(IPC.onTranscript, cb),
-    /** Fallos del motor de transcripción, para poder enseñarlos en la UI. */
+    /** Transcription engine failures, to be able to show them in the UI. */
     onError: (cb: (message: string) => void) => subscribe<string>(IPC.onSTTError, cb),
-    /** El detector decidió no responder, y por qué. */
+    /** The detector decided not to answer, and why. */
     onAutoSkip: (cb: (info: { text: string; reason: string }) => void) =>
       subscribe<{ text: string; reason: string }>(IPC.onAutoSkip, cb),
     testConnection: (): Promise<{ ok: boolean; detail: string }> =>
@@ -130,16 +130,17 @@ const api = {
   },
 
   /**
-   * Copiar al portapapeles. Pasa por el main a la fuerza: `navigator.clipboard`
-   * exige foco, y el overlay no lo toma nunca. Ver `IPC.clipboardWrite`.
+   * Copy to the clipboard. Goes through the main process by force:
+   * `navigator.clipboard` requires focus, and the overlay never takes it. See
+   * `IPC.clipboardWrite`.
    */
   clipboard: {
     write: (text: string): Promise<void> => ipcRenderer.invoke(IPC.clipboardWrite, text),
   },
 
   /**
-   * Contexto: extrae texto de un archivo (PDF, Word) en el main. Los .txt/.md
-   * los lee el renderer con FileReader y no llegan aquí.
+   * Context: extracts text from a file (PDF, Word) in the main process. The
+   * .txt/.md ones are read by the renderer with FileReader and don't reach here.
    */
   context: {
     parseFile: (
@@ -150,8 +151,8 @@ const api = {
   },
 
   /**
-   * Captura por trozos. El estado (cuántos trozos, si graba) llega por evento y
-   * lo pinta el chip del overlay; resolver y vaciar son los botones del chip.
+   * Chunk capture. The state (how many chunks, whether recording) arrives by
+   * event and the overlay chip paints it; solve and clear are the chip's buttons.
    */
   scrollCapture: {
     onChange: (cb: (s: ScrollCaptureState) => void) =>
@@ -160,17 +161,17 @@ const api = {
     clear: (): Promise<void> => ipcRenderer.invoke(IPC.scrollCaptureClear),
   },
 
-  /** Avisos que no vienen del audio (fallo de captura de pantalla, etc.). */
+  /** Notices that don't come from the audio (screen-capture failure, etc.). */
   notices: {
     on: (cb: (message: string) => void) => subscribe<string>(IPC.onNotice, cb),
   },
 
-  /** Teleprompter: avanzar o retroceder una línea, desde el atajo global. */
+  /** Teleprompter: advance or go back one line, from the global shortcut. */
   teleprompter: {
     onMove: (cb: (step: number) => void) => subscribe<number>(IPC.onTeleprompterMove, cb),
   },
 
-  /** Cuántos intercambios reenvía el asistente en cada consulta. */
+  /** How many exchanges the assistant resends on each query. */
   memory: {
     get: (): Promise<{ turns: number; max: number }> => ipcRenderer.invoke(IPC.memoryGet),
     onChange: (cb: (m: { turns: number; max: number }) => void) =>
@@ -178,7 +179,7 @@ const api = {
   },
 
   hotkeys: {
-    /** Aceleradores que Windows rechazó; el dashboard los marca en rojo. */
+    /** Accelerators Windows rejected; the dashboard marks them in red. */
     getFailed: (): Promise<string[]> => ipcRenderer.invoke(IPC.hotkeysGetFailed),
     onFailures: (cb: (failed: string[]) => void) => subscribe<string[]>(IPC.onHotkeyFailures, cb),
   },
@@ -189,8 +190,8 @@ const api = {
   },
 
   /**
-   * Espejo en el teléfono. Sólo de lectura: encenderlo y apagarlo son ajustes
-   * normales, así que van por `settings.update` y no por un canal propio.
+   * Phone mirror. Read-only: turning it on and off are normal settings, so they
+   * go through `settings.update` and not through a channel of their own.
    */
   phone: {
     getStatus: (): Promise<PhoneMirrorStatus> => ipcRenderer.invoke(IPC.phoneGetStatus),
@@ -199,25 +200,25 @@ const api = {
   },
 
   /**
-   * Broker MQTT. Sólo de lectura y una prueba: encenderlo y apuntarlo a un
-   * broker son ajustes normales y van por `settings.update`.
+   * MQTT broker. Read-only and one test: turning it on and pointing it at a
+   * broker are normal settings and go through `settings.update`.
    */
   mqtt: {
     getStatus: (): Promise<MqttStatus> => ipcRenderer.invoke(IPC.mqttGetStatus),
-    /** Publica un mensaje de prueba para comprobar el montaje de una vez. */
+    /** Publishes a test message to check the setup in one go. */
     test: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC.mqttTest),
     onStatus: (cb: (status: MqttStatus) => void) => subscribe<MqttStatus>(IPC.onMqttStatus, cb),
   },
 
   /**
-   * Asistente de configuración. Las dos acciones que tocan la máquina —instalar
-   * Ollama y descargar un modelo— sólo se disparan desde un botón que ya explicó
-   * qué iba a hacer y cuánto ocupa.
+   * Setup wizard. The two actions that touch the machine —install Ollama and
+   * download a model— are only triggered from a button that already explained
+   * what it was going to do and how much it takes up.
    */
   setup: {
-    /** `false` cuando no hay winget: entonces se ofrece el enlace, no el botón. */
+    /** `false` when there's no winget: then the link is offered, not the button. */
     canInstall: (): Promise<boolean> => ipcRenderer.invoke(IPC.setupCanInstall),
-    /** Si Ollama está instalado, corra o no su servidor. */
+    /** Whether Ollama is installed, its server running or not. */
     ollamaInstalled: (): Promise<boolean> => ipcRenderer.invoke(IPC.setupOllamaInstalled),
     installOllama: (): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.setupInstallOllama),
@@ -231,13 +232,13 @@ const api = {
     now: (): Promise<void> => ipcRenderer.invoke(IPC.askNow),
     withText: (text: string): Promise<void> => ipcRenderer.invoke(IPC.askWithText, text),
     abort: (): Promise<void> => ipcRenderer.invoke(IPC.askAbort),
-    /** Captura la pantalla y resuelve lo que haya en ella: código o test. */
+    /** Captures the screen and solves whatever is on it: code or quiz. */
     solveOnScreen: (task: ScreenTask = 'code'): Promise<void> =>
       ipcRenderer.invoke(IPC.askSolveScreen, task),
-    /** Vacía la memoria del asistente sin tocar la conversación. */
+    /** Clears the assistant's memory without touching the conversation. */
     forgetContext: (): Promise<{ turns: number; max: number }> =>
       ipcRenderer.invoke(IPC.askForgetContext),
-    /** Extiende la última respuesta de código, añadiendo a la misma respuesta. */
+    /** Extends the last code answer, appending to the same answer. */
     continue: (): Promise<void> => ipcRenderer.invoke(IPC.askContinue),
     onAnswer: (cb: (a: Answer) => void) => subscribe<Answer>(IPC.onAnswer, cb),
   },
@@ -249,7 +250,7 @@ const api = {
   },
 
   history: {
-    /** Empieza una conversación nueva y limpia el contexto en curso. */
+    /** Starts a new conversation and clears the in-progress context. */
     newConversation: (): Promise<void> => ipcRenderer.invoke(IPC.conversationNew),
     list: (): Promise<ConversationSummary[]> => ipcRenderer.invoke(IPC.historyList),
     get: (id: string): Promise<Conversation | null> => ipcRenderer.invoke(IPC.historyGet, id),
@@ -262,10 +263,10 @@ const api = {
 
   llm: {
     listModels: (): Promise<ModelInfo[]> => ipcRenderer.invoke(IPC.llmListModels),
-    /** Modelos de un proveedor concreto, aunque no sea el activo. */
+    /** Models of a specific provider, even if it isn't the active one. */
     listModelsFor: (providerId: LLMProviderId): Promise<ModelInfo[]> =>
       ipcRenderer.invoke(IPC.llmListModels, providerId),
-    /** Sin `providerId` prueba el activo; con él, el que se le pase. */
+    /** Without `providerId` it tests the active one; with it, the one passed. */
     testConnection: (providerId?: LLMProviderId): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.llmTestConnection, providerId),
   },
@@ -277,12 +278,12 @@ const api = {
   },
 
   /**
-   * Skills: instrucciones locales que refinan cómo responde el modelo.
+   * Skills: local instructions that refine how the model answers.
    *
-   * Sólo se leen. El renderer no puede escribir un SKILL.md, y no es una
-   * carencia: lo que hay en esa carpeta lo pone la persona con su editor, que
-   * es lo que hace que se pueda versionar, compartir y revisar antes de que
-   * acabe dentro de un prompt.
+   * They're only read. The renderer can't write a SKILL.md, and it's not a
+   * shortcoming: what's in that folder is put there by the person with their
+   * editor, which is what makes it versionable, shareable and reviewable before it
+   * ends up inside a prompt.
    */
   skills: {
     list: (): Promise<Skill[]> => ipcRenderer.invoke(IPC.skillsList),
@@ -306,23 +307,24 @@ const api = {
     getStatus: (): Promise<OllamaStatus> => ipcRenderer.invoke(IPC.ollamaGetStatus),
   },
 
-  /** RAM, CPU y GPU: lo que necesita la guía de modelos locales. */
+  /** RAM, CPU and GPU: what the local-models guide needs. */
   system: {
     getSpecs: (): Promise<SystemSpecs> => ipcRenderer.invoke(IPC.systemGetSpecs),
-    /** Abre una URL http(s) en el navegador del sistema. */
+    /** Opens an http(s) URL in the system browser. */
     openExternal: (url: string): Promise<void> =>
       ipcRenderer.invoke(IPC.systemOpenExternal, url),
   },
 
-  /** La guía completa de modelos, generada y abierta en el navegador. */
+  /** The complete model guide, generated and opened in the browser. */
   guide: {
     open: (): Promise<{ ok: boolean; path?: string; error?: string }> =>
       ipcRenderer.invoke(IPC.guideOpen),
   },
 
   /**
-   * Sólo lo usa la ventana `audio-worker`. Va aquí y no en un preload aparte
-   * para no duplicar el bundle; el overlay y el dashboard simplemente lo ignoran.
+   * Only the `audio-worker` window uses it. It goes here and not in a separate
+   * preload so as not to duplicate the bundle; the overlay and the dashboard
+   * simply ignore it.
    */
   audioWorker: {
     onCommand: (cb: (c: CaptureCommand) => void) =>

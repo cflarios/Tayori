@@ -1,20 +1,20 @@
-## Reconstruye y publica el .exe portable de un tag que YA existe.
+## Rebuilds and publishes the portable .exe of a tag that ALREADY exists.
 ##
-## Es la válvula de escape manual, no el camino normal: de eso se encarga
-## `release.yml`, que crea el tag y adjunta los binarios al fusionar la PR de
-## release. Este workflow sirve cuando ese job falló, cuando hay que rehacer un
-## binario, o cuando el release se creó a mano.
+## It's the manual escape valve, not the normal path: that's handled by
+## `release.yml`, which creates the tag and attaches the binaries when merging the
+## release PR. This workflow is for when that job failed, when a binary has to be
+## remade, or when the release was created by hand.
 ##
-## Nació porque `release.yml` depende de que Release Please pueda ABRIR una pull
-## request, y eso viene desactivado por defecto en GitHub ("Allow GitHub Actions
-## to create and approve pull requests"). Con esa opción apagada, release-please
-## calcula la versión, genera el CHANGELOG, crea la rama... y muere en el último
-## paso, dejando el repositorio sin release. Crear un RELEASE, en cambio, sí
-## está permitido con `contents: write`.
+## It was born because `release.yml` depends on Release Please being able to OPEN a
+## pull request, and that comes disabled by default in GitHub ("Allow GitHub
+## Actions to create and approve pull requests"). With that option off,
+## release-please computes the version, generates the CHANGELOG, creates the
+## branch... and dies at the last step, leaving the repository without a release.
+## Creating a RELEASE, by contrast, is allowed with `contents: write`.
 ##
-## **Sin disparo por tag a propósito.** Ahora que los tags son `v*` en los dos
-## sitios, engancharlo a `push: tags` haría que cada release compilara dos veces
-## en paralelo, unos ocho minutos de runner de Windows para el mismo binario.
+## **No tag trigger on purpose.** Now that the tags are `v*` in both places,
+## hooking it to `push: tags` would make each release build twice in parallel,
+## about eight minutes of Windows runner for the same binary.
 
 name: Publish release
 
@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag ya existente que se quiere publicar (ej. v0.2.0)'
+        description: 'Existing tag to publish (e.g. v0.2.0)'
         required: true
 
 permissions:
@@ -68,12 +68,12 @@ jobs:
           $artifact = Get-ChildItem -Path release -Filter '*-portable.exe' | Select-Object -First 1
           if ($null -eq $artifact) { throw 'No se generó el ejecutable portable.' }
 
-          # El .zip existe porque Windows SmartScreen y algunos gestores de
-          # descarga tratan mucho peor un .exe suelto que uno comprimido.
+          # The .zip exists because Windows SmartScreen and some download
+          # managers treat a loose .exe far worse than a compressed one.
           $zip = Join-Path $artifact.DirectoryName "$($artifact.BaseName).zip"
           Compress-Archive -LiteralPath $artifact.FullName -DestinationPath $zip -Force
 
-          # Las notas salen del CHANGELOG que ya generó Release Please.
+          # The notes come from the CHANGELOG that Release Please already generated.
           $notes = if (Test-Path CHANGELOG.md) { 'CHANGELOG.md' } else { $null }
 
           $exists = gh release view $env:TAG 2>$null

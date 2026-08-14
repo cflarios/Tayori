@@ -1,14 +1,15 @@
-# NO cambiar `appId`: identifica la instalación para NSIS, y cambiarlo orfanaría
-# las instalaciones existentes (una actualización se vería como una app nueva).
+# Do NOT change `appId`: it identifies the installation for NSIS, and changing it
+# would orphan existing installations (an update would look like a new app).
 appId: com.interviewhelper.app
-# La marca que ve el usuario: el descargable, el .exe, el acceso directo y la
-# imagen del proceso en el Administrador de tareas. Antes iba con un nombre neutro
-# ("Audio Helper") para no delatar de un vistazo qué es la app; se decidió usar la
-# marca real, porque el sigilo que de verdad importa —invisible al compartir
-# pantalla, vía setContentProtection— no depende de este nombre. Es solo cosmético
-# y se puede cambiar sin romper nada: `app.name` (la ruta de userData con los
-# ajustes y las API keys cifradas) NO sale de aquí, sino de `package.json` `name`
-# y de `app.setName('interview-helper')` en main/index.ts, que siguen intactos.
+# The brand the user sees: the download, the .exe, the shortcut and the process
+# image in Task Manager. It used to carry a neutral name ("Audio Helper") so as
+# not to give away at a glance what the app is; it was decided to use the real
+# brand, because the stealth that really matters —invisible when sharing the
+# screen, via setContentProtection— doesn't depend on this name. It's only
+# cosmetic and can be changed without breaking anything: `app.name` (the userData
+# path with the settings and the encrypted API keys) does NOT come from here, but
+# from `package.json` `name` and from `app.setName('interview-helper')` in
+# main/index.ts, which stay intact.
 productName: Tayori
 executableName: Tayori
 copyright: MIT
@@ -21,24 +22,24 @@ files:
   - out/**/*
   - package.json
 
-# No hay módulos nativos que reconstruir: whisper.cpp se usa como binario
-# externo descargado en tiempo de ejecución, no como binding de Node. Eso evita
-# electron-rebuild, node-gyp y la dependencia de Visual Studio Build Tools.
+# There are no native modules to rebuild: whisper.cpp is used as an external
+# binary downloaded at runtime, not as a Node binding. That avoids
+# electron-rebuild, node-gyp and the Visual Studio Build Tools dependency.
 npmRebuild: false
 
 win:
-  # Icono del .exe (y del instalador y accesos directos): el fantasmita de Tayori.
-  # Es un .ico multi-tamaño (256→16) generado desde `build/icon.svg` con
-  # `scripts/make-icon.mjs`. `build/` es la carpeta de buildResources, así que
-  # electron-builder lo encuentra solo, pero se deja explícito.
+  # Icon of the .exe (and of the installer and shortcuts): the Tayori ghost.
+  # It's a multi-size .ico (256→16) generated from `build/icon.svg` with
+  # `scripts/make-icon.mjs`. `build/` is the buildResources folder, so
+  # electron-builder finds it on its own, but it's left explicit.
   icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
     - target: portable
       arch: [x64]
-  # Sin firma de código: es una app personal. Windows SmartScreen avisará la
-  # primera vez, lo que es esperado y está documentado en el README.
+  # No code signing: it's a personal app. Windows SmartScreen will warn the
+  # first time, which is expected and documented in the README.
   signAndEditExecutable: true
 
 nsis:
@@ -47,12 +48,12 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  # Coherente con la marca: el acceso directo también lleva el nombre real.
+  # Consistent with the brand: the shortcut also carries the real name.
   shortcutName: Tayori
 
 portable:
   artifactName: ${productName}-${version}-portable.exe
 
-# Los assets de Whisper (binario y modelos) NO se empaquetan: son cientos de
-# megas que la mayoría de usuarios no necesitan si usan Gemini Live. Se
-# descargan bajo demanda desde el dashboard a userData.
+# The Whisper assets (binary and models) are NOT packaged: they're hundreds of
+# megs that most users don't need if they use Gemini Live. They're downloaded on
+# demand from the dashboard to userData.

@@ -2,26 +2,26 @@ import { DEFAULT_UI_LANG, translate, type UIKey, type UILang } from './i18n';
 import { adviseLocalModels, type SystemSpecs } from './types';
 
 /**
- * La guía de modelos, como documento.
+ * The model guide, as a document.
  *
- * La tarjeta del dashboard responde "¿qué me pongo?" en dos líneas, y eso es lo
- * que hace falta con la ventana abierta. Esto responde a la pregunta de al lado
- * —"¿y por qué, y qué más hay, y cuánto cuesta?"— que necesita tablas, tramos y
- * comparativas, y que en una columna de ajustes sería un muro.
+ * The dashboard card answers "what do I set?" in two lines, and that's what's
+ * needed with the window open. This answers the neighboring question —"and why,
+ * and what else is there, and how much does it cost?"— which needs tables, tiers
+ * and comparisons, and which in a settings column would be a wall.
  *
- * Se genera y se abre en el navegador en lugar de vivir en una ventana propia:
- * una ventana más de Electron es una ventana más que registrar en la protección
- * de captura, y la regla de oro de este proyecto es que el modo invisible se
- * verifica, no se asume. Un documento no tiene ese riesgo, se puede guardar, e
- * imprimir, y leer con la app cerrada.
+ * It's generated and opened in the browser instead of living in a window of its
+ * own: one more Electron window is one more window to register in the capture
+ * protection, and this project's golden rule is that invisible mode is verified,
+ * not assumed. A document doesn't have that risk, it can be saved, printed, and
+ * read with the app closed.
  *
- * **Toda la prosa son claves de la tabla de traducciones**, incluidas las notas
- * de cada modelo. Es un documento que lee una persona, así que sigue al idioma
- * de la interfaz como cualquier otra pantalla; lo que no se traduce son los ids
- * de los modelos, que son nombres propios, ni las cifras.
+ * **All the prose are keys of the translations table**, including each model's
+ * notes. It's a document a person reads, so it follows the interface language
+ * like any other screen; what isn't translated are the model ids, which are
+ * proper names, nor the figures.
  */
 
-/** Escapa lo que venga de fuera: el nombre de la CPU y de la GPU los da el sistema. */
+/** Escapes what comes from outside: the CPU and GPU names are given by the system. */
 function esc(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -31,13 +31,13 @@ function esc(text: string): string {
 }
 
 /**
- * Un modelo local, con lo que de verdad decide si sirve.
+ * A local model, with what really decides whether it's usable.
  *
- * `weightGB` es el tamaño de la descarga cuantizada a 4 bits, que es lo que
- * ocupa en disco y, aproximadamente, en memoria — va como número porque el
- * separador decimal no es el mismo en los dos idiomas. `needs` es la RAM que
- * conviene tener libre contando el sistema y la ventana de contexto, y se deja
- * como texto porque son cifras y guiones: igual en cualquier idioma.
+ * `weightGB` is the size of the 4-bit-quantized download, which is what it takes
+ * up on disk and, roughly, in memory — it goes as a number because the decimal
+ * separator isn't the same in the two languages. `needs` is the RAM worth having
+ * free counting the system and the context window, and it's left as text because
+ * they're figures and dashes: the same in any language.
  */
 interface LocalModel {
   id: string;
@@ -64,12 +64,12 @@ const VISION_MODELS: LocalModel[] = [
 ];
 
 /**
- * Nube, ordenada por lo que cuesta.
+ * Cloud, ordered by what it costs.
  *
- * Los precios de Anthropic y los de OpenAI están verificados contra la
- * referencia oficial de cada uno y llevan fecha; los de Google no se copian
- * porque no se pudieron verificar igual, y una cifra inventada en una tabla de
- * precios es peor que una remisión a la página del proveedor.
+ * Anthropic's and OpenAI's prices are verified against each one's official
+ * reference and carry a date; Google's aren't copied because they couldn't be
+ * verified the same way, and an invented figure in a price table is worse than a
+ * pointer to the provider's page.
  */
 interface CloudModel {
   id: string;
@@ -145,11 +145,11 @@ const CLOUD_MODELS: CloudModel[] = [
   },
 ];
 
-/** Combinaciones que responden a "y yo qué pongo". */
+/** Combinations that answer "so what do I set". */
 interface Recipe {
   title: UIKey;
   who: UIKey;
-  /** Los dos modelos van tal cual: son nombres propios. */
+  /** The two models go as-is: they're proper names. */
   chat: string;
   screen: string;
   cost: UIKey;
@@ -186,7 +186,7 @@ const RECIPES: Recipe[] = [
   },
 ];
 
-/** Lo que cuesta cada pulsación de pantalla, por modelo. */
+/** What each screen press costs, by model. */
 const SCREEN_COSTS: { label: string; cost: UIKey }[] = [
   { label: 'GPT-5.6 Luna', cost: 'guide.costLuna' },
   { label: 'Claude Haiku 4.5', cost: 'guide.costHaiku' },
@@ -196,10 +196,10 @@ const SCREEN_COSTS: { label: string; cost: UIKey }[] = [
   { label: 'GPT-5.6 Sol', cost: 'guide.costSol' },
 ];
 
-/** El locale con el que `Intl` formatea fechas y decimales. */
+/** The locale with which `Intl` formats dates and decimals. */
 const LOCALE: Record<UILang, string> = { en: 'en-GB', es: 'es-ES' };
 
-/** Genera la guía completa como un HTML autocontenido. */
+/** Generates the complete guide as a self-contained HTML. */
 export function renderModelGuide(
   specs: SystemSpecs,
   lang: UILang = DEFAULT_UI_LANG,
@@ -208,11 +208,11 @@ export function renderModelGuide(
   const advice = adviseLocalModels(specs);
   const locale = LOCALE[lang];
 
-  /** Traduce y escapa de una vez: todo esto acaba dentro del marcado. */
+  /** Translates and escapes in one go: all this ends up inside the markup. */
   const t = (key: UIKey, vars?: Record<string, string | number>): string =>
     esc(translate(lang, key, vars));
 
-  /** Lo mismo, pero dejando pasar el marcado que la propia clave trae dentro. */
+  /** The same, but letting through the markup the key itself carries inside. */
   const raw = (key: UIKey, vars?: Record<string, string | number>): string =>
     translate(lang, key, vars);
 

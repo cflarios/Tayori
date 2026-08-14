@@ -111,19 +111,19 @@ const FILLERS = [
 ];
 
 /**
- * Interrogativos ACENTUADOS, buscados en el texto crudo y en cualquier posición.
+ * ACCENTED interrogatives, searched over the raw text and in any position.
  *
- * En español el acento es lo único que separa "qué" de "que", y `normalize()`
- * lo tira para poder comparar de forma estable — con lo que la señal más fuerte
- * del idioma se perdía antes de mirarla. Por eso esta comprobación va aparte y
- * sobre el original.
+ * In Spanish the accent is the only thing separating "qué" from "que", and
+ * `normalize()` throws it away to be able to compare in a stable way — so the
+ * language's strongest signal was lost before looking at it. That's why this
+ * check goes separately and over the original.
  *
- * Buscar en cualquier posición importa: "si quiero X, **qué** lenguaje debería
- * usar" es una pregunta de manual y las reglas de apertura no la ven, porque
- * sólo miran las dos primeras palabras.
+ * Searching in any position matters: "si quiero X, **qué** lenguaje debería usar"
+ * is a textbook question and the opener rules don't see it, because they only
+ * look at the first two words.
  *
- * `\p{L}` con la bandera `u` en lugar de `\b`: `\b` es ASCII, así que en "qué"
- * vería un límite de palabra entre la "u" y la "é" y la regla no funcionaría.
+ * `\p{L}` with the `u` flag instead of `\b`: `\b` is ASCII, so in "qué" it would
+ * see a word boundary between the "u" and the "é" and the rule wouldn't work.
  */
 const ACCENTED_INTERROGATIVE =
   /(^|[^\p{L}])(qué|cuál|cuáles|cómo|cuándo|dónde|quién|quiénes|cuánto|cuánta|cuántos|cuántas)([^\p{L}]|$)/u;

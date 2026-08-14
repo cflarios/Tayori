@@ -6,15 +6,16 @@
     "src/preload/**/*",
     "src/shared/**/*",
     "tests/**/*",
-    // El worklet vive en el renderer pero no toca el DOM: sólo exporta su
-    // código fuente como string. Se incluye aquí para que `pcm-worklet.test.ts`
-    // pueda importarlo y ejercitar el worklet de verdad en lugar de una copia.
+    // The worklet lives in the renderer but doesn't touch the DOM: it only
+    // exports its source code as a string. It's included here so that
+    // `pcm-worklet.test.ts` can import it and exercise the real worklet instead
+    // of a copy.
     "src/renderer/audio-worker/pcm-worklet.ts",
-    // Mismo caso: parsear las vallas de código es lógica pura sin DOM, y su
-    // test vive con los demás.
+    // Same case: parsing the code fences is pure logic with no DOM, and its
+    // test lives with the rest.
     "src/renderer/overlay/answer-format.ts",
-    // Y el troceado del teleprompter, que es donde de verdad se decide si una
-    // línea se puede decir de un tirón. Sin DOM y con test propio.
+    // And the teleprompter's chunking, which is where it's really decided
+    // whether a line can be said in one breath. No DOM and with its own test.
     "src/renderer/overlay/teleprompter.ts"
   ],
   "compilerOptions": {

@@ -2,25 +2,25 @@ import { en, type UIKey } from './locales/en';
 import { es } from './locales/es';
 
 /**
- * Dos idiomas, con los textos fuera de los componentes y sin dependencia.
+ * Two languages, with the texts outside the components and with no dependency.
  *
- * Los diccionarios son **módulos de TypeScript y no `.json`**, y la razón es
- * una sola: `es.ts` se declara como `Record<UIKey, string>`, así que una clave
- * sin traducir **no compila**. Con JSON caería al idioma de reserva y el fallo
- * sólo se vería cuando un usuario se encontrara una frase en inglés en mitad de
- * una pantalla en español — mudo hasta entonces. Todo lo demás es igual que con
- * dos JSON, y encima no hay que tocar `resolveJsonModule` ni la configuración
- * de dos bundlers.
+ * The dictionaries are **TypeScript modules and not `.json`**, and the reason is
+ * a single one: `es.ts` is declared as `Record<UIKey, string>`, so an
+ * untranslated key **doesn't compile**. With JSON it would fall back to the
+ * fallback language and the failure would only show when a user came across an
+ * English sentence in the middle of a Spanish screen — mute until then.
+ * Everything else is the same as with two JSONs, and on top of that there's no
+ * need to touch `resolveJsonModule` or the configuration of two bundlers.
  *
- * Ver `locales/en.ts` para las convenciones de las claves.
+ * See `locales/en.ts` for the key conventions.
  */
 
-/** Idioma de la INTERFAZ. No confundir con `Settings.language`, que es del ASR. */
+/** The INTERFACE language. Not to be confused with `Settings.language`, which is the ASR's. */
 export type UILang = 'en' | 'es';
 
 export const UI_LANGS: readonly UILang[] = ['en', 'es'] as const;
 
-/** Cómo se llama cada idioma **en su propio idioma**, que es como se buscan. */
+/** What each language is called **in its own language**, which is how they're looked up. */
 export const UI_LANG_LABEL: Record<UILang, string> = {
   en: 'English',
   es: 'Español',
@@ -29,16 +29,16 @@ export const UI_LANG_LABEL: Record<UILang, string> = {
 const TABLES: Record<UILang, Record<UIKey, string>> = { en, es };
 
 /**
- * El texto de una clave, con los huecos `{…}` ya rellenos.
+ * A key's text, with the `{…}` slots already filled.
  *
- * Vive suelta —fuera de React— porque el proceso principal también traduce: los
- * errores de los proveedores se leen en el overlay, y con la interfaz en inglés
- * un «Falta la API key de Anthropic» es justo la mitad-traducida que este
- * cambio existe para evitar.
+ * It lives loose —outside React— because the main process also translates: the
+ * providers' errors are read in the overlay, and with the interface in English a
+ * «Falta la API key de Anthropic» is exactly the half-translated thing this
+ * change exists to avoid.
  *
- * Un hueco que no se rellena se deja **a la vista** (`{modelo}`) en lugar de
- * borrarse: una frase con un agujero visible se arregla; una a la que le falta
- * un dato en silencio se lee como si estuviera bien.
+ * A slot that isn't filled is left **in view** (`{modelo}`) instead of being
+ * erased: a sentence with a visible hole gets fixed; one missing a datum
+ * silently reads as if it were fine.
  */
 export function translate(
   lang: UILang,
@@ -52,7 +52,7 @@ export function translate(
   );
 }
 
-/** Elige entre dos valores ya construidos. Para lo que no es texto de tabla. */
+/** Chooses between two already-built values. For what isn't table text. */
 export function pick<T>(lang: UILang, enValue: T, esValue: T): T {
   return lang === 'es' ? esValue : enValue;
 }
@@ -60,19 +60,20 @@ export function pick<T>(lang: UILang, enValue: T, esValue: T): T {
 export type { UIKey };
 
 /**
- * El idioma que se usa cuando no hay ninguno elegido.
+ * The language used when none is chosen.
  *
- * Inglés, por decisión del proyecto. Quien quiera español lo elige en la
- * primera pantalla de ajustes, que está en su idioma en cuanto lo cambia.
+ * English, by project decision. Whoever wants Spanish chooses it on the first
+ * settings screen, which is in their language as soon as they change it.
  */
 export const DEFAULT_UI_LANG: UILang = 'en';
 
 /**
- * Adivina el idioma a partir del que tenga puesto el sistema.
+ * Guesses the language from whatever the system has set.
  *
- * Se usa **sólo la primera vez**, para que a alguien con Windows en español no
- * le reciba una app en inglés cuando existe su idioma. En cuanto lo cambia a
- * mano, manda su elección: `uiLanguage` se guarda y esto no vuelve a mirarse.
+ * It's used **only the first time**, so that someone with Windows in Spanish
+ * isn't greeted by an app in English when their language exists. As soon as they
+ * change it by hand, their choice rules: `uiLanguage` is saved and this isn't
+ * looked at again.
  */
 export function guessUILang(locale: string | undefined): UILang {
   return locale?.toLowerCase().startsWith('es') ? 'es' : DEFAULT_UI_LANG;

@@ -1,16 +1,16 @@
 /**
- * Catálogo de modelos de Whisper local (GGML de whisper.cpp).
+ * Catalog of local Whisper models (whisper.cpp GGML).
  *
- * Vive en `shared/` —no en `main/stt`— porque lo necesitan los dos lados: el
- * main para descargarlos y el dashboard para pintarlos. Es dato puro; la lógica
- * de descarga y disco sigue en `main/stt/whisper-assets.ts`.
+ * It lives in `shared/` —not in `main/stt`— because both sides need it: the main
+ * process to download them and the dashboard to paint them. It's pure data; the
+ * download and disk logic stays in `main/stt/whisper-assets.ts`.
  *
- * Casi todos siguen el patrón del repo oficial `ggerganov/whisper.cpp`
- * (`ggml-<id>.bin`). Los **Distil** no están en ese repo ni en el descargador
- * oficial de whisper.cpp, así que llevan su **URL explícita** —verificada contra
- * Hugging Face, porque una URL muerta no falla al guardar, falla al descargar—.
- * El archivo local siempre se llama `ggml-<id>.bin`, lo elegimos nosotros, así
- * que el id manda sobre el nombre en disco aunque el remoto se llame distinto.
+ * Almost all follow the official `ggerganov/whisper.cpp` repo pattern
+ * (`ggml-<id>.bin`). The **Distil** ones aren't in that repo nor in whisper.cpp's
+ * official downloader, so they carry their **explicit URL** —verified against
+ * Hugging Face, because a dead URL doesn't fail on save, it fails on download—.
+ * The local file is always named `ggml-<id>.bin`, we choose it, so the id rules
+ * over the name on disk even if the remote one is named differently.
  */
 
 export type ModelSpeed = 'very-fast' | 'fast' | 'medium' | 'slow';
@@ -18,12 +18,12 @@ export type ModelAccuracy = 'decent' | 'good' | 'high' | 'very-high';
 
 export interface WhisperModelInfo {
   id: string;
-  /** Nombre propio del modelo; no se traduce, como «Claude Sonnet 5». */
+  /** The model's proper name; not translated, like «Claude Sonnet 5». */
   name: string;
   sizeMB: number;
   speed: ModelSpeed;
   accuracy: ModelAccuracy;
-  /** Sólo cuando NO sigue el patrón del repo por defecto (los Distil). */
+  /** Only when it does NOT follow the default repo pattern (the Distil ones). */
   url?: string;
 }
 
@@ -73,7 +73,7 @@ export const WHISPER_MODELS = [
 
 export type WhisperModelId = (typeof WHISPER_MODELS)[number]['id'];
 
-/** El de fábrica: equilibrado y ligero, va bien en casi cualquier equipo. */
+/** The factory one: balanced and light, does well on almost any machine. */
 export const DEFAULT_WHISPER_MODEL: WhisperModelId = 'base';
 
 export function whisperModelById(id: string): WhisperModelInfo | undefined {
@@ -81,11 +81,11 @@ export function whisperModelById(id: string): WhisperModelInfo | undefined {
 }
 
 /**
- * Reordena un catálogo de modelos locales poniendo los favoritos primero.
+ * Reorders a catalog of local models putting the favorites first.
  *
- * Estable: dentro de cada grupo (favoritos y resto) se conserva el orden del
- * catálogo, que ya viene ordenado de más ligero a más pesado. Es genérica sobre
- * cualquier lista con `id`, para no atarla al catálogo de Whisper.
+ * Stable: within each group (favorites and rest) the catalog's order is
+ * preserved, which already comes sorted from lightest to heaviest. It's generic
+ * over any list with `id`, so as not to tie it to the Whisper catalog.
  */
 export function sortByFavorite<T extends { id: string }>(
   models: readonly T[],
@@ -98,9 +98,10 @@ export function sortByFavorite<T extends { id: string }>(
 }
 
 /**
- * Recomienda un modelo según la RAM, con sesgo hacia lo rápido: la transcripción
- * es en vivo y un modelo lento arruina el caso de uso aunque quepa en memoria.
- * Se prefiere multilingüe porque no se sabe en qué idioma hablará el usuario.
+ * Recommends a model based on RAM, with a bias toward the fast: transcription is
+ * live and a slow model ruins the use case even if it fits in memory.
+ * Multilingual is preferred because you don't know which language the user will
+ * speak.
  */
 export function recommendWhisperModel(totalMemoryGB: number): WhisperModelId {
   if (totalMemoryGB < 8) return 'base';

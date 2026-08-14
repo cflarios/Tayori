@@ -1,35 +1,34 @@
 /**
- * Separa una respuesta en bloques de texto y bloques de código.
+ * Splits an answer into text blocks and code blocks.
  *
- * El overlay pintaba `answer.text` tal cual dentro de un `div` con
- * `white-space: pre-wrap`. Para cuatro viñetas habladas está bien; para una
- * solución de LeetCode no: la indentación se ve pero no se puede copiar de un
- * clic, las líneas largas se parten a mitad de expresión y las tres comillas
- * quedan a la vista como ruido.
+ * The overlay painted `answer.text` as-is inside a `div` with
+ * `white-space: pre-wrap`. For four spoken bullets it's fine; for a LeetCode
+ * solution it isn't: the indentation shows but can't be copied in one click, the
+ * long lines are split mid-expression and the three backticks are left in view
+ * as noise.
  *
- * Es un parser mínimo a propósito —sólo vallas de tres comillas—, porque es lo
- * único que el prompt del modo código promete que va a llegar. No es un
- * renderizador de Markdown y no debería convertirse en uno: meter una librería
- * de 40 KB en una ventana que tiene que arrancar sin que se note no sale a
- * cuenta.
+ * It's a minimal parser on purpose —only three-backtick fences—, because that's
+ * the only thing the code-mode prompt promises will arrive. It isn't a Markdown
+ * renderer and shouldn't become one: putting a 40 KB library into a window that
+ * has to start without being noticed doesn't pay off.
  */
 
 export interface AnswerBlock {
   type: 'text' | 'code';
   content: string;
-  /** Lenguaje declarado en la apertura de la valla, si lo había. */
+  /** Language declared at the fence's opening, if there was one. */
   lang?: string;
   /**
-   * El bloque todavía se está escribiendo: la valla de cierre no ha llegado.
+   * The block is still being written: the closing fence hasn't arrived.
    *
-   * Importa porque el texto llega en streaming. Sin esto, un bloque a medias se
-   * pintaría como párrafo hasta que cerrara —el panel entero saltando de estilo
-   * a mitad de respuesta— y se ofrecería copiar código incompleto.
+   * It matters because the text arrives streaming. Without this, a half-written
+   * block would be painted as a paragraph until it closed —the whole panel
+   * jumping style mid-answer— and copying incomplete code would be offered.
    */
   open?: boolean;
 }
 
-/** Una valla: hasta tres espacios de sangría, tres comillas y el lenguaje. */
+/** A fence: up to three spaces of indent, three backticks and the language. */
 const FENCE = /^ {0,3}```(.*)$/;
 
 export function parseAnswerBlocks(text: string): AnswerBlock[] {
@@ -40,9 +39,9 @@ export function parseAnswerBlocks(text: string): AnswerBlock[] {
 
   const flush = (open = false): void => {
     if (inCode) {
-      // Un bloque de código vacío sí se emite mientras está abierto: es lo que
-      // hace que la caja aparezca en cuanto el modelo abre la valla, en vez de
-      // esperar a la primera línea.
+      // An empty code block is emitted while it's open: it's what makes the box
+      // appear as soon as the model opens the fence, instead of waiting for the
+      // first line.
       const content = trimBlankEdges(buffer);
       if (content || open) {
         blocks.push({
@@ -53,9 +52,9 @@ export function parseAnswerBlocks(text: string): AnswerBlock[] {
         });
       }
     } else {
-      // La matemática se normaliza SÓLO aquí, en la prosa: dentro de un bloque
-      // de código un "^" o un "\" son operadores reales y tocarlos rompería lo
-      // que se copia. Ver `mathToReadable`.
+      // The math is normalized ONLY here, in the prose: inside a code block a "^"
+      // or a "\" are real operators and touching them would break what's copied.
+      // See `mathToReadable`.
       const content = mathToReadable(trimBlankEdges(buffer));
       if (content) blocks.push({ type: 'text', content });
     }
@@ -76,7 +75,7 @@ export function parseAnswerBlocks(text: string): AnswerBlock[] {
     } else {
       flush();
       inCode = true;
-      // "```python" y "```py filename=x" → nos quedamos con el primer token.
+      // "```python" and "```py filename=x" → we keep the first token.
       lang = (fence[1] ?? '').trim().split(/\s+/)[0] ?? '';
     }
   }
@@ -85,7 +84,7 @@ export function parseAnswerBlocks(text: string): AnswerBlock[] {
   return blocks;
 }
 
-/** Quita líneas en blanco al principio y al final sin tocar la indentación. */
+/** Removes blank lines at the start and end without touching the indentation. */
 function trimBlankEdges(lines: string[]): string {
   let start = 0;
   let end = lines.length;
@@ -94,33 +93,33 @@ function trimBlankEdges(lines: string[]): string {
   return lines.slice(start, end).join('\n');
 }
 
-/** `true` si la respuesta trae algún bloque de código. Lo usa la UI para decidir. */
+/** `true` if the answer brings any code block. The UI uses it to decide. */
 export function hasCode(text: string): boolean {
   return text.includes('```');
 }
 
-/** Un trozo de texto con su marca, dentro de una línea. */
+/** A piece of text with its marker, within a line. */
 export interface InlineSpan {
   type: 'plain' | 'bold' | 'code';
   text: string;
 }
 
 /**
- * Negrita `**así**` y código `` `así` `` dentro de un párrafo.
+ * Bold `**like this**` and code `` `like this` `` within a paragraph.
  *
- * Esto NO es abrir la puerta a un renderizador de Markdown —siguen sin
- * soportarse enlaces, títulos, listas ni cursivas— sino tapar un agujero
- * concreto que se vio usándolo: **los modelos ponen asteriscos hagas lo que
- * hagas**. Claude marcaba en negrita la opción correcta de cada test y el panel
- * enseñaba `**B)** El índice...` con los asteriscos a la vista.
+ * This is NOT opening the door to a Markdown renderer —links, headings, lists
+ * and italics are still unsupported— but plugging a concrete hole seen while
+ * using it: **the models put asterisks no matter what you do**. Claude marked the
+ * correct option of each quiz in bold and the panel showed `**B)** El índice...`
+ * with the asterisks in view.
  *
- * Se ataca por los dos lados: el prompt pide que no los use, y esto los
- * interpreta cuando los usa igualmente. La primera mitad sola no basta, porque
- * depende de que el modelo obedezca; la segunda sola tampoco, porque el texto
- * seguiría llegando lleno de marcas que gastan tokens y ancho de panel.
+ * It's attacked on both sides: the prompt asks it not to use them, and this
+ * interprets them when it uses them anyway. The first half alone isn't enough,
+ * because it depends on the model obeying; the second alone isn't either, because
+ * the text would keep arriving full of marks that spend tokens and panel width.
  *
- * Una marca sin cerrar se queda como texto literal, que es lo que hace falta
- * durante el streaming: mientras llega `**B` no debe desaparecer nada.
+ * An unclosed mark stays as literal text, which is what's needed during
+ * streaming: while `**B` arrives nothing must disappear.
  */
 const INLINE = /\*\*(?!\s)([^\n]+?)\*\*|`([^`\n]+?)`/g;
 
@@ -144,28 +143,27 @@ export function parseInline(text: string): InlineSpan[] {
 }
 
 /**
- * Convierte notación LaTeX a texto plano legible con Unicode.
+ * Converts LaTeX notation to plain, legible text with Unicode.
  *
- * Es el mismo patrón que `parseInline`, y por la misma razón: los modelos
- * escriben matemática en LaTeX hagas lo que hagas. OpenAI devolvía
- * "\(O(n^2d)\)" y "QK^\top", y el panel los enseñaba con las barras, los
- * dólares y el acento circunflejo a la vista. El prompt pide que no lo hagan
- * (`core/prompt.ts`) y esto lo arregla cuando lo hacen igual. Ninguna de las
- * dos mitades basta sola: el prompt depende de que el modelo obedezca; esto
- * depende de que el modelo use LaTeX estándar.
+ * It's the same pattern as `parseInline`, and for the same reason: the models
+ * write math in LaTeX no matter what you do. OpenAI returned "\(O(n^2d)\)" and
+ * "QK^\top", and the panel showed them with the backslashes, the dollars and the
+ * circumflex in view. The prompt asks them not to (`core/prompt.ts`) and this
+ * fixes it when they do anyway. Neither half is enough alone: the prompt depends
+ * on the model obeying; this depends on the model using standard LaTeX.
  *
- * NO es un renderizador de LaTeX ni pretende serlo —no hay matrices, ni
- * integrales con límites, ni alineación—. Cubre lo que aparece en una respuesta
- * hablada de entrevista: complejidades, fracciones simples, super/subíndices y
- * los símbolos de una tabla. Lo que no reconoce se queda **literal**, que es lo
- * que hace falta durante el streaming: una fórmula a medio escribir no debe
- * desaparecer, y un `\comando` desconocido es mejor verlo que mutilarlo.
+ * It is NOT a LaTeX renderer nor does it pretend to be —there are no matrices,
+ * no integrals with limits, no alignment—. It covers what appears in a spoken
+ * interview answer: complexities, simple fractions, super/subscripts and a
+ * table's symbols. What it doesn't recognize stays **literal**, which is what's
+ * needed during streaming: a half-written formula mustn't disappear, and an
+ * unknown `\command` is better seen than mangled.
  *
- * Dos límites deliberados para no estropear texto que no era matemática:
- * - `$...$` sólo se desenvuelve si su interior trae algún signo de LaTeX
- *   (`\`, `^`, `_`), para no comerse un "$5" de una cifra.
- * - Los subíndices sólo se convierten con llaves (`x_{ij}`) o dígito (`H_2O`),
- *   nunca un `_letra` suelto, o `file_name` saldría con la ene bajada.
+ * Two deliberate limits so as not to spoil text that wasn't math:
+ * - `$...$` is only unwrapped if its interior brings some LaTeX sign
+ *   (`\`, `^`, `_`), so as not to eat a "$5" of a figure.
+ * - Subscripts are only converted with braces (`x_{ij}`) or a digit (`H_2O`),
+ *   never a lone `_letter`, or `file_name` would come out with the n lowered.
  */
 const SUP: Record<string, string> = {
   '0': '⁰',
@@ -248,7 +246,7 @@ const SUB: Record<string, string> = {
   x: 'ₓ',
 };
 
-/** Comandos que aparecen como exponente: transpuesta, prima, grados. */
+/** Commands that appear as an exponent: transpose, prime, degrees. */
 const SCRIPT_CMD: Record<string, string> = {
   top: 'ᵀ',
   prime: '′',
@@ -352,12 +350,12 @@ const SYMBOLS: Record<string, string> = {
   Omega: 'Ω',
 };
 
-/** Barato: si no hay ninguna señal de LaTeX, no se toca nada. */
+/** Cheap: if there's no LaTeX signal at all, nothing is touched. */
 const LATEX_HINT = /\\[a-zA-Z([]|[$^_]/;
 
 /**
- * Convierte un token a super/subíndice. `null` si algún carácter no tiene forma:
- * entonces se deja literal en vez de mezclar caracteres normales y bajados.
+ * Converts a token to super/subscript. `null` if some character has no form:
+ * then it's left literal instead of mixing normal and lowered characters.
  */
 function toScript(token: string, map: Record<string, string>): string | null {
   if (token.startsWith('\\')) return SCRIPT_CMD[token.slice(1)] ?? null;
@@ -370,7 +368,7 @@ function toScript(token: string, map: Record<string, string>): string | null {
   return out || null;
 }
 
-/** Envuelve en paréntesis sólo si hace falta para no cambiar la precedencia. */
+/** Wraps in parentheses only if needed so as not to change the precedence. */
 function wrap(s: string): string {
   const t = s.trim();
   return t.length > 1 && /[+\-*/ ]/.test(t) ? `(${t})` : t;
@@ -381,30 +379,30 @@ export function mathToReadable(text: string): string {
 
   return (
     text
-      // 1. Quitar los delimitadores de fórmula, quedándonos con el interior.
-      //    Sólo cerrados: uno a medias durante el streaming se queda literal.
+      // 1. Remove the formula delimiters, keeping the interior.
+      //    Only closed ones: a half one during streaming stays literal.
       .replace(/\\\[([\s\S]+?)\\\]/g, '$1')
       .replace(/\\\(([\s\S]+?)\\\)/g, '$1')
       .replace(/\$\$([\s\S]+?)\$\$/g, '$1')
       .replace(/\$([^$\n]*[\\^_][^$\n]*)\$/g, '$1')
-      // 2. Envoltorios y espaciado que no aportan nada en texto plano.
+      // 2. Wrappers and spacing that add nothing in plain text.
       .replace(/\\(?:text|mathrm|mathbf|mathbb|mathcal|operatorname)\s*\{([^{}]*)\}/g, '$1')
-      // El límite es clave: sin él "\right" se comería el prefijo de "\rightarrow".
+      // The boundary is key: without it "\right" would eat the prefix of "\rightarrow".
       .replace(/\\(?:left|right)(?![a-zA-Z])/g, '')
       .replace(/\\(?:quad|qquad)(?![a-zA-Z])/g, ' ')
       .replace(/\\[!,;:]/g, '')
-      // 3. Fracciones y raíces: las únicas construcciones de dos argumentos.
+      // 3. Fractions and roots: the only two-argument constructions.
       .replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (_, a, b) => `${wrap(a)}/${wrap(b)}`)
       .replace(/\\sqrt\s*\{([^{}]*)\}/g, (_, a) => `√${wrap(a)}`)
-      // 4. Exponentes: llaves, un carácter suelto, o un comando como \top.
+      // 4. Exponents: braces, a lone character, or a command like \top.
       .replace(
         /\^\{([^{}]*)\}|\^(\\[a-zA-Z]+|[^\s{])/g,
         (m, braced, single) => toScript(braced ?? single, SUP) ?? m
       )
-      // 5. Subíndices: sólo llaves o dígito (ver la nota de la cabecera).
+      // 5. Subscripts: only braces or a digit (see the header note).
       .replace(/_\{([^{}]*)\}/g, (m, g) => toScript(g, SUB) ?? m)
       .replace(/_(\d)/g, (m, d) => SUB[d] ?? m)
-      // 6. Símbolos sueltos: griego, operadores y flechas. Lo no listado, literal.
+      // 6. Lone symbols: Greek, operators and arrows. Anything unlisted, literal.
       .replace(/\\([a-zA-Z]+)/g, (m, name) => SYMBOLS[name] ?? m)
   );
 }

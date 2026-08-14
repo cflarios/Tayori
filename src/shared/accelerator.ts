@@ -1,17 +1,18 @@
 /**
- * Traducción entre una pulsación de teclado y un acelerador de Electron.
+ * Translation between a keystroke and an Electron accelerator.
  *
- * Los atajos existían desde el principio en `HotkeyMap`, pero sólo se podían
- * cambiar editando `settings.json` a mano — y hay que cambiarlos: un acelerador
- * global se lo quita a la aplicación que tenga el foco, así que cualquier
- * elección choca con el editor, el juego o el idioma de alguien.
+ * The shortcuts existed from the start in `HotkeyMap`, but could only be changed
+ * by editing `settings.json` by hand — and they have to be changed: a global
+ * accelerator takes it away from whatever application has the focus, so any
+ * choice clashes with someone's editor, game or language.
  *
- * Vive en `shared` y no en el dashboard porque es lógica pura y con tests: el
- * formato lo dicta Electron (`globalShortcut.register`), no la UI, y equivocarse
- * produce un atajo que **no se registra en silencio**.
+ * It lives in `shared` and not in the dashboard because it's pure logic with
+ * tests: the format is dictated by Electron (`globalShortcut.register`), not the
+ * UI, and getting it wrong produces a shortcut that **doesn't register,
+ * silently**.
  */
 
-/** Lo que se necesita de un evento de teclado; así se puede probar sin DOM. */
+/** What's needed from a keyboard event; this way it can be tested without a DOM. */
 export interface KeyStroke {
   key: string;
   ctrlKey: boolean;
@@ -20,7 +21,7 @@ export interface KeyStroke {
   metaKey: boolean;
 }
 
-/** Teclas cuyo nombre en el DOM no coincide con el de Electron. */
+/** Keys whose DOM name doesn't match Electron's. */
 const KEY_ALIASES: Record<string, string> = {
   ArrowUp: 'Up',
   ArrowDown: 'Down',
@@ -31,16 +32,16 @@ const KEY_ALIASES: Record<string, string> = {
   '+': 'Plus',
 };
 
-/** Modificadores sueltos: pulsarlos no completa un atajo. */
+/** Lone modifiers: pressing them doesn't complete a shortcut. */
 const MODIFIER_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta', 'AltGraph', 'CapsLock']);
 
 /**
- * Convierte una pulsación en acelerador, o `null` si todavía no es uno válido.
+ * Turns a keystroke into an accelerator, or `null` if it isn't a valid one yet.
  *
- * Se exige **al menos un modificador**, y no es una manía de estilo: un atajo
- * global sin modificador secuestra esa tecla en todo el sistema. Ligar `S` a
- * "capturar pantalla" haría imposible escribir la letra ese en cualquier
- * aplicación mientras el asistente esté abierto.
+ * **At least one modifier** is required, and it's not a style quirk: a global
+ * shortcut with no modifier hijacks that key across the whole system. Binding `S`
+ * to "capture screen" would make it impossible to type the letter S in any
+ * application while the assistant is open.
  */
 export function acceleratorFromEvent(event: KeyStroke): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null;
@@ -62,11 +63,11 @@ function normalizeKey(raw: string): string | null {
   const alias = KEY_ALIASES[raw];
   if (alias) return alias;
 
-  // Una letra suelta llega en minúscula o mayúscula según el Shift; Electron
-  // las espera en mayúscula y sin depender de eso.
+  // A lone letter arrives lowercase or uppercase depending on Shift; Electron
+  // expects them uppercase and without depending on that.
   if (raw.length === 1) return raw.toUpperCase();
 
-  // F1–F24, Enter, Tab, Delete, Home… ya vienen con el nombre que Electron usa.
+  // F1–F24, Enter, Tab, Delete, Home… already come with the name Electron uses.
   if (/^F\d{1,2}$/.test(raw)) return raw;
   if (/^[A-Za-z]{2,}$/.test(raw)) return raw;
 
@@ -74,12 +75,12 @@ function normalizeKey(raw: string): string | null {
 }
 
 /**
- * Cómo se enseña un acelerador: `Control+Shift+S` → `Ctrl + Shift + S`.
+ * How an accelerator is shown: `Control+Shift+S` → `Ctrl + Shift + S`.
  *
- * El texto de «sin asignar» entra por parámetro porque esta función es pura y
- * no sabe en qué idioma está la interfaz. Quien la llama sí: el dashboard le
- * pasa su clave traducida, y el guion queda para los tests y para cualquier uso
- * que no tenga una tabla a mano.
+ * The «unassigned» text comes in as a parameter because this function is pure
+ * and doesn't know which language the interface is in. Its caller does: the
+ * dashboard passes its translated key, and the dash is left for the tests and
+ * for any use that doesn't have a table at hand.
  */
 export function formatAccelerator(accelerator: string, unassigned = '—'): string {
   if (!accelerator) return unassigned;
@@ -90,11 +91,11 @@ export function formatAccelerator(accelerator: string, unassigned = '—'): stri
 }
 
 /**
- * Atajos repetidos dentro del mapa.
+ * Repeated shortcuts within the map.
  *
- * Dos acciones con el mismo acelerador no dan ningún error: `globalShortcut`
- * registra el primero y devuelve `false` para el segundo, así que una de las dos
- * acciones deja de funcionar sin que nada lo diga.
+ * Two actions with the same accelerator give no error: `globalShortcut` registers
+ * the first and returns `false` for the second, so one of the two actions stops
+ * working without anything saying so.
  */
 export function duplicateAccelerators(map: object): Set<string> {
   const seen = new Set<string>();
