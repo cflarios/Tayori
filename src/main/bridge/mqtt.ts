@@ -6,37 +6,38 @@ import { getSecret } from '../config/secrets';
 import { m } from '../i18n';
 
 /**
- * Publica las respuestas en un broker MQTT.
+ * Publishes the answers to an MQTT broker.
  *
- * ## Qué es y qué no es
+ * ## What it is and what it isn't
  *
- * Es una **salida hacia otra cosa**, no una función de la app. El caso que la
- * motivó es un ESP32 suscrito al tema que recibe la respuesta de un test y hace
- * lo que su dueño haya programado con ella. Nuestra responsabilidad termina en
- * el `publish`: lo que ocurra al otro lado es de quien montó el dispositivo.
+ * It's an **outlet toward something else**, not an app feature. The case that
+ * motivated it is an ESP32 subscribed to the topic that receives a quiz's answer
+ * and does whatever its owner programmed with it. Our responsibility ends at the
+ * `publish`: whatever happens on the other side belongs to whoever built the
+ * device.
  *
- * ## Sólo respuestas terminadas
+ * ## Finished answers only
  *
- * `answer` se emite en **cada tick del streaming**, así que publicar todo lo que
- * pasa por aquí sería inundar el broker con decenas de mensajes por respuesta,
- * cada uno un prefijo del siguiente. Un microcontrolador no quiere ver crecer
- * una frase: quiere la frase. Se publica cuando `status === 'done'`, una vez por
- * respuesta.
+ * `answer` is emitted on **every streaming tick**, so publishing everything that
+ * passes through here would flood the broker with dozens of messages per answer,
+ * each one a prefix of the next. A microcontroller doesn't want to watch a
+ * sentence grow: it wants the sentence. It's published when `status === 'done'`,
+ * once per answer.
  *
- * Las que fallan o se abortan **no se publican**. Una placa que actúa sobre la
- * respuesta de un test no puede distinguir "esto es un error" de "esto es la
- * respuesta" sin que se lo digan, y mandar un error por el mismo tema donde
- * espera letras es pedir que actúe sobre basura.
+ * The ones that fail or are aborted are **not published**. A board that acts on
+ * a quiz's answer can't tell "this is an error" apart from "this is the answer"
+ * without being told, and sending an error over the same topic where it expects
+ * letters is asking it to act on garbage.
  *
- * ## QoS 1 y sin retención
+ * ## QoS 1 and no retention
  *
- * **QoS 1** porque perder la respuesta es el fallo que importa: el usuario ya
- * pagó la consulta y está esperando a que su cacharro reaccione. **Sin retener**
- * porque un mensaje retenido se entrega al suscribirse, así que una placa que
- * arranca por la mañana ejecutaría la respuesta del test de ayer.
+ * **QoS 1** because losing the answer is the failure that matters: the user
+ * already paid for the query and is waiting for their gadget to react. **Not
+ * retained** because a retained message is delivered on subscribe, so a board
+ * that boots up in the morning would run yesterday's quiz answer.
  */
 
-/** Un broker que no contesta en este tiempo no está ahí. */
+/** A broker that doesn't answer in this time isn't there. */
 const CONNECT_TIMEOUT_MS = 8_000;
 
 class MqttBridge extends EventEmitter {
@@ -46,7 +47,7 @@ class MqttBridge extends EventEmitter {
   private published = 0;
   private topic = '';
 
-  /** Arranca, para o reconecta según los ajustes. Idempotente. */
+  /** Starts, stops or reconnects according to the settings. Idempotent. */
   apply(settings: Settings): void {
     if (!settings.mqttEnabled) {
       this.stop();
@@ -54,8 +55,8 @@ class MqttBridge extends EventEmitter {
     }
 
     const topics = mqttTopics(settings.mqttTopic);
-    // Cualquier cambio de destino o de credenciales obliga a reconectar: el
-    // cliente de MQTT fija usuario, contraseña y URL al conectar.
+    // Any change of destination or credentials forces a reconnect: the MQTT
+    // client fixes user, password and URL on connect.
     const signature = [settings.mqttUrl, settings.mqttUsername, topics.json].join('|');
     if (this.client && signature === this.signature) return;
 
@@ -77,9 +78,9 @@ class MqttBridge extends EventEmitter {
     try {
       const client = mqtt.connect(settings.mqttUrl.trim(), {
         connectTimeout: CONNECT_TIMEOUT_MS,
-        // Un identificador estable por máquina evita que dos reconexiones
-        // seguidas se echen la una a la otra del broker, que es lo que pasa
-        // cuando dos clientes comparten client id.
+        // A stable per-machine identifier keeps two consecutive reconnections
+        // from kicking each other off the broker, which is what happens when two
+        // clients share a client id.
         clientId: `tayori-${process.pid}`,
         reconnectPeriod: 5_000,
         ...(settings.mqttUsername.trim() ? { username: settings.mqttUsername.trim() } : {}),
@@ -94,8 +95,9 @@ class MqttBridge extends EventEmitter {
       });
 
       client.on('reconnect', () => {
-        // No se pisa un error ya mostrado: si la causa fue "credenciales mal",
-        // el reintento no la arregla y borrarla dejaría la pantalla en blanco.
+        // An already-shown error isn't overwritten: if the cause was "bad
+        // credentials", the retry doesn't fix it and clearing it would blank the
+        // screen.
         if (this.state !== 'error') this.state = 'connecting';
         this.emitStatus();
       });
@@ -116,7 +118,7 @@ class MqttBridge extends EventEmitter {
 
       this.client = client;
     } catch (err) {
-      // `connect()` lanza en el acto con una URL que no se puede ni parsear.
+      // `connect()` throws on the spot with a URL that can't even be parsed.
       this.state = 'error';
       this.failure = friendlyError(err instanceof Error ? err : new Error(String(err)));
       this.emitStatus();
@@ -133,8 +135,8 @@ class MqttBridge extends EventEmitter {
     this.failure = undefined;
     this.topic = '';
     if (client) {
-      // `true` fuerza el cierre sin esperar al DISCONNECT: al salir de la app
-      // no hay tiempo para una despedida cortés.
+      // `true` forces the close without waiting for the DISCONNECT: on app exit
+      // there's no time for a polite goodbye.
       client.end(true);
       console.log('[mqtt] desconectado');
     }
@@ -151,20 +153,20 @@ class MqttBridge extends EventEmitter {
   }
 
   /**
-   * Reenvía al broker lo que ya se difunde a las ventanas.
+   * Forwards to the broker what's already broadcast to the windows.
    *
-   * Mismo enganche que el espejo del móvil, y por la misma razón: lo que ve el
-   * overlay es lo que puede ver el broker, sin una lista aparte que se quede
-   * desfasada cuando alguien añada un evento.
+   * Same hook as the phone mirror, and for the same reason: what the overlay
+   * sees is what the broker can see, without a separate list that falls out of
+   * date when someone adds an event.
    */
   publish(channel: string, payload: unknown): void {
     if (channel !== IPC.onAnswer || !this.client) return;
 
     const answer = payload as Answer;
     if (answer?.status !== 'done' || !answer.text.trim()) return;
-    // `answer` llega en cada tick del streaming; sólo el último trae `done`,
-    // pero una respuesta ya publicada no debe repetirse si el estado se vuelve
-    // a difundir por cualquier motivo.
+    // `answer` arrives on every streaming tick; only the last one carries
+    // `done`, but an already-published answer must not repeat if the state gets
+    // broadcast again for any reason.
     if (answer.id === this.lastPublished) return;
     this.lastPublished = answer.id;
 
@@ -173,7 +175,7 @@ class MqttBridge extends EventEmitter {
 
   private lastPublished = '';
 
-  /** Publica de verdad, en los dos temas. */
+  /** Actually publishes, on both topics. */
   private send(answer: Answer): void {
     const client = this.client;
     if (!client) return;
@@ -191,8 +193,8 @@ class MqttBridge extends EventEmitter {
 
     const options = { qos: 1 as const, retain: false };
     client.publish(topics.json, body, options);
-    // El texto pelado va aparte para que una placa no necesite un parser de
-    // JSON: se suscribe a `<tema>/text` y lee la respuesta y nada más.
+    // The bare text goes separately so a board doesn't need a JSON parser: it
+    // subscribes to `<topic>/text` and reads the answer and nothing else.
     client.publish(topics.text, answer.text, options, (err) => {
       if (err) {
         console.error('[mqtt] no se pudo publicar:', err.message);
@@ -204,12 +206,12 @@ class MqttBridge extends EventEmitter {
   }
 
   /**
-   * Publica una respuesta de prueba.
+   * Publishes a test answer.
    *
-   * Existe por lo de siempre en este proyecto: un montaje que no funciona y uno
-   * que sí se ven idénticos desde aquí hasta que llega el primer mensaje, y
-   * esperar a la primera respuesta real para descubrir que el tema estaba mal
-   * es descubrirlo en el peor momento.
+   * It exists for the usual reason in this project: a setup that doesn't work and
+   * one that does look identical from here until the first message arrives, and
+   * waiting for the first real answer to find out the topic was wrong is finding
+   * out at the worst moment.
    */
   test(): { ok: boolean; error?: string } {
     if (!this.client || this.state !== 'connected') {
@@ -219,8 +221,8 @@ class MqttBridge extends EventEmitter {
       id: `test-${Date.now()}`,
       status: 'done',
       trigger: 'manual-input',
-      // El mensaje de prueba lo lee una persona en su cacharro, así que va en
-      // el idioma de la interfaz igual que todo lo demás.
+      // The test message is read by a person on their gadget, so it goes in the
+      // interface language like everything else.
       question: m('mq.testQuestion'),
       text: m('mq.testText'),
       providerId: 'claude',
@@ -235,7 +237,7 @@ class MqttBridge extends EventEmitter {
   }
 }
 
-/** Traduce los fallos de red a algo que diga qué mirar. */
+/** Translates the network failures into something that says what to look at. */
 function friendlyError(err: Error): string {
   const message = err.message;
 

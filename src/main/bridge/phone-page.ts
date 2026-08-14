@@ -1,33 +1,33 @@
 import { translate, type UIKey, type UILang } from '@shared/i18n';
 
 /**
- * La página que ve el teléfono.
+ * The page the phone sees.
  *
- * Es un HTML autocontenido y **ningún dato del usuario entra en el marcado**:
- * el token no se escribe aquí dentro, lo lee el propio script de
- * `location.search`. Eso no es casualidad, es lo que deja esta función casi sin
- * superficie de inyección que auditar.
+ * It's self-contained HTML and **no user data enters the markup**: the token
+ * isn't written in here, the script itself reads it from `location.search`.
+ * That's not chance, it's what leaves this function with almost no injection
+ * surface to audit.
  *
- * Lo único que se interpola es la **tabla de traducciones**, que es texto
- * nuestro y no de nadie de fuera. Aun así viaja como un JSON con los `<`
- * escapados: la regla de que nada que se meta en un `<script>` pueda cerrarlo
- * no admite excepciones por «esto lo escribimos nosotros», porque el día que
- * alguien añada una clave con marcado dentro ya nadie se acuerda de la
- * excepción. El script lo lee y lo pinta con `textContent`.
+ * The only thing interpolated is the **translation table**, which is our text
+ * and not anyone's from outside. Even so it travels as JSON with the `<`s
+ * escaped: the rule that nothing put into a `<script>` can close it admits no
+ * exceptions for "we wrote this ourselves", because the day someone adds a key
+ * with markup inside, no one remembers the exception anymore. The script reads it
+ * and paints it with `textContent`.
  *
- * Tampoco carga nada de fuera. Se sirve desde el propio proceso principal a un
- * teléfono que puede no tener salida a internet (una red de invitados, un
- * hotspot sin datos), así que una fuente o un script remoto dejarían la página
- * a medias justo cuando más falta hace. Es la misma regla que la guía de
- * modelos: sin `<script src>`, sin CSS externo, sin imágenes remotas.
+ * It also loads nothing from outside. It's served from the main process itself to
+ * a phone that may have no internet access (a guest network, a hotspot with no
+ * data), so a remote font or script would leave the page half-done exactly when
+ * it's needed most. It's the same rule as the model guide: no `<script src>`, no
+ * external CSS, no remote images.
  *
- * El texto de las respuestas se pinta **siempre con `textContent`**, nunca con
- * `innerHTML`. Viene de un modelo de lenguaje, que es una fuente tan poco de
- * fiar como cualquier otra entrada: un `<img onerror>` en una respuesta no
- * puede convertirse en código ejecutándose en el teléfono.
+ * The answers' text is painted **always with `textContent`**, never with
+ * `innerHTML`. It comes from a language model, which is a source as untrustworthy
+ * as any other input: an `<img onerror>` in an answer can't turn into code
+ * running on the phone.
  */
 export function renderPhonePage(lang: UILang = 'en'): string {
-  /** Lo que el script de la página necesita decir, ya traducido. */
+  /** What the page's script needs to say, already translated. */
   const words: Record<string, string> = {};
   const say = (short: string, key: UIKey): void => {
     words[short] = translate(lang, key);
@@ -49,8 +49,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
   say('copy', 'ph.pgCopy');
   say('copied', 'ph.pgCopied');
 
-  // El escape estándar de JSON dentro de un `<script>`: sin él, un `</script>`
-  // en cualquier valor cerraría la etiqueta antes de tiempo.
+  // The standard JSON escape inside a `<script>`: without it, a `</script>` in
+  // any value would close the tag prematurely.
   const dict = JSON.stringify(words).replace(/</g, '\\u003c');
 
   return `<!doctype html>
@@ -89,7 +89,7 @@ export function renderPhonePage(lang: UILang = 'en'): string {
     padding: 14px 16px;
     margin-bottom: 12px;
   }
-  /* La primera es la que se lee de reojo: separada y sin competencia visual. */
+  /* The first one is the one read out of the corner of the eye: set apart and with no visual competition. */
   .answer:first-of-type { border-color: rgba(96,165,250,.32); }
   .answer.old { opacity: .62; }
   .q { font-size: 12.5px; color: #fbbf24; margin-bottom: 7px; }
@@ -137,8 +137,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
 
 <script>
 (function () {
-  /* Los textos, escritos por el proceso principal en el idioma de la app. Van
-     todos a nodos de texto: aquí no se construye marcado con ellos. */
+  /* The texts, written by the main process in the app's language. They all go
+     to text nodes: no markup is built with them here. */
   var T = ${dict};
 
   var list = document.getElementById('list');
@@ -150,14 +150,14 @@ export function renderPhonePage(lang: UILang = 'en'): string {
   document.title = T.title;
   link.textContent = T.connecting;
   document.getElementById('foot').textContent = T.foot;
-  /* Dos frases y un salto de línea, sin marcado: un <br> obligaría a partir la
-     clave en dos y a que el traductor no viera la frase entera. */
+  /* Two sentences and a line break, no markup: a <br> would force splitting the
+     key in two and the translator not seeing the whole sentence. */
   T.empty.split('\\n').forEach(function (line, i) {
     if (i) empty.appendChild(document.createElement('br'));
     empty.appendChild(document.createTextNode(line));
   });
-  /* id → nodo, para actualizar EN SITIO. \`answer\` llega en cada tick del
-     streaming: sin esto serían decenas de copias de la misma respuesta. */
+  /* id → node, to update IN PLACE. \`answer\` arrives on every tick of the
+     streaming: without this it would be dozens of copies of the same answer. */
   var nodes = new Map();
   var order = [];
 
@@ -166,9 +166,10 @@ export function renderPhonePage(lang: UILang = 'en'): string {
     link.textContent = text;
   }
 
-  /* Los bloques vienen ya parseados del main (el mismo answer-format que el
-     overlay): código, o texto con marcas en línea. Todo se pinta con textContent
-     y nodos, nunca como marcado — el texto sale de un modelo y no es de fiar. */
+  /* The blocks come already parsed from main (the same answer-format as the
+     overlay): code, or text with inline marks. Everything is painted with
+     textContent and nodes, never as markup — the text comes from a model and
+     isn't trustworthy. */
   var KW = {};
   ('function return if else for while const let var class def import from export new await async ' +
     'public private protected static void int long float double string bool boolean char true false ' +
@@ -180,8 +181,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
 
   var TOK = /(\\/\\/[^\\n]*|#[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/)|("[^"\\n]*"|'[^'\\n]*')|(\\b\\d[\\w.]*\\b)|([A-Za-z_$][\\w$]*)/g;
 
-  /* Resaltado mínimo y seguro: comentarios, cadenas, números y un set de
-     palabras clave. Cada token va en su span con textContent. */
+  /* Minimal and safe highlighting: comments, strings, numbers and a set of
+     keywords. Each token goes in its span with textContent. */
   function highlight(pre, src) {
     var last = 0, m;
     TOK.lastIndex = 0;
@@ -201,8 +202,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
     if (last < src.length) pre.appendChild(document.createTextNode(src.slice(last)));
   }
 
-  /* navigator.clipboard no existe sobre http (contexto no seguro), que es justo
-     como el móvil se conecta a la LAN. execCommand sí, así que hay respaldo. */
+  /* navigator.clipboard doesn't exist over http (insecure context), which is
+     exactly how the phone connects to the LAN. execCommand does, so there's a fallback. */
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).catch(function () { legacyCopy(text); });
@@ -233,8 +234,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
     lang.textContent = block.lang || '';
     bar.appendChild(lang);
     if (block.open) {
-      /* Valla aún abierta durante el streaming: se copia código incompleto, así
-         que en vez del botón se dice que se está escribiendo. */
+      /* Fence still open during streaming: incomplete code would be copied, so
+         instead of the button it says it's being written. */
       var w = document.createElement('span');
       w.className = 'code__lang';
       w.textContent = T.writing;
@@ -291,8 +292,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
       order.unshift(answer.id);
       list.prepend(node);
       empty.style.display = 'none';
-      // Una respuesta nueva mientras miras una anterior: se sube sola, que es
-      // lo que quieres de un segundo dispositivo que consultas de reojo.
+      // A new answer while you're looking at a previous one: it scrolls up on
+      // its own, which is what you want from a second device you glance at.
       if (window.scrollY < 120) window.scrollTo({ top: 0, behavior: 'smooth' });
       trim();
     }
@@ -347,8 +348,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
 
   source.addEventListener('open', function () { setLink('open', T.connected); });
 
-  /* El primer mensaje trae lo que ya había: quien abre el teléfono a mitad de
-     una respuesta tiene que verla, no esperar a la siguiente. */
+  /* The first message brings what was already there: whoever opens the phone
+     mid-answer has to see it, not wait for the next one. */
   source.addEventListener('hello', function (event) {
     var data = JSON.parse(event.data);
     clear();
@@ -361,8 +362,8 @@ export function renderPhonePage(lang: UILang = 'en'): string {
   source.addEventListener('reset', function () { clear(); });
   source.addEventListener('capture', function (event) { showCapture(JSON.parse(event.data)); });
 
-  /* EventSource reconecta solo, así que esto informa en vez de reintentar. La
-     causa normal en un móvil es la pantalla bloqueada, no un fallo. */
+  /* EventSource reconnects on its own, so this informs instead of retrying. The
+     normal cause on a phone is the locked screen, not a failure. */
   source.addEventListener('error', function () {
     if (source.readyState === EventSource.CLOSED) {
       setLink('lost', T.expired);

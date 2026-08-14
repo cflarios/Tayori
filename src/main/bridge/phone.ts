@@ -11,56 +11,55 @@ import { parseAnswerBlocks, parseInline, type InlineSpan } from '@shared/answer-
 import { DEFAULT_UI_LANG, translate, type UIKey, type UILang } from '@shared/i18n';
 
 /**
- * Espejo en el teléfono: un servidor HTTP diminuto que sirve las respuestas a
- * un navegador del móvil.
+ * Phone mirror: a tiny HTTP server that serves the answers to a phone browser.
  *
- * ## Por qué existe
+ * ## Why it exists
  *
- * El overlay resuelve "que no se vea en la grabación". No resuelve el caso de
- * **compartir la pantalla entera**, donde lo que hay en tu monitor está por
- * definición al otro lado — ni una cámara, ni alguien mirando el monitor de al
- * lado. Sacar la respuesta a un segundo dispositivo es la única forma de que no
- * esté en la pantalla compartida en absoluto.
+ * The overlay solves "don't show in the recording". It doesn't solve the case of
+ * **sharing the whole screen**, where what's on your monitor is by definition on
+ * the other side — nor a camera, nor someone looking at the monitor next to you.
+ * Taking the answer to a second device is the only way for it not to be on the
+ * shared screen at all.
  *
- * ## Server-Sent Events y no WebSocket
+ * ## Server-Sent Events and not WebSocket
  *
- * El flujo es de una sola dirección —el escritorio manda, el teléfono lee— y
- * eso es exactamente lo que SSE hace de fábrica:
+ * The flow is one-directional —the desktop sends, the phone reads— and that's
+ * exactly what SSE does out of the box:
  *
- * - **Cero dependencias.** Node no trae servidor de WebSocket; SSE es
- *   `res.write()` sobre el mismo `http` que ya sirve la página.
- * - **Reconecta solo.** `EventSource` reintenta sin código nuestro, y en un
- *   móvil la conexión se cae cada vez que se bloquea la pantalla. Con WebSocket
- *   ese bucle de reconexión hay que escribirlo, y es justo donde salen los
- *   fallos raros.
- * - **Un socket colgado no es un fallo.** El `retry:` inicial y los pings
- *   mantienen viva la conexión frente a la radio del teléfono, que corta lo que
- *   lleve quieto un rato.
+ * - **Zero dependencies.** Node ships no WebSocket server; SSE is `res.write()`
+ *   over the same `http` that already serves the page.
+ * - **Reconnects on its own.** `EventSource` retries without our code, and on a
+ *   phone the connection drops every time the screen locks. With WebSocket that
+ *   reconnection loop has to be written, and it's exactly where the odd bugs
+ *   come out.
+ * - **A hung socket isn't a failure.** The initial `retry:` and the pings keep
+ *   the connection alive against the phone's radio, which cuts anything that's
+ *   been still for a while.
  *
- * Lo que SSE no da es el canal de vuelta. No hace falta: el teléfono no manda
- * nada, y que **no pueda** mandar nada es una propiedad, no una carencia.
+ * What SSE doesn't give is the return channel. It's not needed: the phone sends
+ * nothing, and that it **can't** send anything is a property, not a shortcoming.
  *
- * ## Qué se publica y qué no
+ * ## What's published and what isn't
  *
- * Respuestas, el estado de la captura y el "conversación nueva". **La
- * transcripción no.** Es lo que dijo la otra persona, y ponerla en un segundo
- * dispositivo por comodidad multiplica por dos los sitios donde vive sin que
- * nadie lo haya pedido. Si algún día se añade, hay que volver a tocar el README
- * y CONTEXT §4 en el mismo commit, como con el historial.
+ * Answers, the capture state and the "new conversation". **Not the transcript.**
+ * It's what the other person said, and putting it on a second device for
+ * convenience doubles the places where it lives without anyone asking. If it's
+ * ever added, the README and CONTEXT §4 have to be touched again in the same
+ * commit, as with the history.
  */
 
-/** Preferido por ser fácil de reconocer en un log; si está tomado, da igual cuál. */
+/** Preferred for being easy to recognize in a log; if it's taken, any one will do. */
 const PREFERRED_PORT = 8317;
 
-/** Tantas como guarda el overlay: es la misma pregunta ("¿qué dijo antes?"). */
+/** As many as the overlay keeps: it's the same question ("what was said before?"). */
 const MAX_ANSWERS = 20;
 
 /**
- * Una respuesta ya troceada para el móvil: código, o texto con sus marcas en
- * línea. Se parsea aquí, en el main, con el MISMO `answer-format` que el overlay,
- * y viaja ya en bloques. Así el móvil pinta negrita, código en línea, math en
- * Unicode y vallas robustas sin reimplementar el parser en su script — y todo
- * sigue yendo a `textContent`, nunca a `innerHTML`.
+ * An answer already chunked for the phone: code, or text with its inline marks.
+ * It's parsed here, in main, with the SAME `answer-format` as the overlay, and
+ * travels already in blocks. That way the phone paints bold, inline code, math
+ * in Unicode and robust fences without reimplementing the parser in its script —
+ * and everything still goes to `textContent`, never `innerHTML`.
  */
 type PhoneBlock =
   | { type: 'code'; content: string; lang?: string; open?: true }
@@ -82,10 +81,10 @@ function toPhoneBlocks(text: string): PhoneBlock[] {
 }
 
 /**
- * Comentario periódico para que la conexión no se dé por muerta.
+ * Periodic comment so the connection isn't given up for dead.
  *
- * La radio de un móvil y cualquier caja intermedia cortan lo que lleve un rato
- * en silencio, y una respuesta puede tardar minutos en llegar.
+ * A phone's radio and any intermediate box cut anything that's been silent for a
+ * while, and an answer can take minutes to arrive.
  */
 const PING_MS = 15_000;
 
@@ -95,11 +94,11 @@ class PhoneBridge extends EventEmitter {
   private ping: NodeJS.Timeout | null = null;
 
   /**
-   * Token de emparejamiento, nuevo en cada arranque.
+   * Pairing token, new on every launch.
    *
-   * Que caduque al reiniciar es deliberado: un enlace guardado en el móvil deja
-   * de valer solo, sin que nadie tenga que acordarse de revocarlo. El precio es
-   * volver a escanear el QR, que cuesta dos segundos.
+   * That it expires on restart is deliberate: a link saved on the phone stops
+   * working on its own, without anyone having to remember to revoke it. The price
+   * is rescanning the QR, which costs two seconds.
    */
   private token = '';
   private port = 0;
@@ -107,11 +106,12 @@ class PhoneBridge extends EventEmitter {
   private failure: string | undefined;
 
   /**
-   * El idioma en el que se sirve la página, copiado de los ajustes.
+   * The language the page is served in, copied from the settings.
    *
-   * Se guarda en lugar de leer el almacén desde aquí: este archivo no toca
-   * Electron —es un servidor HTTP y nada más— y traerse `settingsStore` sólo
-   * para una cadena obligaría a levantar medio proceso principal para probarlo.
+   * It's stored instead of reading the store from here: this file doesn't touch
+   * Electron —it's an HTTP server and nothing more— and pulling in
+   * `settingsStore` just for one string would force standing up half the main
+   * process to test it.
    */
   private lang: UILang = DEFAULT_UI_LANG;
 
@@ -119,26 +119,27 @@ class PhoneBridge extends EventEmitter {
     return translate(this.lang, key);
   }
 
-  /** Lo que ya ha pasado, para quien abre el teléfono a mitad de una respuesta. */
+  /** What has already happened, for whoever opens the phone mid-answer. */
   private answers: PhoneAnswer[] = [];
   private capture: CaptureStatus | null = null;
 
-  /** El QR se calcula al arrancar: la URL no cambia mientras el servidor viva. */
+  /** The QR is computed at startup: the URL doesn't change while the server lives. */
   private qr: boolean[][] = [];
   private urls: string[] = [];
 
-  /** Arranca, para o reinicia según los ajustes. Idempotente. */
+  /** Starts, stops or restarts according to the settings. Idempotent. */
   apply(settings: Settings): void {
-    // Se copia siempre, incluso al apagarlo: cambiar el idioma con el espejo
-    // parado y encenderlo después tiene que dar la página en el idioma nuevo.
+    // It's always copied, even when turning it off: changing the language with
+    // the mirror stopped and turning it on later must serve the page in the new
+    // language.
     this.lang = settings.uiLanguage;
 
     if (!settings.phoneMirrorEnabled) {
       this.stop();
       return;
     }
-    // Cambiar el alcance obliga a volver a escuchar en otra interfaz, así que
-    // es un reinicio de verdad —y con él, un token nuevo.
+    // Changing the scope forces listening again on another interface, so it's a
+    // real restart —and with it, a new token.
     if (this.server && this.lan === settings.phoneMirrorLan) return;
     this.stop();
     this.start(settings.phoneMirrorLan);
@@ -154,9 +155,9 @@ class PhoneBridge extends EventEmitter {
     let retried = false;
 
     server.on('error', (err: NodeJS.ErrnoException) => {
-      // Un puerto ocupado no es motivo para no tener espejo: la URL se enseña
-      // entera y el QR se genera después de saber el puerto, así que cualquiera
-      // sirve. El 0 deja elegir al sistema.
+      // A taken port is no reason to have no mirror: the URL is shown in full
+      // and the QR is generated after knowing the port, so any one works. The 0
+      // lets the system choose.
       if (err.code === 'EADDRINUSE' && !retried) {
         retried = true;
         console.warn(`[phone] puerto ${PREFERRED_PORT} ocupado, pidiendo uno libre`);
@@ -174,9 +175,9 @@ class PhoneBridge extends EventEmitter {
       console.log(
         `[phone] espejo en ${host}:${this.port} · ${lan ? 'red local' : 'sólo esta máquina'}`
       );
-      // Preguntar por la ruta es asíncrono, así que el enlace y el QR llegan un
-      // instante después de estar escuchando. El estado se difunde ahí y no
-      // aquí: un `running: true` con la URL vacía es peor que esperar 5 ms.
+      // Asking for the route is async, so the link and the QR arrive a moment
+      // after it's listening. The state is broadcast there and not here: a
+      // `running: true` with an empty URL is worse than waiting 5 ms.
       void this.refreshLinks();
     });
 
@@ -189,18 +190,19 @@ class PhoneBridge extends EventEmitter {
   }
 
   stop(): void {
-    // Parar lo ya parado no es un cambio de estado. Sin esta salida, cada
-    // `apply()` con el espejo apagado difundiría un estado idéntico, y quien
-    // espera un cambio —el dashboard, y los tests— vería uno que no ocurrió.
+    // Stopping the already-stopped isn't a state change. Without this exit, each
+    // `apply()` with the mirror off would broadcast an identical state, and
+    // whoever waits for a change —the dashboard, and the tests— would see one
+    // that didn't happen.
     if (!this.server && !this.token) return;
 
     if (this.ping) {
       clearInterval(this.ping);
       this.ping = null;
     }
-    // Cerrar el servidor NO cierra las conexiones SSE abiertas: son keep-alive
-    // y `close()` sólo deja de aceptar nuevas. Sin esto, `close` no termina
-    // nunca y el puerto se queda tomado hasta que se cierre la app.
+    // Closing the server does NOT close the open SSE connections: they're
+    // keep-alive and `close()` only stops accepting new ones. Without this,
+    // `close` never finishes and the port stays taken until the app closes.
     for (const client of this.clients) client.end();
     this.clients.clear();
 
@@ -216,10 +218,10 @@ class PhoneBridge extends EventEmitter {
     this.port = 0;
     this.urls = [];
     this.qr = [];
-    // Las respuestas NO se tiran aquí. Encender el acceso desde la red local en
-    // mitad de una entrevista reinicia el servidor, y vaciar el buffer dejaría
-    // el teléfono en blanco justo después de emparejarlo. Se vacían cuando se
-    // vacía la conversación, que es cuando dejan de tener sentido.
+    // The answers are NOT dropped here. Turning on local-network access
+    // mid-interview restarts the server, and emptying the buffer would blank the
+    // phone right after pairing it. They're emptied when the conversation is
+    // emptied, which is when they stop making sense.
     this.emitStatus();
   }
 
@@ -237,12 +239,12 @@ class PhoneBridge extends EventEmitter {
   }
 
   /**
-   * Reenvía al teléfono lo que ya se difunde a las ventanas.
+   * Forwards to the phone what's already broadcast to the windows.
    *
-   * Se engancha a los dos `broadcast()` que existen —el de `index.ts` y el del
-   * orquestador— en lugar de suscribirse a los eventos internos de cada pieza.
-   * Así el espejo no puede quedarse atrás cuando alguien añada un evento nuevo
-   * al overlay: o pasa por aquí, o tampoco lo ve el overlay.
+   * It hooks into the two `broadcast()`s that exist —the one in `index.ts` and
+   * the orchestrator's— instead of subscribing to each piece's internal events.
+   * That way the mirror can't fall behind when someone adds a new event to the
+   * overlay: either it passes through here, or the overlay doesn't see it either.
    */
   publish(channel: string, payload: unknown): void {
     if (!this.server) return;
@@ -250,8 +252,8 @@ class PhoneBridge extends EventEmitter {
     if (channel === IPC.onAnswer) {
       const answer = payload as Answer;
       if (!answer?.id) return;
-      // Se trocea aquí y se guarda ya troceado, así el `hello` de reconexión
-      // también manda los bloques y el móvil no reparsea nada.
+      // It's chunked here and stored already chunked, so the reconnection
+      // `hello` also sends the blocks and the phone reparses nothing.
       const enriched: PhoneAnswer = { ...answer, blocks: toPhoneBlocks(answer.text) };
       this.remember(enriched);
       this.send('answer', enriched);
@@ -264,7 +266,7 @@ class PhoneBridge extends EventEmitter {
     }
   }
 
-  /** Actualiza por id: `answer` se emite en cada tick del streaming. */
+  /** Updates by id: `answer` is emitted on every streaming tick. */
   private remember(answer: PhoneAnswer): void {
     const at = this.answers.findIndex((a) => a.id === answer.id);
     if (at >= 0) this.answers[at] = answer;
@@ -276,8 +278,8 @@ class PhoneBridge extends EventEmitter {
     const url = new URL(req.url ?? '/', 'http://phone.local');
 
     if (!this.tokenMatches(url.searchParams.get('t'))) {
-      // El caso normal aquí no es un intruso, es un enlace viejo tras reiniciar
-      // el espejo. El mensaje dice qué hacer en vez de "403".
+      // The normal case here isn't an intruder, it's an old link after
+      // restarting the mirror. The message says what to do instead of "403".
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(`${this.say('ph.pgExpiredPlain')}\n`);
       return;
@@ -287,8 +289,8 @@ class PhoneBridge extends EventEmitter {
       const page = renderPhonePage(this.lang);
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8',
-        // Nada de esto debe quedarse en la caché del móvil: el token va en la
-        // URL y la página cambia con la versión de la app.
+        // None of this should stay in the phone's cache: the token goes in the
+        // URL and the page changes with the app version.
         'Cache-Control': 'no-store',
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer',
@@ -312,9 +314,9 @@ class PhoneBridge extends EventEmitter {
       'Cache-Control': 'no-store',
       Connection: 'keep-alive',
     });
-    // Reintento agresivo a propósito: el corte típico es la pantalla del móvil
-    // bloqueándose, y volver en tres segundos es lo que hace que parezca que
-    // nunca se fue.
+    // Aggressive retry on purpose: the typical drop is the phone's screen
+    // locking, and coming back in three seconds is what makes it seem like it
+    // never left.
     res.write('retry: 3000\n\n');
 
     this.clients.add(res);
@@ -332,17 +334,17 @@ class PhoneBridge extends EventEmitter {
   }
 
   private write(res: ServerResponse, event: string, payload: unknown): void {
-    // El JSON de una respuesta no lleva saltos de línea sin escapar, así que
-    // una sola línea `data:` basta y no hace falta trocear.
+    // An answer's JSON carries no unescaped line breaks, so a single `data:`
+    // line is enough and there's no need to chunk it.
     res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
   }
 
   /**
-   * Compara en tiempo constante y sin filtrar la longitud.
+   * Compares in constant time and without leaking the length.
    *
-   * Es barato y quita de en medio la pregunta: el token viaja por una red que
-   * puede no ser sólo tuya, y un `===` sobre secretos es de las cosas que no
-   * conviene tener que justificar más tarde.
+   * It's cheap and gets the question out of the way: the token travels over a
+   * network that may not be only yours, and a `===` over secrets is one of those
+   * things you don't want to have to justify later.
    */
   private tokenMatches(candidate: string | null): boolean {
     if (!this.token || !candidate) return false;
@@ -352,19 +354,19 @@ class PhoneBridge extends EventEmitter {
     return timingSafeEqual(a, b);
   }
 
-  /** Calcula enlace y QR, y los difunde. Separado por ser asíncrono. */
+  /** Computes link and QR, and broadcasts them. Separate for being async. */
   private async refreshLinks(): Promise<void> {
     const routed = this.lan ? await routedAddress() : null;
-    // El espejo puede haberse apagado mientras se resolvía la ruta; escribir
-    // ahora dejaría una URL viva en un estado que dice `running: false`.
+    // The mirror may have been turned off while the route was being resolved;
+    // writing now would leave a live URL in a state that says `running: false`.
     if (!this.server) return;
 
     const link = (host: string): string => `http://${host}:${this.port}/?t=${this.token}`;
     if (this.lan) {
       const addresses = orderForPhone(lanAddresses(), routed);
-      // Sin ninguna IPv4 no interna no hay red a la que salir, pero el servidor
-      // sí está escuchando: mejor un enlace que funciona desde esta máquina que
-      // una tarjeta vacía sin explicación.
+      // With no non-internal IPv4 there's no network to go out to, but the
+      // server is listening: better a link that works from this machine than an
+      // empty card with no explanation.
       this.urls = addresses.length > 0 ? addresses.map(link) : [link('127.0.0.1')];
     } else {
       this.urls = [link('127.0.0.1')];
@@ -379,7 +381,7 @@ class PhoneBridge extends EventEmitter {
   }
 }
 
-/** IPv4 de las interfaces reales de la máquina. */
+/** IPv4 of the machine's real interfaces. */
 function lanAddresses(): string[] {
   const found: string[] = [];
   for (const entries of Object.values(networkInterfaces())) {
@@ -391,19 +393,19 @@ function lanAddresses(): string[] {
 }
 
 /**
- * Qué IPv4 usaría el sistema para salir de la máquina.
+ * Which IPv4 the system would use to go out of the machine.
  *
- * Es la pregunta que de verdad importa —"¿por qué interfaz se sale de aquí?"— y
- * la respuesta la tiene la **tabla de rutas**, no el prefijo de la dirección.
- * Un `connect()` de UDP no manda ni un byte: sólo le pide al sistema que elija
- * la ruta hacia ese destino y fije el extremo local, que es justamente el dato
- * que queremos. No hay tráfico, no hace falta que 8.8.8.8 exista ni que haya
- * internet: basta con que exista una ruta por defecto.
+ * It's the question that really matters —"which interface do you go out
+ * through?"— and the answer is held by the **routing table**, not the address
+ * prefix. A UDP `connect()` sends not a single byte: it only asks the system to
+ * choose the route to that destination and fix the local end, which is exactly
+ * the datum we want. There's no traffic, 8.8.8.8 doesn't need to exist and there
+ * doesn't need to be internet: it's enough for a default route to exist.
  *
- * Se probó en una máquina con cuatro IPv4 —la de casa y tres de adaptadores
- * virtuales— y las tres virtuales eran indistinguibles de la buena por el
- * prefijo. Ordenar por rangos acertaba ahí de casualidad, por el orden en que
- * el sistema enumera las interfaces.
+ * It was tested on a machine with four IPv4s —the home one and three from
+ * virtual adapters— and the three virtual ones were indistinguishable from the
+ * good one by prefix. Sorting by ranges got it right there by chance, because of
+ * the order in which the system enumerates the interfaces.
  */
 export function routedAddress(): Promise<string | null> {
   return new Promise((resolve) => {
@@ -416,7 +418,7 @@ export function routedAddress(): Promise<string | null> {
       try {
         socket.close();
       } catch {
-        // Cerrar dos veces lanza; no es un error que le importe a nadie aquí.
+        // Closing twice throws; it's not an error anyone here cares about.
       }
       resolve(value);
     };
@@ -425,12 +427,12 @@ export function routedAddress(): Promise<string | null> {
 
     try {
       /*
-       * El callback NO es opcional aquí, aunque lo parezca: `connect()` es
-       * asíncrono, y leer `address()` justo después lanza `EBADF` porque el
-       * socket todavía no está enlazado. Escrito de forma síncrona esta función
-       * devuelve `null` **siempre** y el fallo es invisible — sigue habiendo
-       * enlace, sólo que elegido por la heurística de rangos. Se detectó
-       * ejecutándolo, no leyéndolo.
+       * The callback is NOT optional here, even though it looks it: `connect()`
+       * is async, and reading `address()` right after throws `EBADF` because the
+       * socket isn't bound yet. Written synchronously this function returns
+       * `null` **always** and the failure is invisible — there's still a link,
+       * just one chosen by the range heuristic. It was caught by running it, not
+       * by reading it.
        */
       socket.connect(53, '8.8.8.8', () => {
         try {
@@ -443,25 +445,25 @@ export function routedAddress(): Promise<string | null> {
       finish(null);
     }
 
-    // Sin ruta por defecto (offline, o sólo IPv6) el callback puede no llegar
-    // nunca, y esto va en el camino de generar el enlace: no puede esperar.
+    // With no default route (offline, or IPv6-only) the callback may never
+    // arrive, and this is on the path of generating the link: it can't wait.
     setTimeout(() => finish(null), 300).unref();
   });
 }
 
 /**
- * Ordena las IPv4 por probabilidad de ser la que el teléfono puede alcanzar.
+ * Sorts the IPv4s by likelihood of being the one the phone can reach.
  *
- * Una máquina de trabajo tiene varias y **la primera casi nunca es la buena**:
- * Docker instala `172.17.x`, VirtualBox `192.168.56.x`, WSL una `172.2x.x`, y
- * una VPN mete la suya. Ninguna lleva al teléfono, y un QR que apunta a la
- * equivocada falla de la peor manera posible — el navegador del móvil se queda
- * cargando y no hay ningún mensaje que diga por qué.
+ * A work machine has several and **the first is almost never the good one**:
+ * Docker installs `172.17.x`, VirtualBox `192.168.56.x`, WSL a `172.2x.x`, and a
+ * VPN adds its own. None leads to the phone, and a QR pointing to the wrong one
+ * fails in the worst possible way — the phone's browser hangs loading and there's
+ * no message saying why.
  *
- * Manda la tabla de rutas cuando contesta; el orden por rangos es el plan B.
- * Y pase lo que pase el dashboard enseña las demás: la heurística acierta casi
- * siempre y **cuando falla se ve la alternativa**, que es lo que la hace
- * aceptable como heurística.
+ * The routing table rules when it answers; sorting by ranges is plan B. And no
+ * matter what, the dashboard shows the others: the heuristic gets it right almost
+ * always and **when it fails the alternative is visible**, which is what makes it
+ * acceptable as a heuristic.
  */
 export function orderForPhone(addresses: string[], routed: string | null): string[] {
   const sorted = sortAddresses(addresses);
@@ -469,29 +471,29 @@ export function orderForPhone(addresses: string[], routed: string | null): strin
   return [routed, ...sorted.filter((address) => address !== routed)];
 }
 
-/** El plan B: ordenar por rango cuando la tabla de rutas no dice nada. */
+/** Plan B: sort by range when the routing table says nothing. */
 export function sortAddresses(addresses: string[]): string[] {
   return [...addresses].sort((a, b) => rank(a) - rank(b));
 }
 
 function rank(address: string): number {
-  // Rangos de adaptadores virtuales: existen, responden y no llevan a ninguna
-  // parte. Van al final aunque parezcan una red doméstica normal.
+  // Virtual-adapter ranges: they exist, they respond and they lead nowhere. They
+  // go last even if they look like a normal home network.
   if (address.startsWith('192.168.56.')) return 90; // VirtualBox host-only
-  if (/^172\.(1[7-9]|2\d|3[01])\./.test(address)) return 91; // Docker y compañía
-  if (address.startsWith('169.254.')) return 99; // link-local: no hubo DHCP
+  if (/^172\.(1[7-9]|2\d|3[01])\./.test(address)) return 91; // Docker and friends
+  if (address.startsWith('169.254.')) return 99; // link-local: there was no DHCP
 
-  if (address.startsWith('192.168.')) return 0; // la red de casa, casi siempre
+  if (address.startsWith('192.168.')) return 0; // the home network, almost always
   if (address.startsWith('10.')) return 1;
   if (/^172\.16\./.test(address)) return 2;
   return 50;
 }
 
-/** Matriz de módulos del QR, fila por fila. Vacía si no hay nada que codificar. */
+/** Matrix of QR modules, row by row. Empty if there's nothing to encode. */
 function qrModules(text: string): boolean[][] {
   if (!text) return [];
-  // Versión 0 = la más pequeña que quepa. Corrección M: el QR se mira en una
-  // pantalla, no impreso y arrugado, así que no hace falta más redundancia.
+  // Version 0 = the smallest that fits. Correction M: the QR is looked at on a
+  // screen, not printed and crumpled, so no more redundancy is needed.
   const code = qrcode(0, 'M');
   code.addData(text);
   code.make();
