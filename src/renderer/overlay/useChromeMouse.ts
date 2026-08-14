@@ -1,23 +1,23 @@
 import { useEffect } from 'react';
 
 /**
- * Hace clicables los controles del overlay aunque los clics sean atravesables.
+ * Makes the overlay's controls clickable even when clicks pass through.
  *
- * El problema: durante una llamada el overlay se configura con
- * `setIgnoreMouseEvents(true, { forward: true })` para que los clics lleguen a
- * la ventana de debajo. Eso también hace inclicables el engranaje y la X.
+ * The problem: during a call the overlay is set with
+ * `setIgnoreMouseEvents(true, { forward: true })` so clicks reach the window
+ * below. That also makes the gear and the X unclickable.
  *
- * La solución que permite `forward: true` es que la ventana sigue recibiendo
- * los eventos de MOVIMIENTO aunque ignore los clics. Así que el renderer puede
- * saber dónde está el cursor y pedirle al main que deje de ignorar el ratón
- * justo mientras esté sobre un elemento marcado con `data-interactive`.
+ * The solution `forward: true` enables is that the window keeps receiving the
+ * MOVEMENT events even though it ignores clicks. So the renderer can know where
+ * the cursor is and ask main to stop ignoring the mouse exactly while it's over
+ * an element marked with `data-interactive`.
  *
- * Se marcan los elementos con un atributo en lugar de comprobar coordenadas
- * porque así el CSS puede mover los botones sin que esta lógica se entere.
+ * The elements are marked with an attribute instead of checking coordinates
+ * because that way the CSS can move the buttons without this logic noticing.
  */
 export function useChromeMouse(): void {
   useEffect(() => {
-    // Estado local para no inundar el IPC: solo se avisa en los cambios.
+    // Local state so as not to flood the IPC: only changes are reported.
     let ignoring = true;
 
     const apply = (next: boolean): void => {
@@ -32,23 +32,23 @@ export function useChromeMouse(): void {
       apply(!interactive);
     };
 
-    // Al salir de la ventana hay que devolver el paso de clics sí o sí: si el
-    // cursor sale rápido por un borde puede no llegar un último mousemove
-    // dentro de una zona no interactiva, y la ventana se quedaría capturando
-    // el ratón sobre la videollamada.
+    // On leaving the window, click-through has to be returned no matter what: if
+    // the cursor exits fast over an edge, a last mousemove inside a
+    // non-interactive area may not arrive, and the window would be left capturing
+    // the mouse over the video call.
     const onMouseLeave = (): void => apply(true);
 
     /*
-     * Re-sincroniza tras cerrarse el dashboard. El problema: mientras el
-     * dashboard tiene el foco, Windows deja de reenviar `mousemove` al overlay, y
-     * al cerrarlo el main re-arma el `setIgnoreMouseEvents`. Pero este caché local
-     * (`ignoring`) no se entera, así que puede quedar apuntando a un estado que ya
-     * no coincide con el del main; el `apply()` de arriba haría entonces
-     * early-return y el hover no volvería a hacer clicable la barra.
+     * Re-syncs after the dashboard closes. The problem: while the dashboard has
+     * focus, Windows stops forwarding `mousemove` to the overlay, and on closing
+     * it main re-arms the `setIgnoreMouseEvents`. But this local cache
+     * (`ignoring`) doesn't notice, so it may end up pointing to a state that no
+     * longer matches main's; the `apply()` above would then early-return and the
+     * hover wouldn't make the bar clickable again.
      *
-     * La cura es forzar un estado conocido: se pone `ignoring = true` sin el
-     * atajo, y se manda el `setMouseIgnore(true)` —que en el main re-aplica el
-     * reenvío—, de modo que el siguiente `mousemove` vuelva a evaluar desde cero.
+     * The cure is to force a known state: `ignoring = true` is set without the
+     * shortcut, and `setMouseIgnore(true)` is sent —which in main re-applies the
+     * forwarding—, so the next `mousemove` evaluates from scratch again.
      */
     const onResync = (): void => {
       ignoring = true;
@@ -63,18 +63,18 @@ export function useChromeMouse(): void {
       window.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseleave', onMouseLeave);
       offResync();
-      // Restaurar al desmontar, o el overlay se quedaría capturando clics.
+      // Restore on unmount, or the overlay would be left capturing clicks.
       window.api.window.setMouseIgnore(true);
     };
   }, []);
 }
 
 /**
- * Arrastre de la ventana con el botón izquierdo.
+ * Window dragging with the left button.
  *
- * El movimiento lo hace el proceso main siguiendo el cursor: aquí sólo se
- * marcan el inicio y el final. Un `mouseup` global (no en el elemento) porque
- * al arrastrar rápido el cursor se sale de la barra antes de soltar.
+ * The movement is done by the main process following the cursor: here only the
+ * start and the end are marked. A global `mouseup` (not on the element) because
+ * dragging fast, the cursor leaves the bar before releasing.
  */
 export function useOverlayDrag(): (event: React.MouseEvent) => void {
   useEffect(() => {
@@ -87,7 +87,7 @@ export function useOverlayDrag(): (event: React.MouseEvent) => void {
   }, []);
 
   return (event: React.MouseEvent) => {
-    // Solo botón izquierdo, y no cuando se pulsa sobre un botón de la barra.
+    // Left button only, and not when pressing on a bar button.
     if (event.button !== 0) return;
     if ((event.target as HTMLElement).closest('button')) return;
     window.api.window.startDrag();

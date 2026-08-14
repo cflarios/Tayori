@@ -1,16 +1,16 @@
 /**
- * Iconos del dashboard, dibujados a mano.
+ * Dashboard icons, hand-drawn.
  *
- * No hay librería de iconos y no debería haberla: la CSP del dashboard es
- * `default-src 'self'` (ver index.html), así que nada puede venir de un CDN, y
- * meter un paquete de 200 KB en una ventana que se abre desde el engranaje para
- * cambiar dos ajustes no sale a cuenta. Son SVG de trazo, heredan `currentColor`
- * y el tamaño se pasa por prop, así que un icono en la barra lateral y el mismo
- * dentro de una fila son el mismo componente con distinto contexto.
+ * There's no icon library and there shouldn't be one: the dashboard's CSP is
+ * `default-src 'self'` (see index.html), so nothing can come from a CDN, and
+ * pulling a 200 KB package into a window opened from the gear to change two
+ * settings isn't worth it. They're stroke SVGs, they inherit `currentColor` and
+ * the size is passed by prop, so an icon in the sidebar and the same one inside a
+ * row are the same component with a different context.
  */
 
 const PATHS = {
-  /* ── Secciones ── */
+  /* ── Sections ── */
   sliders: (
     <>
       <line x1="4" y1="7" x2="20" y2="7" />
@@ -53,8 +53,8 @@ const PATHS = {
     </>
   ),
   bolt: <path d="M13 2.5 5.5 13.5H11L10 21.5 18.5 10H13z" />,
-  /* Una chispa grande y una pequeña: es la marca de "esto refina lo que sale",
-     y se distingue del rayo de Comportamiento a tamaño de barra lateral. */
+  /* A big spark and a small one: it's the mark for "this refines what comes out",
+     and it's distinct from the Behavior bolt at sidebar size. */
   sparkles: (
     <>
       <path d="M10 3.5 11.7 8.3 16.5 10 11.7 11.7 10 16.5 8.3 11.7 3.5 10 8.3 8.3z" />
@@ -130,7 +130,7 @@ const PATHS = {
     </>
   ),
 
-  /* ── Filas y tarjetas ── */
+  /* ── Rows and cards ── */
   eyeOff: (
     <>
       <line x1="3" y1="3" x2="21" y2="21" />
@@ -228,7 +228,7 @@ const PATHS = {
     </>
   ),
 
-  /* ── Contexto ── */
+  /* ── Context ── */
   user: (
     <>
       <circle cx="12" cy="8" r="3.4" />
@@ -258,8 +258,8 @@ const PATHS = {
       <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
     </>
   ),
-  /* La estrella de favoritos: contorno cuando no lo es, y la misma silueta
-     rellena con `fill` cuando sí, igual que `contrast`. */
+  /* The favorites star: outline when it isn't one, and the same silhouette
+     filled with `fill` when it is, just like `contrast`. */
   star: <path d="M12 3l2.7 5.5 6 .9-4.35 4.25 1.03 6L12 16.9 6.62 19.7l1.03-6L3.3 9.4l6-.9z" />,
   starFilled: (
     <path

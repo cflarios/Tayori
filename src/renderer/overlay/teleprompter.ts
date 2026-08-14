@@ -1,53 +1,53 @@
 import { parseAnswerBlocks } from '@shared/answer-format';
 
 /**
- * Parte una respuesta en líneas que se puedan decir de un tirón.
+ * Splits an answer into lines you can say in one breath.
  *
- * ## Qué problema resuelve, que no es el que parece
+ * ## What problem it solves, which isn't the one it seems
  *
- * Lo que delata que alguien está leyendo **no es el tamaño de la letra**: es el
- * movimiento horizontal de los ojos. Barrer una línea larga de izquierda a
- * derecha y volver al principio de la siguiente se ve desde el otro lado de una
- * videollamada, y se ve mucho. Por eso poner la respuesta "en grande" empeora
- * el problema en vez de arreglarlo: una viñeta en letra grande es más ancha.
+ * What gives away that someone is reading **isn't the font size**: it's the
+ * horizontal movement of the eyes. Sweeping a long line left to right and
+ * returning to the start of the next one is visible from the other side of a
+ * video call, and very much so. That's why putting the answer "big" makes the
+ * problem worse instead of fixing it: a bullet in big type is wider.
  *
- * La solución de cualquier teleprompter de verdad es la contraria: **columna
- * estrecha y una frase por línea**, de modo que los ojos apenas se muevan y la
- * línea activa esté siempre a la misma altura. Eso es lo que hace esta función.
+ * The solution of any real teleprompter is the opposite: **narrow column and one
+ * sentence per line**, so the eyes barely move and the active line is always at
+ * the same height. That's what this function does.
  *
- * ## Dónde se corta
+ * ## Where it breaks
  *
- * Por donde una persona respiraría, en este orden: final de frase, después una
- * pausa fuerte (`;` `:` guion largo), después una coma, y sólo si no queda más
- * remedio por palabras. Cortar por número de caracteres a secas parte los
- * sintagmas —«la base de / datos»— y eso obliga a leer las dos líneas antes de
- * decir nada, que es justo el titubeo que se quiere evitar.
+ * Where a person would breathe, in this order: end of sentence, then a strong
+ * pause (`;` `:` em dash), then a comma, and only as a last resort by words.
+ * Breaking by character count alone splits phrases —"la base de / datos"— and
+ * that forces reading both lines before saying anything, which is exactly the
+ * hesitation to avoid.
  */
 
 /**
- * Ancho objetivo de una línea, en caracteres.
+ * Target width of a line, in characters.
  *
- * Alrededor de 42 es lo que cabe en una columna que se abarca **sin mover los
- * ojos**, con el tamaño al que se lee de reojo. Más ancho y vuelve el barrido
- * horizontal; más estrecho y hay que avanzar tan a menudo que el gesto de
- * pasar de línea pasa a ser el delator.
+ * Around 42 is what fits in a column you can take in **without moving your
+ * eyes**, at the size read out of the corner of the eye. Wider and the
+ * horizontal sweep returns; narrower and you have to advance so often that the
+ * line-change gesture becomes the giveaway.
  */
 export const TARGET_CHARS = 42;
 
-/** Tope duro. Por encima se parte aunque no haya ningún sitio bonito. */
+/** Hard cap. Above it, it breaks even if there's no nice spot. */
 const MAX_CHARS = 58;
 
-/** Menos que esto no merece una línea propia: se pega a la anterior. */
+/** Less than this doesn't deserve its own line: it's glued to the previous one. */
 const MIN_CHARS = 14;
 
-/** Quita lo que es marca visual y no se lee en voz alta. */
+/** Removes what's visual marking and isn't read out loud. */
 function readable(text: string): string {
   return (
     text
-      // Viñetas y numeración al principio de línea: se ven, no se dicen.
+      // Bullets and numbering at the start of a line: they're seen, not said.
       .replace(/^[\s]*[-*•·]\s+/gm, '')
       .replace(/^[\s]*\d+[.)]\s+/gm, '')
-      // Negrita y código en línea: los asteriscos y las comillas no se leen.
+      // Bold and inline code: the asterisks and backticks aren't read.
       .replace(/\*\*/g, '')
       .replace(/`/g, '')
       .trim()
@@ -55,12 +55,12 @@ function readable(text: string): string {
 }
 
 /**
- * El espacio más cercano al ancho objetivo.
+ * The space closest to the target width.
  *
- * Se busca **cerca de `TARGET_CHARS` y no al final del tope**: coger el último
- * espacio que quepa deja la línea siguiente en una palabra suelta —«no /
- * vuelva.»— y una línea de siete caracteres en el centro de la pantalla es un
- * gesto de avanzar que no compra nada.
+ * It's searched **near `TARGET_CHARS` and not at the end of the cap**: taking the
+ * last space that fits leaves the next line on a stray word —"no / vuelva."— and
+ * a seven-character line in the center of the screen is an advance gesture that
+ * buys nothing.
  */
 function spaceNearTarget(piece: string): number {
   let best = -1;
@@ -72,11 +72,11 @@ function spaceNearTarget(piece: string): number {
 }
 
 /**
- * Corta por el mejor sitio disponible.
+ * Breaks at the best available spot.
  *
- * Se intenta partir todo lo que pase del ancho objetivo, no sólo lo que pase
- * del tope duro: el tope es el límite de lo tolerable, y una línea a la que se
- * llega siempre no es un objetivo, es un techo.
+ * It tries to split anything over the target width, not just what's over the
+ * hard cap: the cap is the limit of the tolerable, and a line you always reach
+ * isn't a target, it's a ceiling.
  */
 function splitLong(piece: string): string[] {
   if (piece.length <= TARGET_CHARS) return [piece];
@@ -90,12 +90,12 @@ function splitLong(piece: string): string[] {
   );
   const comma = window.lastIndexOf(', ');
 
-  // Por donde respiraría una persona, de más fuerte a más débil.
+  // Where a person would breathe, from strongest to weakest.
   const cut =
     pause >= MIN_CHARS ? pause + 1 : comma >= MIN_CHARS ? comma + 1 : spaceNearTarget(piece);
 
-  // Sin ningún sitio decente: se deja entera si es tolerable, y sólo si pasa del
-  // tope se parte a lo bruto.
+  // With no decent spot: it's left whole if tolerable, and only if it's over the
+  // cap does it break by force.
   if (cut <= MIN_CHARS || cut >= piece.length) {
     if (piece.length <= MAX_CHARS) return [piece];
     return [piece.slice(0, MAX_CHARS).trim(), ...splitLong(piece.slice(MAX_CHARS).trim())];
@@ -107,11 +107,11 @@ function splitLong(piece: string): string[] {
 }
 
 /**
- * Las líneas de una respuesta, en orden.
+ * The lines of an answer, in order.
  *
- * **Los bloques de código no entran.** Nadie lee un algoritmo en voz alta en una
- * entrevista: se copia y se comenta. Meterlos aquí llenaría el teleprompter de
- * líneas que no se pueden decir y que empujan fuera a las que sí.
+ * **Code blocks don't go in.** Nobody reads an algorithm out loud in an
+ * interview: it's copied and commented on. Putting them here would fill the
+ * teleprompter with lines that can't be said and that push out the ones that can.
  */
 export function toLines(text: string): string[] {
   const prose = parseAnswerBlocks(text)
@@ -126,26 +126,27 @@ export function toLines(text: string): string[] {
     if (!clean) continue;
 
     /*
-     * Dónde empieza esta viñeta dentro de `lines`.
+     * Where this bullet starts within `lines`.
      *
-     * Marca el límite de lo que se puede fusionar: el salto de una viñeta a la
-     * siguiente es una pausa de verdad —son dos ideas— y pegarlas porque la
-     * primera sea corta junta en una línea dos cosas que se dicen por separado.
+     * It marks the limit of what can be merged: the jump from one bullet to the
+     * next is a real pause —they're two ideas— and gluing them because the first
+     * is short joins two things said separately into one line.
      */
     const startedAt = lines.length;
 
-    // Se corta DETRÁS del signo, no delante: el punto pertenece a la frase que
-    // acaba, y verlo es lo que dice que ahí se puede respirar.
+    // It breaks AFTER the mark, not before: the period belongs to the sentence
+    // that ends, and seeing it is what says you can breathe there.
     for (const sentence of clean.split(/(?<=[.!?…])\s+/)) {
       for (const piece of splitLong(sentence.trim())) {
         const last = lines[lines.length - 1];
         /*
-         * Se mira si la línea ANTERIOR es un muñón, no si lo es la nueva.
+         * It checks whether the PREVIOUS line is a stub, not whether the new one
+         * is.
          *
-         * «Sí.» solo, en el centro de la pantalla, es una línea que no dice nada
-         * y un gesto de avanzar que sí se ve; se le pega lo siguiente. Al revés
-         * —pegar toda cola corta a la línea de antes— deshacía el corte que se
-         * acababa de hacer por una coma, y devolvía la línea larga.
+         * "Sí." alone, in the center of the screen, is a line that says nothing
+         * and an advance gesture that is visible; the next thing is glued to it.
+         * The other way around —gluing every short tail to the line before—
+         * undid the cut just made at a comma, and brought the long line back.
          */
         if (
           last &&

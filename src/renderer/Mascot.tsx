@@ -1,18 +1,19 @@
 import { useEffect, useId, useState } from 'react';
 
 /**
- * La mascota de Tayori: un fantasmita con auriculares.
+ * Tayori's mascot: a little ghost with headphones.
  *
- * Encaja por dos motivos: **escucha** tu llamada (auriculares) y **desaparece**
- * cuando compartes pantalla (fantasma). Es el mismo SVG que la web (tayori-web,
- * `components/Mascot.tsx`); se copió aquí en vez de compartir un paquete porque
- * son dos proyectos distintos y es un único archivo autocontenido.
+ * It fits for two reasons: it **listens** to your call (headphones) and it
+ * **disappears** when you share your screen (ghost). It's the same SVG as the web
+ * (tayori-web, `components/Mascot.tsx`); it was copied here instead of sharing a
+ * package because they're two separate projects and it's a single self-contained
+ * file.
  *
- * Los ids de los gradientes se derivan de `useId` para que dos mascotas en la
- * misma página (barra lateral + «Acerca de») no colisionen sus `url(#...)`.
+ * The gradient ids derive from `useId` so that two mascots on the same page
+ * (sidebar + "About") don't collide their `url(#...)`.
  *
- * `autoBlink` parpadea de vez en cuando: un guiño de vida para el logo, apagado
- * por defecto porque en tamaños pequeños no se aprecia y no vale el timer.
+ * `autoBlink` blinks now and then: a wink of life for the logo, off by default
+ * because at small sizes it's not noticeable and the timer isn't worth it.
  */
 export function Mascot({
   className = '',
@@ -20,7 +21,7 @@ export function Mascot({
   autoBlink = false,
 }: {
   className?: string;
-  /** Lado en px; si se omite, hereda el tamaño del contenedor (CSS). */
+  /** Side in px; if omitted, it inherits the container's size (CSS). */
   size?: number;
   autoBlink?: boolean;
 }) {
@@ -32,8 +33,8 @@ export function Mascot({
   const [blink, setBlink] = useState(false);
   useEffect(() => {
     if (!autoBlink) return;
-    // Un parpadeo corto (~140 ms) cada 4–7 s, a intervalo irregular para que no
-    // se sienta mecánico.
+    // A short blink (~140 ms) every 4–7 s, at an irregular interval so it doesn't
+    // feel mechanical.
     let timer: ReturnType<typeof setTimeout>;
     const schedule = (): void => {
       timer = setTimeout(
