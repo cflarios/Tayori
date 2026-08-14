@@ -7,6 +7,13 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.6.2](https://github.com/cflarios/Tayori/compare/v1.6.1...v1.6.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* **overlay:** keep the overlay on top and recoverable ([2f0211e](https://github.com/cflarios/Tayori/commit/2f0211eef8aac3e8977f3cbf3824efc2f3aad940))
+
 ## [1.6.1](https://github.com/cflarios/Tayori/compare/v1.6.0...v1.6.1) (2026-08-14)
 
 
