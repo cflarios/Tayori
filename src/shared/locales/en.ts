@@ -137,6 +137,7 @@ export const en = {
   'overlay.questionLabel': 'Question',
   'overlay.modelTitle': 'Model that answers — click to change',
   'overlay.noModels': 'No models available',
+  'overlay.loadingModels': 'Loading…',
   'overlay.continue': 'Continue',
   'overlay.continueHint': 'Pick up the solution where it was cut off, no repeats',
   'overlay.answeringWith': 'Answering with {model}',

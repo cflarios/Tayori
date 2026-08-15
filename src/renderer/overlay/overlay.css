@@ -1196,6 +1196,20 @@ body {
   padding: 6px 8px;
 }
 
+/* Provider header above its models; a hairline separates one group from the next. */
+.modelmenu__grouphead {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7075;
+  padding: 6px 8px 3px;
+}
+
+.modelmenu__group + .modelmenu__group {
+  margin-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .profilebtn {
   display: flex;
   align-items: center;

@@ -2,7 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from '@shared/answer-format';
 import { toLines } from './teleprompter';
-import { clampFontScale, isScreenTrigger, OVERLAY_SIZES, providerIsReady } from '@shared/types';
+import {
+  clampFontScale,
+  isScreenTrigger,
+  LLM_LABEL,
+  LLM_PROVIDER_IDS,
+  llmProviderReady,
+  OVERLAY_SIZES,
+  providerIsReady,
+} from '@shared/types';
 import { LangProvider, useT } from '@renderer/i18n';
 import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
 import { matchSkills, skillName } from '@shared/skills';
@@ -16,6 +24,7 @@ import type {
   ModelInfo,
   OverlaySize,
   ScreenTask,
+  SecretsPresence,
   Settings,
   Skill,
   TranscriptSegment,
@@ -1063,39 +1072,49 @@ function ProfileMenu({
   );
 }
 
+/** A provider and its answer models, for the cross-provider picker. */
+type ModelGroup = { provider: LLMProviderId; models: ModelInfo[] };
+
 /**
- * The answering model, as a dropdown, on the profile row.
+ * The answering model, as a cross-provider dropdown, on the profile row.
  *
  * Which model answers used to be visible only in the answer header (and only
  * once there was an answer), and changeable only from the dashboard — which
  * steals the focus. Here it names the current model at rest and lets you swap
- * it mid-call without leaving the overlay. It lists the ACTIVE provider's
- * models (the same `listModels` the dashboard uses); the provider itself is
- * still a dashboard decision. The list is fetched lazily, only when the menu
- * opens, so it costs nothing until asked for.
+ * it mid-call, across providers: picking a model sets its provider AND the
+ * model in one move, so you can jump from Claude to Gemini without leaving the
+ * overlay. Only providers that can actually answer are listed (a cloud one with
+ * its key, Ollama with a model), read from the same `llmProviderReady` the rest
+ * of the app uses. This is the ANSWER model only: the screen and transcription
+ * models stay a dashboard decision on purpose. The lists are fetched lazily,
+ * on open, and the provider tag guards against a slow response painting a stale
+ * list.
  */
 function ModelMenu({ settings }: { settings: Settings }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const provider = settings.llmProviderId;
-  const [loaded, setLoaded] = useState<{ provider: LLMProviderId; models: ModelInfo[] } | null>(
-    null
-  );
+  const [groups, setGroups] = useState<ModelGroup[] | null>(null);
 
-  // Fetch on open. Re-fetching each time keeps a freshly pulled Ollama model
-  // from being missing, and the provider is tagged so a slow response for the
-  // old provider can't paint the wrong list.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    window.api.llm
-      .listModels()
-      .then((models) => !cancelled && setLoaded({ provider, models }))
-      .catch(() => !cancelled && setLoaded({ provider, models: [] }));
+    void (async () => {
+      const presence: SecretsPresence = await window.api.secrets.getPresence();
+      const ready = LLM_PROVIDER_IDS.filter((id) => llmProviderReady(id, settings, presence));
+      const lists = await Promise.all(
+        ready.map((provider) =>
+          window.api.llm
+            .listModelsFor(provider)
+            .then((models) => ({ provider, models }))
+            .catch(() => ({ provider, models: [] as ModelInfo[] }))
+        )
+      );
+      if (!cancelled) setGroups(lists);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [open, provider]);
+  }, [open, settings]);
 
   useEffect(() => {
     if (!open) return;
@@ -1116,12 +1135,17 @@ function ModelMenu({ settings }: { settings: Settings }) {
     };
   }, [open]);
 
-  const models = loaded?.provider === provider ? loaded.models : [];
-  const current = settings.llmModels[provider] || provider;
+  const currentProvider = settings.llmProviderId;
+  const currentModel = settings.llmModels[currentProvider] || currentProvider;
 
-  const pick = (id: string) => () => {
+  // Sets provider AND model together: a cloud model is useless under the wrong
+  // provider, and leaving the provider behind is the classic half-switch bug.
+  const pick = (provider: LLMProviderId, id: string) => () => {
     setOpen(false);
-    void window.api.settings.update({ llmModels: { ...settings.llmModels, [provider]: id } });
+    void window.api.settings.update({
+      llmProviderId: provider,
+      llmModels: { ...settings.llmModels, [provider]: id },
+    });
   };
 
   return (
@@ -1133,7 +1157,7 @@ function ModelMenu({ settings }: { settings: Settings }) {
         title={t('overlay.modelTitle')}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="modelbtn__label">{current}</span>
+        <span className="modelbtn__label">{currentModel}</span>
         <svg className="modelbtn__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
           <path
             d="M2 3.5 5 6.5 8 3.5"
@@ -1148,20 +1172,34 @@ function ModelMenu({ settings }: { settings: Settings }) {
 
       {open && (
         <div className="modelmenu__menu" role="menu">
-          {models.length === 0 ? (
+          {groups === null ? (
+            <span className="modelmenu__empty">{t('overlay.loadingModels')}</span>
+          ) : groups.length === 0 ? (
             <span className="modelmenu__empty">{t('overlay.noModels')}</span>
           ) : (
-            models.map((model) => (
-              <button
-                key={model.id}
-                type="button"
-                className={`more__item${model.id === current ? ' more__item--on' : ''}`}
-                role="menuitemradio"
-                aria-checked={model.id === current}
-                onClick={pick(model.id)}
-              >
-                {model.label}
-              </button>
+            groups.map(({ provider, models }) => (
+              <div key={provider} className="modelmenu__group">
+                <div className="modelmenu__grouphead">{LLM_LABEL[provider]}</div>
+                {models.length === 0 ? (
+                  <span className="modelmenu__empty">{t('overlay.noModels')}</span>
+                ) : (
+                  models.map((model) => {
+                    const active = provider === currentProvider && model.id === currentModel;
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        className={`more__item${active ? ' more__item--on' : ''}`}
+                        role="menuitemradio"
+                        aria-checked={active}
+                        onClick={pick(provider, model.id)}
+                      >
+                        {model.label}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             ))
           )}
         </div>

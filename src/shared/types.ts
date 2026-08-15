@@ -1324,8 +1324,35 @@ const READY_BY_PROVIDER: Record<
 };
 
 export function providerIsReady(settings: Settings, presence: SecretsPresence): boolean {
-  return READY_BY_PROVIDER[settings.llmProviderId](settings, presence);
+  return llmProviderReady(settings.llmProviderId, settings, presence);
 }
+
+/** Whether a SPECIFIC provider —not just the active one— could answer now. */
+export function llmProviderReady(
+  id: LLMProviderId,
+  settings: Settings,
+  presence: SecretsPresence
+): boolean {
+  return READY_BY_PROVIDER[id](settings, presence);
+}
+
+/** Answer-provider names: proper nouns, not translated. */
+export const LLM_LABEL: Record<LLMProviderId, string> = {
+  claude: 'Claude',
+  gemini: 'Gemini',
+  openai: 'ChatGPT',
+  deepseek: 'DeepSeek',
+  ollama: 'Ollama',
+};
+
+/** Every answer provider, in the order they're offered. */
+export const LLM_PROVIDER_IDS: readonly LLMProviderId[] = [
+  'claude',
+  'gemini',
+  'openai',
+  'deepseek',
+  'ollama',
+];
 
 /** The keys never travel to the renderer; only whether they're present or not. */
 export interface SecretsPresence {

@@ -10,6 +10,7 @@ import {
   FONT_SCALE,
   HOTKEY_LABEL,
   isScreenTrigger,
+  LLM_LABEL,
   normalizeModelId,
   mqttTopics,
   INTERPRETER_LANGS,
@@ -2619,14 +2620,6 @@ const STT_LABEL: Record<STTProviderId, UIKey> = {
   'whisper-local': 'stt.whisperLocal',
 };
 
-/** Answer-provider names: proper nouns, not translated. */
-const LLM_LABEL: Record<LLMProviderId, string> = {
-  claude: 'Claude',
-  gemini: 'Gemini',
-  openai: 'ChatGPT',
-  deepseek: 'DeepSeek',
-  ollama: 'Ollama',
-};
 
 /**
  * Model mini-profiles: named presets that fix in one click which engines and
