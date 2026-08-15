@@ -2061,18 +2061,6 @@ body {
   height: 5px;
 }
 
-/* In the footer the button sits at the panel's bottom, so its menu opens
-   upward; the bridge flips to the bottom edge to match. */
-.solve--up .solve__menu {
-  top: auto;
-  bottom: calc(100% + 5px);
-}
-
-.solve--up .solve__menu::before {
-  top: auto;
-  bottom: -5px;
-}
-
 /* ── Menu of the non-call things ── */
 .more {
   position: relative;

@@ -278,6 +278,18 @@ export function setOverlaySize(size: OverlaySize): void {
 export function resizeOverlay(height: number): void {
   const win = getOverlay();
   if (!win) return;
-  const width = win.getSize()[0] ?? OVERLAY_SIZES.M.width;
-  win.setSize(width, Math.round(Math.max(120, Math.min(height, 900))));
+  const clamped = Math.round(Math.max(120, Math.min(height, 900)));
+  const bounds = win.getBounds();
+  if (bounds.height === clamped) return;
+  /*
+   * `setBounds`, NOT `setSize`.
+   *
+   * The overlay is `resizable: false`, and on Windows a non-resizable window
+   * ignores `setSize` —it was measured: the renderer asked for 58 px and the
+   * window stayed at its preset height, leaving a tall empty area below the
+   * compact bar (invisible while stealth is on, framed red when it's off).
+   * `setBounds` is the same call the size presets use, and it does resize such a
+   * window. Width and position are kept so only the height follows the content.
+   */
+  win.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: clamped });
 }

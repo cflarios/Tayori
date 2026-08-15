@@ -573,10 +573,9 @@ function StatusBar({
         cutting them.
       */}
       <div className="statusbar__actions">
-        {/* In compact the footer is gone, so Solve screen rides in the bar to
-            stay reachable; when expanded it lives in the footer instead (below),
-            and putting it in both places would be a duplicate. */}
-        {compact && <SolveScreenMenu onSolveScreen={onSolveScreen} />}
+        {/* Solve screen lives in the bar in both modes: the top row has room to
+            spare now, and it reads better up here than tucked in the footer. */}
+        <SolveScreenMenu onSolveScreen={onSolveScreen} />
 
         {/* Quick visibility toggle: state + switch in one, replacing the
             read-only VISIBLE flag. Red when visible (the dangerous state). */}
@@ -688,14 +687,7 @@ function HelpIcon() {
  * your screen (monitor icon) and asks what to solve only on click. "Anything
  * else" is the general case: an error, logs, a diagram, a config screen…
  */
-function SolveScreenMenu({
-  onSolveScreen,
-  up = false,
-}: {
-  onSolveScreen: (task: ScreenTask) => void;
-  /** Open the menu upward — for the footer, where downward would clip off-panel. */
-  up?: boolean;
-}) {
+function SolveScreenMenu({ onSolveScreen }: { onSolveScreen: (task: ScreenTask) => void }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -723,7 +715,7 @@ function SolveScreenMenu({
   };
 
   return (
-    <div className={`solve${up ? ' solve--up' : ''}`} data-interactive>
+    <div className="solve" data-interactive>
       <button
         type="button"
         className={`actionbtn${open ? ' actionbtn--on' : ''}`}
@@ -2113,6 +2105,16 @@ function quickActionKind(answer: Answer, settings: Settings | null): 'chat' | 'c
 /** How many answers are kept so you can go back. */
 const ANSWER_MEMORY = 20;
 
+/**
+ * The overlay's dropdown menus, for the compact auto-fit.
+ *
+ * When compact shrinks the window to the bar, an open menu spills past the
+ * bottom edge; the fit has to grow the window to include whichever of these is
+ * open. Keep this in sync when a new bar dropdown is added.
+ */
+const OVERLAY_MENUS =
+  '.more__menu, .solve__menu, .profilemenu__menu, .modelmenu__menu, .listenctl__menu';
+
 export function OverlayApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [status, setStatus] = useState<CaptureStatus>({
@@ -2312,22 +2314,44 @@ export function OverlayApp() {
       return;
     }
 
-    // Compact: fit the window to the content. The ResizeObserver de-dups so a
-    // streaming answer doesn't resize per token, but the first measurement of
-    // each effect run is FORCED: toggling stealth (or anything else in settings)
-    // doesn't change the content height, so without a forced re-assert the
-    // window would keep whatever height it had drifted to instead of snapping
-    // back to the content — which is the empty-space-below-the-panel bug.
+    // Compact: fit the window to the content — INCLUDING any open dropdown.
+    //
+    // The window shrinks to the bar, so a menu opening downward would spill past
+    // the window's bottom edge and the OS would clip it (its last items became
+    // unreachable). The menus are `position: absolute`, out of flow, so
+    // `offsetHeight` doesn't see them; instead we take the lowest bottom edge of
+    // the panel OR any open menu. A `MutationObserver` re-measures when a menu is
+    // added or removed (the ResizeObserver can't see it — the panel's own box
+    // doesn't change when an absolute child appears).
+    const measure = (): number => {
+      let bottom = el.getBoundingClientRect().bottom;
+      el.querySelectorAll(OVERLAY_MENUS).forEach((menu) => {
+        bottom = Math.max(bottom, menu.getBoundingClientRect().bottom);
+      });
+      // From the window's top (0) to the lowest edge, plus the panel's 4px
+      // bottom margin. getBoundingClientRect is layout, not paint, so a menu
+      // currently clipped by the window still reports its full extent.
+      return Math.ceil(bottom) + 4;
+    };
+
+    // The forced first measurement of each effect run matters: toggling stealth
+    // (or anything in settings) doesn't change the content height, so without it
+    // the window would keep whatever height it had drifted to.
     const report = (force: boolean): void => {
-      const height = el.offsetHeight + 8; // the panel's 4px top + bottom margin
+      const height = measure();
       if (!force && height === reportedHeight.current) return;
       reportedHeight.current = height;
       void window.api.window.resizeOverlay(height);
     };
     report(true);
-    const observer = new ResizeObserver(() => report(false));
-    observer.observe(el);
-    return () => observer.disconnect();
+    const resize = new ResizeObserver(() => report(false));
+    resize.observe(el);
+    const mutate = new MutationObserver(() => report(false));
+    mutate.observe(el, { childList: true, subtree: true });
+    return () => {
+      resize.disconnect();
+      mutate.disconnect();
+    };
   }, [compact, settings]);
 
   // Which answer is shown: the one being looked at, or the last. Following the
@@ -2581,8 +2605,7 @@ export function OverlayApp() {
           <div className="hints">
             {/* With the central state the ask shortcut is already stated up
               there, and repeating it below is the kind of filler that makes a
-              panel look like a form. The screen shortcut isn't spelled out
-              because the Solve screen button on the right carries it. */}
+              panel look like a form. Only the size remains. */}
             {!hero && (
               <span>
                 <kbd>Ctrl</kbd>+<kbd>Enter</kbd> {t('overlay.footAsk')}
@@ -2592,13 +2615,6 @@ export function OverlayApp() {
             <SizePicker
               active={settings?.overlaySize ?? 'M'}
               onChange={(overlaySize) => void window.api.settings.update({ overlaySize })}
-            />
-            {/* Solve screen's home when expanded; opens upward so its menu
-                doesn't clip off the panel's bottom edge. In compact it moves to
-                the bar (the footer is hidden there). */}
-            <SolveScreenMenu
-              onSolveScreen={(task) => void window.api.ask.solveOnScreen(task)}
-              up
             />
           </div>
         )}
