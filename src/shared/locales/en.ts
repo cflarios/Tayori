@@ -55,7 +55,7 @@ export const en = {
   'overlay.newChat': 'New conversation (clears the transcript and the context)',
   'overlay.newChatShort': 'New conversation',
   'overlay.settings': 'Settings',
-  'overlay.settingsShort': 'Open settings',
+  'overlay.settingsShort': 'Settings',
   'overlay.quit': 'Quit Tayori (Ctrl+Shift+H only hides it)',
   'overlay.quitShort': 'Quit',
 

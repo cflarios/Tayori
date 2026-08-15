@@ -48,6 +48,32 @@ function CloseIcon() {
   );
 }
 
+/**
+ * A door with an arrow leaving it: quit the app.
+ *
+ * The X read as "close this menu/panel", not "close the program" — the same
+ * glyph the menu uses to dismiss things. A sign-out door says "leave" and
+ * nothing else, which is what the danger-red item at the bottom actually does.
+ */
+function QuitIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6.2 2.5H4A1.5 1.5 0 0 0 2.5 4v8A1.5 1.5 0 0 0 4 13.5h2.2" />
+      <path d="M10 11l3-3-3-3M13 8H6" />
+    </svg>
+  );
+}
+
 /** The classic angle brackets: solve what's on the screen. */
 function CodeIcon() {
   return (
@@ -669,7 +695,7 @@ function MoreMenu({
             role="menuitem"
             onClick={pick(() => void window.api.window.quit())}
           >
-            <CloseIcon />
+            <QuitIcon />
             {t('overlay.quitShort')}
           </button>
         </div>

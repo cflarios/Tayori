@@ -216,9 +216,36 @@ body {
   pointer-events: none;
 }
 
-.hero__mic--listening .hero__ring {
+/*
+ * A sonar ripple, not a lone pulse.
+ *
+ * The ring and its two pseudo-elements are three identical circles running the
+ * same expansion offset in time (0.8 s apart on a 2.4 s loop): the eye always
+ * sees one leaving while the next is born, which is what reads as "actively
+ * listening" instead of a single bubble that blinks. No extra DOM — the three
+ * are the span and its `::before`/`::after`.
+ */
+.hero__mic--listening .hero__ring,
+.hero__mic--listening .hero__ring::before,
+.hero__mic--listening .hero__ring::after {
   background: var(--accent);
-  animation: heroPulse 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border-radius: 50%;
+  animation: heroPulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.hero__mic--listening .hero__ring::before,
+.hero__mic--listening .hero__ring::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.hero__mic--listening .hero__ring::before {
+  animation-delay: 0.8s;
+}
+
+.hero__mic--listening .hero__ring::after {
+  animation-delay: 1.6s;
 }
 
 @keyframes heroPulse {
@@ -228,7 +255,7 @@ body {
   }
   70%,
   100% {
-    transform: scale(1.7);
+    transform: scale(1.9);
     opacity: 0;
   }
 }
@@ -291,6 +318,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .hero,
   .hero__mic--listening .hero__ring,
+  .hero__mic--listening .hero__ring::before,
+  .hero__mic--listening .hero__ring::after,
   .listen--listening .listen__dot,
   .listen--starting .listen__dot {
     animation: none;

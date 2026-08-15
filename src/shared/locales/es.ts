@@ -38,7 +38,7 @@ export const es: Record<UIKey, string> = {
   'overlay.newChat': 'Nueva conversación (limpia la transcripción y el contexto)',
   'overlay.newChatShort': 'Nueva conversación',
   'overlay.settings': 'Configuración',
-  'overlay.settingsShort': 'Abrir configuración',
+  'overlay.settingsShort': 'Configuración',
   'overlay.quit': 'Cerrar Tayori (Ctrl+Shift+H solo lo oculta)',
   'overlay.quitShort': 'Cerrar',
 
