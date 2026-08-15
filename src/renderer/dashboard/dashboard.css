@@ -2385,3 +2385,107 @@ kbd {
 .about strong {
   color: var(--text);
 }
+
+/* ── Profile manager (Behaviour) ── */
+
+.profmgr {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profmgr__head {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+}
+
+.profmgr__toggles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 2px 18px;
+}
+
+.profmgr__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.profmgr__empty {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.profmgr__custom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.profmgr__customhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profmgr__customhead input {
+  flex: 1;
+}
+
+.profmgr__del {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.profmgr__del:hover {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fca5a5;
+}
+
+.profmgr__add {
+  align-self: flex-start;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.profmgr__add:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+}

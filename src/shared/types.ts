@@ -324,6 +324,36 @@ export type PromptProfileId =
   | 'custom';
 
 /**
+ * A user-made answer profile: a name and a free-text instruction.
+ *
+ * It behaves like the built-in `custom` always did —BASE_RULES plus the
+ * prompt— but there can be several, so the register you switch to mid-call
+ * doesn't have to be whichever factory profile fits closest. They all live
+ * under the single `custom` id (which one is active is `Settings.activeCustomId`),
+ * so the exhaustive `Record<PromptProfileId, …>` maps stay intact.
+ */
+export interface CustomProfile {
+  id: string;
+  name: string;
+  prompt: string;
+}
+
+/**
+ * The built-in profiles offered in the overlay's picker — the ones the user can
+ * hide. `general` is screen-only (never a chip) and `custom` is the umbrella for
+ * user profiles, so neither is here.
+ */
+export const DROPDOWN_PROFILES: readonly PromptProfileId[] = [
+  'interview',
+  'meeting',
+  'lecture',
+  'support',
+  'coding',
+  'quiz',
+  'interpreter',
+];
+
+/**
  * A model mini-profile: the combination of engines and models for a case.
  *
  * It stores **only** engines+models and the prompt profile, not the whole
@@ -585,7 +615,21 @@ export interface Settings {
   /** The two Interpreter-mode languages (codes from `INTERPRETER_LANGS`). */
   interpreterLangA: string;
   interpreterLangB: string;
-  customPrompt: string;
+
+  /**
+   * User-made answer profiles (name + prompt). The active one is chosen by
+   * `activeCustomId` when `promptProfileId` is `'custom'`.
+   */
+  customProfiles: CustomProfile[];
+  /** Which custom profile is active (its id), used when promptProfileId === 'custom'. */
+  activeCustomId: string;
+  /**
+   * Built-in dropdown profiles the user hid from the overlay picker. Most people
+   * use two or three; hiding the rest keeps the list short. See DROPDOWN_PROFILES
+   * for which ones are hideable.
+   */
+  hiddenProfiles: PromptProfileId[];
+
   contextPacks: ContextPack[];
 
   /**
@@ -931,7 +975,9 @@ export const DEFAULT_SETTINGS: Settings = {
   modelPresets: [],
   interpreterLangA: 'es',
   interpreterLangB: 'en',
-  customPrompt: '',
+  customProfiles: [],
+  activeCustomId: '',
+  hiddenProfiles: [],
   contextPacks: [],
   // No active skill: an instruction that changes the tone of every answer is
   // turned on on purpose, it doesn't come set from the factory.
@@ -1353,6 +1399,11 @@ export const LLM_PROVIDER_IDS: readonly LLMProviderId[] = [
   'deepseek',
   'ollama',
 ];
+
+/** The custom profile currently active — only meaningful when profile is 'custom'. */
+export function activeCustomProfile(settings: Settings): CustomProfile | undefined {
+  return settings.customProfiles.find((p) => p.id === settings.activeCustomId);
+}
 
 /** The keys never travel to the renderer; only whether they're present or not. */
 export interface SecretsPresence {

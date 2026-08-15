@@ -94,11 +94,12 @@ describe('buildSystemPrompt', () => {
     expect(conContenido).toContain('Material preparado por la persona');
   });
 
-  it('the custom profile uses the user prompt', () => {
+  it('the custom profile uses the active user prompt', () => {
     const prompt = buildSystemPrompt({
       ...DEFAULT_SETTINGS,
       promptProfileId: 'custom',
-      customPrompt: 'Eres un pirata.',
+      customProfiles: [{ id: 'c1', name: 'Pirata', prompt: 'Eres un pirata.' }],
+      activeCustomId: 'c1',
     });
     expect(prompt).toContain('Eres un pirata.');
   });

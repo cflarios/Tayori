@@ -23,7 +23,22 @@ import { DEFAULT_SETTINGS, type ContextPack, type Settings } from '@shared/types
  */
 function withDefaults(raw: unknown, systemLocale?: string): Settings {
   if (raw === null || typeof raw !== 'object') return { ...DEFAULT_SETTINGS };
-  const stored = raw as Partial<Settings>;
+
+  /*
+   * The single `customPrompt` string became a list of named `customProfiles`.
+   * It's destructured OUT so it isn't written back as a dead key, and carried
+   * over as the first profile so nobody loses the prompt they had. `activeCustomId`
+   * then points at it, so a user who was on the custom profile keeps their text.
+   */
+  const { customPrompt: legacyCustom, ...stored } = raw as Partial<Settings> & {
+    customPrompt?: string;
+  };
+  const customProfiles = Array.isArray(stored.customProfiles)
+    ? stored.customProfiles
+    : typeof legacyCustom === 'string' && legacyCustom.trim()
+      ? [{ id: 'custom-1', name: 'Personalizado', prompt: legacyCustom.trim() }]
+      : [];
+
   return {
     ...DEFAULT_SETTINGS,
     /*
@@ -48,6 +63,12 @@ function withDefaults(raw: unknown, systemLocale?: string): Settings {
      * at startup, with all eleven shortcuts down and no hint why.
      */
     disabledHotkeys: Array.isArray(stored.disabledHotkeys) ? stored.disabledHotkeys : [],
+    hiddenProfiles: Array.isArray(stored.hiddenProfiles) ? stored.hiddenProfiles : [],
+    customProfiles,
+    activeCustomId:
+      typeof stored.activeCustomId === 'string' && stored.activeCustomId
+        ? stored.activeCustomId
+        : (customProfiles[0]?.id ?? ''),
     contextPacks: (stored.contextPacks ?? DEFAULT_SETTINGS.contextPacks).map(normalizePack),
   };
 }

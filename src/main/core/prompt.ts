@@ -1,4 +1,5 @@
 import {
+  activeCustomProfile,
   CONTEXT_KIND_LABEL,
   interpreterLangName,
   packsForProfile,
@@ -439,7 +440,7 @@ export function buildSystemPrompt(
 
   const profile =
     profileId === 'custom'
-      ? settings.customPrompt.trim() || PROFILES.interview
+      ? activeCustomProfile(settings)?.prompt.trim() || PROFILES.interview
       : PROFILES[profileId];
 
   /*

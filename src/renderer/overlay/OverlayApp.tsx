@@ -529,10 +529,7 @@ function StatusBar({
       {/* In compact the profile dropdown rides in the bar, since the row below
           (where it lives when expanded) is folded away. */}
       {compact && settings && (
-        <ProfileMenu
-          active={settings.promptProfileId}
-          onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
-        />
+        <ProfileMenu settings={settings} onPatch={(patch) => void window.api.settings.update(patch)} />
       )}
 
       {/*
@@ -973,6 +970,25 @@ function profileIcon(id: Settings['promptProfileId']) {
   return id === 'coding' ? <CodeIcon /> : id === 'quiz' ? <QuizIcon /> : <ProfileIcon id={id} />;
 }
 
+/** A pencil: a user-made profile, told apart from the built-in ones. */
+function CustomIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="12"
+      height="12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M11.4 2.6a1.3 1.3 0 0 1 1.9 1.9l-8 8-2.8.9.9-2.8 8-8Z" />
+    </svg>
+  );
+}
+
 /**
  * Answer profile as a dropdown, where a row of seven chips used to be.
  *
@@ -980,16 +996,19 @@ function profileIcon(id: Settings['promptProfileId']) {
  * dashboard, which steals the focus— so the control has to live here; but seven
  * chips took a whole line of a panel that exists to read. One control that
  * names the current profile and opens the rest on click says the same in a
- * fraction of the room. `custom` isn't offered (it's edited with a textarea,
- * which does need the dashboard), but it's shown when it's the active one, so
- * the label never lies about what's running.
+ * fraction of the room.
+ *
+ * It lists the built-ins the user kept visible (`hiddenProfiles`) plus every
+ * custom profile they made. Picking a built-in sets `promptProfileId`; picking
+ * a custom sets `promptProfileId: 'custom'` and `activeCustomId`, so the single
+ * `custom` id carries any number of user profiles without touching the type.
  */
 function ProfileMenu({
-  active,
-  onChange,
+  settings,
+  onPatch,
 }: {
-  active: Settings['promptProfileId'];
-  onChange: (id: Settings['promptProfileId']) => void;
+  settings: Settings;
+  onPatch: (patch: Partial<Settings>) => void;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -1013,12 +1032,25 @@ function ProfileMenu({
     };
   }, [open]);
 
-  const current = PROFILE_CHIPS.find(([id]) => id === active);
-  const label = current ? t(current[1]) : t('overlay.profileCustom');
+  const active = settings.promptProfileId;
+  const isCustom = active === 'custom';
+  const activeCustom = settings.customProfiles.find((p) => p.id === settings.activeCustomId);
+  const builtins = PROFILE_CHIPS.filter(([id]) => !settings.hiddenProfiles.includes(id));
 
-  const pick = (id: Settings['promptProfileId']) => () => {
+  const builtin = PROFILE_CHIPS.find(([id]) => id === active);
+  const triggerLabel = isCustom
+    ? (activeCustom?.name ?? t('overlay.profileCustom'))
+    : builtin
+      ? t(builtin[1])
+      : t('overlay.profileCustom');
+
+  const pickBuiltin = (id: Settings['promptProfileId']) => () => {
     setOpen(false);
-    onChange(id);
+    onPatch({ promptProfileId: id });
+  };
+  const pickCustom = (id: string) => () => {
+    setOpen(false);
+    onPatch({ promptProfileId: 'custom', activeCustomId: id });
   };
 
   return (
@@ -1029,8 +1061,8 @@ function ProfileMenu({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {active !== 'custom' && profileIcon(active)}
-        <span className="profilebtn__label">{label}</span>
+        {isCustom ? <CustomIcon /> : profileIcon(active)}
+        <span className="profilebtn__label">{triggerLabel}</span>
         <svg className="profilebtn__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
           <path
             d="M2 3.5 5 6.5 8 3.5"
@@ -1045,19 +1077,40 @@ function ProfileMenu({
 
       {open && (
         <div className="profilemenu__menu" role="menu">
-          {PROFILE_CHIPS.map(([id, plabel]) => (
-            <button
-              key={id}
-              type="button"
-              className={`more__item${active === id ? ' more__item--on' : ''}`}
-              role="menuitemradio"
-              aria-checked={active === id}
-              onClick={pick(id)}
-            >
-              {profileIcon(id)}
-              {t(plabel)}
-            </button>
-          ))}
+          {builtins.map(([id, plabel]) => {
+            const on = !isCustom && active === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`more__item${on ? ' more__item--on' : ''}`}
+                role="menuitemradio"
+                aria-checked={on}
+                onClick={pickBuiltin(id)}
+              >
+                {profileIcon(id)}
+                {t(plabel)}
+              </button>
+            );
+          })}
+
+          {settings.customProfiles.length > 0 && <div className="more__sep" />}
+          {settings.customProfiles.map((p) => {
+            const on = isCustom && settings.activeCustomId === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className={`more__item${on ? ' more__item--on' : ''}`}
+                role="menuitemradio"
+                aria-checked={on}
+                onClick={pickCustom(p.id)}
+              >
+                <CustomIcon />
+                {p.name || t('overlay.profileCustom')}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -2446,8 +2499,8 @@ export function OverlayApp() {
         {!compact && settings && (
           <div className="proferow">
             <ProfileMenu
-              active={settings.promptProfileId}
-              onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
+              settings={settings}
+              onPatch={(patch) => void window.api.settings.update(patch)}
             />
             <ModelMenu settings={settings} />
           </div>

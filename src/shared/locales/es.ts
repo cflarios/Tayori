@@ -362,6 +362,12 @@ export const es: Record<UIKey, string> = {
   'beh.codeLangDesc':
     'En qué lenguaje se escriben las soluciones de Ctrl+Alt+C. Con «auto» lo deduce de lo que se vea en la pantalla, que es lo correcto si el editor ya tiene uno elegido.',
   'beh.customPlaceholder': 'Describe cómo debe comportarse el asistente…',
+  'beh.profVisible': 'Mostrar en el selector del overlay',
+  'beh.profCustomTitle': 'Tus perfiles',
+  'beh.profCustomEmpty': 'Aún no tienes perfiles propios. Crea uno para adaptar el asistente a un caso que los de fábrica no cubren.',
+  'beh.profNamePlaceholder': 'Nombre del perfil',
+  'beh.profAdd': 'Nuevo perfil',
+  'beh.profDelete': 'Eliminar perfil',
   'beh.speakerThemShort': 'el interlocutor',
   'beh.speakerMeShort': 'tú',
   'beh.speakerAnyShort': 'cualquiera de los dos',

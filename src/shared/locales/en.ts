@@ -379,6 +379,12 @@ export const en = {
   'beh.codeLangDesc':
     'Which language the Ctrl+Alt+C solutions are written in. With «auto» it works it out from what is on screen, which is the right thing when the editor already has one selected.',
   'beh.customPlaceholder': 'Describe how the assistant should behave…',
+  'beh.profVisible': 'Show in the overlay picker',
+  'beh.profCustomTitle': 'Your profiles',
+  'beh.profCustomEmpty': 'No custom profiles yet. Add one to tailor the assistant to a case the built-ins don’t cover.',
+  'beh.profNamePlaceholder': 'Profile name',
+  'beh.profAdd': 'New profile',
+  'beh.profDelete': 'Delete profile',
   'beh.speakerThemShort': 'the other person',
   'beh.speakerMeShort': 'you',
   'beh.speakerAnyShort': 'either of the two',

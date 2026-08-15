@@ -6,6 +6,7 @@ import {
   applyModelPreset,
   autoTriggerIsInert,
   clampFontScale,
+  DROPDOWN_PROFILES,
   DEFAULT_HOTKEYS,
   FONT_SCALE,
   HOTKEY_LABEL,
@@ -52,6 +53,7 @@ import type {
   MqttStatus,
   OllamaStatus,
   PhoneMirrorStatus,
+  PromptProfileId,
   SecretKey,
   SecretsPresence,
   Settings,
@@ -131,6 +133,124 @@ function Row({
         {desc && <div className="row__desc">{desc}</div>}
       </div>
       {children}
+    </div>
+  );
+}
+
+/** Built-in profile labels for the manager toggles (same keys as the select). */
+const PROFILE_BEH_LABEL: Partial<Record<PromptProfileId, UIKey>> = {
+  interview: 'beh.profInterview',
+  meeting: 'beh.profMeeting',
+  lecture: 'beh.profLecture',
+  support: 'beh.profSupport',
+  coding: 'beh.profCoding',
+  quiz: 'beh.profQuiz',
+  interpreter: 'beh.profInterpreter',
+};
+
+/**
+ * Enable/disable the built-in profiles and manage the user's own.
+ *
+ * Disabling only hides a built-in from the overlay picker —its prompt is fixed—
+ * and never the last visible one; hiding the active profile moves to the first
+ * still shown. A custom profile is a name and a free-text instruction, and there
+ * can be several (all under the single `custom` id, `activeCustomId` picks
+ * which). Deleting the active one falls back so the app never sits on a profile
+ * that no longer exists.
+ */
+function ProfileManager({
+  settings,
+  patch,
+}: {
+  settings: Settings;
+  patch: (p: Partial<Settings>) => void;
+}) {
+  const t = useT();
+
+  const setHidden = (id: PromptProfileId, visible: boolean): void => {
+    const hiddenProfiles = visible
+      ? settings.hiddenProfiles.filter((h) => h !== id)
+      : [...settings.hiddenProfiles, id];
+    if (!visible && DROPDOWN_PROFILES.every((p) => hiddenProfiles.includes(p))) return;
+    const fallback = DROPDOWN_PROFILES.find((p) => !hiddenProfiles.includes(p));
+    const moveActive =
+      !visible && settings.promptProfileId === id && fallback ? { promptProfileId: fallback } : {};
+    patch({ hiddenProfiles, ...moveActive });
+  };
+
+  const addCustom = (): void => {
+    const id = `custom-${Date.now().toString(36)}`;
+    patch({
+      customProfiles: [...settings.customProfiles, { id, name: '', prompt: '' }],
+      promptProfileId: 'custom',
+      activeCustomId: id,
+    });
+  };
+
+  const editCustom = (id: string, field: 'name' | 'prompt', value: string): void => {
+    patch({
+      customProfiles: settings.customProfiles.map((p) =>
+        p.id === id ? { ...p, [field]: value } : p
+      ),
+    });
+  };
+
+  const removeCustom = (id: string): void => {
+    const customProfiles = settings.customProfiles.filter((p) => p.id !== id);
+    const wasActive = settings.promptProfileId === 'custom' && settings.activeCustomId === id;
+    patch({
+      customProfiles,
+      ...(wasActive
+        ? { promptProfileId: 'interview' as PromptProfileId, activeCustomId: customProfiles[0]?.id ?? '' }
+        : {}),
+    });
+  };
+
+  return (
+    <div className="profmgr">
+      <div className="profmgr__head">{t('beh.profVisible')}</div>
+      <div className="profmgr__toggles">
+        {DROPDOWN_PROFILES.map((id) => (
+          <div key={id} className="profmgr__toggle">
+            <span>{t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}</span>
+            <Switch on={!settings.hiddenProfiles.includes(id)} onChange={(v) => setHidden(id, v)} />
+          </div>
+        ))}
+      </div>
+
+      <div className="profmgr__head">{t('beh.profCustomTitle')}</div>
+      {settings.customProfiles.length === 0 && (
+        <p className="profmgr__empty">{t('beh.profCustomEmpty')}</p>
+      )}
+      {settings.customProfiles.map((p) => (
+        <div key={p.id} className="profmgr__custom">
+          <div className="profmgr__customhead">
+            <input
+              type="text"
+              value={p.name}
+              placeholder={t('beh.profNamePlaceholder')}
+              onChange={(e) => editCustom(p.id, 'name', e.target.value)}
+            />
+            <button
+              type="button"
+              className="profmgr__del"
+              title={t('beh.profDelete')}
+              aria-label={t('beh.profDelete')}
+              onClick={() => removeCustom(p.id)}
+            >
+              ✕
+            </button>
+          </div>
+          <textarea
+            value={p.prompt}
+            placeholder={t('beh.customPlaceholder')}
+            onChange={(e) => editCustom(p.id, 'prompt', e.target.value)}
+          />
+        </div>
+      ))}
+      <button type="button" className="profmgr__add" onClick={addCustom}>
+        + {t('beh.profAdd')}
+      </button>
     </div>
   );
 }
@@ -3386,10 +3506,19 @@ function BehaviourCard({
 
       <Row icon="file" label={t('beh.profile')} desc={t('beh.profileDesc')}>
         <select
-          value={settings.promptProfileId}
-          onChange={(e) =>
-            void patch({ promptProfileId: e.target.value as Settings['promptProfileId'] })
+          value={
+            settings.promptProfileId === 'custom'
+              ? `custom:${settings.activeCustomId}`
+              : settings.promptProfileId
           }
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v.startsWith('custom:')) {
+              void patch({ promptProfileId: 'custom', activeCustomId: v.slice('custom:'.length) });
+            } else {
+              void patch({ promptProfileId: v as Settings['promptProfileId'] });
+            }
+          }}
         >
           <option value="interview">{t('beh.profInterview')}</option>
           <option value="meeting">{t('beh.profMeeting')}</option>
@@ -3398,7 +3527,16 @@ function BehaviourCard({
           <option value="coding">{t('beh.profCoding')}</option>
           <option value="quiz">{t('beh.profQuiz')}</option>
           <option value="interpreter">{t('beh.profInterpreter')}</option>
-          <option value="custom">{t('beh.profCustom')}</option>
+          {/* User profiles all live under `custom`; the id rides in the value. */}
+          {settings.customProfiles.length > 0 && (
+            <optgroup label={t('beh.profCustomTitle')}>
+              {settings.customProfiles.map((p) => (
+                <option key={p.id} value={`custom:${p.id}`}>
+                  {p.name || t('beh.profCustom')}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       </Row>
 
@@ -3466,14 +3604,7 @@ function BehaviourCard({
         </select>
       </Row>
 
-      {settings.promptProfileId === 'custom' && (
-        <textarea
-          placeholder={t('beh.customPlaceholder')}
-          value={settings.customPrompt}
-          onChange={(e) => void patch({ customPrompt: e.target.value })}
-          style={{ marginTop: 10 }}
-        />
-      )}
+      <ProfileManager settings={settings} patch={patch} />
     </section>
   );
 }
