@@ -340,6 +340,105 @@ function SourcePicker({
   );
 }
 
+/**
+ * The listen toggle and the audio sources, folded into one split control.
+ *
+ * They were two side-by-side widgets —a text toggle and a three-segment
+ * picker— and the picker's width was the bulk of the bar's left half. Folding
+ * the sources into a caret popover reclaims that room.
+ *
+ * It's a **split** control, not a single dropdown, and that's deliberate:
+ * stopping the listen has to stay at ONE click, because during a call the bar
+ * is the only place to do it (there's no central mic then). So the body still
+ * toggles listening as before; only the sources move behind the caret.
+ *
+ * What the closed state keeps saying: the caret carries a tiny glyph of the
+ * current routing (mic, speaker, or both), and it turns amber when a requested
+ * source never opened —the "listening into a closed mic" trap— so that warning
+ * doesn't vanish just because the picker is now tucked away.
+ */
+function ListenControl({
+  status,
+  levels,
+  settings,
+}: {
+  status: CaptureStatus;
+  levels: AudioLevels;
+  settings: Settings | null;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const mode = settings?.audioSources ?? 'both';
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onDown = (e: PointerEvent): void => {
+      if (!(e.target as Element | null)?.closest('.listenctl')) setOpen(false);
+    };
+    const onLeave = (): void => setOpen(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mouseleave', onLeave);
+    };
+  }, [open]);
+
+  // Same reading as the picker's amber segment: a source requested but never
+  // opened. Surfaced on the caret so the closed control still warns.
+  const listening = status.state === 'listening';
+  const mute =
+    listening &&
+    ((mode !== 'system' && !status.micActive) || (mode !== 'mic' && !status.loopbackActive));
+
+  return (
+    <div className="listenctl" data-interactive>
+      <ListenButton status={status} />
+      <button
+        type="button"
+        className={`listenctl__caret${open ? ' listenctl__caret--on' : ''}${
+          mute ? ' listenctl__caret--mute' : ''
+        }`}
+        aria-expanded={open}
+        aria-label={t('overlay.sources')}
+        title={t('overlay.sources')}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="listenctl__glyph" aria-hidden="true">
+          {mode !== 'system' && <MicIcon />}
+          {mode !== 'mic' && <SpeakerIcon />}
+        </span>
+        <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+          <path
+            d="M2 3.5 5 6.5 8 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="listenctl__menu" role="group" aria-label={t('overlay.sources')}>
+          <SourcePicker
+            mode={mode}
+            levels={levels}
+            status={status}
+            onChange={(audioSources) => void window.api.settings.update({ audioSources })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatusBar({
   status,
   levels,
@@ -366,14 +465,7 @@ function StatusBar({
     // the cursor is here; without it, with click-through active, you couldn't
     // drag or press the buttons.
     <div className="statusbar" data-interactive onMouseDown={onDragStart}>
-      <ListenButton status={status} />
-
-      <SourcePicker
-        mode={settings?.audioSources ?? 'both'}
-        levels={levels}
-        status={status}
-        onChange={(audioSources) => void window.api.settings.update({ audioSources })}
-      />
+      <ListenControl status={status} levels={levels} settings={settings} />
 
       {/*
         The state sits RIGHT NEXT to the listen control, not by the buttons.

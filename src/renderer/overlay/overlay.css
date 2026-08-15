@@ -479,6 +479,89 @@ body {
 }
 
 /*
+ * The listen toggle + a caret that reveals the audio sources.
+ *
+ * A split control: the body (`.listen`) keeps toggling the listen at one click,
+ * the caret opens the source popover. See the component's comment for why the
+ * sources moved behind a caret but the toggle didn't.
+ */
+.listenctl {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.listenctl__caret {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 5px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.listenctl__caret:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.listenctl__caret--on {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+/* A requested source never opened: the warning that used to live on the picker
+   segment, kept alive on the closed control. */
+.listenctl__caret--mute {
+  color: #fbbf24;
+}
+
+.listenctl__glyph {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.listenctl__caret svg {
+  flex: none;
+  opacity: 0.85;
+}
+
+/*
+ * The source popover. Dark card like the other menus, anchored under the caret.
+ */
+.listenctl__menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 40;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: #1b1e25;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/* Bridge the 5 px gap so the cursor doesn't leave `.listenctl` on the way down. */
+.listenctl__menu::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  height: 5px;
+}
+
+/*
  * The two audio sources, as switches.
  *
  * They replace the read-only meters: the bar still says what's actually coming
@@ -607,6 +690,20 @@ body {
     padding: 4px 7px 6px;
     gap: 4px;
   }
+}
+
+/*
+ * Inside the popover there IS room, so the source names come back even at the
+ * narrow sizes where the bar hides them. After the media query on purpose: it
+ * wins on equal specificity by source order, no !important.
+ */
+.listenctl__menu .source__label {
+  display: inline;
+}
+
+.listenctl__menu .source {
+  padding: 4px 9px 6px;
+  gap: 5px;
 }
 
 @media (max-width: 420px) {
