@@ -181,6 +181,24 @@ export function recoverOverlay(): void {
 }
 
 /**
+ * Forces the taskbar button to pick up a freshly set icon.
+ *
+ * Windows caches the taskbar button's icon: `setIcon` updates the window itself
+ * —title bar, Alt+Tab— at once, but the taskbar entry keeps the old icon until
+ * the button is recreated. Toggling `skipTaskbar` off and on recreates it. Only
+ * meaningful when the overlay is actually in the taskbar (stealth off); with
+ * stealth on there's no button, and the new icon is picked up when stealth is
+ * later turned off. This is why changing the decoy used to need a stealth toggle
+ * to take effect.
+ */
+export function refreshOverlayTaskbar(): void {
+  const win = getOverlay();
+  if (!win || settingsStore.get().stealthEnabled) return;
+  win.setSkipTaskbar(true);
+  win.setSkipTaskbar(false);
+}
+
+/**
  * Lets the mouse pass through or captures it momentarily.
  *
  * The renderer calls it on entering and leaving the overlay bar: with

@@ -29,6 +29,7 @@ import {
   createOverlay,
   getOverlay,
   recoverOverlay,
+  refreshOverlayTaskbar,
   resizeOverlay,
   setOverlayInteractive,
   setOverlayMouseIgnore,
@@ -153,6 +154,9 @@ function registerIpcHandlers(): void {
     }
     if (patch.decoyIcon !== undefined && patch.decoyIcon !== previous.decoyIcon) {
       applyDecoyToAll(next.decoyIcon);
+      // The icon is set, but the taskbar button caches it; recreate it so the
+      // change shows without needing a stealth toggle.
+      refreshOverlayTaskbar();
     }
     if (patch.clickThrough !== undefined) {
       const overlay = getOverlay();
