@@ -2,6 +2,7 @@ import { BrowserWindow, screen } from 'electron';
 import { OVERLAY_SIZES, type OverlaySize } from '@shared/types';
 import { settingsStore } from '../config/store';
 import { setClickThrough, setStealth } from './stealth';
+import { applyDecoyIcon } from './decoy';
 import { loadRenderer, preloadPath } from './resolve';
 
 let overlay: BrowserWindow | null = null;
@@ -68,6 +69,9 @@ export function createOverlay(): BrowserWindow {
     // for a frame in the capture.
     setStealth(win, settings.stealthEnabled);
     setClickThrough(win, settings.clickThrough);
+    // Taskbar disguise: the overlay shows in the taskbar when stealth is off or
+    // while writing, and this decides what it looks like there.
+    applyDecoyIcon(win, settings.decoyIcon);
     // showInactive, not show: show without stealing focus from the video call.
     win.showInactive();
     // Electron gotcha: on transparent+frameless windows, `skipTaskbar`

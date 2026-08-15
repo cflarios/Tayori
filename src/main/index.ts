@@ -39,6 +39,7 @@ import {
 } from './windows/overlay';
 import { openDashboard } from './windows/dashboard';
 import { setClickThrough, setStealthForAll } from './windows/stealth';
+import { applyDecoyToAll } from './windows/decoy';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
 import { captureScreen } from './capture/screenshot';
@@ -149,6 +150,9 @@ function registerIpcHandlers(): void {
 
     if (patch.stealthEnabled !== undefined && patch.stealthEnabled !== previous.stealthEnabled) {
       setStealthForAll(next.stealthEnabled);
+    }
+    if (patch.decoyIcon !== undefined && patch.decoyIcon !== previous.decoyIcon) {
+      applyDecoyToAll(next.decoyIcon);
     }
     if (patch.clickThrough !== undefined) {
       const overlay = getOverlay();

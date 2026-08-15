@@ -992,6 +992,25 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
         </div>
       )}
 
+      <div className="hero">
+        <span className="hero__icon">
+          <Icon name="monitor" size={19} />
+        </span>
+        <div className="hero__text">
+          <div className="hero__title">{t('gen.decoy')}</div>
+          <div className="hero__desc">{t('gen.decoyDesc')}</div>
+        </div>
+        <select
+          value={settings.decoyIcon}
+          onChange={(e) => void patch({ decoyIcon: e.target.value as Settings['decoyIcon'] })}
+        >
+          <option value="off">{t('gen.decoyOff')}</option>
+          <option value="terminal">Windows Terminal</option>
+          <option value="settings">Settings</option>
+          <option value="taskmanager">Task Manager</option>
+        </select>
+      </div>
+
       <section className="card">
         <h2 className="card__title">{t('gen.lookTitle')}</h2>
         <p className="card__hint">{t('gen.lookHint')}</p>

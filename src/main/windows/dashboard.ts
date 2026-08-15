@@ -2,6 +2,7 @@ import { BrowserWindow, shell } from 'electron';
 import { IPC } from '@shared/ipc';
 import { settingsStore } from '../config/store';
 import { setStealthContentOnly } from './stealth';
+import { applyDecoyIcon } from './decoy';
 import { getOverlay, isOverlayInteractive } from './overlay';
 import { loadRenderer, preloadPath } from './resolve';
 
@@ -80,6 +81,9 @@ export function openDashboard(): BrowserWindow {
     // keeps the taskbar and focus of a settings window. It follows the stealth
     // switch, so demo mode makes it visible just like the overlay.
     setStealthContentOnly(win, settingsStore.get().stealthEnabled);
+    // Same disguise as the overlay, for the title in Alt+Tab (the dashboard
+    // itself is skipTaskbar, so it isn't a taskbar entry).
+    applyDecoyIcon(win, settingsStore.get().decoyIcon);
     win.show();
   });
   dashboard.on('closed', () => {

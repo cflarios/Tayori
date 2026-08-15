@@ -354,6 +354,19 @@ export const DROPDOWN_PROFILES: readonly PromptProfileId[] = [
 ];
 
 /**
+ * Which Windows tool the taskbar entry (icon + window title) masquerades as.
+ *
+ * A privacy layer, not a trick played on anyone else: the overlay is already
+ * invisible in screen captures, but its taskbar icon and title still say what
+ * the app is to someone glancing at the machine. `off` is the real Tayori. The
+ * icon files live in `resources/icons` (see its README); a missing one still
+ * changes the title, so the app never breaks on a not-yet-added file.
+ */
+export type DecoyIcon = 'off' | 'terminal' | 'settings' | 'taskmanager';
+
+export const DECOY_ICONS: readonly DecoyIcon[] = ['off', 'terminal', 'settings', 'taskmanager'];
+
+/**
  * A model mini-profile: the combination of engines and models for a case.
  *
  * It stores **only** engines+models and the prompt profile, not the whole
@@ -483,6 +496,8 @@ export interface Settings {
    * The dashboard switch inverts this to make the app detectable again.
    */
   stealthEnabled: boolean;
+  /** Which Windows tool the taskbar icon and title masquerade as. See `DecoyIcon`. */
+  decoyIcon: DecoyIcon;
   /** Whether the overlay ignores clicks and forwards them to the window below. */
   clickThrough: boolean;
   overlayOpacity: number;
@@ -929,6 +944,7 @@ export const DEFAULT_HOTKEYS: HotkeyMap = {
 
 export const DEFAULT_SETTINGS: Settings = {
   stealthEnabled: true,
+  decoyIcon: 'off',
   clickThrough: true,
   // Opaque by default: legibility rules. It can be lowered from the dashboard.
   overlayOpacity: 1,

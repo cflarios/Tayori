@@ -22,6 +22,14 @@ files:
   - out/**/*
   - package.json
 
+# Decoy taskbar icons, resolved at runtime from `<resources>/icons`. See
+# `resources/icons/README.md`. Only the .ico files are copied (not the README).
+extraResources:
+  - from: resources/icons
+    to: icons
+    filter:
+      - '**/*.ico'
+
 # There are no native modules to rebuild: whisper.cpp is used as an external
 # binary downloaded at runtime, not as a Node binding. That avoids
 # electron-rebuild, node-gyp and the Visual Studio Build Tools dependency.

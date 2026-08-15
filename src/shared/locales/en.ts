@@ -250,6 +250,10 @@ export const en = {
   'gen.clickThroughDesc':
     'The overlay ignores the mouse and clicks reach the window underneath. Recommended during a call.',
   'gen.stealthWarn': 'Stealth mode is off: the overlay **will** show up if you share your screen.',
+  'gen.decoy': 'Taskbar disguise',
+  'gen.decoyDesc':
+    'What the taskbar icon and window title pretend to be. The overlay is invisible in captures, but its taskbar entry still names the app — this makes it look like an ordinary Windows tool instead.',
+  'gen.decoyOff': 'Off (Tayori)',
   'gen.lookTitle': 'Overlay appearance',
   'gen.lookHint':
     'How the floating panel looks. It applies immediately, so it is worth adjusting with the overlay in sight.',

@@ -234,6 +234,10 @@ export const es: Record<UIKey, string> = {
     'El overlay ignora el ratón y los clics llegan a la ventana de abajo. Recomendado durante una llamada.',
   'gen.stealthWarn':
     'El modo invisible está desactivado: el overlay **sí** aparecerá si compartes pantalla.',
+  'gen.decoy': 'Disfraz en la barra de tareas',
+  'gen.decoyDesc':
+    'De qué se disfraza el ícono y el título de la ventana. El overlay es invisible en las capturas, pero su entrada en la barra de tareas aún nombra la app — esto la hace parecer una herramienta común de Windows.',
+  'gen.decoyOff': 'Desactivado (Tayori)',
   'gen.lookTitle': 'Aspecto del overlay',
   'gen.lookHint':
     'Cómo se ve el panel flotante. Se aplica al momento, así que conviene ajustarlo con el overlay a la vista.',
