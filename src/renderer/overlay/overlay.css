@@ -376,6 +376,25 @@ body {
   border-bottom: none;
 }
 
+/*
+ * Content-sized in compact so the window can shrink to it (see the resize
+ * effect in OverlayApp). A flex:1 child in an auto-height column would collapse
+ * the panel to nothing, which is why the answer section drops its flex here.
+ */
+.panel--compact {
+  height: auto;
+}
+
+/*
+ * The answer is capped so a long one scrolls inside instead of pushing the
+ * window taller and taller. Without a cap the auto-fit would keep growing the
+ * window up to its 900 px clamp — the opposite of a compact rectangle.
+ */
+.panel--compact .answer {
+  flex: none;
+  max-height: 480px;
+}
+
 .statusbar {
   display: flex;
   align-items: center;

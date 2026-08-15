@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from '@shared/answer-format';
 import { toLines } from './teleprompter';
-import { clampFontScale, isScreenTrigger, providerIsReady } from '@shared/types';
+import { clampFontScale, isScreenTrigger, OVERLAY_SIZES, providerIsReady } from '@shared/types';
 import { LangProvider, useT } from '@renderer/i18n';
 import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
 import { matchSkills, skillName } from '@shared/skills';
@@ -1885,6 +1885,21 @@ export function OverlayApp() {
   useChromeMouse();
   const onDragStart = useOverlayDrag();
 
+  /**
+   * The window follows the content ONLY in compact.
+   *
+   * The overlay's height is otherwise fixed by the size preset (`OVERLAY_SIZES`)
+   * and the renderer never touched it. Compact wants the opposite: a rectangle
+   * that's as small as what it shows —just the bar when idle, bar + answer when
+   * there's one— which is what makes it read as "out of the way". So while
+   * compact, the panel is content-sized (`.panel--compact { height: auto }`),
+   * a `ResizeObserver` measures it and reports the height through the existing
+   * `resizeOverlay` IPC (the main clamps it to 120–900). The answer is capped in
+   * CSS so a long one scrolls inside instead of growing the window without end.
+   */
+  const panelRef = useRef<HTMLDivElement>(null);
+  const reportedHeight = useRef(0);
+
   /*
    * This component **provides** the language, so it can't consume it with
    * `useT()`: a context isn't read in the same component that sets it. For its
@@ -2019,6 +2034,36 @@ export function OverlayApp() {
 
   const compact = settings?.overlayCompact ?? false;
 
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+
+    // Not compact: give the fixed preset height back, but only if a compact
+    // session actually shrank it — otherwise every unrelated settings change
+    // would fire a redundant resize. Only the height was ever touched (width is
+    // untouched), so restoring it is enough and the anchor stays.
+    if (!compact) {
+      if (reportedHeight.current !== 0 && settings) {
+        void window.api.window.resizeOverlay(OVERLAY_SIZES[settings.overlaySize].height);
+      }
+      reportedHeight.current = 0;
+      return;
+    }
+
+    // Compact: fit the window to the content, de-duped so a streaming answer
+    // doesn't fire a resize per token when its height hasn't actually changed.
+    const report = (): void => {
+      const height = el.offsetHeight + 8; // the panel's 4px top + bottom margin
+      if (height === reportedHeight.current) return;
+      reportedHeight.current = height;
+      void window.api.window.resizeOverlay(height);
+    };
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [compact, settings]);
+
   // Which answer is shown: the one being looked at, or the last. Following the
   // last by default is what keeps the usual behavior — a new answer replaces
   // the previous one — without losing the earlier ones.
@@ -2033,11 +2078,15 @@ export function OverlayApp() {
    * takes the spot — the empty is a state, not a separate screen. The write tab
    * disables it because there the user has already chosen what to do.
    */
-  const hero = tab === 'listen' && segments.length === 0 && answers.length === 0;
+  // Compact never shows the central state: it exists to be a small bar, and the
+  // big idle mic would defeat that. Idle + compact is then just the bar, which
+  // is exactly the "out of the way" rectangle the mode is for.
+  const hero = tab === 'listen' && segments.length === 0 && answers.length === 0 && !compact;
 
   return (
     <LangProvider lang={settings?.uiLanguage}>
       <div
+        ref={panelRef}
         className={`panel${compact ? ' panel--compact' : ''}`}
         style={{
           opacity: settings?.overlayOpacity ?? 1,
@@ -2143,9 +2192,12 @@ export function OverlayApp() {
         )}
 
         {/* The answer section disappears with the central state: its header and
-          its "nothing yet" text were the second competing empty. */}
-        {!hero && (
-          <div className="section" style={{ flex: 1 }}>
+          its "nothing yet" text were the second competing empty. In compact it
+          only appears once there's actually an answer, so idle + compact stays a
+          bare bar; and it doesn't grow to fill —the panel is content-sized
+          there— so its `flex: 1` is dropped. */}
+        {!hero && (!compact || answers.length > 0) && (
+          <div className="section" style={compact ? undefined : { flex: 1 }}>
             <div className="section__head">
               <span className="section__title">{t('overlay.suggestion')}</span>
               <AnswerNav
