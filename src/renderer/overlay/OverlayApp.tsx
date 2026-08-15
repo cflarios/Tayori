@@ -2038,7 +2038,7 @@ export function OverlayApp() {
   return (
     <LangProvider lang={settings?.uiLanguage}>
       <div
-        className="panel"
+        className={`panel${compact ? ' panel--compact' : ''}`}
         style={{
           opacity: settings?.overlayOpacity ?? 1,
           // Only the CONTENT scales: the bar and the chips stay as they are, or

@@ -363,6 +363,19 @@ body {
 
 /* ── Status bar ── */
 
+/*
+ * Compact: the bar collapses to a single tidy row.
+ *
+ * With the sources folded behind the listen caret, the row is short enough that
+ * it no longer needs the wrap safety net —which existed for the full bar at
+ * size S, where the content overflowed— so here it stays on one line.
+ */
+.panel--compact .statusbar {
+  flex-wrap: nowrap;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
 .statusbar {
   display: flex;
   align-items: center;
