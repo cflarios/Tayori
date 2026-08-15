@@ -94,6 +94,7 @@ export const IPC = {
   historyDelete: 'history:delete',
   historyClear: 'history:clear',
   historyLocation: 'history:location',
+  historySearch: 'history:search',
 
   llmListModels: 'llm:list-models',
   llmTestConnection: 'llm:test-connection',

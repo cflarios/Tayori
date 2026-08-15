@@ -9,6 +9,7 @@ import {
   DEFAULT_HOTKEYS,
   FONT_SCALE,
   HOTKEY_LABEL,
+  isScreenTrigger,
   normalizeModelId,
   mqttTopics,
   INTERPRETER_LANGS,
@@ -2299,6 +2300,7 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const t = useT();
   const dateFormat = DATE_FORMAT[useUILang()];
   const [items, setItems] = useState<ConversationSummary[]>([]);
+  const [query, setQuery] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Conversation | null>(null);
   const [location, setLocation] = useState('');
@@ -2308,22 +2310,35 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
    *
    * Painting them all made the page grow without a ceiling: with fifty
    * conversations, any setting below was half a screen of scroll away. The recent
-   * ones are shown, which are the ones consulted.
+   * ones are shown, which are the ones consulted. A search bypasses the cap — its
+   * results are already the ones you asked for.
    */
   const [showAll, setShowAll] = useState(false);
   const VISIBLE = 5;
+  const searching = query.trim().length > 0;
 
+  // The list honours the search box: with a query it's the matches, without it
+  // the full list. Both come as lightweight headers from the main process, where
+  // the conversation files live.
   const refresh = useCallback((): void => {
-    void window.api.history.list().then(setItems);
-  }, []);
+    const q = query.trim();
+    void (q ? window.api.history.search(q) : window.api.history.list()).then(setItems);
+  }, [query]);
+
+  // Debounced so typing doesn't read every conversation on each keystroke;
+  // clearing the box is instant. This also does the first load on mount.
+  useEffect(() => {
+    const id = setTimeout(refresh, searching ? 200 : 0);
+    return () => clearTimeout(id);
+  }, [refresh, searching]);
 
   useEffect(() => {
-    refresh();
     void window.api.history.location().then(setLocation);
-    // Starting a new conversation from the overlay must show here without having
-    // to close and reopen the dashboard.
-    return window.api.history.onReset(refresh);
-  }, [refresh]);
+  }, []);
+
+  // Starting a new conversation from the overlay must show here without having to
+  // close and reopen the dashboard.
+  useEffect(() => window.api.history.onReset(refresh), [refresh]);
 
   // The detail is requested on demand: the list only brings headers, and loading
   // each full transcript to paint a list wouldn't make sense.
@@ -2339,7 +2354,8 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   }, [openId]);
 
   const remove = async (id: string): Promise<void> => {
-    setItems(await window.api.history.remove(id));
+    await window.api.history.remove(id);
+    refresh();
     if (openId === id) {
       setOpenId(null);
       setDetail(null);
@@ -2347,7 +2363,9 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   };
 
   const clearAll = async (): Promise<void> => {
-    setItems(await window.api.history.clear());
+    await window.api.history.clear();
+    setQuery('');
+    setItems([]);
     setOpenId(null);
     setDetail(null);
     setConfirmingClear(false);
@@ -2367,20 +2385,40 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         <Switch on={settings.historyEnabled} onChange={(v) => void patch({ historyEnabled: v })} />
       </Row>
 
-      {items.length === 0 && (
+      {(items.length > 0 || searching) && (
+        <input
+          type="text"
+          className="convsearch"
+          placeholder={t('hist.search')}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      )}
+
+      {!searching && items.length === 0 && (
         <p className="card__hint" style={{ marginBottom: 0 }}>
           {settings.historyEnabled ? t('hist.emptyOn') : t('hist.emptyOff')}
         </p>
       )}
 
-      {(showAll ? items : items.slice(0, VISIBLE)).map((item) => (
+      {searching && items.length === 0 && (
+        <p className="card__hint" style={{ marginBottom: 0 }}>
+          {t('hist.searchNone', { query: query.trim() })}
+        </p>
+      )}
+
+      {(searching || showAll ? items : items.slice(0, VISIBLE)).map((item) => (
         <div key={item.id} className="conv">
           <div className="conv__head">
             <button
               className="conv__title"
               onClick={() => setOpenId(openId === item.id ? null : item.id)}
             >
-              <span className="conv__name">{item.title || t('hist.untitled')}</span>
+              <span className="conv__name">
+                {item.screenTitle
+                  ? t(item.screenTitle === 'code' ? 'hist.screenCode' : 'hist.screenQuiz')
+                  : item.title || t('hist.untitled')}
+              </span>
               <span className="conv__meta">
                 {t('hist.meta', {
                   date: dateFormat.format(item.startedAt),
@@ -2398,7 +2436,11 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
             <div className="conv__body">
               {detail.turns.map((turn) => (
                 <div key={turn.id} className="turn">
-                  <div className="turn__q">{turn.question || t('hist.noQuestion')}</div>
+                  <div className="turn__q">
+                    {isScreenTrigger(turn.trigger)
+                      ? t(turn.trigger === 'code' ? 'hist.screenCode' : 'hist.screenQuiz')
+                      : turn.question || t('hist.noQuestion')}
+                  </div>
                   <div className={`turn__a${turn.error ? ' turn__a--error' : ''}`}>
                     {turn.error ?? turn.answer}
                   </div>
@@ -2428,7 +2470,7 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         </div>
       ))}
 
-      {items.length > VISIBLE && (
+      {!searching && items.length > VISIBLE && (
         <div className="field">
           <button className="btn" onClick={() => setShowAll(!showAll)}>
             {showAll

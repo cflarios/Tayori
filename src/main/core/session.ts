@@ -6,6 +6,7 @@ import {
   autoTriggerIsInert,
   conversationTitle,
   idleShutoffDue,
+  isScreenTrigger,
   packsForProfile,
   speakersFor,
   type Answer,
@@ -365,7 +366,12 @@ class SessionOrchestrator {
     if (answer.status !== 'done' && answer.status !== 'error') return;
     if (this.recordedAnswers.has(answer.id)) return;
 
-    const conversation = this.ensureConversation(answer.question);
+    // A screen action's "question" is the model's instruction (Spanish by
+    // design), not something to title the conversation with. Don't let it seed
+    // the title: a spoken or typed turn will, or the dashboard labels it.
+    const conversation = this.ensureConversation(
+      isScreenTrigger(answer.trigger) ? undefined : answer.question
+    );
     if (!conversation) return;
 
     this.recordedAnswers.add(answer.id);

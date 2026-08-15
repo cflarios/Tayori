@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { conversationTitle, isScreenTrigger } from '@shared/types';
 import type { Conversation, ConversationSummary } from '@shared/types';
 
 /**
@@ -53,12 +54,11 @@ function readConversation(path: string): Conversation | null {
   }
 }
 
-/** Headers of all conversations, from most recent to oldest. */
-export function listConversations(): ConversationSummary[] {
+/** Every readable conversation, unsorted. Both list and search read the bodies. */
+function allConversations(): Conversation[] {
   const base = dir();
   if (!existsSync(base)) return [];
 
-  const summaries: ConversationSummary[] = [];
   let entries: string[];
   try {
     entries = readdirSync(base);
@@ -66,20 +66,68 @@ export function listConversations(): ConversationSummary[] {
     return [];
   }
 
+  const out: Conversation[] = [];
   for (const entry of entries) {
     if (!entry.endsWith('.json')) continue;
     const conversation = readConversation(join(base, entry));
-    if (!conversation) continue;
-    summaries.push({
-      id: conversation.id,
-      title: conversation.title,
-      startedAt: conversation.startedAt,
-      turnCount: conversation.turns.length,
-      segmentCount: conversation.segments.length,
-    });
+    if (conversation) out.push(conversation);
   }
+  return out;
+}
 
-  return summaries.sort((a, b) => b.startedAt - a.startedAt);
+function toSummary(c: Conversation): ConversationSummary {
+  const summary: ConversationSummary = {
+    id: c.id,
+    title: c.title,
+    startedAt: c.startedAt,
+    turnCount: c.turns.length,
+    segmentCount: c.segments.length,
+  };
+  // A title derived from a screen action is the model's Spanish instruction (or
+  // empty, for screen-only conversations saved after screen actions stopped
+  // seeding it). Flag it so the dashboard shows a localized label — this covers
+  // both old files (Spanish title) and new ones (no title).
+  const first = c.turns[0];
+  if (
+    first &&
+    isScreenTrigger(first.trigger) &&
+    (c.title === '' || c.title === conversationTitle(first.question))
+  ) {
+    summary.screenTitle = first.trigger;
+  }
+  return summary;
+}
+
+const byRecency = (a: ConversationSummary, b: ConversationSummary): number => b.startedAt - a.startedAt;
+
+/** Headers of all conversations, from most recent to oldest. */
+export function listConversations(): ConversationSummary[] {
+  return allConversations().map(toSummary).sort(byRecency);
+}
+
+/**
+ * Conversations whose title, any question/answer, or transcript contains
+ * `query` (case-insensitive). Returns headers like `listConversations`, so the
+ * dashboard filters its list without pulling every conversation body into the
+ * renderer — the files live here, in the main process.
+ */
+export function searchConversations(query: string): ConversationSummary[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return listConversations();
+
+  return allConversations()
+    .filter(
+      (c) =>
+        c.title.toLowerCase().includes(needle) ||
+        c.turns.some(
+          (turn) =>
+            turn.question.toLowerCase().includes(needle) ||
+            turn.answer.toLowerCase().includes(needle)
+        ) ||
+        c.segments.some((seg) => seg.text.toLowerCase().includes(needle))
+    )
+    .map(toSummary)
+    .sort(byRecency);
 }
 
 export function getConversation(id: string): Conversation | null {

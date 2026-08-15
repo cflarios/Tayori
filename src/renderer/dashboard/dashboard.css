@@ -1097,6 +1097,11 @@ button.btn--primary:hover:not(:disabled) {
 
 /* ── Conversation history ── */
 
+.convsearch {
+  width: 100%;
+  margin: 14px 0 4px;
+}
+
 .conv {
   margin-top: 10px;
   padding-top: 10px;

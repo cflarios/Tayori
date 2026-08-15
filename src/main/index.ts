@@ -23,6 +23,7 @@ import {
   getConversation,
   historyLocation,
   listConversations,
+  searchConversations,
 } from './config/history';
 import {
   createOverlay,
@@ -342,6 +343,7 @@ function registerIpcHandlers(): void {
     return listConversations();
   });
   ipcMain.handle(IPC.historyLocation, () => historyLocation());
+  ipcMain.handle(IPC.historySearch, (_e, query: string) => searchConversations(query));
 
   // ── Models ──
   // With `providerId` you can populate the selector of a provider that is NOT

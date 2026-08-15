@@ -253,6 +253,8 @@ const api = {
     /** Starts a new conversation and clears the in-progress context. */
     newConversation: (): Promise<void> => ipcRenderer.invoke(IPC.conversationNew),
     list: (): Promise<ConversationSummary[]> => ipcRenderer.invoke(IPC.historyList),
+    search: (query: string): Promise<ConversationSummary[]> =>
+      ipcRenderer.invoke(IPC.historySearch, query),
     get: (id: string): Promise<Conversation | null> => ipcRenderer.invoke(IPC.historyGet, id),
     remove: (id: string): Promise<ConversationSummary[]> =>
       ipcRenderer.invoke(IPC.historyDelete, id),

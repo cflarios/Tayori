@@ -212,6 +212,13 @@ export interface ConversationSummary {
   startedAt: number;
   turnCount: number;
   segmentCount: number;
+  /**
+   * Set when the title came from a screen action (code/quiz): the stored title
+   * is the model's Spanish instruction, so the dashboard shows a localized label
+   * instead. Covers conversations saved before screen actions stopped seeding
+   * the title, and screen-only ones saved after (which have no title at all).
+   */
+  screenTitle?: ScreenTask;
 }
 
 /**
