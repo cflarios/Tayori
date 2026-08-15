@@ -44,6 +44,10 @@ export const en = {
   'overlay.sourceMuteSuffix': ': requested but did NOT open. Check the device or the permissions.',
 
   'overlay.visible': 'The overlay DOES show up when you share your screen',
+  'overlay.visShown': 'Visible',
+  'overlay.visHidden': 'Hidden',
+  'overlay.visShownHint': 'Showing in screen shares — click to hide',
+  'overlay.visHiddenHint': 'Hidden from screen shares — click to reveal',
   'overlay.solveCode': 'Solve the coding problem on screen (Ctrl+Alt+C)',
   'overlay.solveCodeShort': 'Solve the code on screen',
   'overlay.solveQuiz': 'Answer the quiz question on screen (Ctrl+Alt+Q)',

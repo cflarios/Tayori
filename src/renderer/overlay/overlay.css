@@ -755,16 +755,46 @@ body {
    */
 }
 
-/* Warning that the overlay DOES show in a capture: the dangerous state. */
-.statusbar__flag {
+/*
+ * The visibility toggle: state and switch in one, where the read-only VISIBLE
+ * flag used to be. Quiet when hidden (the safe default), warning red when
+ * visible — the state that shows up in a screen share.
+ */
+.visbtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
-  font-size: 9px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.visbtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.visbtn--shown {
   color: #fca5a5;
-  background: rgba(248, 113, 113, 0.16);
-  border-radius: 4px;
-  padding: 1px 5px;
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.visbtn--shown:hover {
+  background: rgba(248, 113, 113, 0.22);
+  color: #fecaca;
 }
 
 @keyframes pulse {
@@ -1303,29 +1333,37 @@ body {
 .compose__input {
   font-family: inherit;
   font-size: calc(12.5px * var(--font-scale));
-  line-height: 1.5;
+  line-height: 1.55;
   color: #f1f3f4;
   /* `body` has `user-select: none` so dragging the overlay doesn't select text;
      in a write field it has to be given back or you can't even select what you
      just typed. */
   user-select: text;
   resize: none;
-  height: 74px;
-  padding: 8px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  height: 84px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   outline: none;
-  transition: border-color 120ms ease;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
 }
 
+/* A soft accent ring on focus instead of just a border tint: it's what makes
+   the field read as active rather than merely outlined. */
 .compose__input:focus {
-  border-color: rgba(96, 165, 250, 0.6);
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
 }
 
+/* Not italic: an italic placeholder reads as "disabled" or an error; upright
+   grey reads as a hint. */
 .compose__input::placeholder {
   color: #6b7075;
-  font-style: italic;
 }
 
 .compose__foot {

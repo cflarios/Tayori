@@ -439,6 +439,55 @@ function ListenControl({
   );
 }
 
+/** An eye, open or struck through: whether the overlay shows in screen shares. */
+function EyeIcon({ off }: { off: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M1.5 8S3.8 3.9 8 3.9 14.5 8 14.5 8 12.2 12.1 8 12.1 1.5 8 1.5 8Z" />
+      <circle cx="8" cy="8" r="1.7" />
+      {off && <path d="M2.8 2.8l10.4 10.4" />}
+    </svg>
+  );
+}
+
+/**
+ * Toggle the overlay's visibility in screen shares, from the bar.
+ *
+ * It replaces the read-only "VISIBLE" flag, which only appeared in the
+ * dangerous state and couldn't be pressed: turning stealth back on meant a trip
+ * to the dashboard. Now the state and the switch are the same control, like the
+ * listen button. Visible (stealth off) is the risky state, so it wears the
+ * warning red; hidden is the safe default and stays quiet.
+ */
+function VisibleToggle({ stealthEnabled }: { stealthEnabled: boolean }) {
+  const t = useT();
+  const visible = !stealthEnabled;
+  return (
+    <button
+      type="button"
+      className={`visbtn${visible ? ' visbtn--shown' : ''}`}
+      aria-pressed={visible}
+      title={visible ? t('overlay.visShownHint') : t('overlay.visHiddenHint')}
+      onClick={() => void window.api.window.setStealth(!stealthEnabled)}
+    >
+      <EyeIcon off={!visible} />
+      <span className="visbtn__label">
+        {visible ? t('overlay.visShown') : t('overlay.visHidden')}
+      </span>
+    </button>
+  );
+}
+
 function StatusBar({
   status,
   levels,
@@ -456,7 +505,6 @@ function StatusBar({
   onSolveScreen: (task: ScreenTask) => void;
   onToggleCompact: () => void;
 }) {
-  const t = useT();
   const language = settings?.language ?? 'auto';
   const compact = settings?.overlayCompact ?? false;
 
@@ -475,13 +523,6 @@ function StatusBar({
         the middle of a row of things you can. Here they form a single "what's
         happening" block with the listen dot and the sources.
       */}
-      {/* Explicit warning when the overlay IS visible in a capture: it's the
-          dangerous state, so it can't go unnoticed. */}
-      {settings && !settings.stealthEnabled && (
-        <span className="statusbar__flag" title={t('overlay.visible')}>
-          VISIBLE
-        </span>
-      )}
       {/*
         A forced language that doesn't match what's being spoken produces no
         error: the recognizer returns invented text in that language. With it
@@ -519,6 +560,10 @@ function StatusBar({
         {/* PROTOTYPE: the two screen actions folded into one "Solve screen"
             button with a code/quiz choice. */}
         <SolveScreenMenu onSolveScreen={onSolveScreen} />
+
+        {/* Quick visibility toggle: state + switch in one, replacing the
+            read-only VISIBLE flag. Red when visible (the dangerous state). */}
+        {settings && <VisibleToggle stealthEnabled={settings.stealthEnabled} />}
 
         <MoreMenu
           compact={compact}
@@ -2050,16 +2095,20 @@ export function OverlayApp() {
       return;
     }
 
-    // Compact: fit the window to the content, de-duped so a streaming answer
-    // doesn't fire a resize per token when its height hasn't actually changed.
-    const report = (): void => {
+    // Compact: fit the window to the content. The ResizeObserver de-dups so a
+    // streaming answer doesn't resize per token, but the first measurement of
+    // each effect run is FORCED: toggling stealth (or anything else in settings)
+    // doesn't change the content height, so without a forced re-assert the
+    // window would keep whatever height it had drifted to instead of snapping
+    // back to the content — which is the empty-space-below-the-panel bug.
+    const report = (force: boolean): void => {
       const height = el.offsetHeight + 8; // the panel's 4px top + bottom margin
-      if (height === reportedHeight.current) return;
+      if (!force && height === reportedHeight.current) return;
       reportedHeight.current = height;
       void window.api.window.resizeOverlay(height);
     };
-    report();
-    const observer = new ResizeObserver(report);
+    report(true);
+    const observer = new ResizeObserver(() => report(false));
     observer.observe(el);
     return () => observer.disconnect();
   }, [compact, settings]);

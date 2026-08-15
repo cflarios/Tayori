@@ -27,6 +27,10 @@ export const es: Record<UIKey, string> = {
   'overlay.sourceMuteSuffix': ': pedido pero NO se abrió. Revisa el dispositivo o los permisos.',
 
   'overlay.visible': 'El overlay SÍ aparece al compartir pantalla',
+  'overlay.visShown': 'Visible',
+  'overlay.visHidden': 'Oculto',
+  'overlay.visShownHint': 'Se ve al compartir pantalla — clic para ocultar',
+  'overlay.visHiddenHint': 'Oculto al compartir pantalla — clic para mostrar',
   'overlay.solveCode': 'Resolver el problema de código que hay en pantalla (Ctrl+Alt+C)',
   'overlay.solveCodeShort': 'Resolver el código de la pantalla',
   'overlay.solveQuiz': 'Responder la pregunta de test que hay en pantalla (Ctrl+Alt+Q)',
