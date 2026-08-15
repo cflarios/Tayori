@@ -644,6 +644,13 @@ export interface Settings {
    * for which ones are hideable.
    */
   hiddenProfiles: PromptProfileId[];
+  /**
+   * Built-in profiles the user removed outright — gone from the overlay AND from
+   * the dashboard's list, not just hidden. It's reversible (a "restore" brings
+   * them back), so a built-in is never lost for good. The prompts still exist in
+   * code; this only decides what's offered.
+   */
+  deletedProfiles: PromptProfileId[];
 
   contextPacks: ContextPack[];
 
@@ -994,6 +1001,7 @@ export const DEFAULT_SETTINGS: Settings = {
   customProfiles: [],
   activeCustomId: '',
   hiddenProfiles: [],
+  deletedProfiles: [],
   contextPacks: [],
   // No active skill: an instruction that changes the tone of every answer is
   // turned on on purpose, it doesn't come set from the factory.

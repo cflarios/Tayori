@@ -372,6 +372,8 @@ export const es: Record<UIKey, string> = {
   'beh.profNamePlaceholder': 'Nombre del perfil',
   'beh.profAdd': 'Nuevo perfil',
   'beh.profDelete': 'Eliminar perfil',
+  'beh.profRemove': 'Quitar de la lista',
+  'beh.profRestore': 'Restaurar quitados',
   'beh.speakerThemShort': 'el interlocutor',
   'beh.speakerMeShort': 'tú',
   'beh.speakerAnyShort': 'cualquiera de los dos',

@@ -64,6 +64,7 @@ function withDefaults(raw: unknown, systemLocale?: string): Settings {
      */
     disabledHotkeys: Array.isArray(stored.disabledHotkeys) ? stored.disabledHotkeys : [],
     hiddenProfiles: Array.isArray(stored.hiddenProfiles) ? stored.hiddenProfiles : [],
+    deletedProfiles: Array.isArray(stored.deletedProfiles) ? stored.deletedProfiles : [],
     customProfiles,
     activeCustomId:
       typeof stored.activeCustomId === 'string' && stored.activeCustomId

@@ -389,6 +389,8 @@ export const en = {
   'beh.profNamePlaceholder': 'Profile name',
   'beh.profAdd': 'New profile',
   'beh.profDelete': 'Delete profile',
+  'beh.profRemove': 'Remove from the list',
+  'beh.profRestore': 'Restore removed',
   'beh.speakerThemShort': 'the other person',
   'beh.speakerMeShort': 'you',
   'beh.speakerAnyShort': 'either of the two',

@@ -2419,6 +2419,32 @@ kbd {
   color: var(--text);
 }
 
+.profmgr__togglectl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Restore removed built-ins: a quiet link, since it only shows once you've
+   removed something. */
+.profmgr__restore {
+  align-self: flex-start;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+
+.profmgr__restore:hover {
+  color: var(--text);
+}
+
 .profmgr__empty {
   font-size: 12.5px;
   line-height: 1.5;

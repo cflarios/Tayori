@@ -149,14 +149,17 @@ const PROFILE_BEH_LABEL: Partial<Record<PromptProfileId, UIKey>> = {
 };
 
 /**
- * Enable/disable the built-in profiles and manage the user's own.
+ * Enable/disable, remove, and create answer profiles.
  *
- * Disabling only hides a built-in from the overlay picker —its prompt is fixed—
- * and never the last visible one; hiding the active profile moves to the first
- * still shown. A custom profile is a name and a free-text instruction, and there
- * can be several (all under the single `custom` id, `activeCustomId` picks
- * which). Deleting the active one falls back so the app never sits on a profile
- * that no longer exists.
+ * A built-in can be **hidden** (off the overlay picker, still a toggle here) or
+ * **removed** (gone from both, but restorable — its prompt is code, never lost).
+ * Removing exists because seven profiles land at once and most people want only
+ * a couple; hiding alone still leaves the seven toggles cluttering this list.
+ * Neither is allowed to strand the picker with nothing to choose. A custom
+ * profile is a name and a free-text instruction; there can be several, all under
+ * the single `custom` id (`activeCustomId` picks which). Whenever the active
+ * profile is what's hidden, removed or deleted, it falls back so the app never
+ * sits on one that isn't offered.
  */
 function ProfileManager({
   settings,
@@ -167,16 +170,43 @@ function ProfileManager({
 }) {
   const t = useT();
 
+  // Built-ins the picker can actually offer: not hidden and not removed.
+  const availableAfter = (hidden: PromptProfileId[], removed: PromptProfileId[]): PromptProfileId[] =>
+    DROPDOWN_PROFILES.filter((p) => !hidden.includes(p) && !removed.includes(p));
+
+  // A change that would leave nothing to pick (no built-in, no custom) is refused.
+  const strands = (hidden: PromptProfileId[], removed: PromptProfileId[]): boolean =>
+    availableAfter(hidden, removed).length === 0 && settings.customProfiles.length === 0;
+
+  // Where the active profile should land when it stops being offered.
+  const fallback = (hidden: PromptProfileId[], removed: PromptProfileId[]): Partial<Settings> => {
+    const builtin = availableAfter(hidden, removed)[0];
+    if (builtin) return { promptProfileId: builtin };
+    const custom = settings.customProfiles[0];
+    return custom ? { promptProfileId: 'custom', activeCustomId: custom.id } : {};
+  };
+
   const setHidden = (id: PromptProfileId, visible: boolean): void => {
     const hiddenProfiles = visible
       ? settings.hiddenProfiles.filter((h) => h !== id)
       : [...settings.hiddenProfiles, id];
-    if (!visible && DROPDOWN_PROFILES.every((p) => hiddenProfiles.includes(p))) return;
-    const fallback = DROPDOWN_PROFILES.find((p) => !hiddenProfiles.includes(p));
+    if (!visible && strands(hiddenProfiles, settings.deletedProfiles)) return;
     const moveActive =
-      !visible && settings.promptProfileId === id && fallback ? { promptProfileId: fallback } : {};
+      !visible && settings.promptProfileId === id
+        ? fallback(hiddenProfiles, settings.deletedProfiles)
+        : {};
     patch({ hiddenProfiles, ...moveActive });
   };
+
+  const removeBuiltin = (id: PromptProfileId): void => {
+    const deletedProfiles = [...settings.deletedProfiles, id];
+    if (strands(settings.hiddenProfiles, deletedProfiles)) return;
+    const moveActive =
+      settings.promptProfileId === id ? fallback(settings.hiddenProfiles, deletedProfiles) : {};
+    patch({ deletedProfiles, ...moveActive });
+  };
+
+  const restoreBuiltins = (): void => patch({ deletedProfiles: [] });
 
   const addCustom = (): void => {
     const id = `custom-${Date.now().toString(36)}`;
@@ -210,13 +240,32 @@ function ProfileManager({
     <div className="profmgr">
       <div className="profmgr__head">{t('beh.profVisible')}</div>
       <div className="profmgr__toggles">
-        {DROPDOWN_PROFILES.map((id) => (
+        {DROPDOWN_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => (
           <div key={id} className="profmgr__toggle">
             <span>{t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}</span>
-            <Switch on={!settings.hiddenProfiles.includes(id)} onChange={(v) => setHidden(id, v)} />
+            <div className="profmgr__togglectl">
+              <Switch
+                on={!settings.hiddenProfiles.includes(id)}
+                onChange={(v) => setHidden(id, v)}
+              />
+              <button
+                type="button"
+                className="profmgr__del"
+                title={t('beh.profRemove')}
+                aria-label={t('beh.profRemove')}
+                onClick={() => removeBuiltin(id)}
+              >
+                ✕
+              </button>
+            </div>
           </div>
         ))}
       </div>
+      {settings.deletedProfiles.length > 0 && (
+        <button type="button" className="profmgr__restore" onClick={restoreBuiltins}>
+          {t('beh.profRestore')} ({settings.deletedProfiles.length})
+        </button>
+      )}
 
       <div className="profmgr__head">{t('beh.profCustomTitle')}</div>
       {settings.customProfiles.length === 0 && (

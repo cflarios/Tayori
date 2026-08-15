@@ -1035,7 +1035,9 @@ function ProfileMenu({
   const active = settings.promptProfileId;
   const isCustom = active === 'custom';
   const activeCustom = settings.customProfiles.find((p) => p.id === settings.activeCustomId);
-  const builtins = PROFILE_CHIPS.filter(([id]) => !settings.hiddenProfiles.includes(id));
+  const builtins = PROFILE_CHIPS.filter(
+    ([id]) => !settings.hiddenProfiles.includes(id) && !settings.deletedProfiles.includes(id)
+  );
 
   const builtin = PROFILE_CHIPS.find(([id]) => id === active);
   const triggerLabel = isCustom
