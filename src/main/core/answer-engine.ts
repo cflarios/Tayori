@@ -356,10 +356,15 @@ export class AnswerEngine extends EventEmitter {
           // When an answer language is pinned, the directive is appended to the
           // user turn IN that language — the strongest output-language cue, harder
           // for a model to ignore than the system rule (see Sonnet).
+          //
+          // NOT in interpreter mode: it translates between two fixed languages,
+          // so "respond entirely in <pinned>" fights its whole job — the model
+          // stops translating and answers in the pinned language instead. A
+          // translator has no answer language to pin.
           ...(question
             ? {
                 question:
-                  settings.answerLanguage === 'auto'
+                  settings.answerLanguage === 'auto' || profile === 'interpreter'
                     ? question
                     : `${question}\n\n${answerLanguageDirective(settings.answerLanguage)}`,
               }
