@@ -573,13 +573,13 @@ function StatusBar({
         cutting them.
       */}
       <div className="statusbar__actions">
-        {/* Solve screen lives in the bar in both modes: the top row has room to
-            spare now, and it reads better up here than tucked in the footer. */}
-        <SolveScreenMenu onSolveScreen={onSolveScreen} />
-
         {/* Quick visibility toggle: state + switch in one, replacing the
             read-only VISIBLE flag. Red when visible (the dangerous state). */}
         {settings && <VisibleToggle stealthEnabled={settings.stealthEnabled} />}
+
+        {/* Solve screen lives in the bar in both modes: the top row has room to
+            spare now, and it reads better up here than tucked in the footer. */}
+        <SolveScreenMenu onSolveScreen={onSolveScreen} />
 
         <MoreMenu
           compact={compact}
