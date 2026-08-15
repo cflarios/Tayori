@@ -477,13 +477,11 @@ function VisibleToggle({ stealthEnabled }: { stealthEnabled: boolean }) {
       type="button"
       className={`visbtn${visible ? ' visbtn--shown' : ''}`}
       aria-pressed={visible}
+      aria-label={visible ? t('overlay.visShown') : t('overlay.visHidden')}
       title={visible ? t('overlay.visShownHint') : t('overlay.visHiddenHint')}
       onClick={() => void window.api.window.setStealth(!stealthEnabled)}
     >
       <EyeIcon off={!visible} />
-      <span className="visbtn__label">
-        {visible ? t('overlay.visShown') : t('overlay.visHidden')}
-      </span>
     </button>
   );
 }
@@ -514,6 +512,15 @@ function StatusBar({
     // drag or press the buttons.
     <div className="statusbar" data-interactive onMouseDown={onDragStart}>
       <ListenControl status={status} levels={levels} settings={settings} />
+
+      {/* In compact the profile dropdown rides in the bar, since the row below
+          (where it lives when expanded) is folded away. */}
+      {compact && settings && (
+        <ProfileMenu
+          active={settings.promptProfileId}
+          onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
+        />
+      )}
 
       {/*
         The state sits RIGHT NEXT to the listen control, not by the buttons.

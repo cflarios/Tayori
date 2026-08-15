@@ -752,17 +752,15 @@ body {
 .visbtn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   flex-shrink: 0;
+  width: 24px;
   height: 22px;
-  padding: 0 7px;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--text-faint);
-  font-family: inherit;
-  font-size: 10px;
-  letter-spacing: 0.04em;
   cursor: pointer;
   transition:
     background 120ms ease,
