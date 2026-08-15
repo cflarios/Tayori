@@ -170,19 +170,31 @@ function ProfileManager({
 }) {
   const t = useT();
 
-  // Built-ins the picker can actually offer: not hidden and not removed.
-  const availableAfter = (hidden: PromptProfileId[], removed: PromptProfileId[]): PromptProfileId[] =>
-    DROPDOWN_PROFILES.filter((p) => !hidden.includes(p) && !removed.includes(p));
+  // Everything the overlay picker can offer under a prospective state.
+  const availableBuiltins = (
+    hidden: PromptProfileId[],
+    removed: PromptProfileId[]
+  ): PromptProfileId[] => DROPDOWN_PROFILES.filter((p) => !hidden.includes(p) && !removed.includes(p));
+  const visibleCustoms = (customs: Settings['customProfiles']): Settings['customProfiles'] =>
+    customs.filter((c) => !c.hidden);
 
-  // A change that would leave nothing to pick (no built-in, no custom) is refused.
-  const strands = (hidden: PromptProfileId[], removed: PromptProfileId[]): boolean =>
-    availableAfter(hidden, removed).length === 0 && settings.customProfiles.length === 0;
+  // A change that would leave the picker with nothing to choose is refused.
+  const strands = (
+    hidden: PromptProfileId[],
+    removed: PromptProfileId[],
+    customs: Settings['customProfiles']
+  ): boolean =>
+    availableBuiltins(hidden, removed).length === 0 && visibleCustoms(customs).length === 0;
 
-  // Where the active profile should land when it stops being offered.
-  const fallback = (hidden: PromptProfileId[], removed: PromptProfileId[]): Partial<Settings> => {
-    const builtin = availableAfter(hidden, removed)[0];
+  // Where the active profile lands when it stops being offered.
+  const fallback = (
+    hidden: PromptProfileId[],
+    removed: PromptProfileId[],
+    customs: Settings['customProfiles']
+  ): Partial<Settings> => {
+    const builtin = availableBuiltins(hidden, removed)[0];
     if (builtin) return { promptProfileId: builtin };
-    const custom = settings.customProfiles[0];
+    const custom = visibleCustoms(customs)[0];
     return custom ? { promptProfileId: 'custom', activeCustomId: custom.id } : {};
   };
 
@@ -190,19 +202,21 @@ function ProfileManager({
     const hiddenProfiles = visible
       ? settings.hiddenProfiles.filter((h) => h !== id)
       : [...settings.hiddenProfiles, id];
-    if (!visible && strands(hiddenProfiles, settings.deletedProfiles)) return;
+    if (!visible && strands(hiddenProfiles, settings.deletedProfiles, settings.customProfiles)) return;
     const moveActive =
       !visible && settings.promptProfileId === id
-        ? fallback(hiddenProfiles, settings.deletedProfiles)
+        ? fallback(hiddenProfiles, settings.deletedProfiles, settings.customProfiles)
         : {};
     patch({ hiddenProfiles, ...moveActive });
   };
 
   const removeBuiltin = (id: PromptProfileId): void => {
     const deletedProfiles = [...settings.deletedProfiles, id];
-    if (strands(settings.hiddenProfiles, deletedProfiles)) return;
+    if (strands(settings.hiddenProfiles, deletedProfiles, settings.customProfiles)) return;
     const moveActive =
-      settings.promptProfileId === id ? fallback(settings.hiddenProfiles, deletedProfiles) : {};
+      settings.promptProfileId === id
+        ? fallback(settings.hiddenProfiles, deletedProfiles, settings.customProfiles)
+        : {};
     patch({ deletedProfiles, ...moveActive });
   };
 
@@ -225,15 +239,26 @@ function ProfileManager({
     });
   };
 
+  const setCustomHidden = (id: string, visible: boolean): void => {
+    const customProfiles = settings.customProfiles.map((p) =>
+      p.id === id ? { ...p, hidden: !visible } : p
+    );
+    if (!visible && strands(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)) return;
+    const moveActive =
+      !visible && settings.promptProfileId === 'custom' && settings.activeCustomId === id
+        ? fallback(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)
+        : {};
+    patch({ customProfiles, ...moveActive });
+  };
+
   const removeCustom = (id: string): void => {
     const customProfiles = settings.customProfiles.filter((p) => p.id !== id);
+    if (strands(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)) return;
     const wasActive = settings.promptProfileId === 'custom' && settings.activeCustomId === id;
-    patch({
-      customProfiles,
-      ...(wasActive
-        ? { promptProfileId: 'interview' as PromptProfileId, activeCustomId: customProfiles[0]?.id ?? '' }
-        : {}),
-    });
+    const moveActive = wasActive
+      ? fallback(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)
+      : {};
+    patch({ customProfiles, ...moveActive });
   };
 
   return (
@@ -280,6 +305,7 @@ function ProfileManager({
               placeholder={t('beh.profNamePlaceholder')}
               onChange={(e) => editCustom(p.id, 'name', e.target.value)}
             />
+            <Switch on={!p.hidden} onChange={(v) => setCustomHidden(p.id, v)} />
             <button
               type="button"
               className="profmgr__del"

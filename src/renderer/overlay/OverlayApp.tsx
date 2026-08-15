@@ -1096,8 +1096,10 @@ function ProfileMenu({
             );
           })}
 
-          {settings.customProfiles.length > 0 && <div className="more__sep" />}
-          {settings.customProfiles.map((p) => {
+          {settings.customProfiles.some((p) => !p.hidden) && <div className="more__sep" />}
+          {settings.customProfiles
+            .filter((p) => !p.hidden)
+            .map((p) => {
             const on = isCustom && settings.activeCustomId === p.id;
             return (
               <button

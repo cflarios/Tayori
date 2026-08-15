@@ -336,6 +336,8 @@ export interface CustomProfile {
   id: string;
   name: string;
   prompt: string;
+  /** Hidden from the overlay picker, exactly like a hidden built-in. */
+  hidden?: boolean;
 }
 
 /**
