@@ -1637,6 +1637,48 @@ body {
   }
 }
 
+/* ── PROTOTYPE: the "Solve screen" bar button + its code/quiz menu ── */
+.solve {
+  position: relative;
+  display: flex;
+}
+
+.solve__caret {
+  flex: none;
+  opacity: 0.85;
+}
+
+.actionbtn--on {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+.solve__menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 40;
+  min-width: 158px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #1b1e25;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/* Bridge the 5 px gap so the cursor doesn't leave `.solve` on the way down. */
+.solve__menu::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  height: 5px;
+}
+
 /* ── Menu of the non-call things ── */
 .more {
   position: relative;

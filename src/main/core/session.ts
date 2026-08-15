@@ -62,6 +62,12 @@ const SOLVE_INSTRUCTION: Record<ScreenTask, string> = {
     'las opciones antes de decidir cada una, incluidas las que queden a media altura, ' +
     'y respeta lo que pida cada pregunta (una sola opción, varias, la falsa…). ' +
     'Sólo las respuestas: sin explicaciones.',
+  general:
+    'Mira la captura de mi pantalla y ayúdame con lo que se ve: puede ser un error o ' +
+    'un mensaje que no entiendo, unos logs, una pantalla de configuración, un diagrama ' +
+    'o un esquema que quiero que interpretes, o algo que quiero cambiar de como está a ' +
+    'como lo necesito. Quédate con lo que está en primer plano, dime lo más útil y ' +
+    'accionable, y ve al grano.',
 };
 
 /**
@@ -82,7 +88,7 @@ const SCROLL_SOLVE_INSTRUCTION =
   'el modo código.';
 
 /** What's logged for each screen action. */
-const TASK_LABEL: Record<ScreenTask, string> = { code: 'código', quiz: 'test' };
+const TASK_LABEL: Record<ScreenTask, string> = { code: 'código', quiz: 'test', general: 'problema' };
 
 /**
  * Joins audio capture, transcription and (since phase 4) answer generation.

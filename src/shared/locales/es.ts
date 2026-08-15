@@ -174,6 +174,10 @@ export const es: Record<UIKey, string> = {
   'model.hint': 'Quién genera las sugerencias que ves en el overlay.',
   'model.provider': 'Proveedor',
   'model.model': 'Modelo',
+  'model.answerLang': 'Idioma de la respuesta',
+  'model.answerLangDesc':
+    'Automático sigue el contenido —la conversación, o lo que hay en la pantalla—. Elige un idioma para forzar todas las respuestas en él.',
+  'model.answerLangAuto': 'Automático',
   'model.pick': '— elige un modelo —',
   'model.none': '—',
   'model.other': 'Otro… (escribir el id)',
@@ -340,6 +344,7 @@ export const es: Record<UIKey, string> = {
   'beh.profSupport': 'Soporte técnico',
   'beh.profCoding': 'Código (resolver ejercicios)',
   'beh.profQuiz': 'Test (opción múltiple)',
+  'beh.profGeneral': 'General (pantalla)',
   'beh.profInterpreter': 'Intérprete',
   'beh.interpreterLangs': 'Idiomas del intérprete',
   'beh.interpreterLangsDesc':
@@ -425,6 +430,7 @@ export const es: Record<UIKey, string> = {
   'hist.noQuestion': '(sin pregunta aislada)',
   'hist.screenCode': 'Resolver código en pantalla',
   'hist.screenQuiz': 'Responder test en pantalla',
+  'hist.screenGeneral': 'Ayuda con la pantalla',
   'hist.search': 'Buscar en las conversaciones…',
   'hist.searchNone': 'Ninguna conversación coincide con «{query}».',
   'hist.transcript': 'Transcripción',

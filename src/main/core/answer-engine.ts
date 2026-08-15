@@ -15,7 +15,7 @@ import { m } from '../i18n';
 import { createLLMProvider, LLMError } from '../llm';
 import type { ConversationExchange } from '../llm/types';
 import { getSkill } from '../skills';
-import { buildSystemPrompt } from './prompt';
+import { answerLanguageDirective, buildSystemPrompt } from './prompt';
 import { neutralize } from './untrusted';
 import type { TranscriptBuffer } from './transcript-buffer';
 
@@ -54,7 +54,17 @@ const MAX_CODE_TOKENS = 4_096;
 const PROFILE_BY_TRIGGER: Partial<Record<AnswerTrigger, PromptProfileId>> = {
   code: 'coding',
   quiz: 'quiz',
+  general: 'general',
 };
+
+/**
+ * General screen-help cap.
+ *
+ * Between the quiz's 700 (a line and two bullets) and code's 4096: enough that
+ * reading logs, explaining a diagram or listing the steps from A to B doesn't get
+ * cut off, without inviting an essay in a panel read out of the corner of the eye.
+ */
+const MAX_GENERAL_TOKENS = 1_200;
 
 /**
  * Output cap per profile. Whatever isn't listed uses `MAX_ANSWER_TOKENS`.
@@ -64,6 +74,7 @@ const PROFILE_BY_TRIGGER: Partial<Record<AnswerTrigger, PromptProfileId>> = {
  */
 const TOKENS_BY_PROFILE: Partial<Record<PromptProfileId, number>> = {
   coding: MAX_CODE_TOKENS,
+  general: MAX_GENERAL_TOKENS,
 };
 
 /**
@@ -342,7 +353,17 @@ export class AnswerEngine extends EventEmitter {
         {
           systemPrompt: buildSystemPrompt(settings, forced, skill),
           transcript: this.transcript.format(this.transcript.recent(settings.manualContextSeconds)),
-          ...(question ? { question } : {}),
+          // When an answer language is pinned, the directive is appended to the
+          // user turn IN that language — the strongest output-language cue, harder
+          // for a model to ignore than the system rule (see Sonnet).
+          ...(question
+            ? {
+                question:
+                  settings.answerLanguage === 'auto'
+                    ? question
+                    : `${question}\n\n${answerLanguageDirective(settings.answerLanguage)}`,
+              }
+            : {}),
           // A copy is passed: generation is async and `history` can receive a
           // new turn while this one is still in flight.
           ...(this.history.length ? { history: [...this.history] } : {}),

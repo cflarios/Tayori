@@ -257,6 +257,22 @@ tenga la complejidad que las restricciones exigen. Si el tamaño de la entrada
 descarta la solución obvia, dilo y da directamente la buena.
 `.trim(),
 
+  general: `
+Ayudas a la persona con lo que hay en su pantalla ahora mismo, sea lo que sea:
+un error o un mensaje de una app, unos logs, una pantalla de configuración, un
+diagrama, un esquema dibujado a mano, o una situación en la que quiere pasar del
+estado actual al que busca.
+
+La captura adjunta es la fuente principal; léela entera antes de responder. La
+transcripción, si la hay, es contexto secundario. Quédate con lo que está en
+primer plano.
+
+Di lo más útil y accionable: si hay un error, la causa más probable y el
+siguiente paso concreto para resolverlo; si es algo que interpretar —un diagrama,
+un esquema—, explícalo en sus términos; si pide llegar de un estado A a uno B,
+los pasos. Al grano, sin rodeos ni preámbulos.
+`.trim(),
+
   quiz: `
 Respondes preguntas de examen o cuestionario a partir de lo que hay en la
 pantalla de la persona a la que ayudas: un test de opción múltiple, un
@@ -284,6 +300,17 @@ un lector con prisa se equivoca aunque sepa la materia.
  * that adding a profile forces an explicit decision about which of the two it
  * gets.
  */
+/**
+ * General screen-help rules: the base format plus the screen-language line the
+ * base one lacks. A screen action has no spoken conversation, so `LANGUAGE_RULE`
+ * ("answer in the conversation's language") has nothing to latch onto and the
+ * model falls back to the prompt's Spanish. Code and quiz avoid this the same
+ * way — the answer follows the language of what's on the screen.
+ */
+const GENERAL_RULES = `${BASE_RULES}
+- Responde en el idioma de lo que se ve en la captura. Si la pantalla está en
+  inglés —un error, un diagrama, unos logs en inglés—, responde en inglés.`;
+
 const RULES: Record<Exclude<PromptProfileId, 'interpreter'>, string> = {
   interview: BASE_RULES,
   meeting: BASE_RULES,
@@ -291,6 +318,7 @@ const RULES: Record<Exclude<PromptProfileId, 'interpreter'>, string> = {
   support: BASE_RULES,
   coding: CODE_RULES,
   quiz: QUIZ_RULES,
+  general: GENERAL_RULES,
   custom: BASE_RULES,
 };
 
@@ -356,6 +384,48 @@ const KIND_INSTRUCTIONS: Record<ContextKind, string> = {
  * @param skill Active instruction, if any. It goes **last** and with declared
  *        precedence: see `skillBlock`.
  */
+/**
+ * The "answer in X" directive written IN X. It's the strongest output-language
+ * cue there is: a line in the target language primes the model to continue in it,
+ * far more than a Spanish sentence that merely describes the requirement. Sonnet
+ * in particular follows this where it ignored the Spanish rule.
+ */
+const ANSWER_DIRECTIVE: Record<string, string> = {
+  es: 'Responde por completo en español.',
+  en: 'Respond entirely in English.',
+  fr: 'Réponds entièrement en français.',
+  de: 'Antworte vollständig auf Deutsch.',
+  pt: 'Responde inteiramente em português.',
+  it: 'Rispondi interamente in italiano.',
+  zh: '请全部用中文回答。',
+  ja: '回答はすべて日本語で書いてください。',
+};
+
+export function answerLanguageDirective(code: string): string {
+  return ANSWER_DIRECTIVE[code] ?? `Respond entirely in ${interpreterLangName(code, 'en')}.`;
+}
+
+/**
+ * Replaces `LANGUAGE_RULE` when the user pins an answer language, and is placed
+ * LAST in the prompt (see `buildSystemPrompt`) for recency. Explicit, dominant,
+ * and ending in the target language itself: the auto "follow the content" hint
+ * isn't reliable for a screenshot in another language, and a rule buried above a
+ * long Spanish prompt loses to the prompt's own language on some models.
+ */
+function forcedLanguageRule(code: string): string {
+  const name = interpreterLangName(code, 'es');
+  return `
+Idioma (regla que MANDA sobre todas las demás, incluida cualquiera que diga
+"responde en el idioma de la conversación o de la pantalla"):
+- Responde SIEMPRE y ENTERAMENTE en ${name}, sin importar el idioma del contenido,
+  de la captura, de la conversación o de estas instrucciones.
+- Todo va en ${name}: el contenido, los rótulos, los encabezados y cualquier
+  marca. Nunca mezcles dos idiomas en una respuesta.
+
+${answerLanguageDirective(code)}
+`.trim();
+}
+
 export function buildSystemPrompt(
   settings: Settings,
   force?: PromptProfileId,
@@ -383,7 +453,15 @@ export function buildSystemPrompt(
   // `INJECTION_RULE` goes after the identity and before everything else: the
   // profile says who you are, and the next thing to pin down is who you listen
   // to. See the constant's note.
-  const sections = [profile, INJECTION_RULE, LANGUAGE_RULE, RULES[profileId]];
+  //
+  // The auto language rule ("follow the content") lives here among the others.
+  // When a language is pinned, its rule goes at the very END instead (below):
+  // recency beats a rule buried above ~20 lines of Spanish, which is what let some
+  // models — Sonnet especially — answer in the prompt's language anyway.
+  const forcedLang = settings.answerLanguage !== 'auto';
+  const sections = [profile, INJECTION_RULE];
+  if (!forcedLang) sections.push(LANGUAGE_RULE);
+  sections.push(RULES[profileId]);
 
   if (profileId === 'coding') {
     const language = settings.codeLanguage.trim();
@@ -431,6 +509,10 @@ export function buildSystemPrompt(
   }
 
   if (skill?.instructions.trim()) sections.push(skillBlock(skill));
+
+  // Last of all when a language is pinned: the final line is the one the model
+  // obeys most, and it ends in the target language to prime the output directly.
+  if (forcedLang) sections.push(forcedLanguageRule(settings.answerLanguage));
 
   return sections.join('\n\n');
 }

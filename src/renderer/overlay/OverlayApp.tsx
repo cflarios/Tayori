@@ -398,27 +398,9 @@ function StatusBar({
             be available ALWAYS: the normal case is an exercise on screen with no
             call open, so there's no previous answer to hang it under nor audio
             to wait for. */}
-        <button
-          type="button"
-          className="actionbtn"
-          title={t('overlay.solveCode')}
-          onClick={() => onSolveScreen('code')}
-        >
-          <CodeIcon />
-          <span className="actionbtn__label">{t('overlay.codeAction')}</span>
-        </button>
-        {/* Sibling of the previous one: same path, different prompt. A quiz
-            isn't answered like an algorithm, and merging them into one button
-            would force the model to guess which of the two it's looking at. */}
-        <button
-          type="button"
-          className="actionbtn"
-          title={t('overlay.solveQuiz')}
-          onClick={() => onSolveScreen('quiz')}
-        >
-          <QuizIcon />
-          <span className="actionbtn__label">{t('overlay.quizAction')}</span>
-        </button>
+        {/* PROTOTYPE: the two screen actions folded into one "Solve screen"
+            button with a code/quiz choice. */}
+        <SolveScreenMenu onSolveScreen={onSolveScreen} />
 
         <MoreMenu
           compact={compact}
@@ -478,6 +460,117 @@ function MoreIcon() {
  * And with `data-interactive`, without which click-through would make it
  * unclickable right in the mode recommended during a call.
  */
+/** A monitor, to say "this acts on your screen". */
+function ScreenIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="1.75" y="2.75" width="12.5" height="8.5" rx="1.5" />
+      <path d="M5.5 14h5M8 11.5v2.5" />
+    </svg>
+  );
+}
+
+/** A lightbulb, for "help me with whatever this is". */
+function HelpIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6.2 13.5h3.6M6.8 15h2.4" />
+      <path d="M8 1.5a4.5 4.5 0 0 0-2.8 8c.6.5.9 1.1.9 1.8v.2h3.8v-.2c0-.7.3-1.3.9-1.8A4.5 4.5 0 0 0 8 1.5Z" />
+    </svg>
+  );
+}
+
+/**
+ * PROTOTYPE: the screen actions folded into one button.
+ *
+ * "Code" and "Quiz" as bare labels didn't say they capture the screen, and
+ * collided with the profile chips of the same name. This reads as an action on
+ * your screen (monitor icon) and asks what to solve only on click. "Anything
+ * else" is the general case: an error, logs, a diagram, a config screen…
+ */
+function SolveScreenMenu({ onSolveScreen }: { onSolveScreen: (task: ScreenTask) => void }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onDown = (e: PointerEvent): void => {
+      if (!(e.target as Element | null)?.closest('.solve')) setOpen(false);
+    };
+    const onLeave = (): void => setOpen(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mouseleave', onLeave);
+    };
+  }, [open]);
+
+  const pick = (task: ScreenTask) => () => {
+    setOpen(false);
+    onSolveScreen(task);
+  };
+
+  return (
+    <div className="solve" data-interactive>
+      <button
+        type="button"
+        className={`actionbtn${open ? ' actionbtn--on' : ''}`}
+        title="Solve what's on your screen"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ScreenIcon />
+        <span className="actionbtn__label">Solve screen</span>
+        <svg className="solve__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="solve__menu" role="menu">
+          <button type="button" className="more__item" role="menuitem" onClick={pick('code')}>
+            <CodeIcon />
+            Code problem
+          </button>
+          <button type="button" className="more__item" role="menuitem" onClick={pick('quiz')}>
+            <QuizIcon />
+            Quiz question
+          </button>
+          <button type="button" className="more__item" role="menuitem" onClick={pick('general')}>
+            <HelpIcon />
+            Anything else
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MoreMenu({
   compact,
   onToggleCompact,

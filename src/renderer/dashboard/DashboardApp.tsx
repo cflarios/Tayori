@@ -2416,7 +2416,13 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
             >
               <span className="conv__name">
                 {item.screenTitle
-                  ? t(item.screenTitle === 'code' ? 'hist.screenCode' : 'hist.screenQuiz')
+                  ? t(
+                      item.screenTitle === 'code'
+                        ? 'hist.screenCode'
+                        : item.screenTitle === 'quiz'
+                          ? 'hist.screenQuiz'
+                          : 'hist.screenGeneral'
+                    )
                   : item.title || t('hist.untitled')}
               </span>
               <span className="conv__meta">
@@ -2438,7 +2444,13 @@ function HistoryCard({ settings, patch }: { settings: Settings; patch: PatchFn }
                 <div key={turn.id} className="turn">
                   <div className="turn__q">
                     {isScreenTrigger(turn.trigger)
-                      ? t(turn.trigger === 'code' ? 'hist.screenCode' : 'hist.screenQuiz')
+                      ? t(
+                          turn.trigger === 'code'
+                            ? 'hist.screenCode'
+                            : turn.trigger === 'quiz'
+                              ? 'hist.screenQuiz'
+                              : 'hist.screenGeneral'
+                        )
                       : turn.question || t('hist.noQuestion')}
                   </div>
                   <div className={`turn__a${turn.error ? ' turn__a--error' : ''}`}>
@@ -2811,6 +2823,20 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
             void patch({ llmModels: { ...settings.llmModels, [provider]: model } })
           }
         />
+      </Row>
+
+      <Row icon="globe" label={t('model.answerLang')} desc={t('model.answerLangDesc')}>
+        <select
+          value={settings.answerLanguage}
+          onChange={(e) => void patch({ answerLanguage: e.target.value })}
+        >
+          <option value="auto">{t('model.answerLangAuto')}</option>
+          {INTERPRETER_LANGS.map((l) => (
+            <option key={l.code} value={l.code}>
+              {l[settings.uiLanguage]}
+            </option>
+          ))}
+        </select>
       </Row>
 
       <div className="field">
@@ -3458,6 +3484,7 @@ const PROFILE_LABEL: Record<Settings['promptProfileId'], UIKey> = {
   support: 'beh.profSupport',
   coding: 'overlay.profileCoding',
   quiz: 'overlay.profileQuiz',
+  general: 'beh.profGeneral',
   interpreter: 'beh.profInterpreter',
   custom: 'beh.profCustom',
 };
@@ -3678,7 +3705,11 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
             </button>
           </div>
           <div className="pack__profiles">
-            {(Object.keys(PROFILE_LABEL) as Settings['promptProfileId'][]).map((p) => (
+            {(Object.keys(PROFILE_LABEL) as Settings['promptProfileId'][])
+              // `general` is a screen-only profile, never chosen by hand, so it
+              // isn't offered as a pack target.
+              .filter((p) => p !== 'general')
+              .map((p) => (
               <label key={p} className="pack__profile">
                 <input
                   type="checkbox"

@@ -192,6 +192,10 @@ export const en = {
   'model.hint': 'Who writes the suggestions you see in the overlay.',
   'model.provider': 'Provider',
   'model.model': 'Model',
+  'model.answerLang': 'Answer language',
+  'model.answerLangDesc':
+    'Automatic follows the content — the conversation, or what is on the screen. Pick a language to force every answer into it.',
+  'model.answerLangAuto': 'Automatic',
   'model.pick': '— pick a model —',
   'model.none': '—',
   'model.other': 'Other… (type the id)',
@@ -357,6 +361,7 @@ export const en = {
   'beh.profSupport': 'Technical support',
   'beh.profCoding': 'Code (solve exercises)',
   'beh.profQuiz': 'Quiz (multiple choice)',
+  'beh.profGeneral': 'General (screen)',
   'beh.profInterpreter': 'Interpreter',
   'beh.interpreterLangs': 'Interpreter languages',
   'beh.interpreterLangsDesc':
@@ -441,6 +446,7 @@ export const en = {
   'hist.noQuestion': '(no isolated question)',
   'hist.screenCode': 'Solve on-screen code',
   'hist.screenQuiz': 'Answer on-screen quiz',
+  'hist.screenGeneral': 'Help with the screen',
   'hist.search': 'Search conversations…',
   'hist.searchNone': 'No conversation matches “{query}”.',
   'hist.transcript': 'Transcript',

@@ -148,11 +148,11 @@ export type AnswerStatus = 'idle' | 'thinking' | 'streaming' | 'done' | 'aborted
  * coding profile and a higher token cap, because an algorithm doesn't fit in
  * the four bullets that work for speaking.
  */
-export type AnswerTrigger = 'hotkey' | 'auto' | 'manual-input' | 'code' | 'quiz';
+export type AnswerTrigger = 'hotkey' | 'auto' | 'manual-input' | 'code' | 'quiz' | 'general';
 
 /** `true` if the trigger comes from solving the screen. */
 export function isScreenTrigger(trigger: AnswerTrigger): trigger is ScreenTask {
-  return trigger === 'code' || trigger === 'quiz';
+  return trigger === 'code' || trigger === 'quiz' || trigger === 'general';
 }
 
 export interface Answer {
@@ -312,7 +312,16 @@ export interface ContextPack {
 }
 
 export type PromptProfileId =
-  'interview' | 'meeting' | 'lecture' | 'support' | 'coding' | 'quiz' | 'interpreter' | 'custom';
+  | 'interview'
+  | 'meeting'
+  | 'lecture'
+  | 'support'
+  | 'coding'
+  | 'quiz'
+  // Screen-only: forced by the "Anything else" screen action, never a chip.
+  | 'general'
+  | 'interpreter'
+  | 'custom';
 
 /**
  * A model mini-profile: the combination of engines and models for a case.
@@ -363,7 +372,7 @@ export function interpreterLangName(code: string, ui: 'es' | 'en'): string {
  * model— and differ in the prompt: a multiple-choice quiz isn't answered like a
  * programming exercise.
  */
-export type ScreenTask = 'code' | 'quiz';
+export type ScreenTask = 'code' | 'quiz' | 'general';
 
 /** Kind labels, shared between the prompt and the dashboard. */
 export const CONTEXT_KIND_LABEL: Record<ContextKind, string> = {
@@ -388,6 +397,7 @@ export const PROFILE_SLOTS: Record<PromptProfileId, ContextKind[]> = {
   support: ['notes', 'vocabulary'],
   coding: ['notes', 'vocabulary'],
   quiz: ['notes', 'vocabulary'],
+  general: ['notes', 'vocabulary'],
   interpreter: ['vocabulary'],
   custom: ['notes', 'vocabulary'],
 };
@@ -602,6 +612,15 @@ export interface Settings {
    * that isn't visible in the capture.
    */
   codeLanguage: string;
+
+  /**
+   * Language the model must answer in. `auto` (the default) keeps the built-in
+   * behaviour — the answer follows the conversation, or, for a screen action,
+   * what's on the screen. A code from `INTERPRETER_LANGS` forces every answer
+   * into that language regardless of the content, which the auto rule can't do
+   * reliably for a screenshot in another language.
+   */
+  answerLanguage: string;
 
   /**
    * How chunks are collected in "chunk capture" —for a test on a shared screen
@@ -918,6 +937,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // turned on on purpose, it doesn't come set from the factory.
   activeSkillId: '',
   codeLanguage: 'auto',
+  answerLanguage: 'auto',
   // Manual stack by default: the user chooses on purpose which chunks go in.
   scrollCaptureMode: 'manual',
 
