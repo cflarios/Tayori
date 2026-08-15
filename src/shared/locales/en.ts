@@ -135,6 +135,8 @@ export const en = {
   'overlay.size': 'Size {size}',
   'overlay.suggestion': 'Suggestion',
   'overlay.questionLabel': 'Question',
+  'overlay.modelTitle': 'Model that answers — click to change',
+  'overlay.noModels': 'No models available',
   'overlay.continue': 'Continue',
   'overlay.continueHint': 'Pick up the solution where it was cut off, no repeats',
   'overlay.answeringWith': 'Answering with {model}',

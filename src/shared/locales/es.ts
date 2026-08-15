@@ -118,6 +118,8 @@ export const es: Record<UIKey, string> = {
   'overlay.size': 'Tamaño {size}',
   'overlay.suggestion': 'Sugerencia',
   'overlay.questionLabel': 'Pregunta',
+  'overlay.modelTitle': 'Modelo que responde — clic para cambiar',
+  'overlay.noModels': 'Sin modelos disponibles',
   'overlay.continue': 'Continuar',
   'overlay.continueHint': 'Sigue la solución donde se cortó, sin repetir',
   'overlay.answeringWith': 'Respondiendo con {model}',

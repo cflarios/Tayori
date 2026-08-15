@@ -12,6 +12,8 @@ import type {
   AudioSourceMode,
   CaptureStatus,
   ImageAttachment,
+  LLMProviderId,
+  ModelInfo,
   OverlaySize,
   ScreenTask,
   Settings,
@@ -409,9 +411,11 @@ function ListenControl({
         title={t('overlay.sources')}
         onClick={() => setOpen((v) => !v)}
       >
+        {/* Just the mic: the caret is a "listen / audio input" affordance. The
+            speaker read as audio OUTPUT (TTS), which doesn't exist yet; the
+            actual source routing (me/them/both) lives inside the popover. */}
         <span className="listenctl__glyph" aria-hidden="true">
-          {mode !== 'system' && <MicIcon />}
-          {mode !== 'mic' && <SpeakerIcon />}
+          <MicIcon />
         </span>
         <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
           <path
@@ -1053,6 +1057,113 @@ function ProfileMenu({
               {t(plabel)}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The answering model, as a dropdown, on the profile row.
+ *
+ * Which model answers used to be visible only in the answer header (and only
+ * once there was an answer), and changeable only from the dashboard — which
+ * steals the focus. Here it names the current model at rest and lets you swap
+ * it mid-call without leaving the overlay. It lists the ACTIVE provider's
+ * models (the same `listModels` the dashboard uses); the provider itself is
+ * still a dashboard decision. The list is fetched lazily, only when the menu
+ * opens, so it costs nothing until asked for.
+ */
+function ModelMenu({ settings }: { settings: Settings }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const provider = settings.llmProviderId;
+  const [loaded, setLoaded] = useState<{ provider: LLMProviderId; models: ModelInfo[] } | null>(
+    null
+  );
+
+  // Fetch on open. Re-fetching each time keeps a freshly pulled Ollama model
+  // from being missing, and the provider is tagged so a slow response for the
+  // old provider can't paint the wrong list.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    window.api.llm
+      .listModels()
+      .then((models) => !cancelled && setLoaded({ provider, models }))
+      .catch(() => !cancelled && setLoaded({ provider, models: [] }));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, provider]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onDown = (e: PointerEvent): void => {
+      if (!(e.target as Element | null)?.closest('.modelmenu')) setOpen(false);
+    };
+    const onLeave = (): void => setOpen(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mouseleave', onLeave);
+    };
+  }, [open]);
+
+  const models = loaded?.provider === provider ? loaded.models : [];
+  const current = settings.llmModels[provider] || provider;
+
+  const pick = (id: string) => () => {
+    setOpen(false);
+    void window.api.settings.update({ llmModels: { ...settings.llmModels, [provider]: id } });
+  };
+
+  return (
+    <div className="modelmenu" data-interactive>
+      <button
+        type="button"
+        className={`modelbtn${open ? ' modelbtn--on' : ''}`}
+        aria-expanded={open}
+        title={t('overlay.modelTitle')}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="modelbtn__label">{current}</span>
+        <svg className="modelbtn__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+          <path
+            d="M2 3.5 5 6.5 8 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="modelmenu__menu" role="menu">
+          {models.length === 0 ? (
+            <span className="modelmenu__empty">{t('overlay.noModels')}</span>
+          ) : (
+            models.map((model) => (
+              <button
+                key={model.id}
+                type="button"
+                className={`more__item${model.id === current ? ' more__item--on' : ''}`}
+                role="menuitemradio"
+                aria-checked={model.id === current}
+                onClick={pick(model.id)}
+              >
+                {model.label}
+              </button>
+            ))
+          )}
         </div>
       )}
     </div>
@@ -2271,10 +2382,13 @@ export function OverlayApp() {
         be a trap—, and because stopping listening has to always be at hand.
       */}
         {!compact && settings && (
-          <ProfileMenu
-            active={settings.promptProfileId}
-            onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
-          />
+          <div className="proferow">
+            <ProfileMenu
+              active={settings.promptProfileId}
+              onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
+            />
+            <ModelMenu settings={settings} />
+          </div>
         )}
 
         {/*

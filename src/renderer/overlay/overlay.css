@@ -1084,7 +1084,15 @@ body {
   color: var(--text);
 }
 
-/* ── Profile dropdown ── */
+/* ── Profile + model row ── */
+
+/* The profile dropdown on the left, the model dropdown pushed to the right. */
+.proferow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 
 /*
  * One control instead of a row of chips. It reads in blue —the profile is
@@ -1095,6 +1103,97 @@ body {
   position: relative;
   display: flex;
   flex-shrink: 0;
+}
+
+/*
+ * The answering model, on the right of the same row. Quieter than the profile:
+ * it names what's running and swaps it, but it isn't a "register" you flip as
+ * often, so it doesn't wear the accent.
+ */
+.modelmenu {
+  position: relative;
+  display: flex;
+  margin-left: auto;
+  min-width: 0;
+}
+
+.modelbtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 180px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.modelbtn:hover,
+.modelbtn--on {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--text);
+}
+
+.modelbtn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modelbtn__caret {
+  flex: none;
+  opacity: 0.8;
+}
+
+.modelmenu__menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 40;
+  min-width: 180px;
+  max-width: 260px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #1b1e25;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/* Bridge the gap so the cursor doesn't leave `.modelmenu` on the way down. */
+.modelmenu__menu::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  height: 5px;
+}
+
+/* Model names run long; let them wrap instead of clipping. */
+.modelmenu__menu .more__item {
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.modelmenu__empty {
+  font-size: 10.5px;
+  color: #6b7075;
+  padding: 6px 8px;
 }
 
 .profilebtn {
