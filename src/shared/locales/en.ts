@@ -631,6 +631,7 @@ export const en = {
   'aud.seeTrigger': 'See the automatic trigger',
   'nav.attention': 'Something needs your attention',
   'nav.wizard': 'Guided setup',
+  'nav.quit': 'Quit Tayori',
   'nav.footer': 'Everything is stored on your machine. Nothing is uploaded to any server of ours.',
   'ph.qrAlt': 'QR code with the mirror link',
   'local.title': 'Which local model suits your machine',

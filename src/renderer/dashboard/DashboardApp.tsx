@@ -655,6 +655,16 @@ export function DashboardApp() {
             </nav>
 
             <div className="nav__foot">
+              {/* Closing the app from here too: the overlay has its own Quit, but
+              when you're in the dashboard reaching for it means finding the
+              overlay first. It's the same `window.api.window.quit`. */}
+              <button
+                className="navitem navitem--ghost navitem--danger"
+                onClick={() => void window.api.window.quit()}
+              >
+                <Icon name="power" />
+                <span className="navitem__label">{t('nav.quit')}</span>
+              </button>
               {/* The wizard can be called again: having finished it once shouldn't
               leave you without it. It lives in the footer and not at the end of a
               section because it belongs to none — it crosses them all. */}

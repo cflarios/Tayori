@@ -328,6 +328,12 @@ body {
   color: var(--text-faint);
 }
 
+/* Quit: the one destructive action in the nav, so it turns red on hover. */
+.navitem--danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
 .nav__note {
   font-size: 10.5px;
   line-height: 1.45;

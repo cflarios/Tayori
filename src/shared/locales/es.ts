@@ -612,6 +612,7 @@ export const es: Record<UIKey, string> = {
   'aud.seeTrigger': 'Ver el disparo automático',
   'nav.attention': 'Algo requiere tu atención',
   'nav.wizard': 'Configuración guiada',
+  'nav.quit': 'Cerrar Tayori',
   'nav.footer': 'Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.',
   'ph.qrAlt': 'Código QR con el enlace del espejo',
   'local.title': 'Qué modelo local le pega a tu equipo',
