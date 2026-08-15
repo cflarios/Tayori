@@ -7,6 +7,14 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.7.0](https://github.com/cflarios/Tayori/compare/v1.6.2...v1.7.0) (2026-08-15)
+
+
+### Features
+
+* general on-screen help action and a pinnable answer language ([4146fcd](https://github.com/cflarios/Tayori/commit/4146fcd1e015c4552cd1c938604eef6598226a0c))
+* **history:** label screen actions and add conversation search ([5d8f1cb](https://github.com/cflarios/Tayori/commit/5d8f1cba47f40ea51297bb69f26d48a207705e97))
+
 ## [1.6.2](https://github.com/cflarios/Tayori/compare/v1.6.1...v1.6.2) (2026-08-14)
 
 
