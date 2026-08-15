@@ -130,6 +130,7 @@ export const en = {
   'overlay.attached': 'Screenshot attached',
   'overlay.size': 'Size {size}',
   'overlay.suggestion': 'Suggestion',
+  'overlay.questionLabel': 'Question',
   'overlay.continue': 'Continue',
   'overlay.continueHint': 'Pick up the solution where it was cut off, no repeats',
   'overlay.answeringWith': 'Answering with {model}',

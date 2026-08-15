@@ -113,6 +113,7 @@ export const es: Record<UIKey, string> = {
   'overlay.attached': 'Captura adjunta',
   'overlay.size': 'Tamaño {size}',
   'overlay.suggestion': 'Sugerencia',
+  'overlay.questionLabel': 'Pregunta',
   'overlay.continue': 'Continuar',
   'overlay.continueHint': 'Sigue la solución donde se cortó, sin repetir',
   'overlay.answeringWith': 'Respondiendo con {model}',

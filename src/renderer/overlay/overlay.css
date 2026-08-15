@@ -1294,6 +1294,40 @@ body {
   font-style: italic;
 }
 
+/*
+ * The question above the answer.
+ *
+ * Clamped to three lines: a long dictated question mustn't push the answer —the
+ * thing you came to read— off the bottom of the panel. It's selectable because
+ * the reason to keep it in view is to reuse or quote it.
+ */
+.qline {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.qline__label {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c8288;
+  margin-bottom: 3px;
+}
+
+.qline__text {
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.45;
+  color: #c8ccd0;
+  user-select: text;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .answer {
   flex: 1;
   min-height: 0;

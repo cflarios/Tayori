@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from '@shared/answer-format';
 import { toLines } from './teleprompter';
-import { clampFontScale, providerIsReady } from '@shared/types';
+import { clampFontScale, isScreenTrigger, providerIsReady } from '@shared/types';
 import { LangProvider, useT } from '@renderer/i18n';
 import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
 import { matchSkills, skillName } from '@shared/skills';
@@ -1517,6 +1517,28 @@ function AnswerBody({ text }: { text: string }) {
   );
 }
 
+/**
+ * The question that produced the answer, shown above it.
+ *
+ * You could always read it in the transcript, but by the time the answer is up
+ * the line that prompted it has often scrolled away, and a typed question was
+ * never in the transcript at all. Pairing them —what was asked, what came
+ * back— is what the reference cards call the "answer state".
+ *
+ * Only for what was **asked**: a typed or dictated question. The screen actions
+ * carry a canned instruction as their question ("solve the code on screen"),
+ * which is noise here, so `isScreenTrigger` ones don't show it.
+ */
+function QuestionLine({ text }: { text: string }) {
+  const t = useT();
+  return (
+    <div className="qline" data-interactive>
+      <span className="qline__label">{t('overlay.questionLabel')}</span>
+      <p className="qline__text">{text}</p>
+    </div>
+  );
+}
+
 function AnswerPane({
   answer,
   skip,
@@ -2106,6 +2128,12 @@ export function OverlayApp() {
                   </button>
                 )}
             </div>
+            {/* What was asked, above what came back. Only for a typed or
+                dictated question: the screen actions' canned instruction is
+                noise here. */}
+            {answer && answer.question.trim() && !isScreenTrigger(answer.trigger) && (
+              <QuestionLine text={answer.question} />
+            )}
             <AnswerPane
               answer={answer}
               skip={skip}
