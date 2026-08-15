@@ -39,15 +39,17 @@ straight to the AI provider you pick — there is **no server in between**.
 - **Live transcription** with OpenAI (`gpt-live-transcribe`), Gemini Live
   (~300 ms) or **Whisper local** (offline, nothing leaves your machine).
 - **Answer suggestions** with Claude, Gemini, ChatGPT, DeepSeek or Ollama,
-  streamed as they are generated.
+  streamed as they are generated — in the conversation's language, or one you pin.
 - **Question detection.** It spots questions aimed at you — even ones disguised
   as statements — and can answer automatically or only on a hotkey.
 - **Invisible mode.** The overlay and dashboard are excluded from screen capture
   (`WDA_EXCLUDEFROMCAPTURE`), so they don't show up in Meet, Zoom, Teams or OBS.
 - **Interpreter mode.** Speak in one language and it translates to the other, in
   both directions.
-- **Screen actions.** Solve the coding problem (`Ctrl+Alt+C`) or answer the quiz
-  (`Ctrl+Alt+Q`) that's on your screen, with a vision-capable model.
+- **Screen actions.** One **Solve screen** button reads what's on your screen
+  with a vision-capable model: solve a coding problem (`Ctrl+Alt+C`), answer a
+  quiz (`Ctrl+Alt+Q`), or get general help with anything else — an error, some
+  logs, a diagram to explain.
 - **Fully offline** when paired with Whisper local + Ollama.
 
 See the [**Usage guide**](USAGE.md) for everything each feature does and how to

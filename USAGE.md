@@ -13,7 +13,7 @@ for why it's built this way, [CONTEXT.md](CONTEXT.md).
 - [Handling the overlay](#handling-the-overlay)
 - [Teleprompter mode](#teleprompter-mode)
 - [Keyboard shortcuts](#keyboard-shortcuts)
-- [The two screen actions](#the-two-screen-actions)
+- [The screen actions](#the-screen-actions)
 - [Skills](#skills)
 - [Chunk capture](#chunk-capture)
 - [Code mode](#code-mode)
@@ -24,6 +24,7 @@ for why it's built this way, [CONTEXT.md](CONTEXT.md).
 - [Instructions hidden in what the app hears or reads](#instructions-hidden-in-what-the-app-hears-or-reads)
 - [Latency and privacy: the trade-off](#latency-and-privacy-the-trade-off)
 - [Legal considerations](#legal-considerations)
+- [Conversation history](#conversation-history)
 - [Language](#language)
 - [About](#about)
 
@@ -115,13 +116,14 @@ Everything you use mid-call is in the top bar, without opening the settings:
   **didn't manage to open** — check the device or the permissions. It's the
   warning that tells "nothing is audible" apart from "nothing is being listened
   to".
-- **Code** and **Quiz**: solve whatever's on the screen. They're the only two
-  action buttons in the bar, and they carry their names in writing because
-  they're what you press with someone in front of you. At size S they keep just
-  the icon.
+- **Solve screen**: reads what's on your screen and helps with it. It's one
+  button with a small menu — **Code problem**, **Quiz question**, or **Anything
+  else** (general help: a config error, some logs, a diagram to explain, going
+  from one state to another). Code and quiz also have hotkeys (`Ctrl+Alt+C` /
+  `Ctrl+Alt+Q`); "Anything else" is menu-only. At size S it keeps just the icon.
 - **`⋯`**: everything you do **not** use mid-call — collapse, settings, start
   over and quit. It went to a menu because it shared space and visual weight with
-  the two above, and at size S it no longer fit. The two that can't be undone
+  the buttons above, and at size S it no longer fit. The two that can't be undone
   — new conversation, which wipes the transcript and memory, and quitting the app
   — sit apart at the end.
 - **Profiles**: the bottom row. They change the register of the answer without
@@ -191,12 +193,21 @@ back on doesn't force you to type it again. If Windows rejects one because
 another app already holds it, it shows up in red — which matters, because a taken
 shortcut throws no error: it simply does nothing.
 
-## The two screen actions
+## The screen actions
 
-`Ctrl+Alt+C` solves **code** and `Ctrl+Alt+Q` answers **quizzes**. They share
-the whole path — high-quality capture, their own profile, a vision-capable model
-— and split only in how they answer, because an algorithm and a multiple-choice
-question aren't answered the same way. Both have their button in the overlay bar.
+The **Solve screen** button in the overlay bar captures your screen and helps
+with what's on it. Its menu has three cases:
+
+- **Code problem** (`Ctrl+Alt+C`): solves the coding exercise, failing test or
+  stack trace in view — full code, ready to paste.
+- **Quiz question** (`Ctrl+Alt+Q`): answers the test on screen (see below).
+- **Anything else**: general help with whatever else is there — a config error,
+  some logs, a diagram or drawing to explain, getting from one state to another.
+  This one has **no hotkey**; it's reached from the button's menu.
+
+They share the whole path — high-quality capture, their own profile, a
+vision-capable model — and split only in how they answer, because an algorithm, a
+multiple-choice question and "explain this diagram" aren't answered the same way.
 
 Quiz mode answers **every question on screen**, one line per question and nothing
 else: the number, the letter and the option text. No explanations — with the exam
@@ -223,8 +234,8 @@ reasonable combination is a small local model to talk and a big one for the
 screen, or the reverse if you're worried about captures leaving your machine. By
 default the same one is used for everything, as before.
 
-**It has to support images.** If you pick one without vision, both buttons fail
-with a warning instead of inventing the prompt. The dashboard marks which ones
+**It has to support images.** If you pick one without vision, the screen actions
+fail with a warning instead of inventing the prompt. The dashboard marks which ones
 read images and warns you before you find out mid-exam.
 
 ### A model that isn't on the list
@@ -599,7 +610,7 @@ column:
   should keep free.
 - The **multimodal** ones — the only ones that can read your screen — listed
   separately, because it's the costliest mistake: picking a text-only one leaves
-  both buttons dead.
+  the screen actions dead.
 - The paid ones sorted by price, with Anthropic's and OpenAI's figures verified
   against each one's official reference and dated. Google's are **not**
   reproduced: they couldn't be verified the same way, and a made-up price misleads
@@ -685,6 +696,15 @@ they can't see the window.
 
 Check what applies in your case; the responsibility for using this is yours.
 
+## Conversation history
+
+With **Save conversations** on (*dashboard → History*), each conversation is
+written to a JSON in your data folder: the answers and the full transcript. The
+History section lists them newest first — open one to read its turns and
+transcript, delete one, or clear them all. A **search box** filters the list by
+any word across titles, questions, answers and transcripts, so you can find a past
+conversation without scrolling. Nothing is written while the switch is off.
+
 ## Language
 
 The interface is in **English and Spanish**. It starts in English unless it's the
@@ -695,6 +715,12 @@ which is chosen in *Transcription*.
 The internal prompts stay in Spanish on purpose: they aren't interface — the model
 reads them, not you — and they already carry a rule forcing an answer in the
 conversation's language, whatever it is.
+
+**The answer language can also be pinned.** By default the model answers in the
+conversation's language, or, for a screen action, the language of what's on the
+screen. If you'd rather fix it — always in English, say, even when the screen is
+in another language — set it in *dashboard → Answering model → Answer language*.
+Leave it on **Automatic** for the default behaviour.
 
 ## About
 

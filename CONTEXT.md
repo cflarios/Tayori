@@ -198,6 +198,21 @@ Two details that look superfluous and aren't:
   option. The tracking runs on an interval and not on the renderer's `mousemove`
   because when dragging fast the cursor leaves the window.
 
+### The history got a search box, and the screen turns got a label
+
+Two small history fixes. The list only showed titles and dates; with dozens of
+conversations, finding one meant remembering when it happened. A **search box**
+now filters by any word across titles, questions, answers and transcripts. It runs
+in the main process —`searchConversations` reads the bodies and returns only the
+matching headers— because the files live there and shipping every conversation to
+the renderer to grep it would be absurd.
+
+And the screen-action turns used to show the model's **Spanish instruction** as
+the question, and as the conversation title: a wall of Spanish for any user, since
+those prompts are Spanish by design. Now those turns show a localized label
+—«Solve on-screen code», «Help with the screen»— keyed off the trigger, applied at
+paint time so old conversations read right too, with no migration.
+
 ### The two tabs: listen and write
 
 The input panel has two tabs. **Listen** is the usual transcription; **Write**
@@ -718,7 +733,7 @@ reflects it in three places:
   it «no vision».
 - **It doesn't appear in the screen-model dropdown.** That card exists to choose
   the model that has to read the capture; offering there the only one that can't
-  is offering the option that guarantees both buttons fail.
+  is offering the option that guarantees the screen actions fail.
 - The provider **discards the capture with a log warning** instead of sending it,
   and **doesn't tell the model there's an image**. Telling it without sending it
   is inviting it to invent what's in it.
@@ -957,6 +972,30 @@ keys, pointing it at the overlay's texts looked correct —same three modes— a
 said **something else**. The overlay's say *what* each source is; the dashboard's
 explain *why* to pick it. A translation table invites reuse by the shape of the
 key instead of by what the text says.
+
+### Pinning the answer language, and why the rule alone wasn't enough
+
+There was never a «model language» setting: the answer language is decided by a
+prompt rule («answer in the conversation's language, not the instructions'»), and
+the two language settings are the recognizer's (`language`) and the interface's
+(`uiLanguage`). That's fine for a spoken call. It breaks for a screen action:
+there's no conversation, only the image and a Spanish instruction, so the model
+defaults to Spanish even for an English diagram.
+
+The fix is a setting, `answerLanguage` (default `auto`, which keeps the rule
+above), that FORCES a language. Two things learned building it:
+
+- **The Spanish rule alone wasn't reliable.** «Responde siempre en inglés», inside
+  a Spanish prompt, was obeyed by Haiku, Opus, Gemini and Ollama — and **ignored
+  by Sonnet**, which leaned toward the prompt's own language. Two changes fixed
+  it: the forced rule is placed **last** in the prompt (recency — the slot the
+  skill takes), and the directive is appended to the user turn **written in the
+  target language itself** (`Respond entirely in English.`). A line in the target
+  language primes the output far more than a Spanish sentence describing it.
+- **It's global, not per-model.** The dropdown lives in the «Answering model»
+  card, but the rule is read by `buildSystemPrompt` for every answer —spoken or
+  screen— and the screen action uses the same model by default. Placement isn't
+  scope.
 
 ### What the section above took for finished and wasn't
 
@@ -1782,6 +1821,30 @@ best option anyway — refusing to answer doesn't help anyone either.
 The prompt explicitly warns about the negations and superlatives of the prompt
 ("which NOT", "always", "the best"). It's where these questions are lost even
 knowing the subject, and a model in a hurry falls just like a person in a hurry.
+
+### The third screen action: general help, and one button for all three
+
+Code and quiz cover an exercise or a test. But the app is often running just
+because an instant assistant is handy, and what's in front of you is neither: a
+config error, some logs, a diagram to read, getting from state A to B. So there's
+a third screen action, «anything else», that captures the screen and helps with
+whatever it is.
+
+- **It's a screen-only `general` profile, not a chip.** The forced profile shapes
+  the answer —`code`→`coding`, `quiz`→`quiz`, `general`→`general`— but `general`
+  isn't offered in the profile chips, the dashboard, or the pack-scoping list.
+  Like `custom`, a `PromptProfileId` doesn't have to be selectable: none of the
+  spoken profiles fit a screenshot (they're framed around a call transcript), and
+  a general one that's ALSO a spoken chip is a product decision nobody asked for.
+- **A cap between the other two.** 700 (quiz) is too short to read logs or explain
+  a diagram; 4096 (code) invites an essay in a panel read out of the corner of the
+  eye. 1200 is the middle.
+- **The three buttons became one.** «Code» and «Quiz» as bare labels didn't say
+  they capture the screen, and collided with the profile chips of the same name. A
+  single «Solve screen» button with a monitor icon reads as an action on your
+  screen, and its menu picks the case. Code and quiz keep their hotkeys; the
+  general one is menu-only — one keypress for the occasional case isn't worth a
+  global accelerator.
 
 ### Ollama trims the context without saying so, and the memory is now visible
 

@@ -250,7 +250,7 @@ That's why a skill **adds to** the profile instead of replacing it, and why it
 goes last in the prompt with its precedence written out: it rules over the way,
 and the profile still rules over the shape. See `skillBlock` in `core/prompt.ts`.
 
-Two things that aren't obvious:
+A few things that aren't obvious:
 
 - **Each context pack's `kind` changes the instruction**, not just the label. A
   prepared answer is reused; a CV is the only source of concrete facts about the
@@ -264,14 +264,23 @@ Two things that aren't obvious:
   that **replaces** the format rules instead of inheriting them: the four
   bullets exist because the answer is read out of the corner of your eye, and an
   algorithm isn't read, it's copied.
+- **The answer language is a prompt rule, not a model setting.** By default a rule
+  tells the model to answer in the conversation's language (for a screen action,
+  the screen's). If the user pins a language (`settings.answerLanguage`), that
+  rule is replaced by a forced one placed **last** in the prompt for recency, and
+  the directive is also appended to the user turn **in the target language** — the
+  cue models obey most (some, like Sonnet, ignored the Spanish rule alone). See
+  `forcedLanguageRule` / `answerLanguageDirective` in `core/prompt.ts`.
 
 ---
 
 ## 5 bis. The screen actions
 
-Two buttons —code and quiz— that share a path and enter the same `AnswerEngine`.
+One **Solve screen** button, with a menu for three tasks —code, quiz and a
+general "anything else"— that share a path and enter the same `AnswerEngine`.
 They're the only triggers that change **how** the answer is produced and with
-**which model**, not just what is asked.
+**which model**, not just what is asked. Code and quiz keep their hotkeys; the
+general one is menu-only.
 
 ```mermaid
 sequenceDiagram
@@ -283,21 +292,22 @@ sequenceDiagram
     participant M as screenModelFor
     participant O as Overlay
 
-    K->>S: solveOnScreen('code' | 'quiz')
+    K->>S: solveOnScreen('code' | 'quiz' | 'general')
     S->>C: captureScreen({ forCode: true })
     C-->>S: JPEG q92 · 1600 px
     S->>A: attachImage + ask(task, SOLVE_INSTRUCTION[task])
     A->>M: which model solves the screen?
     M-->>A: provider + model (or the usual, if `same`)
-    Note over A: forced coding/quiz profile<br/>maxTokens 2200 only for code<br/>no vision → error, not an answer
+    Note over A: forced coding/quiz/general profile<br/>higher cap for code and general<br/>no vision → error, not an answer
     A-->>O: streaming
     Note over O: parseAnswerBlocks:<br/>``` fences → &lt;pre&gt; + Copy
 ```
 
 | Task | Profile | Cap | Answer shape |
 |---|---|---|---|
-| `code` | `coding` | 2200 | Approach + full code + 3 notes |
+| `code` | `coding` | 4096 | Approach + full code + 3 notes |
 | `quiz` | `quiz` | 700 | The option, alone, on the first line |
+| `general` | `general` (screen-only) | 1200 | Concise, practical help with whatever's shown |
 
 Four decisions that aren't visible in the diagram:
 
@@ -346,6 +356,12 @@ encrypted key. See CONTEXT.md for why the folder is `Tayori` and not the old
 **The audio never touches the disk.** The only exception is the temporary WAV
 that whisper-cli needs, deleted in the `finally` of each invocation. Text is
 saved if history is on; see CONTEXT.md §4.
+
+**The dashboard reads and searches that history in the main process.**
+`listConversations` returns only lightweight headers to paint the list;
+`searchConversations` scans the bodies —title, questions, answers, transcript—
+and returns the matching headers, so the search box filters without shipping
+every conversation to the renderer.
 
 **And two outputs that aren't the disk:** with the phone mirror on, the answers
 —not the transcript— are served over HTTP to the local network; with MQTT on,
