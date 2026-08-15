@@ -553,13 +553,10 @@ function StatusBar({
         cutting them.
       */}
       <div className="statusbar__actions">
-        {/* It goes in the bar and not among the quick actions because it has to
-            be available ALWAYS: the normal case is an exercise on screen with no
-            call open, so there's no previous answer to hang it under nor audio
-            to wait for. */}
-        {/* PROTOTYPE: the two screen actions folded into one "Solve screen"
-            button with a code/quiz choice. */}
-        <SolveScreenMenu onSolveScreen={onSolveScreen} />
+        {/* In compact the footer is gone, so Solve screen rides in the bar to
+            stay reachable; when expanded it lives in the footer instead (below),
+            and putting it in both places would be a duplicate. */}
+        {compact && <SolveScreenMenu onSolveScreen={onSolveScreen} />}
 
         {/* Quick visibility toggle: state + switch in one, replacing the
             read-only VISIBLE flag. Red when visible (the dangerous state). */}
@@ -671,7 +668,14 @@ function HelpIcon() {
  * your screen (monitor icon) and asks what to solve only on click. "Anything
  * else" is the general case: an error, logs, a diagram, a config screen…
  */
-function SolveScreenMenu({ onSolveScreen }: { onSolveScreen: (task: ScreenTask) => void }) {
+function SolveScreenMenu({
+  onSolveScreen,
+  up = false,
+}: {
+  onSolveScreen: (task: ScreenTask) => void;
+  /** Open the menu upward — for the footer, where downward would clip off-panel. */
+  up?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -699,7 +703,7 @@ function SolveScreenMenu({ onSolveScreen }: { onSolveScreen: (task: ScreenTask) 
   };
 
   return (
-    <div className="solve" data-interactive>
+    <div className={`solve${up ? ' solve--up' : ''}`} data-interactive>
       <button
         type="button"
         className={`actionbtn${open ? ' actionbtn--on' : ''}`}
@@ -952,7 +956,23 @@ const PROFILE_CHIPS = [
   ['interpreter', 'beh.profInterpreter'],
 ] as const satisfies readonly (readonly [Settings['promptProfileId'], UIKey])[];
 
-function ProfileChips({
+/** Code and quiz reuse the bar's icons: it's the SAME action seen elsewhere. */
+function profileIcon(id: Settings['promptProfileId']) {
+  return id === 'coding' ? <CodeIcon /> : id === 'quiz' ? <QuizIcon /> : <ProfileIcon id={id} />;
+}
+
+/**
+ * Answer profile as a dropdown, where a row of seven chips used to be.
+ *
+ * The register is switched mid-call —the one moment you can't open the
+ * dashboard, which steals the focus— so the control has to live here; but seven
+ * chips took a whole line of a panel that exists to read. One control that
+ * names the current profile and opens the rest on click says the same in a
+ * fraction of the room. `custom` isn't offered (it's edited with a textarea,
+ * which does need the dashboard), but it's shown when it's the active one, so
+ * the label never lies about what's running.
+ */
+function ProfileMenu({
   active,
   onChange,
 }: {
@@ -960,25 +980,73 @@ function ProfileChips({
   onChange: (id: Settings['promptProfileId']) => void;
 }) {
   const t = useT();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onDown = (e: PointerEvent): void => {
+      if (!(e.target as Element | null)?.closest('.profilemenu')) setOpen(false);
+    };
+    const onLeave = (): void => setOpen(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mouseleave', onLeave);
+    };
+  }, [open]);
+
+  const current = PROFILE_CHIPS.find(([id]) => id === active);
+  const label = current ? t(current[1]) : t('overlay.profileCustom');
+
+  const pick = (id: Settings['promptProfileId']) => () => {
+    setOpen(false);
+    onChange(id);
+  };
+
   return (
-    <div className="chips" data-interactive>
-      {PROFILE_CHIPS.map(([id, label]) => (
-        <button
-          key={id}
-          type="button"
-          className={`chip${active === id ? ' chip--active' : ''}`}
-          aria-pressed={active === id}
-          onClick={() => onChange(id)}
-        >
-          {/* Code and quiz reuse the ones from the bar: it's the SAME action
-              seen from another place, and giving them two different drawings
-              would make you doubt whether they're the same. */}
-          {id === 'coding' ? <CodeIcon /> : id === 'quiz' ? <QuizIcon /> : <ProfileIcon id={id} />}
-          {t(label)}
-        </button>
-      ))}
-      {active === 'custom' && (
-        <span className="chip chip--active">{t('overlay.profileCustom')}</span>
+    <div className="profilemenu" data-interactive>
+      <button
+        type="button"
+        className={`profilebtn${open ? ' profilebtn--on' : ''}`}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {active !== 'custom' && profileIcon(active)}
+        <span className="profilebtn__label">{label}</span>
+        <svg className="profilebtn__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+          <path
+            d="M2 3.5 5 6.5 8 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="profilemenu__menu" role="menu">
+          {PROFILE_CHIPS.map(([id, plabel]) => (
+            <button
+              key={id}
+              type="button"
+              className={`more__item${active === id ? ' more__item--on' : ''}`}
+              role="menuitemradio"
+              aria-checked={active === id}
+              onClick={pick(id)}
+            >
+              {profileIcon(id)}
+              {t(plabel)}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -1242,20 +1310,13 @@ function IdleHero({
         the write tab, which is the one place that focus is taken on purpose.
       */}
       {state !== 'setup' && (
-        <>
-          <button type="button" className="hero__askbox" onClick={onWrite}>
-            <span className="hero__askph">{t('overlay.writeQuestion')}…</span>
-            <span className="hero__askkbd">
-              <kbd>Ctrl</kbd>
-              <kbd>↵</kbd>
-            </span>
-          </button>
-          <div className="hero__alt">
-            <span>
-              <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> {t('overlay.footScreen')}
-            </span>
-          </div>
-        </>
+        <button type="button" className="hero__askbox" onClick={onWrite}>
+          <span className="hero__askph">{t('overlay.writeQuestion')}…</span>
+          <span className="hero__askkbd">
+            <kbd>Ctrl</kbd>
+            <kbd>↵</kbd>
+          </span>
+        </button>
       )}
     </div>
   );
@@ -2203,7 +2264,7 @@ export function OverlayApp() {
         be a trap—, and because stopping listening has to always be at hand.
       */}
         {!compact && settings && (
-          <ProfileChips
+          <ProfileMenu
             active={settings.promptProfileId}
             onChange={(promptProfileId) => void window.api.settings.update({ promptProfileId })}
           />
@@ -2359,23 +2420,26 @@ export function OverlayApp() {
 
         {!compact && (
           <div className="hints">
-            {/* With the central state the shortcuts are already stated up there,
-              and repeating them below is the kind of filler that makes a panel
-              look like a form. Only the size remains. */}
+            {/* With the central state the ask shortcut is already stated up
+              there, and repeating it below is the kind of filler that makes a
+              panel look like a form. The screen shortcut isn't spelled out
+              because the Solve screen button on the right carries it. */}
             {!hero && (
-              <>
-                <span>
-                  <kbd>Ctrl</kbd>+<kbd>Enter</kbd> {t('overlay.footAsk')}
-                </span>
-                <span>
-                  <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> {t('overlay.footScreen')}
-                </span>
-              </>
+              <span>
+                <kbd>Ctrl</kbd>+<kbd>Enter</kbd> {t('overlay.footAsk')}
+              </span>
             )}
             <span className="hints__spacer" />
             <SizePicker
               active={settings?.overlaySize ?? 'M'}
               onChange={(overlaySize) => void window.api.settings.update({ overlaySize })}
+            />
+            {/* Solve screen's home when expanded; opens upward so its menu
+                doesn't clip off the panel's bottom edge. In compact it moves to
+                the bar (the footer is hidden there). */}
+            <SolveScreenMenu
+              onSolveScreen={(task) => void window.api.ask.solveOnScreen(task)}
+              up
             />
           </div>
         )}

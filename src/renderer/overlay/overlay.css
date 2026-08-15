@@ -330,17 +330,6 @@ body {
   color: #9aa0a6;
 }
 
-/* The screen shortcut, deliberately in a low voice below the field. */
-.hero__alt {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 12px;
-  font-size: 11px;
-  color: var(--text-faint);
-}
 
 /*
  * A panel that breathes can't have anything blinking for those who can't tolerate
@@ -1097,59 +1086,80 @@ body {
   color: var(--text);
 }
 
-/* ── Profile chips ── */
+/* ── Profile dropdown ── */
 
-.chips {
+/*
+ * One control instead of a row of chips. It reads in blue —the profile is
+ * always "set" to something— and names the current register; the rest open on
+ * click. See the component's comment for why the switch stays in the panel.
+ */
+.profilemenu {
+  position: relative;
   display: flex;
-  gap: 4px;
   flex-shrink: 0;
-  flex-wrap: wrap;
 }
 
-.chip {
-  /* Flex for the icon: recognizing a shape is faster than reading a word, and
-     these chips are glanced at with someone in front of you. */
-  display: inline-flex;
+.profilebtn {
+  display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(76, 141, 255, 0.28);
+  border-radius: 7px;
+  background: rgba(76, 141, 255, 0.12);
+  color: #a8c7ff;
   font-family: inherit;
-  font-size: 10.5px;
-  color: #9aa0a6;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 550;
   cursor: pointer;
   white-space: nowrap;
   transition:
     background 120ms ease,
-    color 120ms ease,
-    border-color 120ms ease;
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
-.chip:hover {
-  color: #e8eaed;
-  background: rgba(255, 255, 255, 0.09);
-}
-
-/*
- * The active one is marked with color, not with a filled block.
- *
- * A solid blue chip in a row of six was the panel's strongest spot after the
- * content, and it competed with the center without ever being the main action:
- * the profile is chosen once and forgotten. With the text in blue and a barely
- * hinted background it reads just as fast and weighs half.
- */
-.chip--active {
-  color: #a8c7ff;
-  background: rgba(76, 141, 255, 0.14);
-  border-color: rgba(76, 141, 255, 0.3);
-  font-weight: 550;
-}
-
-.chip--active:hover {
+.profilebtn:hover,
+.profilebtn--on {
   background: rgba(76, 141, 255, 0.22);
   color: #ffffff;
+}
+
+.profilebtn__caret {
+  opacity: 0.8;
+  margin-left: 1px;
+}
+
+.profilemenu__menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 40;
+  min-width: 172px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #1b1e25;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/* Bridge the 5 px gap so the cursor doesn't leave `.profilemenu` on the way. */
+.profilemenu__menu::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -5px;
+  height: 5px;
+}
+
+/* The active profile in the list, marked in blue like its trigger. */
+.more__item--on {
+  color: #a8c7ff;
 }
 
 /* ── Quick actions on the answer ── */
@@ -1940,6 +1950,18 @@ body {
   height: 5px;
 }
 
+/* In the footer the button sits at the panel's bottom, so its menu opens
+   upward; the bridge flips to the bottom edge to match. */
+.solve--up .solve__menu {
+  top: auto;
+  bottom: calc(100% + 5px);
+}
+
+.solve--up .solve__menu::before {
+  top: auto;
+  bottom: -5px;
+}
+
 /* ── Menu of the non-call things ── */
 .more {
   position: relative;
@@ -2025,14 +2047,4 @@ body {
 .more__item--danger:hover {
   background: rgba(248, 113, 113, 0.16);
   color: #fca5a5;
-}
-
-/* Dimmed at rest and full when active: the color acts as a second signal of
-   which is set, besides the background. */
-.chip svg {
-  opacity: 0.65;
-}
-
-.chip--active svg {
-  opacity: 1;
 }
