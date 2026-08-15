@@ -25,6 +25,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # npm 11 blocks install scripts by default, so Electron's postinstall —
+      # which downloads the platform binary — doesn't reliably run during
+      # `npm ci`. The test suite pulls in the LLM factory, which imports
+      # `electron`, and without the binary `getElectronPath()` throws and fails
+      # the run. Install it explicitly so a skipped or hiccuped postinstall can't
+      # break CI (see CONTEXT.md §3).
+      - name: Install Electron binary
+        run: node node_modules/electron/install.js
+
       - name: Run checks
         run: npm run typecheck && npm run lint && npm test
 
