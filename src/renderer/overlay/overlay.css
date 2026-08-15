@@ -277,38 +277,69 @@ body {
   max-width: 30ch;
 }
 
-/* The second way, deliberately in a low voice: it exists, but doesn't compete. */
+/*
+ * The write affordance, shaped like the field it opens.
+ *
+ * A plain underlined link read as fine print; an input-shaped launcher says
+ * "you can also type here" at a glance. It isn't a live input —focusing one
+ * would steal the call's focus— so it's a button that opens the write tab.
+ */
+.hero__askbox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 24px;
+  padding: 8px 10px 8px 12px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-family: inherit;
+  cursor: text;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.hero__askbox:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(96, 165, 250, 0.5);
+}
+
+.hero__askph {
+  font-size: 12.5px;
+  font-style: italic;
+  color: #6b7075;
+}
+
+.hero__askkbd {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.hero__askkbd kbd {
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #9aa0a6;
+}
+
+/* The screen shortcut, deliberately in a low voice below the field. */
 .hero__alt {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   justify-content: center;
   gap: 6px;
-  margin-top: 22px;
+  margin-top: 12px;
   font-size: 11px;
   color: var(--text-faint);
-}
-
-.hero__link {
-  font-family: inherit;
-  font-size: 11px;
-  color: var(--text-dim);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 255, 255, 0.2);
-  text-underline-offset: 3px;
-  transition: color 140ms ease;
-}
-
-.hero__link:hover {
-  color: var(--text);
-}
-
-.hero__sep {
-  opacity: 0.5;
 }
 
 /*

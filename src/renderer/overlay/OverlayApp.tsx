@@ -1096,21 +1096,29 @@ function IdleHero({
       <p className="hero__sub">{copy.sub}</p>
 
       {/*
-        The second way, in a low voice. You can use the whole app without a
-        microphone —writing, or solving what's on the screen— and without this
-        there'd be no way to know it from here. It goes in plain text and not in
-        buttons so it doesn't compete with the circle.
+        The second way, spelled out as what it is: a place to type.
+        You can use the whole app without a microphone —writing, or solving
+        what's on the screen— and the plain link that said so read as an
+        afterthought. An input-shaped launcher says "you can also type here"
+        without a word. It's not a live field: focusing one would make the
+        overlay steal the call's focus (CONTEXT §4), so pressing it switches to
+        the write tab, which is the one place that focus is taken on purpose.
       */}
       {state !== 'setup' && (
-        <div className="hero__alt">
-          <button type="button" className="hero__link" onClick={onWrite}>
-            {t('overlay.writeQuestion')}
+        <>
+          <button type="button" className="hero__askbox" onClick={onWrite}>
+            <span className="hero__askph">{t('overlay.writeQuestion')}…</span>
+            <span className="hero__askkbd">
+              <kbd>Ctrl</kbd>
+              <kbd>↵</kbd>
+            </span>
           </button>
-          <span className="hero__sep">·</span>
-          <span>
-            <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> {t('overlay.footScreen')}
-          </span>
-        </div>
+          <div className="hero__alt">
+            <span>
+              <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> {t('overlay.footScreen')}
+            </span>
+          </div>
+        </>
       )}
     </div>
   );
