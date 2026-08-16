@@ -503,7 +503,6 @@ function StatusBar({
   levels,
   settings,
   onDragStart,
-  onNewConversation,
   onSolveScreen,
   onToggleCompact,
 }: {
@@ -511,7 +510,6 @@ function StatusBar({
   levels: AudioLevels;
   settings: Settings | null;
   onDragStart: (event: React.MouseEvent) => void;
-  onNewConversation: () => void;
   onSolveScreen: (task: ScreenTask) => void;
   onToggleCompact: () => void;
 }) {
@@ -606,11 +604,7 @@ function StatusBar({
             spare now, and it reads better up here than tucked in the footer. */}
         <SolveScreenMenu onSolveScreen={onSolveScreen} compact={compact} />
 
-        <MoreMenu
-          compact={compact}
-          onToggleCompact={onToggleCompact}
-          onNewConversation={onNewConversation}
-        />
+        <MoreMenu compact={compact} onToggleCompact={onToggleCompact} />
       </div>
     </div>
   );
@@ -787,11 +781,9 @@ function SolveScreenMenu({
 function MoreMenu({
   compact,
   onToggleCompact,
-  onNewConversation,
 }: {
   compact: boolean;
   onToggleCompact: () => void;
-  onNewConversation: () => void;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -862,20 +854,12 @@ function MoreMenu({
           </button>
 
           {/*
-            The two that can't be undone, set apart and at the end. New
-            conversation clears the transcript and the memory; the X closes the
-            app. They were a pixel away from «collapse», which costs nothing.
+            Closing the app, set apart at the end so it isn't a pixel away from
+            «collapse», which costs nothing. Starting a fresh conversation used to
+            sit here too; it moved to the tab row, where it's one click from the
+            conversation it clears instead of two through this menu.
           */}
           <div className="more__sep" />
-          <button
-            type="button"
-            className="more__item"
-            role="menuitem"
-            onClick={pick(onNewConversation)}
-          >
-            <NewChatIcon />
-            {t('overlay.newChatShort')}
-          </button>
           <button
             type="button"
             className="more__item more__item--danger"
@@ -1624,7 +1608,15 @@ function SetupPrompt() {
 /** The two ways of giving the assistant a question. */
 type InputTab = 'listen' | 'write';
 
-function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => void }) {
+function Tabs({
+  tab,
+  onChange,
+  onNewConversation,
+}: {
+  tab: InputTab;
+  onChange: (t: InputTab) => void;
+  onNewConversation: () => void;
+}) {
   const t = useT();
   return (
     // `data-interactive`: without this the tabs would be unclickable with
@@ -1646,6 +1638,21 @@ function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => voi
           {label}
         </button>
       ))}
+
+      <span className="tabs__spacer" />
+
+      {/* Start fresh, in the conversation's own zone: one click here instead of
+          two through the ⋯ menu, where this used to live. Right-anchored tooltip
+          so it doesn't spill past the panel edge. */}
+      <button
+        type="button"
+        className="tabs__new tip tip--end"
+        data-tip={t('overlay.newChat')}
+        aria-label={t('overlay.newChat')}
+        onClick={onNewConversation}
+      >
+        <NewChatIcon />
+      </button>
     </div>
   );
 }
@@ -1742,10 +1749,11 @@ function ComposePane({
   // two things it says, seeing it on every write is noise. Persisted outside
   // Settings so it needs no schema field or migration.
   const [tipOpen, setTipOpen] = useState(() => localStorage.getItem('overlay.tipDismissed') !== '1');
-  // The focus warning is also dismissible, but on purpose it does NOT persist:
-  // it's local state, so it comes back every time the write tab is opened (this
-  // component remounts on each entry). Closing it clears it for the moment you're
-  // reading; sharing your screen later still gets the reminder.
+  // The focus warning does NOT persist: it's local state, so it comes back every
+  // time the write tab is opened (this component remounts on each entry). That's
+  // deliberate — writing isn't as invisible as speaking, and the user must be
+  // reminded every session — but it auto-dismisses after a few seconds (see the
+  // timer below) so it warns without nagging. Closing it by hand still works.
   const [warnOpen, setWarnOpen] = useState(true);
   // The «+» menu: attach an image off disk or take a screenshot. Both were
   // separate icons before; folding them under one control keeps the field tidy.
@@ -1757,6 +1765,15 @@ function ComposePane({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Auto-dismiss the focus warning after 5s. It has to be seen on every entry to
+  // Write, but once read it shouldn't linger — so it clears itself. A manual
+  // close cancels the timer through the cleanup.
+  useEffect(() => {
+    if (!warnOpen) return;
+    const id = window.setTimeout(() => setWarnOpen(false), 5000);
+    return () => window.clearTimeout(id);
+  }, [warnOpen]);
 
   // Close the «+» menu on Escape, a click outside it, or leaving the window
   // (which is returning to the call) — the same net the bar menus use.
@@ -2044,6 +2061,9 @@ function ComposePane({
           >
             <CloseIcon />
           </button>
+          {/* Drains over the 5s auto-dismiss (CSS `note-drain`), a visible clock
+              on the warning so its exit is expected. */}
+          <span className="compose__note__timer" aria-hidden="true" />
         </div>
       )}
 
@@ -2900,7 +2920,6 @@ export function OverlayApp() {
           levels={levels}
           settings={settings}
           onDragStart={onDragStart}
-          onNewConversation={() => void window.api.history.newConversation()}
           onSolveScreen={(task) => void window.api.ask.solveOnScreen(task)}
           onToggleCompact={() => void window.api.settings.update({ overlayCompact: !compact })}
         />
@@ -2968,7 +2987,11 @@ export function OverlayApp() {
         ) : (
           !compact && (
             <div className={`section${tab === 'write' ? ' section--write' : ''}`}>
-              <Tabs tab={tab} onChange={setTab} />
+              <Tabs
+                tab={tab}
+                onChange={setTab}
+                onNewConversation={() => void window.api.history.newConversation()}
+              />
               {tab === 'listen' ? (
                 <TranscriptPane segments={segments} />
               ) : (
