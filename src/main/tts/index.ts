@@ -1,6 +1,7 @@
 import type { Settings } from '@shared/types';
 import type { TTSResult } from './types';
 import { openaiTTS } from './openai';
+import { piperTTS } from './piper';
 
 /**
  * Synthesize an answer to speech with the active engine.
@@ -19,10 +20,11 @@ export async function synthesizeSpeech(settings: Settings, text: string): Promis
   switch (settings.ttsProviderId) {
     case 'openai':
       return openaiTTS.synthesize(options);
-    // Renderer-only or not yet implemented: the overlay handles Web Speech, and
-    // Piper/Kokoro land in later phases.
-    case 'webspeech':
     case 'piper':
+      return piperTTS.synthesize(options);
+    // Renderer-only or not yet implemented: the overlay handles Web Speech, and
+    // Kokoro lands in a later phase.
+    case 'webspeech':
     case 'kokoro':
     default:
       return null;

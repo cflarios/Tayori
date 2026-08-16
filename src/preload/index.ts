@@ -3,7 +3,9 @@ import {
   IPC,
   type AudioChunkMessage,
   type CaptureCommand,
+  type PiperStatus,
   type ScrollCaptureState,
+  type TtsPiperProgress,
   type WhisperProgress,
 } from '@shared/ipc';
 import type {
@@ -273,6 +275,14 @@ const api = {
   tts: {
     synthesize: (text: string): Promise<{ audioBase64: string; mime: string } | null> =>
       ipcRenderer.invoke(IPC.ttsSynthesize, text),
+    /** Piper (local): what's installed, and download the binary + a voice. */
+    piperStatus: (): Promise<PiperStatus> => ipcRenderer.invoke(IPC.ttsPiperStatus),
+    piperInstall: (
+      voiceId: string
+    ): Promise<{ ok: boolean; error?: string; status?: PiperStatus }> =>
+      ipcRenderer.invoke(IPC.ttsPiperInstall, voiceId),
+    onPiperProgress: (cb: (p: TtsPiperProgress) => void) =>
+      subscribe<TtsPiperProgress>(IPC.onTtsPiperProgress, cb),
   },
 
   history: {

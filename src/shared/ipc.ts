@@ -85,6 +85,9 @@ export const IPC = {
    * that speaks on its own.
    */
   ttsSynthesize: 'tts:synthesize',
+  /** Piper (local TTS): what's on disk, and download the binary + a voice. */
+  ttsPiperStatus: 'tts:piper-status',
+  ttsPiperInstall: 'tts:piper-install',
 
   screenshotTake: 'screenshot:take',
   // Pure capture for the write tab: returns the image WITHOUT attaching it to the
@@ -297,6 +300,9 @@ export const IPC = {
   /** Progress of the Ollama install or of a model download. */
   onSetupProgress: 'event:setup-progress',
 
+  /** Progress of a Piper binary or voice download. */
+  onTtsPiperProgress: 'event:tts-piper-progress',
+
   /** The connection with the broker changed, or something was published. */
   onMqttStatus: 'event:mqtt-status',
 
@@ -360,4 +366,19 @@ export interface WhisperProgress {
   receivedBytes: number;
   /** `0` if the server doesn't send Content-Length. */
   totalBytes: number;
+}
+
+/** Download progress of the local Piper assets (the binary or a voice). */
+export interface TtsPiperProgress {
+  target: 'binary' | 'voice';
+  receivedBytes: number;
+  /** `0` if the server doesn't send Content-Length. */
+  totalBytes: number;
+}
+
+/** What Piper has on disk, for the dashboard. */
+export interface PiperStatus {
+  binaryInstalled: boolean;
+  /** Voice ids (from the catalog) whose files are on disk. */
+  installedVoices: string[];
 }

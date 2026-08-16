@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WhisperProgress } from '@shared/ipc';
+import type { PiperStatus, TtsPiperProgress, WhisperProgress } from '@shared/ipc';
+import { PIPER_VOICES, piperVoiceById } from '@shared/piper-voices';
 import {
   activeHotkeys,
   adviseLocalModels,
@@ -1767,10 +1768,29 @@ async function speakSample(settings: Settings, text: string): Promise<void> {
   await audio.play();
 }
 
+/** Piper's install state and download progress, refreshed on demand. */
+function usePiperStatus(): {
+  status: PiperStatus | null;
+  progress: TtsPiperProgress | null;
+  refresh: () => void;
+  clearProgress: () => void;
+} {
+  const [status, setStatus] = useState<PiperStatus | null>(null);
+  const [progress, setProgress] = useState<TtsPiperProgress | null>(null);
+  const refresh = useCallback((): void => {
+    void window.api.tts.piperStatus().then(setStatus);
+  }, []);
+  useEffect(() => {
+    refresh();
+    return window.api.tts.onPiperProgress(setProgress);
+  }, [refresh]);
+  return { status, progress, refresh, clearProgress: () => setProgress(null) };
+}
+
 /**
  * Spoken answers (TTS). A master switch, the engine and voice, speed, and whether
  * new answers are read on their own. Web Speech is free and offline; OpenAI reuses
- * the existing key; Piper/Kokoro are shown disabled until their phases land.
+ * the existing key; Piper is a local neural engine (downloaded binary + voice).
  */
 function TTSCard({
   settings,
@@ -1785,11 +1805,21 @@ function TTSCard({
 }) {
   const t = useT();
   const voices = useSpeechVoices();
+  const piper = usePiperStatus();
   const [testing, setTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
 
   const provider = settings.ttsProviderId;
   const needsKey = provider === 'openai' && !presence.openai;
+
+  // For Piper the voice must be downloaded before it can speak; the install block
+  // below handles it. The Test button waits on that.
+  const piperVoiceReady =
+    provider === 'piper' &&
+    settings.ttsVoice !== '' &&
+    (piper.status?.installedVoices.includes(settings.ttsVoice) ?? false);
+  const canTest = !needsKey && (provider !== 'piper' || piperVoiceReady);
 
   const voiceOptions =
     provider === 'webspeech'
@@ -1797,13 +1827,20 @@ function TTSCard({
           { value: '', label: t('tts.voiceDefault') },
           ...voices.map((v) => ({ value: v.voiceURI, label: `${v.name} (${v.lang})` })),
         ]
-      : [
-          { value: '', label: t('tts.voiceDefault') },
-          ...OPENAI_TTS_VOICES.map((v) => ({
-            value: v,
-            label: v.charAt(0).toUpperCase() + v.slice(1),
-          })),
-        ];
+      : provider === 'piper'
+        ? PIPER_VOICES.map((v) => ({
+            value: v.id,
+            label: piper.status?.installedVoices.includes(v.id)
+              ? v.name
+              : `${v.name} · ${t('tts.piperNotInstalled')}`,
+          }))
+        : [
+            { value: '', label: t('tts.voiceDefault') },
+            ...OPENAI_TTS_VOICES.map((v) => ({
+              value: v,
+              label: v.charAt(0).toUpperCase() + v.slice(1),
+            })),
+          ];
 
   const test = (): void => {
     setTesting(true);
@@ -1812,6 +1849,28 @@ function TTSCard({
       .catch((err: unknown) => setTestError(err instanceof Error ? err.message : String(err)))
       .finally(() => setTesting(false));
   };
+
+  const installVoice = (): void => {
+    if (!settings.ttsVoice) return;
+    setInstalling(true);
+    setTestError(null);
+    window.api.tts
+      .piperInstall(settings.ttsVoice)
+      .then((r) => {
+        if (!r.ok) setTestError(r.error ?? null);
+      })
+      .finally(() => {
+        setInstalling(false);
+        piper.refresh();
+        piper.clearProgress();
+      });
+  };
+
+  const piperPct =
+    piper.progress && piper.progress.totalBytes > 0
+      ? Math.round((piper.progress.receivedBytes / piper.progress.totalBytes) * 100)
+      : null;
+  const selectedVoice = piperVoiceById(settings.ttsVoice);
 
   return (
     <section className="card">
@@ -1826,7 +1885,13 @@ function TTSCard({
         <>
           <Row
             label={t('tts.provider')}
-            desc={provider === 'webspeech' ? t('tts.webspeechNote') : t('tts.providerHint')}
+            desc={
+              provider === 'webspeech'
+                ? t('tts.webspeechNote')
+                : provider === 'piper'
+                  ? t('tts.piperNote')
+                  : t('tts.providerHint')
+            }
           >
             <Select
               ariaLabel={t('tts.provider')}
@@ -1837,7 +1902,7 @@ function TTSCard({
               options={[
                 { value: 'webspeech', label: t('tts.webspeech') },
                 { value: 'openai', label: t('tts.openai') },
-                { value: 'piper', label: `${t('tts.piper')} · ${t('tts.soon')}`, disabled: true },
+                { value: 'piper', label: t('tts.piper') },
                 { value: 'kokoro', label: `${t('tts.kokoro')} · ${t('tts.soon')}`, disabled: true },
               ]}
             />
@@ -1863,6 +1928,20 @@ function TTSCard({
             />
           </Row>
 
+          {/* Piper voices must be downloaded before they can speak. The binary
+              comes along on the first install. */}
+          {provider === 'piper' && settings.ttsVoice !== '' && !piperVoiceReady && (
+            <div className="field">
+              <button className="btn btn--primary" disabled={installing} onClick={installVoice}>
+                {installing
+                  ? piperPct !== null
+                    ? t('tts.installingPct', { pct: piperPct })
+                    : t('tts.installing')
+                  : t('tts.installVoice', { size: selectedVoice?.sizeMB ?? 0 })}
+              </button>
+            </div>
+          )}
+
           <Row label={t('tts.rate')}>
             <Select
               ariaLabel={t('tts.rate')}
@@ -1882,7 +1961,7 @@ function TTSCard({
           </Row>
 
           <div className="field">
-            <button className="btn" disabled={testing || needsKey} onClick={test}>
+            <button className="btn" disabled={testing || !canTest} onClick={test}>
               {testing ? t('tts.testing') : t('tts.test')}
             </button>
             {testError && <span className="badge badge--missing">{testError}</span>}

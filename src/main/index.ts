@@ -57,6 +57,7 @@ import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
 import { captureScreen } from './capture/screenshot';
 import { synthesizeSpeech } from './tts';
+import { ensurePiperReady, getPiperStatus } from './tts/piper-assets';
 // Renamed: `session` collides with Electron's `session` module, and the
 // collision silently resolved to Function.prototype.bind.
 import { session as sessionOrchestrator } from './core/session';
@@ -533,6 +534,18 @@ function registerIpcHandlers(): void {
         broadcast(IPC.onWhisperProgress, progress);
       });
       return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  // ── Piper (local TTS) ──
+  ipcMain.handle(IPC.ttsPiperStatus, () => getPiperStatus());
+
+  ipcMain.handle(IPC.ttsPiperInstall, async (_e, voiceId: string) => {
+    try {
+      await ensurePiperReady(voiceId, (progress) => broadcast(IPC.onTtsPiperProgress, progress));
+      return { ok: true, status: getPiperStatus() };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
