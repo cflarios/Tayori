@@ -265,6 +265,16 @@ const api = {
     pickImages: (): Promise<ImageAttachment[]> => ipcRenderer.invoke(IPC.filePickImages),
   },
 
+  /**
+   * Text-to-speech. `synthesize` runs the main-process engines (OpenAI) and
+   * returns the audio to play; `null` means the active provider speaks in the
+   * renderer (Web Speech) or isn't wired yet, so the caller handles it.
+   */
+  tts: {
+    synthesize: (text: string): Promise<{ audioBase64: string; mime: string } | null> =>
+      ipcRenderer.invoke(IPC.ttsSynthesize, text),
+  },
+
   history: {
     /** Starts a new conversation and clears the in-progress context. */
     newConversation: (): Promise<void> => ipcRenderer.invoke(IPC.conversationNew),

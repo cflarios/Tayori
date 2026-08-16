@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from '@shared/answer-format';
 import { toLines } from './teleprompter';
+import { tts, useSpeaking } from './tts';
 import {
   activeHotkeys,
   clampFontScale,
@@ -1672,7 +1673,7 @@ function Tabs({
  * the newest at the bottom, so scrolling up walks back through the conversation —
  * the Write counterpart to Listen's answer navigation.
  */
-function WriteExchange({ answer }: { answer: Answer }) {
+function WriteExchange({ answer, settings }: { answer: Answer; settings: Settings | null }) {
   const t = useT();
   const generating = answer.status === 'thinking' || answer.status === 'streaming';
   // A screen action's question is a canned instruction, not something typed, so
@@ -1698,6 +1699,7 @@ function WriteExchange({ answer }: { answer: Answer }) {
           answer.status === 'done' &&
           answer.text.trim() !== '' && (
             <div className="wexmsg__tools">
+              <SpeakAnswerButton answer={answer} settings={settings} />
               <CopyAnswerButton text={answer.text} />
             </div>
           )
@@ -2323,6 +2325,40 @@ function CopyAnswerButton({ text }: { text: string }) {
   );
 }
 
+/**
+ * Read an answer aloud, or stop it. Only appears when spoken answers are on.
+ * Toggles against the shared TTS controller, so starting one answer stops any
+ * other that was playing and the icon reflects which one is active.
+ */
+function SpeakAnswerButton({ answer, settings }: { answer: Answer; settings: Settings | null }) {
+  const t = useT();
+  const speaking = useSpeaking();
+  if (!settings?.ttsEnabled) return null;
+
+  const active = speaking === answer.id;
+  return (
+    <button
+      type="button"
+      className={`section__copy section__speak tip tip--up tip--end${active ? ' section__speak--on' : ''}`}
+      data-interactive
+      data-tip={active ? t('overlay.ttsStop') : t('overlay.ttsPlay')}
+      aria-label={active ? t('overlay.ttsStop') : t('overlay.ttsPlay')}
+      onClick={() => (active ? tts.stop() : void tts.speak(answer.id, answer.text, settings))}
+    >
+      {active ? (
+        <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 2.5 4.6 5.4H2v5.2h2.6L8 13.5z" fill="currentColor" />
+          <path d="M10.6 5.6a3.2 3.2 0 0 1 0 4.8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 /** The body of an answer: text, except for what comes between fences. */
 function AnswerBody({ text }: { text: string }) {
   const blocks = parseAnswerBlocks(text);
@@ -2608,6 +2644,9 @@ export function OverlayApp() {
    * the user is reading an earlier one.
    */
   const [answers, setAnswers] = useState<Answer[]>([]);
+  // Ids already auto-read, so a re-render (or a late text tweak) doesn't speak the
+  // same answer twice. Cleared when the conversation resets.
+  const autoReadRef = useRef<Set<string>>(new Set());
   const [viewing, setViewing] = useState<number | null>(null);
   const [shot, setShot] = useState<ImageAttachment | null>(null);
   const [configured, setConfigured] = useState(true);
@@ -2763,6 +2802,8 @@ export function OverlayApp() {
         setAnswers([]);
         setViewing(null);
         setShot(null);
+        tts.stop();
+        autoReadRef.current.clear();
       }),
       // An engine that fails lane by lane looked exactly like a silent room:
       // the overlay said "Listening" and nothing arrived.
@@ -2776,6 +2817,17 @@ export function OverlayApp() {
   }, []);
 
   const compact = settings?.overlayCompact ?? false;
+
+  // Auto-read: speak each answer once it's finished, when the setting is on. The
+  // per-answer button (see `SpeakAnswerButton`) still works with auto-read off.
+  useEffect(() => {
+    if (!settings?.ttsEnabled || !settings.ttsAutoRead) return;
+    const last = answers[answers.length - 1];
+    if (!last || last.status !== 'done' || !last.text.trim()) return;
+    if (autoReadRef.current.has(last.id)) return;
+    autoReadRef.current.add(last.id);
+    void tts.speak(last.id, last.text, settings);
+  }, [answers, settings]);
 
   useEffect(() => {
     const el = panelRef.current;
@@ -3005,7 +3057,9 @@ export function OverlayApp() {
                     {answers.length === 0 ? (
                       <WriteEmpty />
                     ) : (
-                      answers.map((a) => <WriteExchange key={a.id} answer={a} />)
+                      answers.map((a) => (
+                        <WriteExchange key={a.id} answer={a} settings={settings} />
+                      ))
                     )}
                   </div>
                   <ComposePane
@@ -3067,7 +3121,10 @@ export function OverlayApp() {
                   generation in progress there's the «Stop» button), for any kind
                   of answer, not just code. */}
               {answer && answer.status === 'done' && answer.text.trim() && (
-                <CopyAnswerButton text={answer.text} />
+                <>
+                  <SpeakAnswerButton answer={answer} settings={settings} />
+                  <CopyAnswerButton text={answer.text} />
+                </>
               )}
               {/* Stopping a generation already existed in the IPC but had no
               button: it was only cancelled by asking something else, which is an

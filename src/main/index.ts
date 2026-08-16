@@ -56,6 +56,7 @@ import { defaultProfilePrompts } from './core/prompt';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
 import { captureScreen } from './capture/screenshot';
+import { synthesizeSpeech } from './tts';
 // Renamed: `session` collides with Electron's `session` module, and the
 // collision silently resolved to Function.prototype.bind.
 import { session as sessionOrchestrator } from './core/session';
@@ -344,6 +345,13 @@ function registerIpcHandlers(): void {
     }
     return image;
   });
+  // Read an answer aloud with the main-process engines (OpenAI now). Returns the
+  // audio for the renderer to play through the chosen output, or null when the
+  // active provider speaks in the renderer (Web Speech) or isn't wired yet.
+  ipcMain.handle(IPC.ttsSynthesize, (_e, text: string) =>
+    synthesizeSpeech(settingsStore.get(), text)
+  );
+
   // Manual capture for the write tab: just returns the image. The renderer holds
   // the attachment list and hands it to `askWithText` on send, so nothing is
   // attached or shown until the user chooses to send.

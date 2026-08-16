@@ -22,6 +22,7 @@ import {
   providerIsReady,
   screenModelFor,
   speakersFor,
+  OPENAI_TTS_VOICES,
 } from '@shared/types';
 import {
   acceleratorFromEvent,
@@ -61,6 +62,7 @@ import type {
   Settings,
   Skill,
   STTProviderId,
+  TTSProviderId,
   SystemSpecs,
   ContextKind,
   UpdateInfo,
@@ -1231,6 +1233,7 @@ export function DashboardApp() {
                     <CaptureCard status={status} levels={levels} />
                     <AudioDevicesCard settings={settings} patch={patch} />
                     <AudioSourcesCard settings={settings} patch={patch} go={go} />
+                    <TTSCard settings={settings} patch={patch} presence={presence} go={go} />
                   </>
                 )}
 
@@ -1719,6 +1722,173 @@ function AudioDevicesCard({ settings, patch }: { settings: Settings; patch: Patc
           {testing ? t('aud.testing') : t('aud.testOutput')}
         </button>
       </div>
+    </section>
+  );
+}
+
+// ──────────────────────────── Audio · spoken answers ────────────────────────────
+
+/** The OS voices for Web Speech, refreshed when the async list finishes loading. */
+function useSpeechVoices(): SpeechSynthesisVoice[] {
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    const refresh = (): void => setVoices(synth.getVoices());
+    refresh();
+    synth.addEventListener('voiceschange', refresh);
+    return () => synth.removeEventListener('voiceschange', refresh);
+  }, []);
+  return voices;
+}
+
+/** Speaks a sample with the current settings, so the voice can be tried here. */
+async function speakSample(settings: Settings, text: string): Promise<void> {
+  if (settings.ttsProviderId === 'webspeech') {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = settings.ttsRate || 1;
+    if (settings.ttsVoice) {
+      const voice = synth.getVoices().find((v) => v.voiceURI === settings.ttsVoice);
+      if (voice) utter.voice = voice;
+    }
+    synth.speak(utter);
+    return;
+  }
+  const res = await window.api.tts.synthesize(text);
+  if (!res) return;
+  const audio = new Audio(`data:${res.mime};base64,${res.audioBase64}`);
+  const sinkable = audio as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+  if (settings.outputDeviceId && typeof sinkable.setSinkId === 'function') {
+    await sinkable.setSinkId(settings.outputDeviceId).catch(() => undefined);
+  }
+  await audio.play();
+}
+
+/**
+ * Spoken answers (TTS). A master switch, the engine and voice, speed, and whether
+ * new answers are read on their own. Web Speech is free and offline; OpenAI reuses
+ * the existing key; Piper/Kokoro are shown disabled until their phases land.
+ */
+function TTSCard({
+  settings,
+  patch,
+  presence,
+  go,
+}: {
+  settings: Settings;
+  patch: PatchFn;
+  presence: SecretsPresence;
+  go: (id: SectionId) => void;
+}) {
+  const t = useT();
+  const voices = useSpeechVoices();
+  const [testing, setTesting] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const provider = settings.ttsProviderId;
+  const needsKey = provider === 'openai' && !presence.openai;
+
+  const voiceOptions =
+    provider === 'webspeech'
+      ? [
+          { value: '', label: t('tts.voiceDefault') },
+          ...voices.map((v) => ({ value: v.voiceURI, label: `${v.name} (${v.lang})` })),
+        ]
+      : [
+          { value: '', label: t('tts.voiceDefault') },
+          ...OPENAI_TTS_VOICES.map((v) => ({
+            value: v,
+            label: v.charAt(0).toUpperCase() + v.slice(1),
+          })),
+        ];
+
+  const test = (): void => {
+    setTesting(true);
+    setTestError(null);
+    speakSample(settings, t('tts.sample'))
+      .catch((err: unknown) => setTestError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setTesting(false));
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card__title">{t('tts.title')}</h2>
+      <p className="card__hint">{t('tts.hint')}</p>
+
+      <Row icon="speaker" label={t('tts.enable')} desc={t('tts.enableHint')}>
+        <Switch on={settings.ttsEnabled} onChange={(v) => void patch({ ttsEnabled: v })} />
+      </Row>
+
+      {settings.ttsEnabled && (
+        <>
+          <Row
+            label={t('tts.provider')}
+            desc={provider === 'webspeech' ? t('tts.webspeechNote') : t('tts.providerHint')}
+          >
+            <Select
+              ariaLabel={t('tts.provider')}
+              value={provider}
+              // Reset the voice on engine change: a voice id from one engine is
+              // meaningless in another.
+              onChange={(v) => void patch({ ttsProviderId: v as TTSProviderId, ttsVoice: '' })}
+              options={[
+                { value: 'webspeech', label: t('tts.webspeech') },
+                { value: 'openai', label: t('tts.openai') },
+                { value: 'piper', label: `${t('tts.piper')} · ${t('tts.soon')}`, disabled: true },
+                { value: 'kokoro', label: `${t('tts.kokoro')} · ${t('tts.soon')}`, disabled: true },
+              ]}
+            />
+          </Row>
+
+          {needsKey && (
+            <div className="warn">
+              <Tx k="tts.needsKey" />
+              <div className="field">
+                <Jump to="models" go={go}>
+                  {t('tts.goKeys')}
+                </Jump>
+              </div>
+            </div>
+          )}
+
+          <Row label={t('tts.voice')}>
+            <Select
+              ariaLabel={t('tts.voice')}
+              value={settings.ttsVoice}
+              onChange={(v) => void patch({ ttsVoice: v })}
+              options={voiceOptions}
+            />
+          </Row>
+
+          <Row label={t('tts.rate')}>
+            <Select
+              ariaLabel={t('tts.rate')}
+              value={String(settings.ttsRate)}
+              onChange={(v) => void patch({ ttsRate: Number(v) })}
+              options={[
+                { value: '0.75', label: '0.75×' },
+                { value: '1', label: '1×' },
+                { value: '1.25', label: '1.25×' },
+                { value: '1.5', label: '1.5×' },
+              ]}
+            />
+          </Row>
+
+          <Row label={t('tts.autoRead')} desc={t('tts.autoReadHint')}>
+            <Switch on={settings.ttsAutoRead} onChange={(v) => void patch({ ttsAutoRead: v })} />
+          </Row>
+
+          <div className="field">
+            <button className="btn" disabled={testing || needsKey} onClick={test}>
+              {testing ? t('tts.testing') : t('tts.test')}
+            </button>
+            {testError && <span className="badge badge--missing">{testError}</span>}
+          </div>
+        </>
+      )}
     </section>
   );
 }

@@ -78,6 +78,14 @@ export const IPC = {
   /** How many exchanges the model has in its head. */
   memoryGet: 'memory:get',
 
+  /**
+   * Synthesize an answer to speech, for the engines that run in the main process
+   * (OpenAI now; Piper/Kokoro later). Returns the audio for the renderer to play
+   * through the chosen output. Web Speech isn't here: it's a renderer-only API
+   * that speaks on its own.
+   */
+  ttsSynthesize: 'tts:synthesize',
+
   screenshotTake: 'screenshot:take',
   // Pure capture for the write tab: returns the image WITHOUT attaching it to the
   // session or broadcasting, so the renderer owns the manual attachment list.

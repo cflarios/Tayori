@@ -65,6 +65,21 @@ export type LLMProviderId = 'claude' | 'gemini' | 'openai' | 'deepseek' | 'ollam
 export type STTProviderId =
   'gemini-live' | 'whisper-local' | 'gemini-audio' | 'openai-live' | 'openai-transcribe';
 
+/**
+ * Text-to-speech engines for reading answers aloud.
+ *   - `webspeech` → the OS voices through the browser's `speechSynthesis`. Zero
+ *     setup and offline, but it plays on the default output only (the API has no
+ *     device routing, so `outputDeviceId` doesn't apply to it).
+ *   - `openai`    → OpenAI's `audio/speech`; reuses the OpenAI key. Cloud.
+ *   - `piper` / `kokoro` → local neural engines (a downloaded binary + voice).
+ *     Not wired yet; declared so settings and the picker are stable across the
+ *     phased rollout.
+ */
+export type TTSProviderId = 'webspeech' | 'openai' | 'piper' | 'kokoro';
+
+/** OpenAI's built-in TTS voices, for the picker. */
+export const OPENAI_TTS_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'] as const;
+
 export interface ModelInfo {
   id: string;
   label: string;
@@ -612,6 +627,23 @@ export interface Settings {
   inputDeviceId: string;
   outputDeviceId: string;
 
+  /**
+   * Spoken answers (TTS).
+   *
+   * `ttsEnabled` is the master switch — off means no reading and no speak
+   * buttons. `ttsAutoRead` reads each new answer on its own; with it off the
+   * per-answer speak button is still there for the ones you choose. `ttsVoice`
+   * is interpreted by the active provider (a `voiceURI` for Web Speech, a voice
+   * name for OpenAI); empty means the provider's default. `ttsRate` is a speed
+   * multiplier (1 = normal). Playback goes through `outputDeviceId` for the
+   * engines that return audio; Web Speech always uses the default output.
+   */
+  ttsEnabled: boolean;
+  ttsProviderId: TTSProviderId;
+  ttsAutoRead: boolean;
+  ttsVoice: string;
+  ttsRate: number;
+
   autoTriggerMode: AutoTriggerMode;
   /** Who can trigger an automatic answer. */
   autoTriggerSpeaker: AutoTriggerSpeaker;
@@ -1018,6 +1050,11 @@ export const DEFAULT_SETTINGS: Settings = {
   audioSources: 'both',
   inputDeviceId: '',
   outputDeviceId: '',
+  ttsEnabled: false,
+  ttsProviderId: 'webspeech',
+  ttsAutoRead: true,
+  ttsVoice: '',
+  ttsRate: 1,
 
   autoTriggerMode: 'heuristic',
   autoTriggerSpeaker: 'them',
