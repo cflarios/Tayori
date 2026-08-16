@@ -1,4 +1,14 @@
-import { app, BrowserWindow, clipboard, desktopCapturer, ipcMain, session, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  desktopCapturer,
+  dialog,
+  ipcMain,
+  nativeImage,
+  session,
+  shell,
+} from 'electron';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -338,6 +348,25 @@ function registerIpcHandlers(): void {
   // the attachment list and hands it to `askWithText` on send, so nothing is
   // attached or shown until the user chooses to send.
   ipcMain.handle(IPC.screenshotGrab, () => captureScreen());
+  // Attach images off disk. Same contract as the grab above —returns the images,
+  // attaches nothing— so the write tab's pending list stays the renderer's. Each
+  // file is capped and JPEG'd to the same size as a screenshot for cost parity.
+  ipcMain.handle(IPC.filePickImages, async (): Promise<ImageAttachment[]> => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] }],
+    });
+    if (canceled) return [];
+    const images: ImageAttachment[] = [];
+    for (const path of filePaths) {
+      const img = nativeImage.createFromPath(path);
+      if (img.isEmpty()) continue; // a non-image the user forced through the filter
+      const { width } = img.getSize();
+      const scaled = width > 1600 ? img.resize({ width: 1600 }) : img;
+      images.push({ mime: 'image/jpeg', base64: scaled.toJPEG(80).toString('base64') });
+    }
+    return images;
+  });
 
   // ── Clipboard ──
   // Lives in main because in the overlay there's no alternative: see `IPC.clipboardWrite`.

@@ -82,6 +82,13 @@ export const IPC = {
   // Pure capture for the write tab: returns the image WITHOUT attaching it to the
   // session or broadcasting, so the renderer owns the manual attachment list.
   screenshotGrab: 'screenshot:grab',
+  /**
+   * Native file picker for attaching images off disk in the write tab. Like
+   * `screenshotGrab`, it just returns the chosen images (already capped and
+   * JPEG-encoded) and attaches nothing: the renderer holds the pending list and
+   * sends it with the question when the user chooses to.
+   */
+  filePickImages: 'file:pick-images',
 
   /**
    * Copy text to the clipboard, from the main process.

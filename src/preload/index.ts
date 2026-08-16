@@ -260,6 +260,11 @@ const api = {
       subscribe<ImageAttachment>(IPC.onScreenshot, cb),
   },
 
+  /** Attach images off disk in the write tab, through the native file picker. */
+  files: {
+    pickImages: (): Promise<ImageAttachment[]> => ipcRenderer.invoke(IPC.filePickImages),
+  },
+
   history: {
     /** Starts a new conversation and clears the in-progress context. */
     newConversation: (): Promise<void> => ipcRenderer.invoke(IPC.conversationNew),
