@@ -215,10 +215,18 @@ paint time so old conversations read right too, with no migration.
 
 ### The two tabs: listen and write
 
-The input panel has two tabs. **Listen** is the usual transcription; **Write**
-is a textarea that calls `askWithText`. The answer is painted in «Suggestion» in
-both cases: what changes is where the question comes from, not where the answer
-appears.
+The input panel has two tabs. **Listen** is the usual transcription; **Write** is
+a small chat: a compose field that calls `askWithText`, and above it the
+conversation as a scrollable thread of message pairs — question bubble, answer
+block — pinned to the newest. It got there the hard way. It started as a single
+answer card above the input, which fought the input for room in a fixed-height
+panel: type a long message and the card slimmed, then clipped the answer, then
+looked like it overlapped. A card that collapses while you type bought some
+peace, but the real fix was to stop treating it as one card — turning the history
+into a thread that scrolls with the input fixed below is the messaging-app answer
+to that tug-of-war, and doubles as Write's version of Listen's answer
+navigation. In Listen the answer still paints in the panel below; what changes
+between the tabs is only where the question comes from.
 
 Writing requires the window to be focusable, so the write tab is **the only
 situation in which the overlay takes the focus**. It's acceptable because the
@@ -252,9 +260,14 @@ deciding what rises from the dashboard to the overlay is a single one: **would
 you need it mid-call?** The dashboard has to be opened with the gear and steals
 the focus, so everything in it is, in practice, unreachable while you talk.
 
-- **Profile chips.** `promptProfileId` already existed; it was only in a
-  dashboard dropdown. Switching register is exactly what you want to be able to
-  do without stopping. `custom` isn't a chip because it's edited with a textarea.
+- **Profile and model dropdowns.** `promptProfileId` already existed, only in a
+  dashboard dropdown; switching register is exactly what you want without
+  stopping. It started as chips and became a dropdown once it had to hold the
+  editable built-ins, your custom profiles and the interpreter mode — too many
+  for a row of chips. The **answer model** sits next to it for the same reason:
+  when an answer reads weak, the first thing you want to change is which model
+  wrote it, without the trip to the dashboard. In compact mode both fold into the
+  bar, and the window grows its width to fit them on one line (see below).
 - **Quick actions** (Continue / Shorter / Follow-up / Summary). They're canned
   prompts that go through `askWithText`, the same route as the write tab:
   **there's no new path to the LLM**. They only appear if there's an answer to
@@ -287,10 +300,11 @@ the focus, so everything in it is, in practice, unreachable while you talk.
   room. Turning off the last active source isn't silently ignored: it's explained
   that to hear nothing there's the listen button. A control that does nothing
   when pressed is indistinguishable from a broken one.
-- **Which model is answering**, next to the "Suggestion" title. When reading a
-  weak answer the first thing you want to know is which one it came out of, and
-  with three configurable providers it's easy to believe you're on one and be on
-  another.
+- **Which model is answering**, in the answer header. When reading a weak answer
+  the first thing you want to know is which one it came out of, and with three
+  configurable providers it's easy to believe you're on one and be on another.
+  (The header's «Suggestion» title was later dropped: the row of chips already
+  reads as the answer, and the label was one more thing competing for the eye.)
 - **Stop the generation.** `ask.abort` existed in the IPC from the start and had
   no button: the only way to cut off an answer was to ask something else, which
   is an expensive way to say "stop".
@@ -320,6 +334,20 @@ the focus, so everything in it is, in practice, unreachable while you talk.
   never in unreachable controls. At size S the source name is also hidden: the
   icon already tells microphone from speaker apart. The window's width **is** the
   viewport, so a media query is equivalent to "which preset is set".
+- **The compact window fits its own width, and measuring it had a trap.** Once the
+  profile and model dropdowns fold into the compact bar, a fixed preset width
+  clips them, so compact grows *and shrinks* the window to the bar's real width,
+  re-anchored to the right edge like the size presets. The trap was the
+  measurement: the bar's items default to `flex-shrink: 1`, so instead of
+  overflowing a too-narrow window they **squeeze** —the model label ellipsized,
+  the buttons clipped— and `scrollWidth` then equals the visible width, so nothing
+  signals that more room is needed. Pinning the items to `flex-shrink: 0` makes
+  the bar overflow instead, and `scrollWidth` finally reports the one-line width.
+  Shrinking has its own catch —`scrollWidth` never reports *less* than the box— so
+  the fit reads the last item's real right edge, which only tells the truth once
+  the flex spacer and the two `margin-left: auto` pushers are dropped in compact;
+  otherwise an item pinned to the window's edge reports the full width and it
+  never shrinks.
 
 ### The phone mirror: getting the answer off the shared screen
 
@@ -500,6 +528,48 @@ picked up the list —it only came out in the log, which nobody looks at in the
 registers the first and returns `false` for the second, leaving a dead action
 without saying so.
 
+### Profiles you can edit, and defaults in the interface's language
+
+The built-in profiles started as fixed presets you could only pick. The dashboard
+now lets you **rename or rewrite any of them, hide the ones you don't use, create
+your own, and delete or restore** any built-in or custom one. Two decisions kept
+that from becoming a footgun:
+
+- **An edit is an override, and absent means untouched.**
+  `settings.builtinOverrides[id]` holds only what the user changed
+  (`{ name?, prompt? }`); a profile nobody touched isn't in the map, so
+  `buildSystemPrompt` still resolves it through the original `PROFILES`/`RULES`
+  and its behaviour is exactly what it always was. Only an edited profile takes
+  the override path, where the user's text replaces persona **and** rules
+  wholesale. Deletes are soft — a "removed" bucket — so nothing is stranded and
+  everything restores.
+- **The interpreter left the list.** It's a mode, not a shape of answer, so it
+  isn't renamed, hidden or deleted like the others; it sits apart with its own
+  translate-only prompt. Editing it as a profile would let you turn "translate"
+  into "answer", the one thing it must not do.
+
+**The default you edit from is in the interface language, and only that text.**
+The runtime prompt is written in Spanish for reasons that predate this (see the
+language rule), and an international user opening the editor couldn't read it. Full
+i18n through the locale files was the wrong tool —the prompts are long, and the
+key-parity test would force every one translated— so instead
+`defaultProfilePrompts(uiLanguage)` serves an English rendition of the six
+editable built-ins as the *seed* the dashboard shows (English being the fallback
+for any UI language without its own set). What actually runs for an unedited
+built-in stays the tuned Spanish: the prompt's language never dictated the
+answer's —the language rule already forces the output language— so localising the
+seed changes what a person reads and edits, and nothing the model produces.
+
+### The dashboard's dropdowns are the app's own, not the OS's
+
+Every `<select>` in the dashboard was replaced with a custom menu. A native
+select's popup is drawn by the OS and can't be themed — against the dark UI it
+stood out as a pale Windows list — so the control now renders its own dark menu
+(surface, border and accent matching the rest), with keyboard and click-outside
+handling. One `Select` component covers them all; the same menu, in a borderless
+variant, is the profile switch that also rides in the Context header, so you can
+prepare context for another profile without the trip to the overlay to change it.
+
 ### The setup wizard replaced the task list
 
 The «First steps» card was a **task list**: it said what was missing and sent you
@@ -621,6 +691,34 @@ API key: they're orphaned in the old folder, with no error to give it away. (Thi
 section long claimed the folder was `%APPDATA%\interview-helper`, anchored by
 `setName('interview-helper')` — that was wrong: the packaged app has followed
 `productName` to `Tayori` since the August rebrand, and dev was unified to it too.)
+
+### The decoy: an opt-in taskbar disguise, after the name one was dropped
+
+The process-name disguise above was dropped because it was cosmetic and couldn't
+be honest about it — the `.exe` had to carry the same name as the app. The
+**decoy taskbar entry** is that same idea done deliberately and out in the open:
+a setting (`settings.decoyIcon`: `off | terminal | settings | taskmanager`) that,
+when set, makes the overlay keep a taskbar entry **disguised as a Windows tool** —
+Windows Terminal, Settings or Task Manager — with the matching `.ico` and window
+title.
+
+Three things keep it honest where the old one wasn't:
+
+- **It's off by default and opt-in.** Absent, the overlay keeps no taskbar entry
+  at all, exactly as before — it's a choice, not a factory disguise.
+- **It doesn't touch the process or the data boundary.** It's `setIcon` +
+  `setTitle` on the window plus `setSkipTaskbar`; the `.exe`, the process name and
+  `%APPDATA%\Tayori` are untouched. Proctoring that enumerates processes still
+  sees Tayori — the decoy only changes what a glance at the taskbar shows.
+- **Stealth keeps the disguise, not the absence.** With a decoy set, `applyStealth`
+  leaves the entry in the taskbar (still excluded from capture by
+  `setContentProtection`): hiding *in plain sight* is the whole point, so
+  vanishing would defeat it. Only with the decoy `off` does stealth also drop the
+  taskbar entry. And because Windows caches the button icon, changing decoys
+  toggles `setSkipTaskbar` off/on to force it to repaint.
+
+The `.ico` files ship as `extraResources` (`resources/icons/`), resolved from
+`process.resourcesPath` when packaged and `app.getAppPath()` in dev.
 
 ### The Tayori rebranding, and where the data actually lives
 

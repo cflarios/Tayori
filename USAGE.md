@@ -110,25 +110,33 @@ Everything you use mid-call is in the top bar, without opening the settings:
 
 - **Listen / Listening**: starts and stops listening. If something fails, the
   button turns to "Retry" and its tooltip says what happened.
-- **You / Them**: which sources are heard. Click to mute your mic and leave only
-  the system output, or the other way round. Each chip's bar is the real input
-  level, and if a chip turns **amber** it means that source is configured but
-  **didn't manage to open** — check the device or the permissions. It's the
+  The little **caret** next to it opens which **sources** are heard — your mic,
+  the system output, or both — folded in here so the bar stays short. If a source
+  is configured but **didn't manage to open**, the control turns **amber**: the
   warning that tells "nothing is audible" apart from "nothing is being listened
   to".
+- **Eye (visibility)**: toggles whether the overlay is excluded from screen
+  capture. It turns **red** when the overlay is *visible* — the risky state — and
+  the panel gains a dashed red frame so you can't share your screen without
+  noticing.
 - **Solve screen**: reads what's on your screen and helps with it. It's one
   button with a small menu — **Code problem**, **Quiz question**, or **Anything
   else** (general help: a config error, some logs, a diagram to explain, going
   from one state to another). Code and quiz also have hotkeys (`Ctrl+Alt+C` /
-  `Ctrl+Alt+Q`); "Anything else" is menu-only. At size S it keeps just the icon.
+  `Ctrl+Alt+Q`); "Anything else" is menu-only. At size S and in compact mode it
+  keeps just the icon.
 - **`⋯`**: everything you do **not** use mid-call — collapse, settings, start
   over and quit. It went to a menu because it shared space and visual weight with
   the buttons above, and at size S it no longer fit. The two that can't be undone
   — new conversation, which wipes the transcript and memory, and quitting the app
   — sit apart at the end.
-- **Profiles**: the bottom row. They change the register of the answer without
-  opening the settings; compact mode hides them along with the transcript.
-- **`‹ 2/5 ›`**: next to "Suggestion", to go back to earlier answers without
+- **Profile and model**: the row below the bar. The **profile** picks the shape
+  of the answer and the dropdown next to it the **answer model** — both without
+  opening the settings. In compact mode they ride in the bar itself.
+- **Listen / Write tabs**: **Listen** follows the call; **Write** is a small chat
+  where you type a question (`/skill` to invoke one) and the exchanges stack as a
+  scrollable thread you can walk back through, like a messaging app.
+- **`‹ 2/5 ›`**: in the answer header, to go back to earlier answers without
   opening the history. While you're looking at an old one the quick actions don't
   appear: they say "your last answer" and the last one for the model is its own,
   not the one you have in front of you.
@@ -262,7 +270,13 @@ three combine:
 | **Context** | The material | Your CV, the job offer, prepared answers |
 | **Skill** | The way of writing | Which words to avoid, what rhythm, what tone |
 
-The app ships one: **"Don't sound like AI"**, which strips filler formulas and
+The **profiles are yours to shape**: in *dashboard → Behavior* you can rename or
+rewrite any built-in, hide the ones you don't use, create your own from scratch,
+and delete or restore any of them — the interpreter is the one fixed mode, kept
+out of that list. The default text you start editing from is shown in the
+interface language.
+
+The app ships one skill: **"Don't sound like AI"**, which strips filler formulas and
 the vocabulary that gives a model away. It's the flaw that shows most when the
 answer is read out loud.
 
@@ -314,7 +328,7 @@ to the model, which **reconstructs the full prompt by stitching the overlaps**
 and solves it like in code mode.
 
 - `Ctrl+Alt+A` **collects** a chunk. Press it as you scroll: chunk 1 → scroll →
-  chunk 2 → … A chip next to "Suggestion" keeps the count.
+  chunk 2 → … A chip in the answer header keeps the count.
 - `Ctrl+Alt+S` **reconstructs and solves** the stack, and empties it. The chip's
   ✕ discards it without solving.
 
@@ -371,7 +385,7 @@ A real technical test doesn't fit in four lines. Two things cover it:
 
 - **The code-mode cap is generous** (more than a spoken answer's), so most
   solutions come out whole in one go.
-- If it still gets cut off, a **Continue** button appears next to "Suggestion":
+- If it still gets cut off, a **Continue** button appears in the answer header:
   the model picks up **where it left off** and the continuation is **glued to the
   same answer**, not a new one. You can press it several times.
 
@@ -381,15 +395,17 @@ screen, off the shared one, with the code formatted and a button to copy it. See
 
 ## Interpreter mode
 
-A profile that, instead of suggesting answers, **translates**. Pick it in
-*dashboard → Behavior → Profile → Interpreter*, and set the **two languages**
-right there (say Spanish ⇄ English).
+A **mode** that, instead of suggesting answers, **translates**. Pick it from the
+Profile dropdown (in the overlay or in *dashboard → Behavior*) — it's a mode of
+its own, not one of the editable profiles — and set the **two languages** in
+*dashboard → Behavior → Interpreter languages*, which stay configurable whether
+or not the mode is active (say Spanish ⇄ English).
 
 With it on, each turn is translated **to the other language, in both directions**:
 what you say into the mic comes out in language B, and what the other person says
 comes out in language A. The model detects on its own which language each
-sentence is in. The translation shows up in "Suggestion" — and on the phone, if
-you have the mirror on, to show it to the other person.
+sentence is in. The translation shows up in the overlay's answer area — and on
+the phone, if you have the mirror on, to show it to the other person.
 
 Details worth knowing:
 
@@ -440,8 +456,17 @@ than not hiding it. Check your version with `winver` before trusting this.
 
 ### Presence in Windows: taskbar and Task Manager
 
-Neither the overlay nor the settings window appears in the **taskbar**. Settings
-is recovered from the overlay's `⋯` menu; the overlay, with `Ctrl+Shift+H`.
+By default neither the overlay nor the settings window appears in the
+**taskbar**. Settings is recovered from the overlay's `⋯` menu; the overlay, with
+`Ctrl+Shift+H`.
+
+**A decoy taskbar entry (optional).** If you'd rather hide *in plain sight* than
+be absent, *dashboard → General* offers a decoy: the overlay then keeps a taskbar
+entry **disguised as a Windows tool** — Windows Terminal, Settings or Task Manager
+— with the matching icon and title. It stays excluded from screen capture, so the
+disguise is only for someone glancing at your taskbar, not for what a shared
+screen shows. Stealth mode keeps the disguised entry; only with the decoy off
+does the overlay vanish from the taskbar entirely.
 
 In the packaged build, the process is called **Tayori**, with its real brand (its
 subprocesses group under that name, like any Electron app such as Slack or VS
@@ -637,7 +662,7 @@ fast, and the symptom is the model forgetting what you just told it. It's adjust
 in *dashboard → Transcription → Ollama context window*; by default the app asks
 for 8192.
 
-Related: the overlay shows a **`memory n/8`** chip next to "Suggestion" with the
+Related: the overlay shows a **`memory n/8`** chip in the answer header with the
 exchanges the assistant resends on each query. Click it to make it forget them,
 and it's **not** the same as "new conversation": the transcript and the history
 stay as they are.

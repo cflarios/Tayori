@@ -218,10 +218,11 @@ that's asked is "keep going from where you were cut off, without repeating".
 ```mermaid
 flowchart TB
     SYS["System prompt"]
-    SYS --> P["Active profile<br/>interview · meeting · lecture · support · coding · custom"]
+    SYS --> P["Active profile<br/>interview · meeting · lecture · support · coding · quiz · general · custom<br/>(interpreter is a separate mode)"]
     SYS --> R["Format rules<br/>RULES[profile]"]
-    R --> RA["The five spoken profiles:<br/>max 4 bullets, no preamble"]
+    R --> RA["The speaking profiles:<br/>max 4 bullets, no preamble"]
     R --> RB["coding:<br/>full code block"]
+    R --> RC["quiz:<br/>one line per question"]
     SYS --> CTX["Context block"]
 
     CTX --> CV["kind: cv<br/>source of truth"]
@@ -271,6 +272,18 @@ A few things that aren't obvious:
   the directive is also appended to the user turn **in the target language** — the
   cue models obey most (some, like Sonnet, ignored the Spanish rule alone). See
   `forcedLanguageRule` / `answerLanguageDirective` in `core/prompt.ts`.
+- **Built-in profiles are editable, and you can add your own.** Each built-in
+  ships a default persona + rules; the user can rewrite either through
+  `settings.builtinOverrides`, which replaces the pair wholesale — *absent* means
+  untouched, so an unedited profile still resolves through `PROFILES`/`RULES` and
+  nothing changes. Custom profiles are a separate list (`customProfiles`, one
+  active). The default text the dashboard shows for a built-in comes from
+  `defaultProfilePrompts(uiLanguage)`, **localized to the interface language**,
+  while an unedited profile keeps running the tuned original — the prompt's
+  language doesn't dictate the answer's, which the language rule above handles.
+- **The interpreter is a mode, not a profile in that list.** `buildSystemPrompt`
+  short-circuits to a translate-only prompt with no profile, context or format
+  rules; its two languages live in `settings.interpreterLangA/B`.
 
 ---
 
@@ -422,9 +435,14 @@ The built-in ones live in `main/skills/built-in.ts` and a folder with the same
 id replaces them.
 
 **A new prompt profile:** an entry in `PROFILES` (`core/prompt.ts`), its id in
-`PromptProfileId`, its format rules in `RULES`, its slots in `PROFILE_SLOTS` and
-an `<option>`. The three maps are `Record<PromptProfileId, …>` on purpose:
-adding the id without deciding the rest breaks the build.
+`PromptProfileId`, its format rules in `RULES`, and its slots in `PROFILE_SLOTS`.
+The `Record<PromptProfileId, …>` maps are exhaustive on purpose: adding the id
+without deciding the rest breaks the build. If users should be able to rename,
+rewrite, hide or delete it, add the id to `EDITABLE_PROFILES` too — that list also
+seeds `defaultProfilePrompts`, the interface-language default the dashboard shows,
+so translate the persona + rules for each supported UI language. The dashboard's
+profile picker builds itself from those lists, so there's no hand-written
+`<option>` to add.
 
 ---
 

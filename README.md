@@ -43,7 +43,8 @@ straight to the AI provider you pick — there is **no server in between**.
 - **Question detection.** It spots questions aimed at you — even ones disguised
   as statements — and can answer automatically or only on a hotkey.
 - **Invisible mode.** The overlay and dashboard are excluded from screen capture
-  (`WDA_EXCLUDEFROMCAPTURE`), so they don't show up in Meet, Zoom, Teams or OBS.
+  (`WDA_EXCLUDEFROMCAPTURE`), so they don't show up in Meet, Zoom, Teams or OBS —
+  and an optional decoy can disguise the taskbar entry as a Windows tool.
 - **Interpreter mode.** Speak in one language and it translates to the other, in
   both directions.
 - **Screen actions.** One **Solve screen** button reads what's on your screen
