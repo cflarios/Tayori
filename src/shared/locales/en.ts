@@ -101,6 +101,7 @@ export const en = {
   'overlay.tipTitle': 'Tip',
   'overlay.tipListen': 'Press «Listen» to follow the conversation.',
   'overlay.tipSolve': 'Solve whatever is on your screen.',
+  'overlay.dragMove': 'Drag to move',
 
   'overlay.skipFiller':
     "I can hear you, but a greeting or a sound check doesn't trigger an answer. Try a real question.",

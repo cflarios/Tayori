@@ -520,12 +520,32 @@ function StatusBar({
 }) {
   const language = settings?.language ?? 'auto';
   const compact = settings?.overlayCompact ?? false;
+  const t = useT();
 
   return (
     // `data-interactive` is what makes the window stop ignoring the mouse while
     // the cursor is here; without it, with click-through active, you couldn't
-    // drag or press the buttons.
-    <div className="statusbar" data-interactive onMouseDown={onDragStart}>
+    // press the buttons or grab the handle.
+    <div className="statusbar" data-interactive>
+      {/* The ONLY draggable spot: a 6-dot grip. The rest of the bar is buttons
+          and dropdowns, so making the whole bar draggable moved the window when
+          you only meant to press something. `onDragStart` also bows out over a
+          `<button>`, but here the intent is explicit. */}
+      <div
+        className="draghandle"
+        data-interactive
+        title={t('overlay.dragMove')}
+        onMouseDown={onDragStart}
+      >
+        <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
+          <circle cx="2.5" cy="3" r="1.3" fill="currentColor" />
+          <circle cx="7.5" cy="3" r="1.3" fill="currentColor" />
+          <circle cx="2.5" cy="8" r="1.3" fill="currentColor" />
+          <circle cx="7.5" cy="8" r="1.3" fill="currentColor" />
+          <circle cx="2.5" cy="13" r="1.3" fill="currentColor" />
+          <circle cx="7.5" cy="13" r="1.3" fill="currentColor" />
+        </svg>
+      </div>
       <ListenControl status={status} levels={levels} settings={settings} />
 
       {/* In compact the profile and model dropdowns ride in the bar, since the

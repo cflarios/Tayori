@@ -825,6 +825,27 @@ body {
 }
 
 /*
+ * The drag handle: the one place the window moves from. Faint at rest so it
+ * doesn't pull the eye like a control, brighter on hover. The cursor stays the
+ * default one on purpose — no grab hand — so the affordance is the dots and the
+ * hover, not a pointer change.
+ */
+.draghandle {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 3px;
+  margin-left: -3px;
+  color: #4b5056;
+  cursor: default;
+  transition: color 120ms ease;
+}
+
+.draghandle:hover {
+  color: #8b9096;
+}
+
+/*
  * Amber and not gray: a forced language that doesn't match what's spoken gives no
  * error, only invented transcriptions. It has to be seen.
  */

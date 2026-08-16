@@ -84,6 +84,7 @@ export const es: Record<UIKey, string> = {
   'overlay.tipTitle': 'Consejo',
   'overlay.tipListen': 'Pulsa «Escucha» para seguir la conversación.',
   'overlay.tipSolve': 'Resuelve lo que haya en tu pantalla.',
+  'overlay.dragMove': 'Arrastra para mover',
 
   'overlay.skipFiller':
     'Te escucho, pero un saludo o una prueba de sonido no dispara respuesta. Prueba con una pregunta real.',

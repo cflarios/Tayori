@@ -140,7 +140,9 @@ Everything you use mid-call is in the top bar, without opening the settings:
   opening the history. While you're looking at an old one the quick actions don't
   appear: they say "your last answer" and the last one for the model is its own,
   not the one you have in front of you.
-- **Move it**: drag the top bar with the left button, or use `Ctrl+Alt+arrows`.
+- **Move it**: drag the **grip** — the six dots at the left of the bar — with the
+  left button, or use `Ctrl+Alt+arrows`. Only the grip moves the window, so the
+  rest of the bar stays clickable without dragging by accident.
 - **Hide the overlay** without closing the app: `Ctrl+Shift+H`.
 
 The bar buttons work even with *click-through* enabled: the overlay stops
