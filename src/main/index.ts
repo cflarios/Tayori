@@ -40,7 +40,7 @@ import {
 } from './windows/overlay';
 import { openDashboard } from './windows/dashboard';
 import { setClickThrough, setStealthForAll } from './windows/stealth';
-import { applyDecoyToAll } from './windows/decoy';
+import { applyDecoyToAll, decoyPreviews } from './windows/decoy';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
 import { captureScreen } from './capture/screenshot';
@@ -238,6 +238,7 @@ function registerIpcHandlers(): void {
   });
 
   // ── Windows ──
+  ipcMain.handle(IPC.decoyPreviews, () => decoyPreviews());
   ipcMain.handle(IPC.stealthSet, (_e, enabled: boolean) => {
     settingsStore.update({ stealthEnabled: enabled });
     setStealthForAll(enabled);

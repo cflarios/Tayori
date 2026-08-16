@@ -6,6 +6,7 @@ import {
   applyModelPreset,
   autoTriggerIsInert,
   clampFontScale,
+  DECOY_ICONS,
   DROPDOWN_PROFILES,
   DEFAULT_HOTKEYS,
   FONT_SCALE,
@@ -45,6 +46,7 @@ import type {
   CaptureStatus,
   ContextPack,
   Conversation,
+  DecoyIcon,
   ConversationSummary,
   HotkeyMap,
   LLMProviderId,
@@ -264,68 +266,66 @@ function ProfileManager({
   return (
     <div className="profmgr">
       <div className="profmgr__head">{t('beh.profVisible')}</div>
-      <div className="profmgr__toggles">
+      <div className="profmgr__grid">
         {DROPDOWN_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => (
-          <div key={id} className="profmgr__toggle">
-            <span>{t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}</span>
-            <div className="profmgr__togglectl">
-              <Switch
-                on={!settings.hiddenProfiles.includes(id)}
-                onChange={(v) => setHidden(id, v)}
-              />
-              <button
-                type="button"
-                className="profmgr__del"
-                title={t('beh.profRemove')}
-                aria-label={t('beh.profRemove')}
-                onClick={() => removeBuiltin(id)}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-      {settings.deletedProfiles.length > 0 && (
-        <button type="button" className="profmgr__restore" onClick={restoreBuiltins}>
-          {t('beh.profRestore')} ({settings.deletedProfiles.length})
-        </button>
-      )}
-
-      <div className="profmgr__head">{t('beh.profCustomTitle')}</div>
-      {settings.customProfiles.length === 0 && (
-        <p className="profmgr__empty">{t('beh.profCustomEmpty')}</p>
-      )}
-      {settings.customProfiles.map((p) => (
-        <div key={p.id} className="profmgr__custom">
-          <div className="profmgr__customhead">
-            <input
-              type="text"
-              value={p.name}
-              placeholder={t('beh.profNamePlaceholder')}
-              onChange={(e) => editCustom(p.id, 'name', e.target.value)}
-            />
-            <Switch on={!p.hidden} onChange={(v) => setCustomHidden(p.id, v)} />
+          <div key={id} className="profmgr__row">
+            <span className="profmgr__name">{t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}</span>
+            <Switch on={!settings.hiddenProfiles.includes(id)} onChange={(v) => setHidden(id, v)} />
             <button
               type="button"
               className="profmgr__del"
-              title={t('beh.profDelete')}
-              aria-label={t('beh.profDelete')}
-              onClick={() => removeCustom(p.id)}
+              title={t('beh.profRemove')}
+              aria-label={t('beh.profRemove')}
+              onClick={() => removeBuiltin(id)}
             >
               ✕
             </button>
           </div>
-          <textarea
-            value={p.prompt}
-            placeholder={t('beh.customPlaceholder')}
-            onChange={(e) => editCustom(p.id, 'prompt', e.target.value)}
-          />
-        </div>
-      ))}
-      <button type="button" className="profmgr__add" onClick={addCustom}>
-        + {t('beh.profAdd')}
-      </button>
+        ))}
+
+        {/* Custom profiles sit in the same grid as the built-ins, each taking a
+            full row so it can carry its prompt right below its toggle. */}
+        {settings.customProfiles.map((p) => (
+          <div key={p.id} className="profmgr__row profmgr__row--custom">
+            <div className="profmgr__rowhead">
+              <input
+                type="text"
+                className="profmgr__nameinput"
+                value={p.name}
+                placeholder={t('beh.profNamePlaceholder')}
+                onChange={(e) => editCustom(p.id, 'name', e.target.value)}
+              />
+              <Switch on={!p.hidden} onChange={(v) => setCustomHidden(p.id, v)} />
+              <button
+                type="button"
+                className="profmgr__del"
+                title={t('beh.profDelete')}
+                aria-label={t('beh.profDelete')}
+                onClick={() => removeCustom(p.id)}
+              >
+                ✕
+              </button>
+            </div>
+            <textarea
+              className="profmgr__prompt"
+              value={p.prompt}
+              placeholder={t('beh.customPlaceholder')}
+              onChange={(e) => editCustom(p.id, 'prompt', e.target.value)}
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="profmgr__foot">
+        <button type="button" className="profmgr__add" onClick={addCustom}>
+          + {t('beh.profAdd')}
+        </button>
+        {settings.deletedProfiles.length > 0 && (
+          <button type="button" className="profmgr__restore" onClick={restoreBuiltins}>
+            {t('beh.profRestore')} ({settings.deletedProfiles.length})
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1005,8 +1005,22 @@ function ListenButton({ status }: { status: CaptureStatus }) {
  * first: they're among the few settings changed **during** a call, and the rest
  * of the section are preferences touched once.
  */
+/** Decoy names, proper nouns; `off` uses the translated label. */
+const DECOY_LABEL: Record<DecoyIcon, string> = {
+  off: '',
+  terminal: 'Windows Terminal',
+  settings: 'Settings',
+  taskmanager: 'Task Manager',
+};
+
 function VisibilityCards({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
+  // Icon previews for the decoy picker; empty until the main hands them over,
+  // and empty per key for a decoy whose .ico hasn't been added yet.
+  const [decoyImgs, setDecoyImgs] = useState<Partial<Record<DecoyIcon, string>>>({});
+  useEffect(() => {
+    void window.api.window.decoyPreviews().then(setDecoyImgs);
+  }, []);
   return (
     <>
       {/*
@@ -1075,15 +1089,27 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
           <div className="hero__title">{t('gen.decoy')}</div>
           <div className="hero__desc">{t('gen.decoyDesc')}</div>
         </div>
-        <select
-          value={settings.decoyIcon}
-          onChange={(e) => void patch({ decoyIcon: e.target.value as Settings['decoyIcon'] })}
-        >
-          <option value="off">{t('gen.decoyOff')}</option>
-          <option value="terminal">Windows Terminal</option>
-          <option value="settings">Settings</option>
-          <option value="taskmanager">Task Manager</option>
-        </select>
+      </div>
+      <div className="decoy__grid">
+        {DECOY_ICONS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            className={`decoy__opt${settings.decoyIcon === key ? ' decoy__opt--on' : ''}`}
+            onClick={() => void patch({ decoyIcon: key })}
+          >
+            <span className="decoy__thumb">
+              {decoyImgs[key] ? (
+                <img src={decoyImgs[key]} alt="" className="decoy__img" />
+              ) : (
+                <span className="decoy__missing">?</span>
+              )}
+            </span>
+            <span className="decoy__label">
+              {key === 'off' ? t('gen.decoyOff') : DECOY_LABEL[key]}
+            </span>
+          </button>
+        ))}
       </div>
 
       <section className="card">

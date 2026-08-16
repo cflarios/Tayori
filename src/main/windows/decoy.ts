@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, nativeImage } from 'electron';
 import { is } from '@electron-toolkit/utils';
-import type { DecoyIcon } from '@shared/types';
+import { DECOY_ICONS, type DecoyIcon } from '@shared/types';
 
 /**
  * Taskbar disguise: what icon file and window title each decoy uses.
@@ -51,4 +51,25 @@ export function applyDecoyToAll(decoy: DecoyIcon): void {
   for (const win of BrowserWindow.getAllWindows()) {
     applyDecoyIcon(win, decoy);
   }
+}
+
+/**
+ * A small PNG data URL per decoy, for the dashboard's visual picker.
+ *
+ * The renderer can't read `resources/icons` (no fs, and `file://` images are
+ * blocked), so the icon is decoded here and handed over as a data URL. A missing
+ * file returns an empty string, and the picker shows a placeholder for it.
+ */
+export function decoyPreviews(): Record<DecoyIcon, string> {
+  const out = {} as Record<DecoyIcon, string>;
+  for (const key of DECOY_ICONS) {
+    const path = join(iconsDir(), DECOY[key].file);
+    if (!existsSync(path)) {
+      out[key] = '';
+      continue;
+    }
+    const image = nativeImage.createFromPath(path);
+    out[key] = image.isEmpty() ? '' : image.resize({ width: 40, height: 40 }).toDataURL();
+  }
+  return out;
 }

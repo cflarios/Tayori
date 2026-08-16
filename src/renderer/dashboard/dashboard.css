@@ -2403,32 +2403,65 @@ kbd {
   color: var(--text-dim);
 }
 
-.profmgr__toggles {
+.profmgr__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 2px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
 }
 
-.profmgr__toggle {
+/* Built-ins are compact cells; a custom (below) spans the whole row. */
+.profmgr__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 5px 0;
-  font-size: 13px;
-  color: var(--text);
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.profmgr__togglectl {
+.profmgr__name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profmgr__row--custom {
+  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.profmgr__rowhead {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+.profmgr__nameinput {
+  flex: 1;
+}
+
+.profmgr__prompt {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+}
+
+.profmgr__foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 /* Restore removed built-ins: a quiet link, since it only shows once you've
    removed something. */
 .profmgr__restore {
-  align-self: flex-start;
   font-family: inherit;
   font-size: 12px;
   color: var(--text-dim);
@@ -2443,32 +2476,6 @@ kbd {
 
 .profmgr__restore:hover {
   color: var(--text);
-}
-
-.profmgr__empty {
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--text-faint);
-}
-
-.profmgr__custom {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.profmgr__customhead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.profmgr__customhead input {
-  flex: 1;
 }
 
 .profmgr__del {
@@ -2514,4 +2521,77 @@ kbd {
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.04);
+}
+
+/* ── Decoy icon picker (General) ── */
+
+.decoy__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -2px 0 6px;
+}
+
+.decoy__opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 98px;
+  padding: 12px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-dim);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.decoy__opt:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text);
+}
+
+.decoy__opt--on {
+  border-color: var(--accent);
+  background: rgba(96, 165, 250, 0.12);
+  color: var(--text);
+}
+
+.decoy__thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.decoy__img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+/* A decoy whose .ico hasn't been added yet: a dashed placeholder, still pickable
+   (it changes the title even without the icon). */
+.decoy__missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--text-faint);
+  font-size: 16px;
+}
+
+.decoy__label {
+  font-size: 11.5px;
+  line-height: 1.25;
+  text-align: center;
 }

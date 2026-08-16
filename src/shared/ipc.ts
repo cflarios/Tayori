@@ -17,6 +17,8 @@ export const IPC = {
   secretsClear: 'secrets:clear',
 
   stealthSet: 'stealth:set',
+  /** Preview images (data URLs) of the decoy taskbar icons, for the picker. */
+  decoyPreviews: 'decoy:previews',
   clickThroughSet: 'click-through:set',
   overlayHide: 'overlay:hide',
   overlayResize: 'overlay:resize',

@@ -11,6 +11,7 @@ import type {
   AudioLevels,
   CaptureStatus,
   Conversation,
+  DecoyIcon,
   ConversationSummary,
   ImageAttachment,
   LLMProviderId,
@@ -73,6 +74,9 @@ const api = {
       ipcRenderer.invoke(IPC.clickThroughSet, enabled),
     hideOverlay: (): Promise<void> => ipcRenderer.invoke(IPC.overlayHide),
     resizeOverlay: (height: number): Promise<void> => ipcRenderer.invoke(IPC.overlayResize, height),
+    /** Preview images (data URLs) of the decoy taskbar icons, for the picker. */
+    decoyPreviews: (): Promise<Record<DecoyIcon, string>> =>
+      ipcRenderer.invoke(IPC.decoyPreviews),
     openDashboard: (): Promise<void> => ipcRenderer.invoke(IPC.dashboardOpen),
 
     /**
