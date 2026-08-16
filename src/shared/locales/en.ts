@@ -94,10 +94,13 @@ export const en = {
   'overlay.tabListen': 'Listen',
   'overlay.tabWrite': 'Write',
   'overlay.noSkill': 'No skill by that name',
-  'overlay.composePlaceholder': 'Type your question and press Enter… · /skill to invoke one',
+  'overlay.composePlaceholder': 'Ask anything… · /skill',
   'overlay.composeHint': 'Enter sends · Shift+Enter adds a line',
   'overlay.send': 'Send',
   'overlay.composeWarn': 'Writing takes keyboard focus — back to «Listen» before sharing your screen.',
+  'overlay.tipTitle': 'Tip',
+  'overlay.tipListen': 'Press «Listen» to follow the conversation.',
+  'overlay.tipSolve': 'Solve whatever is on your screen.',
 
   'overlay.skipFiller':
     "I can hear you, but a greeting or a sound check doesn't trigger an answer. Try a real question.",
@@ -132,7 +135,6 @@ export const en = {
   'overlay.transcription': 'Transcription',
   'overlay.attached': 'Screenshot attached',
   'overlay.size': 'Size {size}',
-  'overlay.suggestion': 'Suggestion',
   'overlay.questionLabel': 'Question',
   'overlay.modelTitle': 'Model that answers — click to change',
   'overlay.noModels': 'No models available',

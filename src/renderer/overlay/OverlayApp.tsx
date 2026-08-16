@@ -3,6 +3,7 @@ import { useChromeMouse, useOverlayDrag } from './useChromeMouse';
 import { parseAnswerBlocks, parseInline, type AnswerBlock } from '@shared/answer-format';
 import { toLines } from './teleprompter';
 import {
+  activeHotkeys,
   clampFontScale,
   isScreenTrigger,
   LLM_LABEL,
@@ -11,6 +12,7 @@ import {
   OVERLAY_SIZES,
   providerIsReady,
 } from '@shared/types';
+import { formatAccelerator } from '@shared/accelerator';
 import { LangProvider, useT } from '@renderer/i18n';
 import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
 import { matchSkills, skillName } from '@shared/skills';
@@ -526,10 +528,16 @@ function StatusBar({
     <div className="statusbar" data-interactive onMouseDown={onDragStart}>
       <ListenControl status={status} levels={levels} settings={settings} />
 
-      {/* In compact the profile dropdown rides in the bar, since the row below
-          (where it lives when expanded) is folded away. */}
+      {/* In compact the profile and model dropdowns ride in the bar, since the
+          row below (where they live when expanded) is folded away. */}
       {compact && settings && (
-        <ProfileMenu settings={settings} onPatch={(patch) => void window.api.settings.update(patch)} />
+        <>
+          <ProfileMenu
+            settings={settings}
+            onPatch={(patch) => void window.api.settings.update(patch)}
+          />
+          <ModelMenu settings={settings} />
+        </>
       )}
 
       {/*
@@ -576,7 +584,7 @@ function StatusBar({
 
         {/* Solve screen lives in the bar in both modes: the top row has room to
             spare now, and it reads better up here than tucked in the footer. */}
-        <SolveScreenMenu onSolveScreen={onSolveScreen} />
+        <SolveScreenMenu onSolveScreen={onSolveScreen} compact={compact} />
 
         <MoreMenu
           compact={compact}
@@ -684,7 +692,13 @@ function HelpIcon() {
  * your screen (monitor icon) and asks what to solve only on click. "Anything
  * else" is the general case: an error, logs, a diagram, a config screen…
  */
-function SolveScreenMenu({ onSolveScreen }: { onSolveScreen: (task: ScreenTask) => void }) {
+function SolveScreenMenu({
+  onSolveScreen,
+  compact,
+}: {
+  onSolveScreen: (task: ScreenTask) => void;
+  compact: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -721,7 +735,9 @@ function SolveScreenMenu({ onSolveScreen }: { onSolveScreen: (task: ScreenTask) 
         onClick={() => setOpen((v) => !v)}
       >
         <ScreenIcon />
-        <span className="actionbtn__label">Solve screen</span>
+        {/* In compact the label is dropped to keep the bar tight — the monitor
+            icon plus the tooltip carry it, like the eye and ⋯ buttons. */}
+        {!compact && <span className="actionbtn__label">Solve screen</span>}
         <svg className="solve__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
           <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -1611,9 +1627,70 @@ function Tabs({ tab, onChange }: { tab: InputTab; onChange: (t: InputTab) => voi
  * situation in which the app takes the focus, and the footer warning says so
  * because it's exactly the behavior the rest of the program avoids.
  */
-function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: string) => void }) {
+/**
+ * One message in the Write tab's chat thread: the question you asked (a bubble on
+ * the right) and the answer that came back (a block on the left), the way a
+ * messaging app pairs them. The whole thread scrolls in `.wexscroll`, pinned to
+ * the newest at the bottom, so scrolling up walks back through the conversation —
+ * the Write counterpart to Listen's answer navigation.
+ */
+function WriteExchange({ answer }: { answer: Answer }) {
+  const t = useT();
+  const generating = answer.status === 'thinking' || answer.status === 'streaming';
+  // A screen action's question is a canned instruction, not something typed, so
+  // it's hidden here the same way `QuestionLine` hides it.
+  const showQuestion = answer.question.trim() !== '' && !isScreenTrigger(answer.trigger);
+
+  return (
+    <div className="wexmsg" data-interactive>
+      {showQuestion && <p className="wexmsg__q">{answer.question}</p>}
+      <div className="wexmsg__a">
+        <AnswerPane answer={answer} skip={null} listening={false} teleprompter={false} />
+        {generating ? (
+          <div className="wexmsg__tools">
+            <button
+              type="button"
+              className="wexmsg__stop"
+              onClick={() => void window.api.ask.abort()}
+            >
+              {t('overlay.stop')}
+            </button>
+          </div>
+        ) : (
+          answer.status === 'done' &&
+          answer.text.trim() !== '' && (
+            <div className="wexmsg__tools">
+              <CopyAnswerButton text={answer.text} />
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ComposePane({
+  skills,
+  onSend,
+  solveHotkey,
+  hasAnswer,
+}: {
+  skills: Skill[];
+  onSend: (text: string) => void;
+  solveHotkey: string;
+  hasAnswer: boolean;
+}) {
   const t = useT();
   const [draft, setDraft] = useState('');
+  // The educational tip is dismissible and stays dismissed: once you know the
+  // two things it says, seeing it on every write is noise. Persisted outside
+  // Settings so it needs no schema field or migration.
+  const [tipOpen, setTipOpen] = useState(() => localStorage.getItem('overlay.tipDismissed') !== '1');
+  // The focus warning is also dismissible, but on purpose it does NOT persist:
+  // it's local state, so it comes back every time the write tab is opened (this
+  // component remounts on each entry). Closing it clears it for the moment you're
+  // reading; sharing your screen later still gets the reminder.
+  const [warnOpen, setWarnOpen] = useState(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // The window is already focusable when this mounts; focusing here saves the
@@ -1621,6 +1698,26 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Auto-grow: one line when empty, taller as the text needs it up to a cap, then
+  // it scrolls. The field is only ever as tall as what's in it — an empty box the
+  // height of a paragraph is exactly the weight this redesign takes out.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const full = el.scrollHeight;
+    el.style.height = `${Math.min(full, 148)}px`;
+    // Only show the scrollbar once the text actually passes the cap. Left on
+    // `auto`, a 1–2 px rounding between height and scrollHeight paints a stray
+    // grey scrollbar next to the send button even on a single empty line.
+    el.style.overflowY = full > 148 ? 'auto' : 'hidden';
+  }, [draft]);
+
+  const dismissTip = (): void => {
+    setTipOpen(false);
+    localStorage.setItem('overlay.tipDismissed', '1');
+  };
 
   /*
    * `null` while nothing is being invoked; a list —even an empty one— as soon
@@ -1664,41 +1761,124 @@ function ComposePane({ skills, onSend }: { skills: Skill[]; onSend: (text: strin
         </div>
       )}
 
-      <textarea
-        ref={inputRef}
-        className="compose__input"
-        placeholder={t('overlay.composePlaceholder')}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          // Enter sends; Shift+Enter adds a line break. Ctrl+Enter isn't used
-          // because it's a GLOBAL hotkey: the main process intercepts it and it
-          // would never reach here.
-          if (e.key !== 'Enter' || e.shiftKey) return;
-          e.preventDefault();
+      {/* The send button lives INSIDE the field, always visible and iconic —
+          the whole point of the compact input is that the control doesn't add a
+          second row that competes with it. */}
+      <div className="compose__field">
+        <textarea
+          ref={inputRef}
+          className="compose__input"
+          rows={1}
+          placeholder={t('overlay.composePlaceholder')}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter sends; Shift+Enter adds a line break. Ctrl+Enter isn't used
+            // because it's a GLOBAL hotkey: the main process intercepts it and it
+            // would never reach here.
+            if (e.key !== 'Enter' || e.shiftKey) return;
+            e.preventDefault();
 
-          /*
-           * With the menu open, Enter **completes** instead of sending. It's
-           * what any chat does, and here it also avoids the silly case: sending
-           * a half-typed "/hum" invokes nothing —the prefix only counts if it
-           * matches a real skill— so the model would receive that stray word as
-           * if it were the question. The second Enter does send.
-           */
-          const first = matches?.[0];
-          if (first) {
-            complete(first.id);
-            return;
-          }
-          send();
-        }}
-      />
-      <div className="compose__foot">
-        <span className="compose__hint">{t('overlay.composeHint')}</span>
-        <button type="button" className="compose__btn" disabled={!draft.trim()} onClick={send}>
-          {t('overlay.send')}
+            /*
+             * With the menu open, Enter **completes** instead of sending. It's
+             * what any chat does, and here it also avoids the silly case: sending
+             * a half-typed "/hum" invokes nothing —the prefix only counts if it
+             * matches a real skill— so the model would receive that stray word as
+             * if it were the question. The second Enter does send.
+             */
+            const first = matches?.[0];
+            if (first) {
+              complete(first.id);
+              return;
+            }
+            send();
+          }}
+        />
+        <button
+          type="button"
+          className="compose__send"
+          aria-label={t('overlay.send')}
+          title={t('overlay.send')}
+          disabled={!draft.trim()}
+          onClick={send}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M12 4.5V8a1.5 1.5 0 0 1-1.5 1.5H4.8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M7 7 4.5 9.5 7 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </div>
-      <p className="compose__warn">{t('overlay.composeWarn')}</p>
+
+      <span className="compose__hint">{t('overlay.composeHint')}</span>
+
+      {/* Contextual guides as discrete cards, so instructions don't compete with
+          the input. The focus warning is the one that matters most; it's
+          closeable but comes back on the next visit (see `warnOpen`). */}
+      {warnOpen && (
+        <div className="compose__note compose__note--warn">
+          <svg className="compose__note__ico" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 2.2 15 14H1z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+            <path d="M8 6.4v3.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            <circle cx="8" cy="11.7" r="0.85" fill="currentColor" />
+          </svg>
+          <span className="compose__note__text">{t('overlay.composeWarn')}</span>
+          <button
+            type="button"
+            className="compose__note__close"
+            aria-label={t('overlay.dismiss')}
+            onClick={() => setWarnOpen(false)}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      )}
+
+      {/* The tip fills the empty write state — it's what took the place of the
+          «Suggestion» header that used to sit here empty. Once there's an answer
+          the answer takes the space, so the tip steps aside. */}
+      {tipOpen && !hasAnswer && (
+        <div className="compose__note compose__note--tip">
+          <div className="compose__tip__head">
+            <svg className="compose__note__ico" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M8 1.5 9.25 6.75 14.5 8 9.25 9.25 8 14.5 6.75 9.25 1.5 8 6.75 6.75z" fill="currentColor" />
+            </svg>
+            <span className="compose__tip__title">{t('overlay.tipTitle')}</span>
+            <button
+              type="button"
+              className="compose__tip__close"
+              aria-label={t('overlay.dismiss')}
+              onClick={dismissTip}
+            >
+              <CloseIcon />
+            </button>
+          </div>
+          <p className="compose__tip__body">{t('overlay.tipListen')}</p>
+          {solveHotkey && (
+            <div className="compose__tip__kbd">
+              <span className="compose__keys">
+                {solveHotkey.split(' + ').map((k, i) => (
+                  <kbd key={i}>{k}</kbd>
+                ))}
+              </span>
+              <span className="compose__tip__kbdtext">{t('overlay.tipSolve')}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2242,6 +2422,8 @@ export function OverlayApp() {
    */
   const panelRef = useRef<HTMLDivElement>(null);
   const reportedHeight = useRef(0);
+  const reportedWidth = useRef(0);
+  const wexScrollRef = useRef<HTMLDivElement>(null);
 
   /*
    * This component **provides** the language, so it can't consume it with
@@ -2381,15 +2563,18 @@ export function OverlayApp() {
     const el = panelRef.current;
     if (!el) return;
 
-    // Not compact: give the fixed preset height back, but only if a compact
-    // session actually shrank it — otherwise every unrelated settings change
-    // would fire a redundant resize. Only the height was ever touched (width is
-    // untouched), so restoring it is enough and the anchor stays.
+    // Not compact: give the fixed preset size back, but only if a compact
+    // session actually changed it — otherwise every unrelated settings change
+    // would fire a redundant resize. Both height and width are restored (compact
+    // now fits the width too), and passing the width re-anchors to the right edge
+    // the same way the presets do.
     if (!compact) {
-      if (reportedHeight.current !== 0 && settings) {
-        void window.api.window.resizeOverlay(OVERLAY_SIZES[settings.overlaySize].height);
+      if ((reportedHeight.current !== 0 || reportedWidth.current !== 0) && settings) {
+        const preset = OVERLAY_SIZES[settings.overlaySize];
+        void window.api.window.resizeOverlay(preset.height, preset.width);
       }
       reportedHeight.current = 0;
+      reportedWidth.current = 0;
       return;
     }
 
@@ -2413,20 +2598,44 @@ export function OverlayApp() {
       return Math.ceil(bottom) + 4;
     };
 
+    // Width follows the bar's real content. In compact the bar packs left (the
+    // spacer and the actions' auto-margin are dropped in CSS), so the last item's
+    // right edge — in window coordinates, the viewport starts at the window's
+    // left — is the true content width; the window then grows OR shrinks to it,
+    // plus the panel's 17 px right chrome (margin 4 + border 1 + padding 12).
+    // `scrollWidth` can't do this: it never reports LESS than the box, so it
+    // couldn't tell the window to shrink when the bar got narrower.
+    const measureWidth = (): number => {
+      const bar = el.querySelector('.statusbar');
+      if (!bar) return 0;
+      let right = 0;
+      for (const kid of Array.from(bar.children)) {
+        if (kid.classList.contains('statusbar__spacer')) continue;
+        right = Math.max(right, kid.getBoundingClientRect().right);
+      }
+      return right ? Math.ceil(right) + 17 : 0;
+    };
+
     // The forced first measurement of each effect run matters: toggling stealth
-    // (or anything in settings) doesn't change the content height, so without it
-    // the window would keep whatever height it had drifted to.
+    // (or anything in settings) doesn't change the content size, so without it
+    // the window would keep whatever size it had drifted to.
     const report = (force: boolean): void => {
       const height = measure();
-      if (!force && height === reportedHeight.current) return;
+      const width = measureWidth();
+      if (!force && height === reportedHeight.current && width === reportedWidth.current) return;
       reportedHeight.current = height;
-      void window.api.window.resizeOverlay(height);
+      reportedWidth.current = width;
+      void window.api.window.resizeOverlay(height, width);
     };
     report(true);
     const resize = new ResizeObserver(() => report(false));
     resize.observe(el);
     const mutate = new MutationObserver(() => report(false));
-    mutate.observe(el, { childList: true, subtree: true });
+    // `characterData` too: a label's TEXT changing (the model or profile name, or
+    // the listen state) changes the bar's width without adding or removing a
+    // node, so `childList` alone would miss it and the window would keep a width
+    // that no longer matches the content.
+    mutate.observe(el, { childList: true, subtree: true, characterData: true });
     return () => {
       resize.disconnect();
       mutate.disconnect();
@@ -2438,6 +2647,24 @@ export function OverlayApp() {
   // the previous one — without losing the earlier ones.
   const index = viewing ?? answers.length - 1;
   const answer = answers[index] ?? null;
+
+  // Keep the write card's scroll pinned to the BOTTOM: when the panel is too
+  // short to show the whole exchange, the answer (at the foot of the card) is
+  // what has to stay visible — the question above it is the user's own and can
+  // clip. A ResizeObserver re-pins it on both fronts: the answer growing as it
+  // streams, and the region shrinking as the input below it grows while typing.
+  useEffect(() => {
+    const el = wexScrollRef.current;
+    if (!el) return;
+    const toBottom = (): void => {
+      el.scrollTop = el.scrollHeight;
+    };
+    toBottom();
+    const ro = new ResizeObserver(toBottom);
+    ro.observe(el);
+    for (const child of Array.from(el.children)) ro.observe(child);
+    return () => ro.disconnect();
+  }, [tab, answer?.id]);
 
   /*
    * The central state rules while there's nothing to read.
@@ -2542,15 +2769,31 @@ export function OverlayApp() {
           <IdleHero status={status} configured={configured} onWrite={() => setTab('write')} />
         ) : (
           !compact && (
-            <div className="section">
+            <div className={`section${tab === 'write' ? ' section--write' : ''}`}>
               <Tabs tab={tab} onChange={setTab} />
               {tab === 'listen' ? (
                 <TranscriptPane segments={segments} />
               ) : (
-                <ComposePane
-                  skills={skills}
-                  onSend={(text) => void window.api.ask.withText(text)}
-                />
+                /* Chat layout: the exchange card lives in a scroll region that
+                   yields space and scrolls when the panel is tight, while the
+                   input group below stays pinned and fully visible — so a long
+                   message never pushes the warning under the footer, nor the card
+                   over the input. */
+                <>
+                  <div className="wexscroll" ref={wexScrollRef}>
+                    {answers.map((a) => (
+                      <WriteExchange key={a.id} answer={a} />
+                    ))}
+                  </div>
+                  <ComposePane
+                    skills={skills}
+                    onSend={(text) => void window.api.ask.withText(text)}
+                    solveHotkey={
+                      settings ? formatAccelerator(activeHotkeys(settings).solveOnScreen) : ''
+                    }
+                    hasAnswer={answers.length > 0}
+                  />
+                </>
               )}
             </div>
           )
@@ -2568,10 +2811,13 @@ export function OverlayApp() {
           only appears once there's actually an answer, so idle + compact stays a
           bare bar; and it doesn't grow to fill —the panel is content-sized
           there— so its `flex: 1` is dropped. */}
-        {!hero && (!compact || answers.length > 0) && (
+        {/* The tall answer section is for listen (and compact). In the expanded
+            write tab the exchange rides in its own compact card above the input
+            instead (see WriteExchange), so this one steps aside there — and it
+            never shows on an empty write, where the compose tip guides instead. */}
+        {!hero && ((compact && answers.length > 0) || (!compact && tab === 'listen')) && (
           <div className="section" style={compact ? undefined : { flex: 1 }}>
             <div className="section__head">
-              <span className="section__title">{t('overlay.suggestion')}</span>
               <AnswerNav
                 total={answers.length}
                 index={index}
@@ -2672,9 +2918,12 @@ export function OverlayApp() {
         is its own, not the one being looked at. Offering them there would
         promise to act on what's read and would act on something else.
       */}
+        {/* Not in the expanded write tab: there the exchange is a compact card
+            and the next move is to type, not to press a canned follow-up. */}
         {viewing === null &&
           answer &&
-          (answer.status === 'done' || answer.status === 'streaming') && (
+          (answer.status === 'done' || answer.status === 'streaming') &&
+          (compact || tab === 'listen') && (
             <QuickActions
               onAsk={(prompt) => void window.api.ask.withText(prompt)}
               // What was just answered rules, not the configured profile: after

@@ -76,7 +76,8 @@ const api = {
     setClickThrough: (enabled: boolean): Promise<boolean> =>
       ipcRenderer.invoke(IPC.clickThroughSet, enabled),
     hideOverlay: (): Promise<void> => ipcRenderer.invoke(IPC.overlayHide),
-    resizeOverlay: (height: number): Promise<void> => ipcRenderer.invoke(IPC.overlayResize, height),
+    resizeOverlay: (height: number, width?: number): Promise<void> =>
+      ipcRenderer.invoke(IPC.overlayResize, height, width),
     /** Preview images (data URLs) of the decoy taskbar icons, for the picker. */
     decoyPreviews: (): Promise<Record<DecoyIcon, string>> =>
       ipcRenderer.invoke(IPC.decoyPreviews),

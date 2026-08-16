@@ -261,7 +261,9 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.overlayInteractive, (_e, interactive: boolean) =>
     setOverlayInteractive(interactive)
   );
-  ipcMain.handle(IPC.overlayResize, (_e, height: number) => resizeOverlay(height));
+  ipcMain.handle(IPC.overlayResize, (_e, height: number, width?: number) =>
+    resizeOverlay(height, width)
+  );
   ipcMain.handle(IPC.dashboardOpen, () => {
     openDashboard();
   });

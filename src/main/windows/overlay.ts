@@ -301,12 +301,11 @@ export function setOverlaySize(size: OverlaySize): void {
   win.setBounds({ x, y: Math.max(workArea.y, y), width, height });
 }
 
-export function resizeOverlay(height: number): void {
+export function resizeOverlay(height: number, width?: number): void {
   const win = getOverlay();
   if (!win) return;
-  const clamped = Math.round(Math.max(120, Math.min(height, 900)));
+  const clampedH = Math.round(Math.max(120, Math.min(height, 900)));
   const bounds = win.getBounds();
-  if (bounds.height === clamped) return;
   /*
    * `setBounds`, NOT `setSize`.
    *
@@ -315,7 +314,24 @@ export function resizeOverlay(height: number): void {
    * window stayed at its preset height, leaving a tall empty area below the
    * compact bar (invisible while stealth is on, framed red when it's off).
    * `setBounds` is the same call the size presets use, and it does resize such a
-   * window. Width and position are kept so only the height follows the content.
+   * window.
    */
-  win.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: clamped });
+
+  // Height only (the default): width and position are kept so the anchor stays.
+  if (width === undefined) {
+    if (bounds.height === clampedH) return;
+    win.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: clampedH });
+    return;
+  }
+
+  // Compact fits its WIDTH to the bar too, so the row never wraps or clips a
+  // control now that it carries the profile and model dropdowns. Re-anchor to the
+  // RIGHT edge (grow leftward), exactly as the size presets do, so widening never
+  // pushes the overlay off the top-right corner it lives in.
+  const { workArea } = screen.getPrimaryDisplay();
+  const clampedW = Math.round(Math.max(240, Math.min(width, workArea.width)));
+  const right = bounds.x + bounds.width;
+  const x = Math.max(workArea.x, Math.min(right - clampedW, workArea.x + workArea.width - clampedW));
+  if (bounds.height === clampedH && bounds.width === clampedW && bounds.x === x) return;
+  win.setBounds({ x, y: bounds.y, width: clampedW, height: clampedH });
 }

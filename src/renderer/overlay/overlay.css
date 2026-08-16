@@ -366,6 +366,36 @@ body {
 }
 
 /*
+ * The items keep their natural width so the bar OVERFLOWS a too-narrow window
+ * instead of squishing to fit it. That overflow is what the compact resize
+ * effect reads (`statusbar.scrollWidth`) to grow the window to the one-line
+ * width. Without this, flex-shrink compresses the model label and clips the
+ * action buttons off the right — the "compact is broken" state — and scrollWidth
+ * equals the visible width, so nothing ever signals that it needs more room.
+ */
+.panel--compact .statusbar > *:not(.statusbar__spacer) {
+  flex-shrink: 0;
+}
+
+/*
+ * Compact packs the bar to its content and the window is sized to fit it exactly
+ * (see the resize effect), so every right-pusher would only open a gap. There are
+ * THREE: the flex spacer, the action group's `margin-left: auto`, and the model
+ * dropdown's own `margin-left: auto` (it earns its keep in the expanded row,
+ * where profile sits left and model right). All dropped here so the row packs
+ * tight — and so the width measurement, which reads the last item's real right
+ * edge, isn't fooled by an item pinned to the window's edge.
+ */
+.panel--compact .statusbar__spacer {
+  display: none;
+}
+
+.panel--compact .statusbar__actions,
+.panel--compact .modelmenu {
+  margin-left: 0;
+}
+
+/*
  * Content-sized in compact so the window can shrink to it (see the resize
  * effect in OverlayApp). A flex:1 child in an auto-height column would collapse
  * the panel to nothing, which is why the answer section drops its flex here.
@@ -867,26 +897,43 @@ body {
   min-height: 0;
 }
 
+/*
+ * The write column (section > tabs, .wexscroll, .compose). The conversation is a
+ * chat thread that fills the empty space and scrolls; the input group never
+ * shrinks, so it and its warning stay fully visible above the footer however long
+ * the message gets.
+ */
+.section--write {
+  flex: 1;
+  overflow: hidden;
+}
+
+.wexscroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bottom-align the thread: a short conversation sits at the foot, next to the
+   input; a long one scrolls with the newest message at the bottom. */
+.wexscroll > :first-child {
+  margin-top: auto;
+}
+
+.section--write .compose {
+  flex: 0 0 auto;
+  /* Gap between the thread and the input lives outside the scroll region. */
+  margin-top: 12px;
+}
+
 .section__head {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
   flex-shrink: 0;
-}
-
-.section__title {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #7c8288;
-  margin-bottom: 6px;
-  flex-shrink: 0;
-}
-
-/* Inside the header the margin is set by the container. */
-.section__head .section__title {
-  margin-bottom: 0;
 }
 
 /* Which model is answering. Data, not adornment: see the component's comment. */
@@ -1444,11 +1491,73 @@ body {
 
 /* ── Write tab ── */
 
-.compose {
+/*
+ * A message in the write chat thread: the question as a bubble on the right, the
+ * answer as a block on the left, the way a messaging app pairs them. The question
+ * takes the accent tint (it's yours); the answer a quiet surface.
+ */
+.wexmsg {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.wexmsg + .wexmsg {
+  margin-top: 14px;
+}
+
+.wexmsg__q {
+  align-self: flex-end;
+  max-width: 88%;
+  margin: 0;
+  padding: 7px 11px;
+  border-radius: 12px 12px 4px 12px;
+  background: rgba(76, 141, 255, 0.16);
+  color: #dbe6ff;
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.4;
+  user-select: text;
+}
+
+.wexmsg__a {
+  align-self: flex-start;
+  max-width: 96%;
+  padding: 8px 11px;
+  border-radius: 12px 12px 12px 4px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wexmsg__tools {
+  display: flex;
+  margin-top: 6px;
+}
+
+.wexmsg__stop {
+  font-family: inherit;
+  font-size: 10.5px;
+  color: #b7bcc1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.wexmsg__stop:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.compose {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   min-height: 0;
+}
+
+/* The field holds the textarea and the send button together; the button is
+   docked bottom-right INSIDE it, so the input keeps its own single row. */
+.compose__field {
+  position: relative;
 }
 
 .compose__input {
@@ -1461,8 +1570,16 @@ body {
      just typed. */
   user-select: text;
   resize: none;
-  height: 84px;
-  padding: 10px 12px;
+  display: block;
+  width: 100%;
+  /* One row when empty; JS grows it with the content up to the cap, then it
+     scrolls. Room on the right clears the docked send button. */
+  min-height: 40px;
+  max-height: 148px;
+  /* Default hidden; the auto-grow effect flips it to `auto` only once the text
+     passes the cap, so no stray scrollbar shows on a short input. */
+  overflow-y: hidden;
+  padding: 10px 44px 10px 12px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1487,51 +1604,163 @@ body {
   color: #6b7075;
 }
 
-.compose__foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.compose__hint {
-  flex: 1;
-  font-size: 10px;
-  color: #6b7075;
-}
-
-.compose__btn {
-  font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 550;
+.compose__send {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
   color: #0e1015;
   background: #60a5fa;
   border: none;
-  border-radius: 6px;
-  padding: 5px 12px;
+  border-radius: 7px;
   cursor: pointer;
   transition:
     background 120ms ease,
     opacity 120ms ease;
 }
 
-.compose__btn:hover:not(:disabled) {
+.compose__send:hover:not(:disabled) {
   background: #93c5fd;
 }
 
-.compose__btn:disabled {
+.compose__send:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-/*
- * Focus warning. It's the only situation in which the overlay takes it, and the
- * rest of the app exists to avoid it: staying quiet about it would be exactly the
- * kind of half-promise the README works hard not to make.
- */
-.compose__warn {
+.compose__hint {
   font-size: 10px;
+  color: #6b7075;
+}
+
+/* Discrete guide cards under the input: instructions and tips grouped so they
+   don't compete with the input the way loose lines of text did. */
+.compose__note {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 10.5px;
   line-height: 1.45;
-  color: #b98b2e;
+}
+
+.compose__note__ico {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/*
+ * Focus warning. It's the only situation in which the overlay takes keyboard
+ * focus, and the rest of the app exists to avoid it: staying quiet about it
+ * would be exactly the kind of half-promise the README works hard not to make.
+ */
+.compose__note--warn {
+  align-items: flex-start;
+  color: #d8a43a;
+  background: rgba(217, 164, 58, 0.1);
+  border: 1px solid rgba(217, 164, 58, 0.22);
+}
+
+.compose__note__text {
+  flex: 1;
+  color: #c99a3e;
+}
+
+/* Close button shared by the warning card and the tip head. */
+.compose__note__close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: -2px -2px 0 2px;
+  color: #7c8288;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.compose__note__close:hover {
+  color: #c8cbd0;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.compose__note--tip {
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(147, 130, 240, 0.08);
+  border: 1px solid rgba(147, 130, 240, 0.2);
+}
+
+.compose__tip__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compose__tip__head .compose__note__ico {
+  color: #a78bfa;
+  margin-top: 0;
+}
+
+.compose__tip__title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a78bfa;
+}
+
+.compose__tip__close {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: #7c8288;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.compose__tip__close:hover {
+  color: #c8cbd0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.compose__tip__body {
+  margin: 0;
+  color: #c8cbd0;
+}
+
+.compose__tip__kbd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compose__keys {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.compose__keys kbd {
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #c8cbd0;
+}
+
+.compose__tip__kbdtext {
+  font-size: 10.5px;
+  color: #9aa0a6;
 }
 
 .transcript {
@@ -1602,7 +1831,7 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #7c8288;
-  margin-bottom: 3px;
+  margin-bottom: 6px;
 }
 
 .qline__text {
