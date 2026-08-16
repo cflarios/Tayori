@@ -7,9 +7,9 @@ import { piperTTS } from './piper';
  * Synthesize an answer to speech with the active engine.
  *
  * Returns `null` when the active provider is renderer-only (`webspeech`, which
- * the overlay speaks itself) or not yet wired (`piper`/`kokoro`), so the caller
- * falls back to its own handling instead of erroring. A misconfigured cloud
- * provider (no key) still throws — that's a real failure worth surfacing.
+ * the overlay speaks itself), so the caller falls back to its own handling
+ * instead of erroring. A misconfigured cloud provider (no key) still throws —
+ * that's a real failure worth surfacing.
  */
 export async function synthesizeSpeech(settings: Settings, text: string): Promise<TTSResult | null> {
   const trimmed = text.trim();
@@ -22,10 +22,8 @@ export async function synthesizeSpeech(settings: Settings, text: string): Promis
       return openaiTTS.synthesize(options);
     case 'piper':
       return piperTTS.synthesize(options);
-    // Renderer-only or not yet implemented: the overlay handles Web Speech, and
-    // Kokoro lands in a later phase.
+    // Renderer-only: the overlay speaks Web Speech itself.
     case 'webspeech':
-    case 'kokoro':
     default:
       return null;
   }

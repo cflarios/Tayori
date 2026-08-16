@@ -80,9 +80,9 @@ export const IPC = {
 
   /**
    * Synthesize an answer to speech, for the engines that run in the main process
-   * (OpenAI now; Piper/Kokoro later). Returns the audio for the renderer to play
-   * through the chosen output. Web Speech isn't here: it's a renderer-only API
-   * that speaks on its own.
+   * (OpenAI and Piper). Returns the audio for the renderer to play through the
+   * chosen output. Web Speech isn't here: it's a renderer-only API that speaks on
+   * its own.
    */
   ttsSynthesize: 'tts:synthesize',
   /** Piper (local TTS): what's on disk, and download the binary + a voice. */

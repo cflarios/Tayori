@@ -71,11 +71,9 @@ export type STTProviderId =
  *     setup and offline, but it plays on the default output only (the API has no
  *     device routing, so `outputDeviceId` doesn't apply to it).
  *   - `openai`    → OpenAI's `audio/speech`; reuses the OpenAI key. Cloud.
- *   - `piper` / `kokoro` → local neural engines (a downloaded binary + voice).
- *     Not wired yet; declared so settings and the picker are stable across the
- *     phased rollout.
+ *   - `piper`     → a local neural engine (a downloaded binary + voice).
  */
-export type TTSProviderId = 'webspeech' | 'openai' | 'piper' | 'kokoro';
+export type TTSProviderId = 'webspeech' | 'openai' | 'piper';
 
 /** OpenAI's built-in TTS voices, for the picker. */
 export const OPENAI_TTS_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'] as const;

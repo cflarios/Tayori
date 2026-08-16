@@ -652,8 +652,6 @@ export const es: Record<UIKey, string> = {
   'tts.webspeechNote': 'Instantáneo y offline, pero suena siempre por la salida por defecto.',
   'tts.openai': 'OpenAI',
   'tts.piper': 'Piper (local)',
-  'tts.kokoro': 'Kokoro (local)',
-  'tts.soon': 'próximamente',
   'tts.needsKey': 'El texto a voz de OpenAI necesita la API key de OpenAI.',
   'tts.goKeys': 'Configurar la key de OpenAI',
   'tts.voice': 'Voz',

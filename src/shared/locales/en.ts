@@ -671,8 +671,6 @@ export const en = {
   'tts.webspeechNote': 'Instant and offline, but it always plays on the default output.',
   'tts.openai': 'OpenAI',
   'tts.piper': 'Piper (local)',
-  'tts.kokoro': 'Kokoro (local)',
-  'tts.soon': 'coming soon',
   'tts.needsKey': 'OpenAI text-to-speech needs the OpenAI API key.',
   'tts.goKeys': 'Set the OpenAI key',
   'tts.voice': 'Voice',

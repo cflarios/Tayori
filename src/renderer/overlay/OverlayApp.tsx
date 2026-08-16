@@ -1699,8 +1699,8 @@ function WriteExchange({ answer, settings }: { answer: Answer; settings: Setting
           answer.status === 'done' &&
           answer.text.trim() !== '' && (
             <div className="wexmsg__tools">
-              <SpeakAnswerButton answer={answer} settings={settings} />
-              <CopyAnswerButton text={answer.text} />
+              <SpeakAnswerButton answer={answer} settings={settings} tipStart />
+              <CopyAnswerButton text={answer.text} tipStart iconOnly />
             </div>
           )
         )}
@@ -2291,7 +2291,15 @@ function Teleprompter({ text }: { text: string }) {
  * `focusable: false`, so it would always fail. It gives a brief «Copied» as
  * confirmation.
  */
-function CopyAnswerButton({ text }: { text: string }) {
+function CopyAnswerButton({
+  text,
+  tipStart,
+  iconOnly,
+}: {
+  text: string;
+  tipStart?: boolean;
+  iconOnly?: boolean;
+}) {
   const t = useT();
   const [copied, setCopied] = useState<'no' | 'sí' | 'falló'>('no');
 
@@ -2308,10 +2316,41 @@ function CopyAnswerButton({ text }: { text: string }) {
       .catch(() => setCopied('falló'));
   };
 
+  if (iconOnly) {
+    const done = copied === 'sí';
+    return (
+      <button
+        type="button"
+        className={`section__copy section__copyicon tip tip--up ${tipStart ? 'tip--start' : 'tip--end'}${done ? ' section__copyicon--ok' : ''}`}
+        data-interactive
+        data-tip={
+          copied === 'falló'
+            ? t('overlay.copyFailed')
+            : done
+              ? t('overlay.copied')
+              : t('overlay.copyAnswer')
+        }
+        aria-label={t('overlay.copyAnswer')}
+        onClick={copy}
+      >
+        {done ? (
+          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="3.7" y="3" width="8.6" height="11" rx="1.7" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <rect x="5.7" y="1.7" width="4.6" height="2.6" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          </svg>
+        )}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
-      className="section__copy tip tip--up tip--end"
+      className={`section__copy tip tip--up ${tipStart ? 'tip--start' : 'tip--end'}`}
       data-interactive
       data-tip={t('overlay.copyAnswer')}
       onClick={copy}
@@ -2330,7 +2369,15 @@ function CopyAnswerButton({ text }: { text: string }) {
  * Toggles against the shared TTS controller, so starting one answer stops any
  * other that was playing and the icon reflects which one is active.
  */
-function SpeakAnswerButton({ answer, settings }: { answer: Answer; settings: Settings | null }) {
+function SpeakAnswerButton({
+  answer,
+  settings,
+  tipStart,
+}: {
+  answer: Answer;
+  settings: Settings | null;
+  tipStart?: boolean;
+}) {
   const t = useT();
   const speaking = useSpeaking();
   if (!settings?.ttsEnabled) return null;
@@ -2339,7 +2386,7 @@ function SpeakAnswerButton({ answer, settings }: { answer: Answer; settings: Set
   return (
     <button
       type="button"
-      className={`section__copy section__speak tip tip--up tip--end${active ? ' section__speak--on' : ''}`}
+      className={`section__copy section__speak tip tip--up ${tipStart ? 'tip--start' : 'tip--end'}${active ? ' section__speak--on' : ''}`}
       data-interactive
       data-tip={active ? t('overlay.ttsStop') : t('overlay.ttsPlay')}
       aria-label={active ? t('overlay.ttsStop') : t('overlay.ttsPlay')}

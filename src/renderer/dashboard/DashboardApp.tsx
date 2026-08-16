@@ -1903,7 +1903,6 @@ function TTSCard({
                 { value: 'webspeech', label: t('tts.webspeech') },
                 { value: 'openai', label: t('tts.openai') },
                 { value: 'piper', label: t('tts.piper') },
-                { value: 'kokoro', label: `${t('tts.kokoro')} · ${t('tts.soon')}`, disabled: true },
               ]}
             />
           </Row>
