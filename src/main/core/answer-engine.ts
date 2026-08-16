@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import {
+  interpreterLangName,
   isScreenTrigger,
   screenModelFor,
   type Answer,
@@ -371,7 +372,12 @@ export class AnswerEngine extends EventEmitter {
             : {}),
           // A copy is passed: generation is async and `history` can receive a
           // new turn while this one is still in flight.
-          ...(this.history.length ? { history: [...this.history] } : {}),
+          //
+          // NOT in interpreter mode: the history is question→answer pairs, and
+          // feeding those to a translator teaches it to ANSWER the next turn
+          // instead of translating it — badly so on a small model. An
+          // interpreter's only context is the transcript, never past answers.
+          ...(profile !== 'interpreter' && this.history.length ? { history: [...this.history] } : {}),
           // A vision-less model would ignore the images silently; better not to
           // send them and save the bandwidth.
           ...(provider.supportsVision && images.length ? { images } : {}),
@@ -379,6 +385,14 @@ export class AnswerEngine extends EventEmitter {
           // Without the user-turn envelopes: the interpreter translates
           // everything and carried the tags along. See `AnswerRequest.interpreter`.
           interpreter: profile === 'interpreter',
+          ...(profile === 'interpreter'
+            ? {
+                interpreterLangs: {
+                  a: interpreterLangName(settings.interpreterLangA, 'es'),
+                  b: interpreterLangName(settings.interpreterLangB, 'es'),
+                },
+              }
+            : {}),
         },
         controller.signal
       );

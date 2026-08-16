@@ -52,6 +52,14 @@ export interface AnswerRequest {
    * CONTEXT.md §Intérprete.
    */
   interpreter?: boolean;
+  /**
+   * The two interpreter languages (named), so the raw turn can carry a short
+   * "translate to the other language" instruction. A weak local model ignores
+   * the translate-only SYSTEM prompt and answers the question instead; the same
+   * instruction on the USER turn, which the model weights far more, is what
+   * actually holds it to translating. See `buildUserTurn`.
+   */
+  interpreterLangs?: { a: string; b: string };
 }
 
 export interface LLMProvider {

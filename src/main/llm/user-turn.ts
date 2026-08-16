@@ -35,7 +35,23 @@ export function buildUserTurn(
    * to defend because translating is literal by design.
    */
   if (request.interpreter) {
-    return request.question || request.transcript || '';
+    const text = request.question || request.transcript || '';
+    // A short instruction on the user turn — the "Translate: <text>" pattern
+    // translation models follow without echoing the instruction. Weak local
+    // models (e.g. aya-expanse:8b) ignore the translate-only SYSTEM prompt and
+    // answer a question instead; the instruction on the USER turn, which they
+    // weight far more, is what holds them to translating. No envelope tags: the
+    // interpreter translates them into the output (`<texto>` → `<text>`). Without
+    // the languages we fall back to the raw turn (the system prompt still holds).
+    if (request.interpreterLangs) {
+      const { a, b } = request.interpreterLangs;
+      return (
+        `Traduce el texto de abajo al otro idioma entre ${a} y ${b} (detecta el ` +
+        `suyo). Si es una pregunta, traduce la pregunta; NO la respondas. Devuelve ` +
+        `SÓLO la traducción:\n\n${text}`
+      );
+    }
+    return text;
   }
 
   const parts = [fence('transcripcion', request.transcript || '(sin audio aún)')];
