@@ -205,9 +205,9 @@ function ListenButton({ status }: { status: CaptureStatus }) {
   return (
     <button
       type="button"
-      className={`listen listen--${state}`}
+      className={`listen listen--${state} tip tip--start`}
       disabled={starting}
-      title={
+      data-tip={
         status.state === 'error'
           ? (status.error ?? t('overlay.captureError'))
           : t('overlay.listenTitle')
@@ -310,9 +310,6 @@ function SourcePicker({
             type="button"
             className={`source${active ? ' source--on' : ''}${active && mute ? ' source--mute' : ''}`}
             aria-pressed={active}
-            title={
-              active && mute ? `${t(source.hint)}${t('overlay.sourceMuteSuffix')}` : t(source.hint)
-            }
             onClick={() => onChange(source.mode)}
           >
             {source.mode === 'mic' ? (
@@ -414,12 +411,12 @@ function ListenControl({
       <ListenButton status={status} />
       <button
         type="button"
-        className={`listenctl__caret${open ? ' listenctl__caret--on' : ''}${
+        className={`listenctl__caret tip tip--start${open ? ' listenctl__caret--on' : ''}${
           mute ? ' listenctl__caret--mute' : ''
         }`}
         aria-expanded={open}
         aria-label={t('overlay.sources')}
-        title={t('overlay.sources')}
+        data-tip={t('overlay.sources')}
         onClick={() => setOpen((v) => !v)}
       >
         {/* Just the mic: the caret is a "listen / audio input" affordance. The
@@ -490,10 +487,10 @@ function VisibleToggle({ stealthEnabled }: { stealthEnabled: boolean }) {
   return (
     <button
       type="button"
-      className={`visbtn${visible ? ' visbtn--shown' : ''}`}
+      className={`visbtn tip tip--end${visible ? ' visbtn--shown' : ''}`}
       aria-pressed={visible}
       aria-label={visible ? t('overlay.visShown') : t('overlay.visHidden')}
-      title={visible ? t('overlay.visShownHint') : t('overlay.visHiddenHint')}
+      data-tip={visible ? t('overlay.visShownHint') : t('overlay.visHiddenHint')}
       onClick={() => void window.api.window.setStealth(!stealthEnabled)}
     >
       <EyeIcon off={!visible} />
@@ -532,9 +529,9 @@ function StatusBar({
           you only meant to press something. `onDragStart` also bows out over a
           `<button>`, but here the intent is explicit. */}
       <div
-        className="draghandle"
+        className="draghandle tip tip--start"
         data-interactive
-        title={t('overlay.dragMove')}
+        data-tip={t('overlay.dragMove')}
         onMouseDown={onDragStart}
       >
         <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
@@ -575,7 +572,10 @@ function StatusBar({
         because it can't be wrong.
       */}
       {language !== 'auto' && (
-        <span className="statusbar__lang" title={`Transcribiendo como "${language}"`}>
+        <span
+          className="statusbar__lang tip tip--start"
+          data-tip={`Transcribiendo como "${language}"`}
+        >
           {language.toUpperCase()}
         </span>
       )}
@@ -749,8 +749,9 @@ function SolveScreenMenu({
     <div className="solve" data-interactive>
       <button
         type="button"
-        className={`actionbtn${open ? ' actionbtn--on' : ''}`}
-        title="Solve what's on your screen"
+        className={`actionbtn tip tip--end${open ? ' actionbtn--on' : ''}`}
+        data-tip="Solve what's on your screen"
+        aria-label="Solve what's on your screen"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -830,8 +831,8 @@ function MoreMenu({
     <div className="more" data-interactive>
       <button
         type="button"
-        className={`iconbtn${open ? ' iconbtn--on' : ''}`}
-        title={t('overlay.more')}
+        className={`iconbtn tip tip--end${open ? ' iconbtn--on' : ''}`}
+        data-tip={t('overlay.more')}
         aria-label={t('overlay.more')}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -1259,9 +1260,9 @@ function ModelMenu({ settings }: { settings: Settings }) {
     <div className="modelmenu" data-interactive>
       <button
         type="button"
-        className={`modelbtn${open ? ' modelbtn--on' : ''}`}
+        className={`modelbtn tip tip--end${open ? ' modelbtn--on' : ''}`}
         aria-expanded={open}
-        title={t('overlay.modelTitle')}
+        data-tip={t('overlay.modelTitle')}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="modelbtn__label">{currentModel}</span>
@@ -1410,9 +1411,9 @@ function SizePicker({
         <button
           key={size}
           type="button"
-          className={`sizes__btn${active === size ? ' sizes__btn--active' : ''}`}
+          className={`sizes__btn tip tip--up tip--end${active === size ? ' sizes__btn--active' : ''}`}
           aria-pressed={active === size}
-          title={t('overlay.size', { size })}
+          data-tip={t('overlay.size', { size })}
           onClick={() => onChange(size)}
         >
           {size}
@@ -1548,7 +1549,6 @@ function IdleHero({
         className={`hero__mic hero__mic--${state}`}
         disabled={starting}
         aria-label={copy.action}
-        title={copy.action}
         onClick={press}
       >
         {/*
@@ -1696,12 +1696,16 @@ function ComposePane({
   hasAnswer,
 }: {
   skills: Skill[];
-  onSend: (text: string) => void;
+  onSend: (text: string, images: ImageAttachment[]) => void;
   solveHotkey: string;
   hasAnswer: boolean;
 }) {
   const t = useT();
   const [draft, setDraft] = useState('');
+  // Screenshots the user attaches to the next message. Unlike Solve screen —which
+  // captures and answers in one shot— these are picked here and ride with the
+  // typed question when you choose to send, so you keep control of the exchange.
+  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
   // The educational tip is dismissible and stays dismissed: once you know the
   // two things it says, seeing it on every write is noise. Persisted outside
   // Settings so it needs no schema field or migration.
@@ -1752,11 +1756,26 @@ function ComposePane({
     inputRef.current?.focus();
   };
 
+  // A pure capture (no attach, no auto-answer): the image just joins the pending
+  // list, and focus goes back to the input so you can keep typing the question.
+  const capture = (): void => {
+    void window.api.screenshot.grab().then((img) => {
+      if (img) setAttachments((prev) => [...prev, img]);
+      inputRef.current?.focus();
+    });
+  };
+
+  const removeAttachment = (index: number): void =>
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+
   const send = (): void => {
     const text = draft.trim();
-    if (!text) return;
+    // Either a question or a screenshot is enough to send: a capture alone is a
+    // valid "answer about this", the way the screen actions work.
+    if (!text && attachments.length === 0) return;
     setDraft('');
-    onSend(text);
+    setAttachments([]);
+    onSend(text, attachments);
   };
 
   return (
@@ -1781,9 +1800,29 @@ function ComposePane({
         </div>
       )}
 
+      {/* Attached screenshots ride above the input as a strip of thumbnails, each
+          removable, so you see exactly what's going with the message. */}
+      {attachments.length > 0 && (
+        <div className="compose__shots">
+          {attachments.map((img, i) => (
+            <div key={i} className="compose__shot">
+              <img src={`data:${img.mime};base64,${img.base64}`} alt="" />
+              <button
+                type="button"
+                className="compose__shot__x"
+                aria-label={t('overlay.dismiss')}
+                onClick={() => removeAttachment(i)}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* The send button lives INSIDE the field, always visible and iconic —
           the whole point of the compact input is that the control doesn't add a
-          second row that competes with it. */}
+          second row that competes with it. The attach button sits opposite it. */}
       <div className="compose__field">
         <textarea
           ref={inputRef}
@@ -1792,6 +1831,16 @@ function ComposePane({
           placeholder={t('overlay.composePlaceholder')}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onPaste={() => {
+            // Read the image from the main process: the renderer's own paste
+            // event and `navigator.clipboard` don't get it in a `focusable: false`
+            // overlay (a Win+Shift+S capture never reached here). If there's an
+            // image it attaches like a screenshot; pasting text is unaffected —
+            // `readImage` returns null and the default paste inserts the text.
+            void window.api.clipboard.readImage().then((att) => {
+              if (att) setAttachments((prev) => [...prev, att]);
+            });
+          }}
           onKeyDown={(e) => {
             // Enter sends; Shift+Enter adds a line break. Ctrl+Enter isn't used
             // because it's a GLOBAL hotkey: the main process intercepts it and it
@@ -1816,10 +1865,21 @@ function ComposePane({
         />
         <button
           type="button"
+          className="compose__attach"
+          aria-label={t('overlay.attachShot')}
+          onClick={capture}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="1.8" y="3.2" width="12.4" height="9.6" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+            <circle cx="5.3" cy="6.5" r="1.15" fill="currentColor" />
+            <path d="M2.6 12.2 6.1 8.6 8.5 11 10.6 8.9 13.4 11.7" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <button
+          type="button"
           className="compose__send"
           aria-label={t('overlay.send')}
-          title={t('overlay.send')}
-          disabled={!draft.trim()}
+          disabled={!draft.trim() && attachments.length === 0}
           onClick={send}
         >
           <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
@@ -2034,7 +2094,6 @@ function InlineText({ text }: { text: string }) {
  * coming is what lets you chain on without the pause of reading.
  */
 function Teleprompter({ text }: { text: string }) {
-  const t = useT();
   const lines = toLines(text);
   const [at, setAt] = useState(0);
 
@@ -2057,7 +2116,6 @@ function Teleprompter({ text }: { text: string }) {
       data-interactive
       role="button"
       tabIndex={-1}
-      title={t('overlay.prompterHint')}
       onClick={() => move(1)}
       onContextMenu={(event) => {
         // Right-click to go back: it's the shortest gesture there is to correct
@@ -2111,9 +2169,9 @@ function CopyAnswerButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      className="section__copy"
+      className="section__copy tip tip--up tip--end"
       data-interactive
-      title={t('overlay.copyAnswer')}
+      data-tip={t('overlay.copyAnswer')}
       onClick={copy}
     >
       {copied === 'sí'
@@ -2251,9 +2309,9 @@ function AnswerNav({
     <div className="nav" data-interactive>
       <button
         type="button"
-        className="nav__btn"
+        className="nav__btn tip tip--up tip--start"
         disabled={index === 0}
-        title={t('overlay.prevAnswer')}
+        data-tip={t('overlay.prevAnswer')}
         aria-label={t('overlay.prevAnswer')}
         onClick={() => onGo(index - 1)}
       >
@@ -2264,9 +2322,9 @@ function AnswerNav({
       </span>
       <button
         type="button"
-        className="nav__btn"
+        className="nav__btn tip tip--up tip--start"
         disabled={index === total - 1}
-        title={t('overlay.nextAnswer')}
+        data-tip={t('overlay.nextAnswer')}
         aria-label={t('overlay.nextAnswer')}
         onClick={() => onGo(index + 1)}
       >
@@ -2318,9 +2376,9 @@ function ScrollChip({ state }: { state: ScrollCaptureState }) {
           </button>
           <button
             type="button"
-            className="scrollchip__x"
+            className="scrollchip__x tip tip--up tip--end"
             aria-label={t('scroll.clear')}
-            title={t('scroll.clear')}
+            data-tip={t('scroll.clear')}
             onClick={() => void window.api.scrollCapture.clear()}
           >
             ✕
@@ -2350,9 +2408,9 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
   return (
     <button
       type="button"
-      className={`memory${turns >= max ? ' memory--full' : ''}`}
+      className={`memory tip tip--up tip--end${turns >= max ? ' memory--full' : ''}`}
       data-interactive
-      title={t('overlay.memoryTitle', { turns, max })}
+      data-tip={t('overlay.memoryTitle', { turns, max })}
       onClick={() => {
         // Marked BEFORE calling, and not in the `.then`. Clearing the memory
         // leaves the counter at zero, and with zero the chip isn't drawn: by
@@ -2807,7 +2865,7 @@ export function OverlayApp() {
                   </div>
                   <ComposePane
                     skills={skills}
-                    onSend={(text) => void window.api.ask.withText(text)}
+                    onSend={(text, images) => void window.api.ask.withText(text, images)}
                     solveHotkey={
                       settings ? formatAccelerator(activeHotkeys(settings).solveOnScreen) : ''
                     }
@@ -2852,20 +2910,7 @@ export function OverlayApp() {
             providers it's easy to believe you're on one and be on another.
           */}
               {settings && (
-                <span
-                  className="section__meta"
-                  title={
-                    // With a dedicated model for the screen, knowing which one
-                    // answered stops being obvious: the label follows the answer
-                    // in front of you, not the settings.
-                    answer
-                      ? t('overlay.generatedBy', {
-                          provider: answer.providerId,
-                          model: answer.model,
-                        })
-                      : t('overlay.answeringWith', { model: settings.llmProviderId })
-                  }
-                >
+                <span className="section__meta">
                   {answer?.model ||
                     settings.llmModels[settings.llmProviderId] ||
                     settings.llmProviderId}
@@ -2901,9 +2946,9 @@ export function OverlayApp() {
                 viewing === null && (
                   <button
                     type="button"
-                    className="section__continue"
+                    className="section__continue tip tip--up tip--end"
                     data-interactive
-                    title={t('overlay.continueHint')}
+                    data-tip={t('overlay.continueHint')}
                     onClick={() => void window.api.ask.continue()}
                   >
                     {t('overlay.continue')}

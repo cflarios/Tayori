@@ -7,6 +7,7 @@ import { IPC } from '@shared/ipc';
 import { alignAutoTrigger } from '@shared/types';
 import { renderModelGuide } from '@shared/model-guide';
 import type {
+  ImageAttachment,
   LLMProviderId,
   MqttStatus,
   PhoneMirrorStatus,
@@ -308,7 +309,9 @@ function registerIpcHandlers(): void {
 
   // ── Answers ──
   ipcMain.handle(IPC.askNow, () => sessionOrchestrator.ask('hotkey'));
-  ipcMain.handle(IPC.askWithText, (_e, text: string) => sessionOrchestrator.askWithText(text));
+  ipcMain.handle(IPC.askWithText, (_e, text: string, images: ImageAttachment[] = []) =>
+    sessionOrchestrator.askWithText(text, images)
+  );
   ipcMain.handle(IPC.askAbort, () => sessionOrchestrator.abortAnswer());
   ipcMain.handle(IPC.askSolveScreen, (_e, task: ScreenTask = 'code') =>
     sessionOrchestrator.solveOnScreen(task)
@@ -331,11 +334,23 @@ function registerIpcHandlers(): void {
     }
     return image;
   });
+  // Manual capture for the write tab: just returns the image. The renderer holds
+  // the attachment list and hands it to `askWithText` on send, so nothing is
+  // attached or shown until the user chooses to send.
+  ipcMain.handle(IPC.screenshotGrab, () => captureScreen());
 
   // ── Clipboard ──
   // Lives in main because in the overlay there's no alternative: see `IPC.clipboardWrite`.
   ipcMain.handle(IPC.clipboardWrite, (_e, text: string) => {
     clipboard.writeText(text);
+  });
+  ipcMain.handle(IPC.clipboardReadImage, (): ImageAttachment | null => {
+    const img = clipboard.readImage();
+    if (img.isEmpty()) return null;
+    // Scale to the same cap as a screenshot for cost parity, then JPEG.
+    const { width } = img.getSize();
+    const scaled = width > 1600 ? img.resize({ width: 1600 }) : img;
+    return { mime: 'image/jpeg', base64: scaled.toJPEG(80).toString('base64') };
   });
 
   // ── Conversation history ──

@@ -144,6 +144,7 @@ const api = {
    */
   clipboard: {
     write: (text: string): Promise<void> => ipcRenderer.invoke(IPC.clipboardWrite, text),
+    readImage: (): Promise<ImageAttachment | null> => ipcRenderer.invoke(IPC.clipboardReadImage),
   },
 
   /**
@@ -238,7 +239,8 @@ const api = {
 
   ask: {
     now: (): Promise<void> => ipcRenderer.invoke(IPC.askNow),
-    withText: (text: string): Promise<void> => ipcRenderer.invoke(IPC.askWithText, text),
+    withText: (text: string, images: ImageAttachment[] = []): Promise<void> =>
+      ipcRenderer.invoke(IPC.askWithText, text, images),
     abort: (): Promise<void> => ipcRenderer.invoke(IPC.askAbort),
     /** Captures the screen and solves whatever is on it: code or quiz. */
     solveOnScreen: (task: ScreenTask = 'code'): Promise<void> =>
@@ -253,6 +255,7 @@ const api = {
 
   screenshot: {
     take: (): Promise<ImageAttachment | null> => ipcRenderer.invoke(IPC.screenshotTake),
+    grab: (): Promise<ImageAttachment | null> => ipcRenderer.invoke(IPC.screenshotGrab),
     onCaptured: (cb: (img: ImageAttachment) => void) =>
       subscribe<ImageAttachment>(IPC.onScreenshot, cb),
   },

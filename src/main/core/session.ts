@@ -439,8 +439,13 @@ class SessionOrchestrator {
    * lose the first word and the model would answer a different question with
    * nothing to say so.
    */
-  askWithText(text: string): Promise<void> {
+  askWithText(text: string, images: ImageAttachment[] = []): Promise<void> {
     const { skillId, text: question } = parseSkillInvocation(text, listSkills());
+    // Manually attached screenshots ride with the typed question. Unlike the
+    // screen actions —which capture and answer in one shot— these are chosen by
+    // the user in the write tab, so they arrive already picked; pushing them onto
+    // the pending queue is all it takes for `ask` to consume them like any capture.
+    for (const image of images) this.answers.attachImage(image);
     return this.answers.ask('manual-input', question, skillId);
   }
 

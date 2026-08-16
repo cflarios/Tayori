@@ -79,6 +79,9 @@ export const IPC = {
   memoryGet: 'memory:get',
 
   screenshotTake: 'screenshot:take',
+  // Pure capture for the write tab: returns the image WITHOUT attaching it to the
+  // session or broadcasting, so the renderer owns the manual attachment list.
+  screenshotGrab: 'screenshot:grab',
 
   /**
    * Copy text to the clipboard, from the main process.
@@ -91,6 +94,14 @@ export const IPC = {
    * the two restrictions.
    */
   clipboardWrite: 'clipboard:write',
+  /**
+   * Read an image off the clipboard, for pasting a screenshot into the write tab.
+   * Same reason it's in main as the write above: `navigator.clipboard` and the
+   * renderer's paste event don't get the image in a `focusable: false` overlay
+   * (verified: a Win+Shift+S capture never reached the paste handler). Electron's
+   * `clipboard.readImage()` reads it directly.
+   */
+  clipboardReadImage: 'clipboard:read-image',
 
   conversationNew: 'conversation:new',
   historyList: 'history:list',

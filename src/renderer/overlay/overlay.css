@@ -69,6 +69,11 @@ body {
 
   display: flex;
   flex-direction: column;
+  /* `cursor` is inherited, so the default set here reaches all the text —
+     answers, transcript, chat bubbles — which would otherwise show the I-beam
+     over its selectable content. Buttons and the write field keep their own
+     rules; nothing in the overlay changes the cursor from the plain arrow. */
+  cursor: default;
   /* A small margin leaves room for the "detectable" frame to sit outside the
      panel. Since the window is transparent, that gap isn't seen when stealth is
      active. */
@@ -430,17 +435,15 @@ body {
   flex-shrink: 0;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  /*
-   * The drag is implemented in JS (useOverlayDrag + setPosition from the main
-   * process), not with `-webkit-app-region: drag`: that property doesn't work
-   * with `focusable: false`, and we can't give that up because stealing the video
-   * call's focus is what gives the assistant away.
-   */
-  cursor: grab;
 }
 
-.statusbar:active {
-  cursor: grabbing;
+/* The whole overlay keeps the default cursor — no clickable hand anywhere — so it
+   reads as a passive strip you glance at, not an app you poke at. Every control is
+   a `<button>`, so this covers them all; the write field sets its own default
+   too (see `.compose__input`). The `.panel` prefix outweighs each control's own
+   `cursor: pointer` regardless of order. */
+.panel button {
+  cursor: default;
 }
 
 /*
@@ -843,6 +846,69 @@ body {
 
 .draghandle:hover {
   color: #8b9096;
+}
+
+/*
+ * In-panel tooltips for the bar's icon buttons. A native `title` tooltip renders
+ * in the OS's own layer, which sits BELOW the overlay's `screen-saver` topmost
+ * level — so it appeared behind the panel, unreadable. This one is a pseudo-element
+ * in the panel's own DOM (at the panel's z), so it's always in front. It reads
+ * `data-tip`, NOT `title`, precisely so the native tooltip doesn't ALSO fire and
+ * double up. It's anchored BELOW the control and to an edge so it never spills off
+ * the narrow bar.
+ */
+.tip {
+  position: relative;
+}
+
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  white-space: nowrap;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: #dfe2e6;
+  background: #1b1e25;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 3px 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms ease 250ms;
+}
+
+.tip:hover::after {
+  opacity: 1;
+}
+
+/* A dropdown's own tooltip would float over its open menu; drop it while open. */
+.tip[aria-expanded='true']::after {
+  display: none;
+}
+
+/* Right-side controls anchor their tooltip's right edge; left-side ones the left,
+   so a wide label never runs off the panel. */
+.tip--end::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.tip--start::after {
+  left: 0;
+  transform: none;
+}
+
+/* Controls low in the panel (the answer header, the footer, code blocks) point
+   their tooltip UP, so it doesn't spill off the panel's bottom edge. */
+.tip--up::after {
+  top: auto;
+  bottom: calc(100% + 7px);
 }
 
 /*
@@ -1591,16 +1657,20 @@ body {
      just typed. */
   user-select: text;
   resize: none;
+  /* Default cursor, not the text I-beam: the overlay keeps the same cursor
+     everywhere, and you can still click in and type. */
+  cursor: default;
   display: block;
   width: 100%;
   /* One row when empty; JS grows it with the content up to the cap, then it
-     scrolls. Room on the right clears the docked send button. */
+     scrolls. The side padding clears the docked buttons: attach on the left,
+     send on the right. */
   min-height: 40px;
   max-height: 148px;
   /* Default hidden; the auto-grow effect flips it to `auto` only once the text
      passes the cap, so no stray scrollbar shows on a short input. */
   overflow-y: hidden;
-  padding: 10px 44px 10px 12px;
+  padding: 10px 44px 10px 40px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1650,6 +1720,78 @@ body {
 .compose__send:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* Attach a screenshot: docked bottom-left, opposite the send button. Quiet
+   (transparent, faint) so it doesn't compete with the accent send. */
+.compose__attach {
+  position: absolute;
+  left: 7px;
+  bottom: 7px;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  color: #8b9096;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.compose__attach:hover {
+  color: #e2e5e9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Attached screenshots, a strip of thumbnails above the input. */
+.compose__shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.compose__shot {
+  position: relative;
+  width: 58px;
+  height: 40px;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.compose__shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.compose__shot__x {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.compose__shot__x:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.compose__shot__x svg {
+  width: 9px;
+  height: 9px;
 }
 
 .compose__hint {

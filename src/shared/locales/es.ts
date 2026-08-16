@@ -24,7 +24,6 @@ export const es: Record<UIKey, string> = {
   'overlay.sourceMeHint': 'Sólo tu micrófono',
   'overlay.sourceThemHint': 'Sólo la salida del sistema: la voz del interlocutor',
   'overlay.sourceBothHint': 'Tu micrófono y la salida del sistema',
-  'overlay.sourceMuteSuffix': ': pedido pero NO se abrió. Revisa el dispositivo o los permisos.',
 
   'overlay.visible': 'El overlay SÍ aparece al compartir pantalla',
   'overlay.visShown': 'Visible',
@@ -85,6 +84,7 @@ export const es: Record<UIKey, string> = {
   'overlay.tipListen': 'Pulsa «Escucha» para seguir la conversación.',
   'overlay.tipSolve': 'Resuelve lo que haya en tu pantalla.',
   'overlay.dragMove': 'Arrastra para mover',
+  'overlay.attachShot': 'Adjuntar captura',
 
   'overlay.skipFiller':
     'Te escucho, pero un saludo o una prueba de sonido no dispara respuesta. Prueba con una pregunta real.',
@@ -97,7 +97,6 @@ export const es: Record<UIKey, string> = {
   'overlay.codeAction': 'Código',
   'overlay.quizAction': 'Test',
   'overlay.more': 'Más opciones',
-  'overlay.prompterHint': 'Clic para avanzar · clic derecho para retroceder',
   'overlay.code': 'código',
   'overlay.writing': 'escribiendo…',
   'overlay.copied': 'Copiado',
@@ -125,8 +124,6 @@ export const es: Record<UIKey, string> = {
   'overlay.loadingModels': 'Cargando…',
   'overlay.continue': 'Continuar',
   'overlay.continueHint': 'Sigue la solución donde se cortó, sin repetir',
-  'overlay.answeringWith': 'Respondiendo con {model}',
-  'overlay.generatedBy': 'Esta respuesta la generó {provider} · {model}',
   'overlay.emptyIdle':
     'Ctrl+Enter para pedir una respuesta · Ctrl+Alt+C para resolver la pantalla.',
   'overlay.emptyStopped':
