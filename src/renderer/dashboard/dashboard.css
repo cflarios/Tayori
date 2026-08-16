@@ -2528,6 +2528,7 @@ kbd {
 .decoy__grid {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
   margin-top: 16px;
 }
@@ -2536,9 +2537,9 @@ kbd {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  width: 108px;
-  padding: 14px 10px 12px;
+  gap: 8px;
+  width: 92px;
+  padding: 12px 8px 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
@@ -2568,15 +2569,15 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 13px;
+  width: 48px;
+  height: 48px;
+  border-radius: 11px;
   background: rgba(255, 255, 255, 0.05);
 }
 
 .decoy__img {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
 }
 
