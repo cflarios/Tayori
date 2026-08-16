@@ -1,4 +1,5 @@
 import type { BrowserWindow } from 'electron';
+import { settingsStore } from '../config/store';
 
 /**
  * Invisibility to screen capture.
@@ -80,7 +81,10 @@ export function applyStealth(win: BrowserWindow): void {
   // 'screen-saver' is the highest level: it stays over fullscreen windows, which
   // is exactly the case of a maximized video call.
   win.setAlwaysOnTop(true, 'screen-saver');
-  win.setSkipTaskbar(true);
+  // With a decoy set, keep the disguised taskbar entry even while stealthy —
+  // that's what the disguise is FOR (invisible in captures, but an innocent
+  // "Windows Terminal" on the taskbar). Only a bare 'off' decoy hides the entry.
+  win.setSkipTaskbar(settingsStore.get().decoyIcon === 'off');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 }
 

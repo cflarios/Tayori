@@ -75,9 +75,10 @@ export function createOverlay(): BrowserWindow {
     // showInactive, not show: show without stealing focus from the video call.
     win.showInactive();
     // Electron gotcha: on transparent+frameless windows, `skipTaskbar`
-    // sometimes doesn't "catch" until re-applied after showing. Only with stealth
-    // ON; in demo mode (removeStealth) the window is shown on purpose.
-    if (settings.stealthEnabled) win.setSkipTaskbar(true);
+    // sometimes doesn't "catch" until re-applied after showing. Only when the
+    // entry should actually be hidden — stealth ON with no decoy; a decoy keeps
+    // the disguised entry (see applyStealth).
+    if (settings.stealthEnabled && settings.decoyIcon === 'off') win.setSkipTaskbar(true);
   });
 
   overlay.on('closed', () => {
@@ -181,21 +182,24 @@ export function recoverOverlay(): void {
 }
 
 /**
- * Forces the taskbar button to pick up a freshly set icon.
+ * Applies the taskbar entry's presence and refreshes its icon on a decoy change.
  *
- * Windows caches the taskbar button's icon: `setIcon` updates the window itself
- * —title bar, Alt+Tab— at once, but the taskbar entry keeps the old icon until
- * the button is recreated. Toggling `skipTaskbar` off and on recreates it. Only
- * meaningful when the overlay is actually in the taskbar (stealth off); with
- * stealth on there's no button, and the new icon is picked up when stealth is
- * later turned off. This is why changing the decoy used to need a stealth toggle
- * to take effect.
+ * The entry is hidden only when stealth is ON **and** there's no decoy; a decoy
+ * keeps a disguised entry even while stealthy. Windows caches the taskbar
+ * button's icon, so `setIcon` alone updates the window (title bar, Alt+Tab) but
+ * not the taskbar entry until the button is recreated — hence the off/on toggle
+ * when the entry should show. This is why changing the decoy used to need a
+ * stealth toggle to take effect.
  */
 export function refreshOverlayTaskbar(): void {
   const win = getOverlay();
-  if (!win || settingsStore.get().stealthEnabled) return;
+  if (!win) return;
+  const settings = settingsStore.get();
+  const hidden = settings.stealthEnabled && settings.decoyIcon === 'off';
+  // Recreate the button (picks up the new icon) when the entry should show;
+  // otherwise just hide it.
   win.setSkipTaskbar(true);
-  win.setSkipTaskbar(false);
+  if (!hidden) win.setSkipTaskbar(false);
 }
 
 /**
