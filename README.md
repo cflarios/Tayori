@@ -40,6 +40,11 @@ straight to the AI provider you pick — there is **no server in between**.
   (~300 ms) or **Whisper local** (offline, nothing leaves your machine).
 - **Answer suggestions** with Claude, Gemini, ChatGPT, DeepSeek or Ollama,
   streamed as they are generated — in the conversation's language, or one you pin.
+- **Spoken answers.** Optionally read each answer aloud — with the system voices
+  (free, offline), OpenAI, or **Piper** (local neural) — played through the output
+  device you pick.
+- **Pick your devices.** Choose which microphone the capture opens and which
+  output the spoken answers play through, for machines with more than one.
 - **Question detection.** It spots questions aimed at you — even ones disguised
   as statements — and can answer automatically or only on a hotkey.
 - **Invisible mode.** The overlay and dashboard are excluded from screen capture

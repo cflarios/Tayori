@@ -11,6 +11,8 @@ for why it's built this way, [CONTEXT.md](CONTEXT.md).
 - [Guided setup](#guided-setup)
 - [First steps](#first-steps)
 - [Handling the overlay](#handling-the-overlay)
+- [Audio devices](#audio-devices)
+- [Spoken answers](#spoken-answers)
 - [Teleprompter mode](#teleprompter-mode)
 - [Keyboard shortcuts](#keyboard-shortcuts)
 - [The screen actions](#the-screen-actions)
@@ -125,17 +127,21 @@ Everything you use mid-call is in the top bar, without opening the settings:
   from one state to another). Code and quiz also have hotkeys (`Ctrl+Alt+C` /
   `Ctrl+Alt+Q`); "Anything else" is menu-only. At size S and in compact mode it
   keeps just the icon.
-- **`⋯`**: everything you do **not** use mid-call — collapse, settings, start
-  over and quit. It went to a menu because it shared space and visual weight with
-  the buttons above, and at size S it no longer fit. The two that can't be undone
-  — new conversation, which wipes the transcript and memory, and quitting the app
-  — sit apart at the end.
+- **`⋯`**: everything you do **not** use mid-call — collapse the panel, settings,
+  and quit. It went to a menu because it shared space and visual weight with the
+  buttons above, and at size S it no longer fit. Quitting the app sits apart at
+  the end.
 - **Profile and model**: the row below the bar. The **profile** picks the shape
   of the answer and the dropdown next to it the **answer model** — both without
   opening the settings. In compact mode they ride in the bar itself.
 - **Listen / Write tabs**: **Listen** follows the call; **Write** is a small chat
-  where you type a question (`/skill` to invoke one) and the exchanges stack as a
-  scrollable thread you can walk back through, like a messaging app.
+  where you type a question (`/skill` to invoke one, `Tab` to complete it) and the
+  exchanges stack as a scrollable thread you can walk back through, like a
+  messaging app. The **+** by the input attaches an image — a fresh screenshot or
+  one from your PC — to send with the question, and each answer has a **copy**
+  button (plus a **speak** button when spoken answers are on). A **new
+  conversation** button sits at the right of the tab row: one click wipes the
+  transcript and memory and starts fresh.
 - **`‹ 2/5 ›`**: in the answer header, to go back to earlier answers without
   opening the history. While you're looking at an old one the quick actions don't
   appear: they say "your last answer" and the last one for the model is its own,
@@ -148,6 +154,40 @@ Everything you use mid-call is in the top bar, without opening the settings:
 The bar buttons work even with *click-through* enabled: the overlay stops
 ignoring the mouse while the cursor is over the bar, and lets it pass again as
 soon as you leave.
+
+## Audio devices
+
+Two independent sources — your microphone and the system output. In *dashboard →
+Audio → Devices* you choose **which microphone** the capture opens and **which
+output** playback uses, for machines with more than one of either.
+
+The microphone applies **immediately**: change it while listening and the streams
+reopen with the new one. The output doesn't change what's captured — the system
+loopback is always the default render mix — it's where the **spoken answers**
+play, and a **Test output** button checks the device before you rely on it.
+
+## Spoken answers
+
+It can read the assistant's answers out loud. Turn it on in *dashboard → Audio →
+Spoken answers*, then pick an **engine**:
+
+- **System voices** (Web Speech) — free, offline, zero download. Uses the OS
+  voices; it always plays on the **default** output (this API has no device
+  routing).
+- **OpenAI** — a more natural cloud voice; reuses your OpenAI key. Plays through
+  the output device you picked.
+- **Piper** — a local neural engine. Choose a voice and **download** it once (the
+  small binary comes along on the first download); it then runs offline and plays
+  through your chosen output.
+
+Set the **voice** and **speed**, and whether to **read new answers
+automatically** — with that off, each answer still has a speak button you press
+for the ones you want. Starting one answer stops any other, and the speak button
+toggles play/stop, so a reading can be cut short.
+
+Privacy-wise, **system voices and Piper are local** — nothing leaves the machine;
+**OpenAI** sends the answer's text to OpenAI to synthesize it, like any cloud
+call.
 
 ## Teleprompter mode
 

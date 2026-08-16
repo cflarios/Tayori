@@ -211,6 +211,13 @@ and the phone update by id, they watch a single solution grow. The partial
 already travels as the assistant's last turn (`remember` put it there), so all
 that's asked is "keep going from where you were cut off, without repeating".
 
+**Reading answers aloud** is an optional layer that doesn't touch this lifecycle.
+With it on, the overlay speaks each finished answer through `overlay/tts.ts`: Web
+Speech runs in the renderer; OpenAI and Piper synthesize in the main process
+(`main/tts/*`) and hand back audio the overlay plays through the chosen output
+device (`setSinkId`). A generation token cancels a stale request, so a new answer
+—or a second click on the speak button— never leaves two clips overlapping.
+
 ---
 
 ## 5. What reaches the model on each query
@@ -491,6 +498,7 @@ npm run typecheck && npm run lint && npm test
 | `main/core/transcript-buffer.ts` | Rolling window of the conversation |
 | `main/capture/audio.ts` | Bridge with the hidden capture window |
 | `main/stt/*` | The three engines and the Whisper assets |
+| `main/tts/*` | Spoken answers: OpenAI (cloud) and Piper (local binary + voice download) |
 | `main/llm/*` | Claude, Gemini, ChatGPT, DeepSeek, Ollama |
 | `main/config/*` | Settings, DPAPI secrets, history |
 | `main/bridge/*` | Outward outputs: phone mirror (HTTP + SSE) and MQTT publishing |
@@ -502,5 +510,6 @@ npm run typecheck && npm run lint && npm test
 | `renderer/audio-worker/pcm-worklet.ts` | Antialias filter and resampling, on the audio thread |
 | `shared/answer-format.ts` | Splits the answer into text and code blocks; used by the overlay and the phone mirror |
 | `renderer/overlay/*` | The floating panel |
+| `renderer/overlay/tts.ts` | Speaks answers aloud (Web Speech, or the audio the main process synthesizes) |
 | `renderer/dashboard/*` | Settings, history, diagnostics |
 | `shared/*` | Types and IPC channels |

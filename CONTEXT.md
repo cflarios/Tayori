@@ -810,6 +810,58 @@ whoever prefers that their answers not leave the machine at all.
   on the hashed name Vite gives assets in production. That forces allowing
   `blob:` in the audio-worker's `script-src` (see §6).
 
+### Choosing the mic and the output device
+
+Both are stored by `deviceId`, empty meaning "the system default". They're
+enumerated in the **dashboard**, not the capture worker: it's the window that
+shows the picker, and the labels come through because the main process already
+grants `media` to our windows, so `enumerateDevices()` returns names without a
+throwaway `getUserMedia`. The list refreshes on `devicechange`, and a device that
+comes back with no label (some drivers) falls back to a numbered name.
+
+The **input** takes effect immediately: the settings handler reopens the streams
+mid-session, the same reflex `audioSources` already had. `getUserMedia` asks for
+it with `deviceId: { exact }`, and if it's gone — unplugged, or a stale id from a
+past session — it retries the default rather than failing the whole capture; a
+missing mic shouldn't take listening down with it.
+
+The **output** doesn't touch capture. The system loopback is always the default
+render mix — `getDisplayMedia` has no knob to loopback a specific device — so the
+picker is there for the spoken answers, which play through it with `setSinkId`.
+The «Test output» button exists so the choice can be checked before there's an
+answer to hear.
+
+### Spoken answers, and the engines that fit an Electron app
+
+Three engines, chosen for how each fits the app's constraints (no native
+bindings, offline where possible, the privacy surfaces kept strict):
+
+- **Web Speech** (`speechSynthesis`) — free, offline, zero download, already in
+  the renderer. Its one limit is that it can't route to a chosen output, so it
+  always plays on the default; that's said in the card, not hidden.
+- **OpenAI** — reuses the key already there; a fetch to `audio/speech` returns
+  audio the renderer plays through the chosen output.
+- **Piper** — the local-neural answer, mirroring the Whisper flow: a precompiled
+  binary and downloadable voices under `userData`, nothing fetched until it's
+  picked. Synthesis spawns the binary per answer (text on stdin, a temp WAV
+  back), and it honors the output device because we hold the audio.
+
+**Kokoro was built and dropped.** Higher quality, but with no clean Windows
+binary the only path was `kokoro-js` in WebAssembly, in a hidden worker with a
+loosened CSP. It bundled and ran, but WASM inference of the 82 M model took
+several seconds per answer — too slow to justify the dependency weight and the
+extra network surface. It lived entirely off `main`, so removing it was deleting
+its files; the rule kept is **Piper for fast local, cloud for quality**.
+
+Two things only looked done. **OpenAI's audio didn't play at first**: the
+renderers' CSP had no `media-src`, so it fell back to `default-src 'self'` and the
+`data:` audio was blocked — `img-src` allowed `data:`, so only playback broke,
+which pointed at the wrong layer until the CSP was read. And a **double click
+stacked overlapping clips with no way to stop them**: synthesis (a cloud
+round-trip, or Piper spawning) is slow enough to click again before the button
+re-renders, so both clicks fired. A generation `token` now invalidates any
+in-flight request, so a second click — or a new answer — bows the earlier one out.
+
 ### DeepSeek: OpenAI-compatible, and blind
 
 Fifth provider, August 2026. Two things make it different from the other four,
