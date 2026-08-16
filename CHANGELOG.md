@@ -7,6 +7,14 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.9.0](https://github.com/cflarios/Tayori/compare/v1.8.0...v1.9.0) (2026-08-16)
+
+
+### Features
+
+* **overlay:** attach/paste screenshots in write, leak-proof tooltips, uniform cursor ([0d08054](https://github.com/cflarios/Tayori/commit/0d080543d5f35dd5241983efd371ccab65814440))
+* **overlay:** drag the window only by a grip handle ([d3b5617](https://github.com/cflarios/Tayori/commit/d3b5617d403935216370085674a444227d9b522b))
+
 ## [1.8.0](https://github.com/cflarios/Tayori/compare/v1.7.0...v1.8.0) (2026-08-16)
 
 
