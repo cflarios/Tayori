@@ -1081,36 +1081,31 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
         </div>
       )}
 
-      <div className="hero">
-        <span className="hero__icon">
-          <Icon name="monitor" size={19} />
-        </span>
-        <div className="hero__text">
-          <div className="hero__title">{t('gen.decoy')}</div>
-          <div className="hero__desc">{t('gen.decoyDesc')}</div>
+      <section className="card">
+        <h2 className="card__title">{t('gen.decoy')}</h2>
+        <p className="card__hint">{t('gen.decoyDesc')}</p>
+        <div className="decoy__grid">
+          {DECOY_ICONS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className={`decoy__opt${settings.decoyIcon === key ? ' decoy__opt--on' : ''}`}
+              onClick={() => void patch({ decoyIcon: key })}
+            >
+              <span className="decoy__thumb">
+                {decoyImgs[key] ? (
+                  <img src={decoyImgs[key]} alt="" className="decoy__img" />
+                ) : (
+                  <span className="decoy__missing">?</span>
+                )}
+              </span>
+              <span className="decoy__label">
+                {key === 'off' ? t('gen.decoyOff') : DECOY_LABEL[key]}
+              </span>
+            </button>
+          ))}
         </div>
-      </div>
-      <div className="decoy__grid">
-        {DECOY_ICONS.map((key) => (
-          <button
-            key={key}
-            type="button"
-            className={`decoy__opt${settings.decoyIcon === key ? ' decoy__opt--on' : ''}`}
-            onClick={() => void patch({ decoyIcon: key })}
-          >
-            <span className="decoy__thumb">
-              {decoyImgs[key] ? (
-                <img src={decoyImgs[key]} alt="" className="decoy__img" />
-              ) : (
-                <span className="decoy__missing">?</span>
-              )}
-            </span>
-            <span className="decoy__label">
-              {key === 'off' ? t('gen.decoyOff') : DECOY_LABEL[key]}
-            </span>
-          </button>
-        ))}
-      </div>
+      </section>
 
       <section className="card">
         <h2 className="card__title">{t('gen.lookTitle')}</h2>

@@ -2529,18 +2529,18 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin: -2px 0 6px;
+  margin-top: 16px;
 }
 
 .decoy__opt {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  width: 98px;
-  padding: 12px 8px;
+  gap: 10px;
+  width: 108px;
+  padding: 14px 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.02);
   color: var(--text-dim);
   font-family: inherit;
@@ -2552,22 +2552,26 @@ kbd {
 }
 
 .decoy__opt:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.22);
   color: var(--text);
 }
 
 .decoy__opt--on {
   border-color: var(--accent);
-  background: rgba(96, 165, 250, 0.12);
+  background: rgba(96, 165, 250, 0.1);
   color: var(--text);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
+/* A rounded app-tile frame around the icon, so each decoy reads like an app. */
 .decoy__thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 56px;
+  height: 56px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .decoy__img {
@@ -2576,18 +2580,11 @@ kbd {
   object-fit: contain;
 }
 
-/* A decoy whose .ico hasn't been added yet: a dashed placeholder, still pickable
+/* A decoy whose .ico hasn't been added yet: a "?" in the frame, still pickable
    (it changes the title even without the icon). */
 .decoy__missing {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: 1px dashed var(--line);
-  border-radius: 8px;
   color: var(--text-faint);
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .decoy__label {
