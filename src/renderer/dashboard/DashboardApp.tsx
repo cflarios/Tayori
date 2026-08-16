@@ -3789,33 +3789,33 @@ function BehaviourCard({
         </select>
       </Row>
 
-      {settings.promptProfileId === 'interpreter' && (
-        <Row icon="globe" label={t('beh.interpreterLangs')} desc={t('beh.interpreterLangsDesc')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <select
-              value={settings.interpreterLangA}
-              onChange={(e) => void patch({ interpreterLangA: e.target.value })}
-            >
-              {INTERPRETER_LANGS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l[settings.uiLanguage]}
-                </option>
-              ))}
-            </select>
-            <span style={{ color: 'var(--text-faint)' }}>⇄</span>
-            <select
-              value={settings.interpreterLangB}
-              onChange={(e) => void patch({ interpreterLangB: e.target.value })}
-            >
-              {INTERPRETER_LANGS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l[settings.uiLanguage]}
-                </option>
-              ))}
-            </select>
-          </div>
-        </Row>
-      )}
+      {/* Interpreter is its own mode now, so its two languages are always
+          configurable here, not only while it's the active profile. */}
+      <Row icon="globe" label={t('beh.interpreterLangs')} desc={t('beh.interpreterLangsDesc')}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <select
+            value={settings.interpreterLangA}
+            onChange={(e) => void patch({ interpreterLangA: e.target.value })}
+          >
+            {INTERPRETER_LANGS.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l[settings.uiLanguage]}
+              </option>
+            ))}
+          </select>
+          <span style={{ color: 'var(--text-faint)' }}>⇄</span>
+          <select
+            value={settings.interpreterLangB}
+            onChange={(e) => void patch({ interpreterLangB: e.target.value })}
+          >
+            {INTERPRETER_LANGS.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l[settings.uiLanguage]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </Row>
 
       {/*
         Shown always, not only with the "Code" profile set: the normal path to
