@@ -7,6 +7,44 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.8.0](https://github.com/cflarios/Tayori/compare/v1.7.0...v1.8.0) (2026-08-16)
+
+
+### Features
+
+* **dashboard:** custom profiles in the same grid, visual decoy picker ([cd88272](https://github.com/cflarios/Tayori/commit/cd88272b4ea0c1f8f9f44ef38ea3e0b9792b94cf))
+* **dashboard:** interpreter languages always configurable ([7e672ec](https://github.com/cflarios/Tayori/commit/7e672ecd45f61023f8720a6562bc63327f172a43))
+* **dashboard:** localize built-in profile prompts by interface language ([b587667](https://github.com/cflarios/Tayori/commit/b58766714196ef1e7584aa9a91ac17ce233bf041))
+* **dashboard:** quit the app from the nav footer ([a9c06e2](https://github.com/cflarios/Tayori/commit/a9c06e2d0274c52df59ef7813977748746e64e32))
+* **overlay:** chat thread in Write, plus compact-bar and input polish ([88e6c9b](https://github.com/cflarios/Tayori/commit/88e6c9bedc3ddf70e3542d395e629ead41578231))
+* **overlay:** cross-provider answer-model picker ([3900a56](https://github.com/cflarios/Tayori/commit/3900a560fc82ffff656f1b0e75e6c7f375e46559))
+* **overlay:** eye toggle left of Solve screen in the bar ([4619327](https://github.com/cflarios/Tayori/commit/4619327a480c04563c31c5d82bc20013031a7c3a))
+* **overlay:** fold audio sources into a split listen control ([5ab3d5a](https://github.com/cflarios/Tayori/commit/5ab3d5ab1120dcbc49ad7875f888926e8e5432c7))
+* **overlay:** input-shaped write launcher in the idle state ([8d8760d](https://github.com/cflarios/Tayori/commit/8d8760daf459bb5f0d2fe8f134e393892987caf3))
+* **overlay:** model dropdown on the profile row, drop speaker from listen caret ([84fef59](https://github.com/cflarios/Tayori/commit/84fef59edfd2d5d044e2a9b7db1c59f1c3d38ee5))
+* **overlay:** profile dropdown and a footer home for Solve screen ([6251abb](https://github.com/cflarios/Tayori/commit/6251abbdf177083fb23fed2bbaa3320ab06057a1))
+* **overlay:** profile dropdown in the compact bar, icon-only visibility toggle ([e99f998](https://github.com/cflarios/Tayori/commit/e99f998aa7b1d921b87f08f4d667fc92183c6ab1))
+* **overlay:** show the question above its answer ([bb3ff94](https://github.com/cflarios/Tayori/commit/bb3ff94bb94359a77de0488669e2669aa0d21226))
+* **overlay:** shrink the window to content in compact mode ([aafc8ec](https://github.com/cflarios/Tayori/commit/aafc8ecdd1073e77597c1945da92ce64a6ba58a1))
+* **overlay:** single-row status bar in compact mode ([f6ddc15](https://github.com/cflarios/Tayori/commit/f6ddc15a7fc17c3bfc4ca056398f530734fbf98f))
+* **overlay:** sonar listening pulse and a clearer quit icon ([4d7d734](https://github.com/cflarios/Tayori/commit/4d7d734115d877d29594eb876778eca4a5d07d9c))
+* **overlay:** visibility toggle in the bar, prettier write field, robust compact fit ([430bb80](https://github.com/cflarios/Tayori/commit/430bb80e6935c04df23692d7361b5daf438b6807))
+* **profiles:** custom profiles get a hide switch too, styled like built-ins ([32280a5](https://github.com/cflarios/Tayori/commit/32280a55cf76efeb3aab757baaad5c90017e90dd))
+* **profiles:** editable built-ins, soft-delete + restore, interpreter as a mode ([8b2d4e8](https://github.com/cflarios/Tayori/commit/8b2d4e888dfbb189085fbcb2fdcbc6fc858fa347))
+* **profiles:** hide built-ins and create your own, from the dashboard ([436359a](https://github.com/cflarios/Tayori/commit/436359a072083daee46913262e24f528178b9f37))
+* **profiles:** remove built-in profiles, not just hide them ([36eb0aa](https://github.com/cflarios/Tayori/commit/36eb0aae650aa45d45bea9b09ffc681d0d938878))
+* **stealth:** decoy taskbar icon and title ([40b1bba](https://github.com/cflarios/Tayori/commit/40b1bbac7bfd5ef46723f10e809fdccbbdd45a17))
+* **stealth:** keep the disguised taskbar entry while stealthy ([165ec30](https://github.com/cflarios/Tayori/commit/165ec306b28d0b4c992c0082e5475831c3aaf9de))
+
+
+### Bug Fixes
+
+* **interpreter:** don't append the pinned-language directive when translating ([d8b4871](https://github.com/cflarios/Tayori/commit/d8b48716632a4a2464afb02baac638ecb9dbece3))
+* **interpreter:** hold weak local models to translating, not answering ([93532c2](https://github.com/cflarios/Tayori/commit/93532c2f20cf74a0ff6c353eb4c8286e2dd3c593))
+* **overlay:** compact window actually shrinks, and its menus aren't clipped ([0328054](https://github.com/cflarios/Tayori/commit/03280543c36867b56ec55476201bb395f037a9bb))
+* **overlay:** question and answer share one scroll region ([2f70f46](https://github.com/cflarios/Tayori/commit/2f70f463146a5f278818a1378cc513a0570e3c01))
+* **stealth:** apply the decoy icon live, without a stealth toggle ([0a44751](https://github.com/cflarios/Tayori/commit/0a44751de0a18b0873a98c46d9c3e78ca6655dc3))
+
 ## [1.7.0](https://github.com/cflarios/Tayori/compare/v1.6.2...v1.7.0) (2026-08-15)
 
 
