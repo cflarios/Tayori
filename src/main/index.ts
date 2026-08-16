@@ -41,7 +41,7 @@ import {
 import { openDashboard } from './windows/dashboard';
 import { setClickThrough, setStealthForAll } from './windows/stealth';
 import { applyDecoyToAll, decoyPreviews } from './windows/decoy';
-import { DEFAULT_PROFILE_PROMPTS } from './core/prompt';
+import { defaultProfilePrompts } from './core/prompt';
 import { registerHotkeys, unregisterHotkeys } from './hotkeys';
 import { audioCapture } from './capture/audio';
 import { captureScreen } from './capture/screenshot';
@@ -240,7 +240,7 @@ function registerIpcHandlers(): void {
 
   // ── Windows ──
   ipcMain.handle(IPC.decoyPreviews, () => decoyPreviews());
-  ipcMain.handle(IPC.profileDefaults, () => DEFAULT_PROFILE_PROMPTS);
+  ipcMain.handle(IPC.profileDefaults, () => defaultProfilePrompts(settingsStore.get().uiLanguage));
   ipcMain.handle(IPC.stealthSet, (_e, enabled: boolean) => {
     settingsStore.update({ stealthEnabled: enabled });
     setStealthForAll(enabled);
