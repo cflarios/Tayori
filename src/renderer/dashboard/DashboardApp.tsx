@@ -169,6 +169,211 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+type SelectOption = { value: string; label: string; disabled?: boolean };
+type SelectGroup = { label: string; options: SelectOption[] };
+
+/**
+ * A themed dropdown that replaces the native `<select>`, whose OS-drawn popup
+ * can't be styled and clashed with the dark UI. Same job — pick one value from a
+ * list — but the menu is ours: dark surface, accent on the active item, keyboard
+ * and click-outside handling. `variant="inline"` is the borderless blue trigger
+ * the Context header uses; the default `box` matches the app's form controls.
+ */
+function Select({
+  value,
+  onChange,
+  options = [],
+  groups = [],
+  placeholder,
+  disabled,
+  ariaLabel,
+  variant = 'box',
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options?: SelectOption[];
+  groups?: SelectGroup[];
+  placeholder?: string;
+  disabled?: boolean;
+  ariaLabel?: string;
+  variant?: 'box' | 'inline';
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const onDown = (e: PointerEvent): void => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown, true);
+    };
+  }, [open]);
+
+  // On opening, move focus to the selected item so arrows and Enter drive it
+  // from the keyboard the way a native select does.
+  useEffect(() => {
+    if (!open) return;
+    const root = rootRef.current;
+    if (!root) return;
+    const sel = root.querySelector<HTMLButtonElement>('.selopt[aria-selected="true"]');
+    (sel ?? root.querySelector<HTMLButtonElement>('.selopt'))?.focus();
+  }, [open]);
+
+  const current = [...options, ...groups.flatMap((g) => g.options)].find((o) => o.value === value);
+  const label = current?.label ?? placeholder ?? value;
+  const pick = (v: string) => (): void => {
+    setOpen(false);
+    onChange(v);
+  };
+
+  const optButton = (o: SelectOption) => {
+    const on = o.value === value;
+    return (
+      <button
+        key={o.value}
+        type="button"
+        role="option"
+        aria-selected={on}
+        disabled={o.disabled}
+        className={`selopt${on ? ' selopt--on' : ''}`}
+        onClick={pick(o.value)}
+      >
+        <span>{o.label}</span>
+        {on && (
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path
+              d="M2.5 6.2 5 8.5 9.5 3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <div className={`sel sel--${variant}`} ref={rootRef}>
+      <button
+        type="button"
+        className={`selbtn selbtn--${variant}${open ? ' selbtn--on' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (!open && e.key === 'ArrowDown') {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        <span className={`selbtn__label${current ? '' : ' selbtn__label--ph'}`}>{label}</span>
+        <svg className="selbtn__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+          <path
+            d="M2 3.5 5 6.5 8 3.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          className="selmenu"
+          role="listbox"
+          onKeyDown={(e) => {
+            const items = Array.from(
+              e.currentTarget.querySelectorAll<HTMLButtonElement>('.selopt:not(:disabled)')
+            );
+            if (!items.length) return;
+            const i = items.indexOf(document.activeElement as HTMLButtonElement);
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              items[(i + 1 + items.length) % items.length]?.focus();
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              items[(i - 1 + items.length) % items.length]?.focus();
+            } else if (e.key === 'Home') {
+              e.preventDefault();
+              items[0]?.focus();
+            } else if (e.key === 'End') {
+              e.preventDefault();
+              items[items.length - 1]?.focus();
+            }
+          }}
+        >
+          {options.map(optButton)}
+          {groups.map((g) => (
+            <div key={g.label} role="group">
+              <div className="selsep">{g.label}</div>
+              {g.options.map(optButton)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The profile picker's shared model: the same options, value encoding and patch
+ * used by both the Behaviour dropdown and the Context header. Customs ride under
+ * `custom:<id>` so a single string value carries any of them.
+ */
+function useProfileSelect(
+  settings: Settings,
+  patch: PatchFn
+): { value: string; options: SelectOption[]; groups: SelectGroup[]; onChange: (v: string) => void } {
+  const t = useT();
+  const builtins = EDITABLE_PROFILES.filter((id) => !settings.deletedProfiles.includes(id));
+  const options: SelectOption[] = [
+    ...builtins.map((id) => ({
+      value: id,
+      label: settings.builtinOverrides[id]?.name || t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom'),
+    })),
+    { value: 'interpreter', label: t('beh.profInterpreter') },
+  ];
+  const groups: SelectGroup[] = settings.customProfiles.length
+    ? [
+        {
+          label: t('beh.profCustomTitle'),
+          options: settings.customProfiles.map((p) => ({
+            value: `custom:${p.id}`,
+            label: p.name || t('beh.profCustom'),
+          })),
+        },
+      ]
+    : [];
+  const value =
+    settings.promptProfileId === 'custom'
+      ? `custom:${settings.activeCustomId}`
+      : settings.promptProfileId;
+  const onChange = (v: string): void => {
+    if (v.startsWith('custom:')) {
+      void patch({ promptProfileId: 'custom', activeCustomId: v.slice('custom:'.length) });
+    } else {
+      void patch({ promptProfileId: v as Settings['promptProfileId'] });
+    }
+  };
+  return { value, options, groups, onChange };
+}
+
 /**
  * Create, edit, hide, remove and restore answer profiles — built-ins and
  * custom alike.
@@ -193,7 +398,7 @@ function ProfileManager({
   const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => {
     void window.api.settings.profileDefaults().then(setDefaults);
-  }, []);
+  }, [settings.uiLanguage]);
 
   // What the overlay picker can offer under a prospective state; a change that
   // would empty it is refused, and the active profile falls back if dropped.
@@ -1165,16 +1370,12 @@ function VisibilityCards({ settings, patch }: { settings: Settings; patch: Patch
       */}
       <section className="card">
         <Row icon="globe" label={t('dash.language')} desc={t('dash.languageDesc')}>
-          <select
+          <Select
+            ariaLabel={t('dash.language')}
             value={settings.uiLanguage}
-            onChange={(e) => void patch({ uiLanguage: e.target.value as UILang })}
-          >
-            {UI_LANGS.map((lang) => (
-              <option key={lang} value={lang}>
-                {UI_LANG_LABEL[lang]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => void patch({ uiLanguage: v as UILang })}
+            options={UI_LANGS.map((lang) => ({ value: lang, label: UI_LANG_LABEL[lang] }))}
+          />
         </Row>
       </section>
 
@@ -1351,14 +1552,16 @@ function AudioSourcesCard({
         label={t('aud.sources')}
         desc={t(AUDIO_SOURCE_HINT[settings.audioSources])}
       >
-        <select
+        <Select
+          ariaLabel={t('aud.sources')}
           value={settings.audioSources}
-          onChange={(e) => void patch({ audioSources: e.target.value as Settings['audioSources'] })}
-        >
-          <option value="both">{t('aud.both')}</option>
-          <option value="system">{t('aud.systemOnly')}</option>
-          <option value="mic">{t('aud.micOnly')}</option>
-        </select>
+          onChange={(v) => void patch({ audioSources: v as Settings['audioSources'] })}
+          options={[
+            { value: 'both', label: t('aud.both') },
+            { value: 'system', label: t('aud.systemOnly') },
+            { value: 'mic', label: t('aud.micOnly') },
+          ]}
+        />
       </Row>
 
       {autoTriggerIsInert(settings) && (
@@ -1842,19 +2045,17 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
           label={t('sk.instruction')}
           desc={active ? t('sk.activeDesc') : t('sk.noneDesc')}
         >
-          <select
+          <Select
+            ariaLabel={t('sk.instruction')}
             value={active ? active.id : ''}
-            onChange={(e) => void patch({ activeSkillId: e.target.value })}
-          >
-            <option value="">{t('sk.none')}</option>
-            {skills
-              .filter((skill) => !skill.error)
-              .map((skill) => (
-                <option key={skill.id} value={skill.id}>
-                  {skillName(t, skill)}
-                </option>
-              ))}
-          </select>
+            onChange={(v) => void patch({ activeSkillId: v })}
+            options={[
+              { value: '', label: t('sk.none') },
+              ...skills
+                .filter((skill) => !skill.error)
+                .map((skill) => ({ value: skill.id, label: skillName(t, skill) })),
+            ]}
+          />
         </Row>
 
         {skills.length === 0 && (
@@ -2191,27 +2392,29 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
       </p>
 
       <Row icon="cpu" label={t('model.provider')} desc={t('screen.providerDesc')}>
-        <select
+        {/* DeepSeek isn't offered: none of its models read images, and this card
+            exists to pick the one that DOES have to read the screen. Offering it
+            would be offering the option that guarantees both buttons fail. It can
+            be typed by hand if they ever release one with vision. */}
+        <Select
+          ariaLabel={t('model.provider')}
           value={provider}
-          onChange={(e) =>
+          onChange={(v) =>
             void patch({
-              screenProviderId: e.target.value as Settings['screenProviderId'],
+              screenProviderId: v as Settings['screenProviderId'],
               // Switching provider invalidates the chosen model: the ids don't
               // resemble each other at all between one provider and the next.
               screenModel: '',
             })
           }
-        >
-          <option value="same">{t('screen.same')}</option>
-          <option value="claude">{t('screen.claude')}</option>
-          <option value="gemini">{t('screen.gemini')}</option>
-          <option value="openai">{t('screen.openai')}</option>
-          {/* DeepSeek isn't here: none of its models read images, and this card
-              exists to pick the one that DOES have to read the screen. Offering it
-              would be offering the option that guarantees both buttons fail. It
-              can be typed by hand if they ever release one with vision. */}
-          <option value="ollama">{t('screen.ollama')}</option>
-        </select>
+          options={[
+            { value: 'same', label: t('screen.same') },
+            { value: 'claude', label: t('screen.claude') },
+            { value: 'gemini', label: t('screen.gemini') },
+            { value: 'openai', label: t('screen.openai') },
+            { value: 'ollama', label: t('screen.ollama') },
+          ]}
+        />
       </Row>
 
       {provider !== 'same' && (
@@ -2948,31 +3151,27 @@ function ModelPicker({
 
   return (
     <div className="modelpick">
-      <select
+      <Select
+        ariaLabel={t('model.model')}
         value={typing ? CUSTOM_MODEL : known ? value : ''}
+        placeholder={models.length === 0 ? t('model.none') : t('model.pick')}
         disabled={models.length === 0 && !allowCustom}
-        onChange={(e) => {
-          if (e.target.value === CUSTOM_MODEL) {
+        onChange={(v) => {
+          if (v === CUSTOM_MODEL) {
             setManual(true);
             return;
           }
           setManual(false);
-          onChange(e.target.value);
+          onChange(v);
         }}
-      >
-        {/* A controlled select ALWAYS needs an option with its value, or the
-            browser paints the first as chosen without firing onChange and the UI
-            lies. It cost a while once. */}
-        {!typing && !known && (
-          <option value="">{models.length === 0 ? t('model.none') : t('model.pick')}</option>
-        )}
-        {models.map((model) => (
-          <option key={model.id} value={model.id}>
-            {model.note ? `${model.label} · ${t(model.note)}` : model.label}
-          </option>
-        ))}
-        {allowCustom && <option value={CUSTOM_MODEL}>{t('model.other')}</option>}
-      </select>
+        options={[
+          ...models.map((model) => ({
+            value: model.id,
+            label: model.note ? `${model.label} · ${t(model.note)}` : model.label,
+          })),
+          ...(allowCustom ? [{ value: CUSTOM_MODEL, label: t('model.other') }] : []),
+        ]}
+      />
 
       {typing && (
         <input
@@ -3163,16 +3362,18 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       <p className="card__hint">{t('model.hint')}</p>
 
       <Row icon="cpu" label={t('model.provider')}>
-        <select
+        <Select
+          ariaLabel={t('model.provider')}
           value={settings.llmProviderId}
-          onChange={(e) => void patch({ llmProviderId: e.target.value as LLMProviderId })}
-        >
-          <option value="claude">Claude (Anthropic)</option>
-          <option value="gemini">Gemini (Google)</option>
-          <option value="openai">ChatGPT (OpenAI)</option>
-          <option value="deepseek">DeepSeek</option>
-          <option value="ollama">{t('mdl.providerOllama')}</option>
-        </select>
+          onChange={(v) => void patch({ llmProviderId: v as LLMProviderId })}
+          options={[
+            { value: 'claude', label: 'Claude (Anthropic)' },
+            { value: 'gemini', label: 'Gemini (Google)' },
+            { value: 'openai', label: 'ChatGPT (OpenAI)' },
+            { value: 'deepseek', label: 'DeepSeek' },
+            { value: 'ollama', label: t('mdl.providerOllama') },
+          ]}
+        />
       </Row>
 
       <Row
@@ -3199,17 +3400,15 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       </Row>
 
       <Row icon="globe" label={t('model.answerLang')} desc={t('model.answerLangDesc')}>
-        <select
+        <Select
+          ariaLabel={t('model.answerLang')}
           value={settings.answerLanguage}
-          onChange={(e) => void patch({ answerLanguage: e.target.value })}
-        >
-          <option value="auto">{t('model.answerLangAuto')}</option>
-          {INTERPRETER_LANGS.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l[settings.uiLanguage]}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => void patch({ answerLanguage: v })}
+          options={[
+            { value: 'auto', label: t('model.answerLangAuto') },
+            ...INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] })),
+          ]}
+        />
       </Row>
 
       <div className="field">
@@ -3230,16 +3429,18 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
       */}
       {(provider === 'ollama' || settings.screenProviderId === 'ollama') && (
         <Row icon="file" label={t('model.ollamaContext')} desc={t('model.ollamaContextDesc')}>
-          <select
-            value={settings.ollamaContextTokens}
-            onChange={(e) => void patch({ ollamaContextTokens: Number(e.target.value) })}
-          >
-            <option value={2048}>{t('model.ctxDefault')}</option>
-            <option value={4096}>4096</option>
-            <option value={8192}>{t('model.ctxRecommended')}</option>
-            <option value={16384}>{t('model.ctxLongCv')}</option>
-            <option value={32768}>{t('model.ctxHeavy')}</option>
-          </select>
+          <Select
+            ariaLabel={t('model.ollamaContext')}
+            value={String(settings.ollamaContextTokens)}
+            onChange={(v) => void patch({ ollamaContextTokens: Number(v) })}
+            options={[
+              { value: '2048', label: t('model.ctxDefault') },
+              { value: '4096', label: '4096' },
+              { value: '8192', label: t('model.ctxRecommended') },
+              { value: '16384', label: t('model.ctxLongCv') },
+              { value: '32768', label: t('model.ctxHeavy') },
+            ]}
+          />
         </Row>
       )}
 
@@ -3412,18 +3613,18 @@ function TranscriptionCard({
           </>
         }
       >
-        <select
+        <Select
+          ariaLabel={t('stt.engine')}
           value={settings.sttProviderId}
-          onChange={(e) =>
-            void patch({ sttProviderId: e.target.value as Settings['sttProviderId'] })
-          }
-        >
-          <option value="openai-live">{t('stt.openaiLive')}</option>
-          <option value="openai-transcribe">{t('stt.openaiTranscribe')}</option>
-          <option value="gemini-live">{t('stt.geminiLive')}</option>
-          <option value="gemini-audio">{t('stt.geminiAudio')}</option>
-          <option value="whisper-local">{t('stt.whisperLocal')}</option>
-        </select>
+          onChange={(v) => void patch({ sttProviderId: v as Settings['sttProviderId'] })}
+          options={[
+            { value: 'openai-live', label: t('stt.openaiLive') },
+            { value: 'openai-transcribe', label: t('stt.openaiTranscribe') },
+            { value: 'gemini-live', label: t('stt.geminiLive') },
+            { value: 'gemini-audio', label: t('stt.geminiAudio') },
+            { value: 'whisper-local', label: t('stt.whisperLocal') },
+          ]}
+        />
       </Row>
 
       {(settings.sttProviderId === 'openai-live' ||
@@ -3445,17 +3646,19 @@ function TranscriptionCard({
       )}
 
       <Row icon="globe" label={t('stt.language')} desc={t('stt.languageDesc')}>
-        <select
+        <Select
+          ariaLabel={t('stt.language')}
           value={settings.language}
-          onChange={(e) => void patch({ language: e.target.value })}
-        >
-          <option value="auto">{t('stt.auto')}</option>
-          <option value="es">{t('stt.langEs')}</option>
-          <option value="en">{t('stt.langEn')}</option>
-          <option value="pt">{t('stt.langPt')}</option>
-          <option value="fr">{t('stt.langFr')}</option>
-          <option value="de">{t('stt.langDe')}</option>
-        </select>
+          onChange={(v) => void patch({ language: v })}
+          options={[
+            { value: 'auto', label: t('stt.auto') },
+            { value: 'es', label: t('stt.langEs') },
+            { value: 'en', label: t('stt.langEn') },
+            { value: 'pt', label: t('stt.langPt') },
+            { value: 'fr', label: t('stt.langFr') },
+            { value: 'de', label: t('stt.langDe') },
+          ]}
+        />
       </Row>
 
       {/*
@@ -3634,19 +3837,20 @@ function BehaviourCard({
   go: (id: SectionId) => void;
 }) {
   const t = useT();
+  const prof = useProfileSelect(settings, patch);
   return (
     <section className="card">
       <Row icon="bolt" label={t('beh.auto')} desc={t('beh.autoDesc')}>
-        <select
+        <Select
+          ariaLabel={t('beh.auto')}
           value={settings.autoTriggerMode}
-          onChange={(e) =>
-            void patch({ autoTriggerMode: e.target.value as Settings['autoTriggerMode'] })
-          }
-        >
-          <option value="off">{t('beh.autoOff')}</option>
-          <option value="heuristic">{t('beh.autoHeuristic')}</option>
-          <option value="heuristic+classifier">{t('beh.autoClassifier')}</option>
-        </select>
+          onChange={(v) => void patch({ autoTriggerMode: v as Settings['autoTriggerMode'] })}
+          options={[
+            { value: 'off', label: t('beh.autoOff') },
+            { value: 'heuristic', label: t('beh.autoHeuristic') },
+            { value: 'heuristic+classifier', label: t('beh.autoClassifier') },
+          ]}
+        />
       </Row>
 
       {settings.autoTriggerMode === 'heuristic+classifier' && (
@@ -3660,18 +3864,18 @@ function BehaviourCard({
       {settings.autoTriggerMode !== 'off' && (
         <>
           <Row icon="mic" label={t('beh.speaker')} desc={t('beh.speakerDesc')}>
-            <select
+            <Select
+              ariaLabel={t('beh.speaker')}
               value={settings.autoTriggerSpeaker}
-              onChange={(e) =>
-                void patch({
-                  autoTriggerSpeaker: e.target.value as Settings['autoTriggerSpeaker'],
-                })
+              onChange={(v) =>
+                void patch({ autoTriggerSpeaker: v as Settings['autoTriggerSpeaker'] })
               }
-            >
-              <option value="them">{t('beh.speakerThem')}</option>
-              <option value="me">{t('beh.speakerMe')}</option>
-              <option value="any">{t('beh.speakerAny')}</option>
-            </select>
+              options={[
+                { value: 'them', label: t('beh.speakerThem') },
+                { value: 'me', label: t('beh.speakerMe') },
+                { value: 'any', label: t('beh.speakerAny') },
+              ]}
+            />
           </Row>
 
           <Row
@@ -3679,18 +3883,18 @@ function BehaviourCard({
             label={t('beh.sensitivity')}
             desc={t(SENSITIVITY_HINT[settings.autoTriggerSensitivity])}
           >
-            <select
+            <Select
+              ariaLabel={t('beh.sensitivity')}
               value={settings.autoTriggerSensitivity}
-              onChange={(e) =>
-                void patch({
-                  autoTriggerSensitivity: e.target.value as Settings['autoTriggerSensitivity'],
-                })
+              onChange={(v) =>
+                void patch({ autoTriggerSensitivity: v as Settings['autoTriggerSensitivity'] })
               }
-            >
-              <option value="strict">{t('beh.sensStrict')}</option>
-              <option value="balanced">{t('beh.sensBalanced')}</option>
-              <option value="all">{t('beh.sensAll')}</option>
-            </select>
+              options={[
+                { value: 'strict', label: t('beh.sensStrict') },
+                { value: 'balanced', label: t('beh.sensBalanced') },
+                { value: 'all', label: t('beh.sensAll') },
+              ]}
+            />
           </Row>
 
           {/* The impossible combination gives no symptom: audio arrives, it's
@@ -3755,65 +3959,26 @@ function BehaviourCard({
       </Row>
 
       <Row icon="file" label={t('beh.profile')} desc={t('beh.profileDesc')}>
-        <select
-          value={
-            settings.promptProfileId === 'custom'
-              ? `custom:${settings.activeCustomId}`
-              : settings.promptProfileId
-          }
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v.startsWith('custom:')) {
-              void patch({ promptProfileId: 'custom', activeCustomId: v.slice('custom:'.length) });
-            } else {
-              void patch({ promptProfileId: v as Settings['promptProfileId'] });
-            }
-          }}
-        >
-          {EDITABLE_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => (
-            <option key={id} value={id}>
-              {settings.builtinOverrides[id]?.name || t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}
-            </option>
-          ))}
-          <option value="interpreter">{t('beh.profInterpreter')}</option>
-          {/* User profiles all live under `custom`; the id rides in the value. */}
-          {settings.customProfiles.length > 0 && (
-            <optgroup label={t('beh.profCustomTitle')}>
-              {settings.customProfiles.map((p) => (
-                <option key={p.id} value={`custom:${p.id}`}>
-                  {p.name || t('beh.profCustom')}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
+        <Select ariaLabel={t('beh.profile')} {...prof} />
       </Row>
 
       {/* Interpreter is its own mode now, so its two languages are always
           configurable here, not only while it's the active profile. */}
       <Row icon="globe" label={t('beh.interpreterLangs')} desc={t('beh.interpreterLangsDesc')}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <select
+          <Select
+            ariaLabel={t('beh.interpreterLangs')}
             value={settings.interpreterLangA}
-            onChange={(e) => void patch({ interpreterLangA: e.target.value })}
-          >
-            {INTERPRETER_LANGS.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l[settings.uiLanguage]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => void patch({ interpreterLangA: v })}
+            options={INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
+          />
           <span style={{ color: 'var(--text-faint)' }}>⇄</span>
-          <select
+          <Select
+            ariaLabel={t('beh.interpreterLangs')}
             value={settings.interpreterLangB}
-            onChange={(e) => void patch({ interpreterLangB: e.target.value })}
-          >
-            {INTERPRETER_LANGS.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l[settings.uiLanguage]}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => void patch({ interpreterLangB: v })}
+            options={INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
+          />
         </div>
       </Row>
 
@@ -3842,15 +4007,15 @@ function BehaviourCard({
           settings.scrollCaptureMode === 'auto' ? 'scroll.autoHint' : 'scroll.manualHint'
         )}`}
       >
-        <select
+        <Select
+          ariaLabel={t('scroll.title')}
           value={settings.scrollCaptureMode}
-          onChange={(e) =>
-            void patch({ scrollCaptureMode: e.target.value as Settings['scrollCaptureMode'] })
-          }
-        >
-          <option value="manual">{t('scroll.manual')}</option>
-          <option value="auto">{t('scroll.auto')}</option>
-        </select>
+          onChange={(v) => void patch({ scrollCaptureMode: v as Settings['scrollCaptureMode'] })}
+          options={[
+            { value: 'manual', label: t('scroll.manual') },
+            { value: 'auto', label: t('scroll.auto') },
+          ]}
+        />
       </Row>
 
       <ProfileManager settings={settings} patch={patch} />
@@ -3924,6 +4089,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const packs = settings.contextPacks;
   const profile = settings.promptProfileId;
   const slots = PROFILE_SLOTS[profile];
+  const prof = useProfileSelect(settings, patch);
 
   // Which tile is open in the editor: a profile slot (by kind) or an own pack
   // (by id). `null` = just the grid.
@@ -4001,7 +4167,9 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
     <section className="card">
       <div className="ctxbar ctxbar--first">
         <span className="ctxbar__label">{t('ctx.preparingFor')}</span>
-        <strong className="ctxbar__profile">{t(PROFILE_LABEL[profile])}</strong>
+        {/* The active profile is switchable right here: preparing context for
+            another profile shouldn't mean a trip to the overlay and back. */}
+        <Select variant="inline" ariaLabel={t('ctx.preparingFor')} {...prof} />
         <span className="ctxbar__spacer" />
         <span className="ctxbar__active">
           {activeNow.length
@@ -4068,16 +4236,14 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
               value={editing.name}
               onChange={(e) => update(editing.id, { name: e.target.value })}
             />
-            <select
+            <Select
               value={editing.kind}
-              onChange={(e) => update(editing.id, { kind: e.target.value as ContextKind })}
-            >
-              {(Object.keys(CONTEXT_KIND_KEY) as ContextKind[]).map((k) => (
-                <option key={k} value={k}>
-                  {t(CONTEXT_KIND_KEY[k])}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => update(editing.id, { kind: v as ContextKind })}
+              options={(Object.keys(CONTEXT_KIND_KEY) as ContextKind[]).map((k) => ({
+                value: k,
+                label: t(CONTEXT_KIND_KEY[k]),
+              }))}
+            />
             <Switch on={editing.enabled} onChange={(v) => update(editing.id, { enabled: v })} />
             <span className="ctxbar__spacer" />
             <button className="btn btn--danger" onClick={() => remove(editing.id)}>

@@ -1294,9 +1294,183 @@ button.btn--primary:hover:not(:disabled) {
   color: var(--text-faint);
 }
 
-.ctxbar__profile {
+/* Themed dropdown (the `Select` component) that replaces every native <select>,
+   whose OS-drawn popup can't be styled to match the dark UI. Two triggers share
+   one popup: `--box` matches the app's form controls, `--inline` is the
+   borderless blue label the Context header uses. The popup takes the same
+   surface, border and accent as the rest of the dashboard. */
+.sel {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.selbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  appearance: none;
+  font: inherit;
   font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.selbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.selbtn__label {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selbtn__label--ph {
+  color: var(--text-faint);
+}
+
+.selbtn__caret {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.selbtn--on .selbtn__caret {
+  transform: rotate(180deg);
+}
+
+/* Box trigger: same border, fill and radius as the app's inputs. */
+.selbtn--box {
+  min-width: 128px;
+  max-width: 100%;
+  justify-content: space-between;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  padding: 8px 10px;
+}
+
+.selbtn--box .selbtn__label {
+  flex: 1;
+}
+
+.selbtn--box:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.selbtn--box.selbtn--on {
+  border-color: var(--accent);
+}
+
+.selbtn--box:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
+}
+
+/* Inline trigger: the light-blue header label it replaced. */
+.selbtn--inline {
+  gap: 4px;
   color: #93c5fd;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-left: -6px;
+  font-weight: 600;
+}
+
+.selbtn--inline:hover,
+.selbtn--inline.selbtn--on {
+  background: rgba(147, 197, 253, 0.12);
+}
+
+.selbtn--inline:focus-visible {
+  outline: 1px solid rgba(147, 197, 253, 0.6);
+}
+
+.selmenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 100%;
+  max-width: 360px;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+/* Box selects sit at the right edge of their row, so a menu wider than the
+   trigger has to grow leftward — anchored left it runs off the app. Inline (the
+   Context header, on the left) keeps growing rightward. */
+.sel--box .selmenu {
+  left: auto;
+  right: 0;
+}
+
+.selopt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.selopt svg {
+  flex-shrink: 0;
+}
+
+.selopt:focus {
+  outline: none;
+}
+
+.selopt:hover:not(:disabled),
+.selopt:focus-visible {
+  background: var(--surface);
+}
+
+.selopt--on {
+  color: var(--accent);
+}
+
+.selopt--on:hover:not(:disabled),
+.selopt--on:focus-visible {
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.selopt:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.selsep {
+  padding: 8px 9px 4px;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 .ctxbar__spacer {
