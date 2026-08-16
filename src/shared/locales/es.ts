@@ -80,8 +80,7 @@ export const es: Record<UIKey, string> = {
   'overlay.composePlaceholder': 'Escribe tu pregunta y pulsa Enter… · /skill para invocar una',
   'overlay.composeHint': 'Enter envía · Shift+Enter salta línea',
   'overlay.send': 'Enviar',
-  'overlay.composeWarn':
-    'Mientras esta pestaña esté abierta el overlay toma el foco del teclado. Vuelve a «Escucha» antes de compartir pantalla.',
+  'overlay.composeWarn': 'Escribir toma el foco del teclado — vuelve a «Escucha» antes de compartir pantalla.',
 
   'overlay.skipFiller':
     'Te escucho, pero un saludo o una prueba de sonido no dispara respuesta. Prueba con una pregunta real.',

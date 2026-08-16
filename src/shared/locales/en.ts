@@ -97,8 +97,7 @@ export const en = {
   'overlay.composePlaceholder': 'Type your question and press Enter… · /skill to invoke one',
   'overlay.composeHint': 'Enter sends · Shift+Enter adds a line',
   'overlay.send': 'Send',
-  'overlay.composeWarn':
-    'While this tab is open the overlay takes keyboard focus. Go back to «Listen» before sharing your screen.',
+  'overlay.composeWarn': 'Writing takes keyboard focus — back to «Listen» before sharing your screen.',
 
   'overlay.skipFiller':
     "I can hear you, but a greeting or a sound check doesn't trigger an answer. Try a real question.",
