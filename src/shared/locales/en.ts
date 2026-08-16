@@ -646,6 +646,19 @@ export const en = {
   'aud.both': 'Microphone and system output',
   'aud.systemOnly': 'System output only',
   'aud.micOnly': 'Microphone only',
+  'aud.devicesTitle': 'Devices',
+  'aud.devicesHint':
+    'Which microphone the app records and which output plays sound. Handy when you have more than one of either.',
+  'aud.inputLabel': 'Microphone (input)',
+  'aud.inputHint': 'The input the capture opens. Changing it re-opens the mic if it is already listening.',
+  'aud.outputLabel': 'Output',
+  'aud.outputHint':
+    'Where the app plays sound. It does not change what is captured; it is where spoken answers (coming soon) will play.',
+  'aud.deviceDefault': 'System default',
+  'aud.inputFallback': 'Microphone {n}',
+  'aud.outputFallback': 'Output {n}',
+  'aud.testOutput': 'Test output',
+  'aud.testing': 'Playing…',
   'aud.inertWarn':
     'With this combination **no automatic answer will fire**: the trigger is waiting for {wanted} and that source is not opened here.',
   'aud.seeTrigger': 'See the automatic trigger',

@@ -1229,6 +1229,7 @@ export function DashboardApp() {
                 {section === 'audio' && (
                   <>
                     <CaptureCard status={status} levels={levels} />
+                    <AudioDevicesCard settings={settings} patch={patch} />
                     <AudioSourcesCard settings={settings} patch={patch} go={go} />
                   </>
                 )}
@@ -1574,6 +1575,150 @@ function AudioSourcesCard({
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+// ──────────────────────────── Audio · devices ────────────────────────────
+
+/**
+ * Enumerates audio input/output devices and refreshes on hardware changes.
+ *
+ * Runs in the dashboard —not the capture worker— because this is the window that
+ * shows the pickers. Labels come through because the main process grants `media`
+ * to our windows (see `registerPermissionHandlers`); when one arrives empty
+ * (some drivers do), the card falls back to a numbered name.
+ */
+function useAudioDevices(): { inputs: MediaDeviceInfo[]; outputs: MediaDeviceInfo[] } {
+  const [inputs, setInputs] = useState<MediaDeviceInfo[]>([]);
+  const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
+
+  useEffect(() => {
+    const md = navigator.mediaDevices;
+    if (!md?.enumerateDevices) return;
+    const refresh = (): void => {
+      void md.enumerateDevices().then((devices) => {
+        // 'default'/'communications' are Windows aliases of a real device also in
+        // the list; dropping them avoids duplicate rows — our own "system
+        // default" option already covers "follow the OS".
+        const real = devices.filter(
+          (d) => d.deviceId !== 'default' && d.deviceId !== 'communications'
+        );
+        setInputs(real.filter((d) => d.kind === 'audioinput'));
+        setOutputs(real.filter((d) => d.kind === 'audiooutput'));
+      });
+    };
+    refresh();
+    md.addEventListener('devicechange', refresh);
+    return () => md.removeEventListener('devicechange', refresh);
+  }, []);
+
+  return { inputs, outputs };
+}
+
+/**
+ * Plays a short tone through a specific output, so the pick can be checked now,
+ * before TTS exists to use it. `setSinkId` routes a WebAudio graph to a chosen
+ * device via a hidden `<audio>` element; with `''` it plays on the default.
+ */
+async function playTestTone(deviceId: string): Promise<void> {
+  const ctx = new AudioContext();
+  try {
+    const dest = ctx.createMediaStreamDestination();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 660;
+    osc.connect(gain).connect(dest);
+
+    const el = new Audio();
+    el.srcObject = dest.stream;
+    const sinkable = el as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+    if (deviceId && typeof sinkable.setSinkId === 'function') {
+      await sinkable.setSinkId(deviceId).catch(() => undefined);
+    }
+    await el.play();
+
+    // Soft attack and release so it's a blip, not a click (an abrupt gain step
+    // pops the speaker). Can't ramp to 0 with `exponential`, hence 0.0001.
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.22, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+    osc.start(now);
+    osc.stop(now + 0.42);
+    await new Promise<void>((resolve) => {
+      osc.onended = (): void => {
+        el.pause();
+        resolve();
+      };
+    });
+  } finally {
+    await ctx.close().catch(() => undefined);
+  }
+}
+
+/**
+ * Pick which microphone the capture opens and which output playback uses.
+ *
+ * The input takes effect on the capture immediately (the main process reopens
+ * the streams if it's already listening). The output doesn't touch capture —the
+ * system loopback is always the default render mix— it's saved for the spoken
+ * answers (TTS) to play through; the «test» button lets it be verified today.
+ */
+function AudioDevicesCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+  const t = useT();
+  const { inputs, outputs } = useAudioDevices();
+  const [testing, setTesting] = useState(false);
+
+  const inputOptions = [
+    { value: '', label: t('aud.deviceDefault') },
+    ...inputs.map((d, i) => ({
+      value: d.deviceId,
+      label: d.label || t('aud.inputFallback', { n: i + 1 }),
+    })),
+  ];
+  const outputOptions = [
+    { value: '', label: t('aud.deviceDefault') },
+    ...outputs.map((d, i) => ({
+      value: d.deviceId,
+      label: d.label || t('aud.outputFallback', { n: i + 1 }),
+    })),
+  ];
+
+  const test = (): void => {
+    setTesting(true);
+    void playTestTone(settings.outputDeviceId).finally(() => setTesting(false));
+  };
+
+  return (
+    <section className="card">
+      <h2 className="card__title">{t('aud.devicesTitle')}</h2>
+      <p className="card__hint">{t('aud.devicesHint')}</p>
+
+      <Row icon="mic" label={t('aud.inputLabel')} desc={t('aud.inputHint')}>
+        <Select
+          ariaLabel={t('aud.inputLabel')}
+          value={settings.inputDeviceId}
+          onChange={(v) => void patch({ inputDeviceId: v })}
+          options={inputOptions}
+        />
+      </Row>
+
+      <Row icon="speaker" label={t('aud.outputLabel')} desc={t('aud.outputHint')}>
+        <Select
+          ariaLabel={t('aud.outputLabel')}
+          value={settings.outputDeviceId}
+          onChange={(v) => void patch({ outputDeviceId: v })}
+          options={outputOptions}
+        />
+      </Row>
+
+      <div className="field">
+        <button className="btn" disabled={testing} onClick={test}>
+          {testing ? t('aud.testing') : t('aud.testOutput')}
+        </button>
+      </div>
     </section>
   );
 }

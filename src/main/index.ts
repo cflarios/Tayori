@@ -183,19 +183,19 @@ function registerIpcHandlers(): void {
       setOverlaySize(next.overlaySize);
     }
     /*
-     * Changing what's listened to requires reopening the streams.
+     * Changing what's listened to —or which microphone— requires reopening the
+     * streams.
      *
-     * `audioSources` is only read inside `capture.start()`, and the STT engine's
-     * speakers are fixed when transcription starts. Without this, changing the
-     * source mid-session did absolutely nothing: the UI updated, the setting was
-     * saved, and it kept listening to the old thing until someone stopped and
-     * started again by hand.
+     * `audioSources` and `inputDeviceId` are only read inside `capture.start()`,
+     * and the STT engine's speakers are fixed when transcription starts. Without
+     * this, changing either mid-session did absolutely nothing: the UI updated,
+     * the setting was saved, and it kept listening to the old thing until someone
+     * stopped and started again by hand.
      */
-    if (
-      patch.audioSources &&
-      patch.audioSources !== previous.audioSources &&
-      audioCapture.getStatus().state === 'listening'
-    ) {
+    const sourceChanged = patch.audioSources && patch.audioSources !== previous.audioSources;
+    const inputChanged =
+      patch.inputDeviceId !== undefined && patch.inputDeviceId !== previous.inputDeviceId;
+    if ((sourceChanged || inputChanged) && audioCapture.getStatus().state === 'listening') {
       audioCapture.stop();
       void audioCapture.start();
     }

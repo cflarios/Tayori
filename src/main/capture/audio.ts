@@ -137,9 +137,11 @@ class AudioCaptureController extends EventEmitter {
     this.bytesReceived = { me: 0, them: 0 };
     try {
       const worker = await this.ensureWorker();
+      const settings = settingsStore.get();
       const command: CaptureCommand = {
         action: 'start',
-        sources: settingsStore.get().audioSources,
+        sources: settings.audioSources,
+        inputDeviceId: settings.inputDeviceId || undefined,
       };
       worker.webContents.send(IPC.onCaptureCommand, command);
     } catch (err) {

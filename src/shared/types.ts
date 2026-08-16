@@ -599,6 +599,19 @@ export interface Settings {
   /** What's listened to: microphone, system output, or both. */
   audioSources: AudioSourceMode;
 
+  /**
+   * Chosen audio devices, by `MediaDeviceInfo.deviceId`; an empty string means
+   * "the system default".
+   *
+   * `inputDeviceId` picks which microphone the capture opens — the point of it is
+   * the person with more than one input. `outputDeviceId` is where playback
+   * goes; capture doesn't use it (the system loopback is always the default
+   * render mix, that's how loopback works), it's kept for the spoken-answer (TTS)
+   * feature, which will play through it with `HTMLMediaElement.setSinkId`.
+   */
+  inputDeviceId: string;
+  outputDeviceId: string;
+
   autoTriggerMode: AutoTriggerMode;
   /** Who can trigger an automatic answer. */
   autoTriggerSpeaker: AutoTriggerSpeaker;
@@ -1003,6 +1016,8 @@ export const DEFAULT_SETTINGS: Settings = {
   // No factory favorites: the star is set by whoever has a preferred model.
   favoriteLocalModels: [],
   audioSources: 'both',
+  inputDeviceId: '',
+  outputDeviceId: '',
 
   autoTriggerMode: 'heuristic',
   autoTriggerSpeaker: 'them',

@@ -113,24 +113,44 @@ async function captureLoopback(): Promise<MediaStream> {
   return stream;
 }
 
-/** Microphone: what you say. */
-function captureMicrophone(): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      // Disabled on purpose: we don't want the microphone to cancel the audio
-      // from the other side, because we already capture it separately with the
-      // loopback. With cancellation on, the mic would erase part of that signal.
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: true,
-    },
-    video: false,
-  });
+/** Microphone: what you say. `deviceId` picks a specific input; empty = default. */
+async function captureMicrophone(deviceId?: string): Promise<MediaStream> {
+  const audio: MediaTrackConstraints = {
+    // Disabled on purpose: we don't want the microphone to cancel the audio
+    // from the other side, because we already capture it separately with the
+    // loopback. With cancellation on, the mic would erase part of that signal.
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: true,
+  };
+
+  if (!deviceId) {
+    return navigator.mediaDevices.getUserMedia({ audio, video: false });
+  }
+
+  try {
+    // `exact` so it doesn't silently open a different mic than the chosen one.
+    return await navigator.mediaDevices.getUserMedia({
+      audio: { ...audio, deviceId: { exact: deviceId } },
+      video: false,
+    });
+  } catch (err) {
+    // The chosen device is gone (unplugged, or a stale id from a past session):
+    // fall back to the default rather than failing the whole capture. Only for
+    // "not found"/"can't satisfy" errors — a permission denial would fail the
+    // same way on the default and shouldn't be swallowed as if it were retried.
+    const name = err instanceof Error ? err.name : '';
+    if (name === 'OverconstrainedError' || name === 'NotFoundError') {
+      return navigator.mediaDevices.getUserMedia({ audio, video: false });
+    }
+    throw err;
+  }
 }
 
 export async function startCapture(
   sources: 'both' | 'system' | 'mic',
-  callbacks: CaptureCallbacks
+  callbacks: CaptureCallbacks,
+  inputDeviceId?: string
 ): Promise<{ micActive: boolean; loopbackActive: boolean }> {
   await stopCapture();
 
@@ -151,7 +171,7 @@ export async function startCapture(
 
   if (wantsMic) {
     try {
-      const mic = await captureMicrophone();
+      const mic = await captureMicrophone(inputDeviceId);
       lanes.set('me', await buildLane('me', mic, callbacks));
       micActive = true;
     } catch (err) {

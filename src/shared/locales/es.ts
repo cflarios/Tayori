@@ -627,6 +627,19 @@ export const es: Record<UIKey, string> = {
   'aud.both': 'Micrófono y salida del sistema',
   'aud.systemOnly': 'Solo la salida del sistema',
   'aud.micOnly': 'Solo el micrófono',
+  'aud.devicesTitle': 'Dispositivos',
+  'aud.devicesHint':
+    'Qué micrófono graba la app y por qué salida suena. Útil cuando tienes más de uno de cualquiera.',
+  'aud.inputLabel': 'Micrófono (entrada)',
+  'aud.inputHint': 'La entrada que abre la captura. Al cambiarla se reabre el micrófono si ya estaba escuchando.',
+  'aud.outputLabel': 'Salida',
+  'aud.outputHint':
+    'Por dónde suena la app. No cambia lo que se captura; es donde sonarán las respuestas habladas (próximamente).',
+  'aud.deviceDefault': 'Predeterminado del sistema',
+  'aud.inputFallback': 'Micrófono {n}',
+  'aud.outputFallback': 'Salida {n}',
+  'aud.testOutput': 'Probar salida',
+  'aud.testing': 'Sonando…',
   'aud.inertWarn':
     'Con esta combinación **no se disparará ninguna respuesta automática**: el disparo espera a {wanted} y aquí no se abre esa fuente.',
   'aud.seeTrigger': 'Ver el disparo automático',

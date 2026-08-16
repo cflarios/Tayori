@@ -319,6 +319,11 @@ export interface CaptureCommand {
   action: 'start' | 'stop';
   /** Which sources to open. Ignored when `action` is `stop`. */
   sources: 'both' | 'system' | 'mic';
+  /**
+   * Which microphone to open, by `deviceId`. Absent (or empty) opens the system
+   * default. Only meaningful on `start` with a mic source.
+   */
+  inputDeviceId?: string;
 }
 
 /**
