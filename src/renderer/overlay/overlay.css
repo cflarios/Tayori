@@ -379,7 +379,7 @@ body {
  * window taller and taller. Without a cap the auto-fit would keep growing the
  * window up to its 900 px clamp — the opposite of a compact rectangle.
  */
-.panel--compact .answer {
+.panel--compact .answerbody {
   flex: none;
   max-height: 480px;
 }
@@ -1611,15 +1611,28 @@ body {
   color: #c8ccd0;
   user-select: text;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.answer {
+/*
+ * The scroll region for the question + answer together.
+ *
+ * The question used to sit above the answer as a fixed (non-shrinking) block, so
+ * at small sizes it ate the answer's height entirely —you saw the question and
+ * no answer— and the quick actions spilled over the footer. Putting both in one
+ * scrollable box lets the pair scroll instead of stealing space.
+ */
+.answerbody {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.answer {
   font-size: calc(13.5px * var(--font-scale));
   line-height: 1.55;
   color: #f1f3f4;

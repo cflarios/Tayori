@@ -2644,18 +2644,22 @@ export function OverlayApp() {
                   </button>
                 )}
             </div>
-            {/* What was asked, above what came back. Only for a typed or
-                dictated question: the screen actions' canned instruction is
-                noise here. */}
-            {answer && answer.question.trim() && !isScreenTrigger(answer.trigger) && (
-              <QuestionLine text={answer.question} />
-            )}
-            <AnswerPane
-              answer={answer}
-              skip={skip}
-              listening={status.state === 'listening'}
-              teleprompter={settings?.teleprompterEnabled ?? false}
-            />
+            {/* The question and the answer share ONE scroll region, so the
+                question doesn't steal fixed height and collapse the answer at
+                small sizes (which also pushed the quick actions over the
+                footer). Only for a typed or dictated question: the screen
+                actions' canned instruction is noise here. */}
+            <div className="answerbody">
+              {answer && answer.question.trim() && !isScreenTrigger(answer.trigger) && (
+                <QuestionLine text={answer.question} />
+              )}
+              <AnswerPane
+                answer={answer}
+                skip={skip}
+                listening={status.state === 'listening'}
+                teleprompter={settings?.teleprompterEnabled ?? false}
+              />
+            </div>
           </div>
         )}
 
