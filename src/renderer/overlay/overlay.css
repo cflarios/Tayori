@@ -790,9 +790,12 @@ body {
   width: 24px;
   height: 22px;
   padding: 0;
-  border: 1px solid transparent;
+  /* Same quiet pill as Solve screen (`.actionbtn`): a faint border and fill so
+     the three bar actions read as one set. The `--shown` state still paints its
+     own red over this. */
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 6px;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-faint);
   cursor: pointer;
   transition:
@@ -955,9 +958,11 @@ body {
   height: 22px;
   flex-shrink: 0;
   padding: 0;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
+  /* Same quiet pill as Solve screen (`.actionbtn`), so the eye, Solve and ⋯ read
+     as one set of bar actions rather than three different weights. */
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-faint);
   cursor: pointer;
   /* The bar's drag cursor mustn't be inherited on the buttons. */
@@ -1013,6 +1018,47 @@ body {
   flex: 0 0 auto;
   /* Gap between the thread and the input lives outside the scroll region. */
   margin-top: 12px;
+}
+
+/* Empty state for the Write thread: centered in the scroll region until the
+   first message lands. `margin-block: auto` (top from the `:first-child` rule
+   above, bottom here) centers it in the space the conversation will fill. */
+.wexempty {
+  margin-bottom: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 16px 12px;
+  user-select: none;
+}
+
+/* Violet rounded square, matching the Write tab's tip accent (`#a78bfa`). */
+.wexempty__badge {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+}
+
+.wexempty__title {
+  margin: 0;
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 600;
+  color: #e8eaed;
+}
+
+.wexempty__sub {
+  margin: 0;
+  max-width: 210px;
+  font-size: calc(11.5px * var(--font-scale));
+  line-height: 1.45;
+  color: #7c8288;
 }
 
 .section__head {
@@ -1263,7 +1309,8 @@ body {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-dim);
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   transition:
     background 120ms ease,
@@ -1282,6 +1329,14 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The sparkle keeps its own violet tint whatever the label does on hover, so the
+   model reads as "the AI" — a cool accent that sits beside the profile's blue
+   without competing with it. */
+.modelbtn__spark {
+  flex: none;
+  color: #b6a6f5;
 }
 
 .modelbtn__caret {
@@ -1663,14 +1718,14 @@ body {
   display: block;
   width: 100%;
   /* One row when empty; JS grows it with the content up to the cap, then it
-     scrolls. The side padding clears the docked buttons: attach on the left,
+     scrolls. The side padding clears the docked buttons: the «+» on the left,
      send on the right. */
   min-height: 40px;
   max-height: 148px;
   /* Default hidden; the auto-grow effect flips it to `auto` only once the text
      passes the cap, so no stray scrollbar shows on a short input. */
   overflow-y: hidden;
-  padding: 10px 44px 10px 40px;
+  padding: 10px 44px 10px 44px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1722,29 +1777,80 @@ body {
   cursor: default;
 }
 
-/* Attach a screenshot: docked bottom-left, opposite the send button. Quiet
-   (transparent, faint) so it doesn't compete with the accent send. */
-.compose__attach {
+/* The «+» attach control: docked bottom-left, opposite the send button. A
+   bordered quiet square (not an accent) so it reads as a secondary action next
+   to the accent send. */
+.compose__add {
   position: absolute;
   left: 7px;
   bottom: 7px;
+}
+
+.compose__addbtn {
   display: grid;
   place-items: center;
   width: 27px;
   height: 27px;
-  color: #8b9096;
-  background: transparent;
-  border: none;
+  color: #9aa0a6;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 7px;
   cursor: pointer;
   transition:
     color 120ms ease,
-    background 120ms ease;
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
-.compose__attach:hover {
+.compose__addbtn:hover,
+.compose__addbtn--on {
   color: #e2e5e9;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* The two ways to bring an image in, in a popup ABOVE the «+» (the field sits at
+   the foot of the overlay, so a menu below would spill off the bottom). */
+.compose__addmenu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  z-index: 40;
+  min-width: 178px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: #1b1e25;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+/* Bridge the 6 px gap so the cursor doesn't leave `.compose__add` on the way
+   down from the menu to the button and close it mid-move. */
+.compose__addmenu::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 6px;
+}
+
+/* The `/skill` cue, right-aligned inside the field just left of send. Same grey
+   as the placeholder; only rendered on an empty field, so typed text never
+   reaches it. */
+.compose__skillhint {
+  position: absolute;
+  top: 0;
+  right: 44px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: #6b7075;
+  pointer-events: none;
 }
 
 /* Attached screenshots, a strip of thumbnails above the input. */

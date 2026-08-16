@@ -93,7 +93,10 @@ export const en = {
   'overlay.tabListen': 'Listen',
   'overlay.tabWrite': 'Write',
   'overlay.noSkill': 'No skill by that name',
-  'overlay.composePlaceholder': 'Ask anything… · /skill',
+  'overlay.composePlaceholder': 'Ask anything…',
+  'overlay.attach': 'Attach an image',
+  'overlay.writeEmptyTitle': 'Write mode',
+  'overlay.writeEmptySub': 'Ask anything, run a skill, or solve your screen.',
   'overlay.composeHint': 'Enter sends · Shift+Enter adds a line',
   'overlay.send': 'Send',
   'overlay.composeWarn': 'Writing takes keyboard focus — back to «Listen» before sharing your screen.',
@@ -102,6 +105,7 @@ export const en = {
   'overlay.tipSolve': 'Solve whatever is on your screen.',
   'overlay.dragMove': 'Drag to move',
   'overlay.attachShot': 'Attach a screenshot',
+  'overlay.attachFile': 'Attach an image from your computer',
 
   'overlay.skipFiller':
     "I can hear you, but a greeting or a sound check doesn't trigger an answer. Try a real question.",

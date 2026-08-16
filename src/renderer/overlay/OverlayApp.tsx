@@ -1198,6 +1198,16 @@ type ModelGroup = { provider: LLMProviderId; models: ModelInfo[] };
  * on open, and the provider tag guards against a slow response painting a stale
  * list.
  */
+/** The AI sparkle: a big four-point star with a small companion, marking the model. */
+function SparkleIcon() {
+  return (
+    <svg className="modelbtn__spark" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 1.4c.45 2.75 1.4 3.7 4.15 4.15C9.4 5.99 8.45 6.94 8 9.69c-.45-2.75-1.4-3.7-4.15-4.14C6.6 5.1 7.55 4.15 8 1.4Z" fill="currentColor" />
+      <path d="M12.7 9.1c.24 1.42.74 1.92 2.16 2.16-1.42.24-1.92.74-2.16 2.16-.24-1.42-.74-1.92-2.16-2.16 1.42-.24 1.92-.74 2.16-2.16Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 function ModelMenu({ settings }: { settings: Settings }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -1265,6 +1275,7 @@ function ModelMenu({ settings }: { settings: Settings }) {
         data-tip={t('overlay.modelTitle')}
         onClick={() => setOpen((v) => !v)}
       >
+        <SparkleIcon />
         <span className="modelbtn__label">{currentModel}</span>
         <svg className="modelbtn__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
           <path
@@ -1689,6 +1700,27 @@ function WriteExchange({ answer }: { answer: Answer }) {
   );
 }
 
+/**
+ * Empty state for the Write thread: shown in the space the conversation will
+ * fill, while there are no messages yet. It names the mode and what it's for so
+ * the blank panel reads as "ready" rather than broken. Violet to match the
+ * Write tab's tip accent.
+ */
+function WriteEmpty() {
+  const t = useT();
+  return (
+    <div className="wexempty">
+      <div className="wexempty__badge">
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <p className="wexempty__title">{t('overlay.writeEmptyTitle')}</p>
+      <p className="wexempty__sub">{t('overlay.writeEmptySub')}</p>
+    </div>
+  );
+}
+
 function ComposePane({
   skills,
   onSend,
@@ -1715,6 +1747,9 @@ function ComposePane({
   // component remounts on each entry). Closing it clears it for the moment you're
   // reading; sharing your screen later still gets the reminder.
   const [warnOpen, setWarnOpen] = useState(true);
+  // The «+» menu: attach an image off disk or take a screenshot. Both were
+  // separate icons before; folding them under one control keeps the field tidy.
+  const [addOpen, setAddOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // The window is already focusable when this mounts; focusing here saves the
@@ -1722,6 +1757,27 @@ function ComposePane({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Close the «+» menu on Escape, a click outside it, or leaving the window
+  // (which is returning to the call) — the same net the bar menus use.
+  useEffect(() => {
+    if (!addOpen) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setAddOpen(false);
+    };
+    const onDown = (e: PointerEvent): void => {
+      if (!(e.target as Element | null)?.closest('.compose__add')) setAddOpen(false);
+    };
+    const onLeave = (): void => setAddOpen(false);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mouseleave', onLeave);
+    };
+  }, [addOpen]);
 
   // Auto-grow: one line when empty, taller as the text needs it up to a cap, then
   // it scrolls. The field is only ever as tall as what's in it — an empty box the
@@ -1761,6 +1817,15 @@ function ComposePane({
   const capture = (): void => {
     void window.api.screenshot.grab().then((img) => {
       if (img) setAttachments((prev) => [...prev, img]);
+      inputRef.current?.focus();
+    });
+  };
+
+  // Attach images already on disk, through the native file picker. Same landing
+  // spot as a capture: they join the pending list, and focus returns to the input.
+  const attachFiles = (): void => {
+    void window.api.files.pickImages().then((imgs) => {
+      if (imgs.length > 0) setAttachments((prev) => [...prev, ...imgs]);
       inputRef.current?.focus();
     });
   };
@@ -1820,10 +1885,61 @@ function ComposePane({
         </div>
       )}
 
-      {/* The send button lives INSIDE the field, always visible and iconic —
-          the whole point of the compact input is that the control doesn't add a
-          second row that competes with it. The attach button sits opposite it. */}
+      {/* Docked inside the field: the «+» menu bottom-left, the send button
+          bottom-right, always visible and iconic so no control adds a second row
+          that competes with the input. */}
       <div className="compose__field">
+        {/* One «+» for both ways to bring an image in — off disk or a fresh
+            capture — so the field carries a single quiet control, not two. */}
+        <div className="compose__add">
+          <button
+            type="button"
+            className={`compose__addbtn tip tip--up tip--start${addOpen ? ' compose__addbtn--on' : ''}`}
+            data-interactive
+            data-tip={t('overlay.attach')}
+            aria-label={t('overlay.attach')}
+            aria-expanded={addOpen}
+            onClick={() => setAddOpen((v) => !v)}
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M8 3.2v9.6M3.2 8h9.6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+          {addOpen && (
+            <div className="compose__addmenu" role="menu">
+              <button
+                type="button"
+                className="more__item"
+                role="menuitem"
+                onClick={() => {
+                  setAddOpen(false);
+                  attachFiles();
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+                  <rect x="1.8" y="3.2" width="12.4" height="9.6" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                  <circle cx="5.3" cy="6.5" r="1.15" fill="currentColor" />
+                  <path d="M2.6 12.2 6.1 8.6 8.5 11 10.6 8.9 13.4 11.7" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {t('overlay.attachFile')}
+              </button>
+              <button
+                type="button"
+                className="more__item"
+                role="menuitem"
+                onClick={() => {
+                  setAddOpen(false);
+                  capture();
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M2 5.4V3.4a1.4 1.4 0 0 1 1.4-1.4h2M14 5.4V3.4A1.4 1.4 0 0 0 12.6 2h-2M2 10.6v2A1.4 1.4 0 0 0 3.4 14h2M14 10.6v2a1.4 1.4 0 0 1-1.4 1.4h-2" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+                {t('overlay.attachShot')}
+              </button>
+            </div>
+          )}
+        </div>
         <textarea
           ref={inputRef}
           className="compose__input"
@@ -1842,6 +1958,18 @@ function ComposePane({
             });
           }}
           onKeyDown={(e) => {
+            // Tab completes the highlighted skill when the menu is open — the
+            // usual autocomplete gesture. With nothing to complete it's left to
+            // its default so focus can still move on.
+            if (e.key === 'Tab' && !e.shiftKey) {
+              const first = matches?.[0];
+              if (first) {
+                e.preventDefault();
+                complete(first.id);
+              }
+              return;
+            }
+
             // Enter sends; Shift+Enter adds a line break. Ctrl+Enter isn't used
             // because it's a GLOBAL hotkey: the main process intercepts it and it
             // would never reach here.
@@ -1863,18 +1991,10 @@ function ComposePane({
             send();
           }}
         />
-        <button
-          type="button"
-          className="compose__attach"
-          aria-label={t('overlay.attachShot')}
-          onClick={capture}
-        >
-          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true">
-            <rect x="1.8" y="3.2" width="12.4" height="9.6" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
-            <circle cx="5.3" cy="6.5" r="1.15" fill="currentColor" />
-            <path d="M2.6 12.2 6.1 8.6 8.5 11 10.6 8.9 13.4 11.7" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {/* The `/skill` cue sits at the right, out of the way of what you type —
+            it only shows on an empty field, so a real message never collides
+            with it. */}
+        {draft === '' && <span className="compose__skillhint">/skill</span>}
         <button
           type="button"
           className="compose__send"
@@ -2859,9 +2979,11 @@ export function OverlayApp() {
                    over the input. */
                 <>
                   <div className="wexscroll" ref={wexScrollRef}>
-                    {answers.map((a) => (
-                      <WriteExchange key={a.id} answer={a} />
-                    ))}
+                    {answers.length === 0 ? (
+                      <WriteEmpty />
+                    ) : (
+                      answers.map((a) => <WriteExchange key={a.id} answer={a} />)
+                    )}
                   </div>
                   <ComposePane
                     skills={skills}

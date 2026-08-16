@@ -76,7 +76,10 @@ export const es: Record<UIKey, string> = {
   'overlay.tabListen': 'Escucha',
   'overlay.tabWrite': 'Escritura',
   'overlay.noSkill': 'Ninguna skill con ese nombre',
-  'overlay.composePlaceholder': 'Pregunta lo que sea… · /skill',
+  'overlay.composePlaceholder': 'Pregunta lo que sea…',
+  'overlay.attach': 'Adjuntar imagen',
+  'overlay.writeEmptyTitle': 'Modo escritura',
+  'overlay.writeEmptySub': 'Pregunta lo que sea, usa una skill o resuelve tu pantalla.',
   'overlay.composeHint': 'Enter envía · Shift+Enter salta línea',
   'overlay.send': 'Enviar',
   'overlay.composeWarn': 'Escribir toma el foco del teclado — vuelve a «Escucha» antes de compartir pantalla.',
@@ -85,6 +88,7 @@ export const es: Record<UIKey, string> = {
   'overlay.tipSolve': 'Resuelve lo que haya en tu pantalla.',
   'overlay.dragMove': 'Arrastra para mover',
   'overlay.attachShot': 'Adjuntar captura',
+  'overlay.attachFile': 'Adjuntar imagen de tu equipo',
 
   'overlay.skipFiller':
     'Te escucho, pero un saludo o una prueba de sonido no dispara respuesta. Prueba con una pregunta real.',
