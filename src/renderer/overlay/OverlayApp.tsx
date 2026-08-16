@@ -961,8 +961,6 @@ const PROFILE_CHIPS = [
   // certification that someone reads aloud, and its rules already account for
   // the open question.
   ['quiz', 'overlay.profileQuiz'],
-  // Translates instead of answering; the languages are set in the dashboard.
-  ['interpreter', 'beh.profInterpreter'],
 ] as const satisfies readonly (readonly [Settings['promptProfileId'], UIKey])[];
 
 /** Code and quiz reuse the bar's icons: it's the SAME action seen elsewhere. */
@@ -1034,17 +1032,24 @@ function ProfileMenu({
 
   const active = settings.promptProfileId;
   const isCustom = active === 'custom';
+  const isInterpreter = active === 'interpreter';
   const activeCustom = settings.customProfiles.find((p) => p.id === settings.activeCustomId);
   const builtins = PROFILE_CHIPS.filter(
     ([id]) => !settings.hiddenProfiles.includes(id) && !settings.deletedProfiles.includes(id)
   );
 
+  // A built-in's name is the user's override if they renamed it, else our label.
+  const builtinName = (id: Settings['promptProfileId'], key: UIKey): string =>
+    settings.builtinOverrides[id]?.name || t(key);
+
   const builtin = PROFILE_CHIPS.find(([id]) => id === active);
   const triggerLabel = isCustom
     ? (activeCustom?.name ?? t('overlay.profileCustom'))
-    : builtin
-      ? t(builtin[1])
-      : t('overlay.profileCustom');
+    : isInterpreter
+      ? t('beh.profInterpreter')
+      : builtin
+        ? builtinName(builtin[0], builtin[1])
+        : t('overlay.profileCustom');
 
   const pickBuiltin = (id: Settings['promptProfileId']) => () => {
     setOpen(false);
@@ -1091,7 +1096,7 @@ function ProfileMenu({
                 onClick={pickBuiltin(id)}
               >
                 {profileIcon(id)}
-                {t(plabel)}
+                {builtinName(id, plabel)}
               </button>
             );
           })}
@@ -1100,21 +1105,38 @@ function ProfileMenu({
           {settings.customProfiles
             .filter((p) => !p.hidden)
             .map((p) => {
-            const on = isCustom && settings.activeCustomId === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                className={`more__item${on ? ' more__item--on' : ''}`}
-                role="menuitemradio"
-                aria-checked={on}
-                onClick={pickCustom(p.id)}
-              >
-                <CustomIcon />
-                {p.name || t('overlay.profileCustom')}
-              </button>
-            );
-          })}
+              const on = isCustom && settings.activeCustomId === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`more__item${on ? ' more__item--on' : ''}`}
+                  role="menuitemradio"
+                  aria-checked={on}
+                  onClick={pickCustom(p.id)}
+                >
+                  <CustomIcon />
+                  {p.name || t('overlay.profileCustom')}
+                </button>
+              );
+            })}
+
+          {/* Interpreter is a mode, not an editable profile: its own entry, set
+              apart at the bottom. */}
+          <div className="more__sep" />
+          <button
+            type="button"
+            className={`more__item${isInterpreter ? ' more__item--on' : ''}`}
+            role="menuitemradio"
+            aria-checked={isInterpreter}
+            onClick={() => {
+              setOpen(false);
+              onPatch({ promptProfileId: 'interpreter' });
+            }}
+          >
+            {profileIcon('interpreter')}
+            {t('beh.profInterpreter')}
+          </button>
         </div>
       )}
     </div>

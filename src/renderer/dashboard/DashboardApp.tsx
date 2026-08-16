@@ -7,7 +7,7 @@ import {
   autoTriggerIsInert,
   clampFontScale,
   DECOY_ICONS,
-  DROPDOWN_PROFILES,
+  EDITABLE_PROFILES,
   DEFAULT_HOTKEYS,
   FONT_SCALE,
   HOTKEY_LABEL,
@@ -139,7 +139,7 @@ function Row({
   );
 }
 
-/** Built-in profile labels for the manager toggles (same keys as the select). */
+/** Built-in profile default labels (before any rename). */
 const PROFILE_BEH_LABEL: Partial<Record<PromptProfileId, UIKey>> = {
   interview: 'beh.profInterview',
   meeting: 'beh.profMeeting',
@@ -147,21 +147,39 @@ const PROFILE_BEH_LABEL: Partial<Record<PromptProfileId, UIKey>> = {
   support: 'beh.profSupport',
   coding: 'beh.profCoding',
   quiz: 'beh.profQuiz',
-  interpreter: 'beh.profInterpreter',
 };
 
+/** A downward/rightward chevron for the expand toggle. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 120ms ease' }}
+    >
+      <path d="M4.5 2.5 8 6l-3.5 3.5" />
+    </svg>
+  );
+}
+
 /**
- * Enable/disable, remove, and create answer profiles.
+ * Create, edit, hide, remove and restore answer profiles — built-ins and
+ * custom alike.
  *
- * A built-in can be **hidden** (off the overlay picker, still a toggle here) or
- * **removed** (gone from both, but restorable — its prompt is code, never lost).
- * Removing exists because seven profiles land at once and most people want only
- * a couple; hiding alone still leaves the seven toggles cluttering this list.
- * Neither is allowed to strand the picker with nothing to choose. A custom
- * profile is a name and a free-text instruction; there can be several, all under
- * the single `custom` id (`activeCustomId` picks which). Whenever the active
- * profile is what's hidden, removed or deleted, it falls back so the app never
- * sits on one that isn't offered.
+ * Every profile is one editable card: a name and a prompt. The built-ins ship
+ * with our default name and prompt (fetched from the main), and the user can
+ * rewrite either, hide it from the overlay, remove it, or reset it back to ours.
+ * A custom is the same card with an empty start. Removing is a soft delete —
+ * built-ins and customs both go to a "removed" bucket and come back one by one
+ * or all at once. Nothing may strand the picker with nothing to choose, and the
+ * active profile falls back whenever it stops being offered.
  */
 function ProfileManager({
   settings,
@@ -171,24 +189,22 @@ function ProfileManager({
   patch: (p: Partial<Settings>) => void;
 }) {
   const t = useT();
+  const [defaults, setDefaults] = useState<Record<string, string>>({});
+  const [openId, setOpenId] = useState<string | null>(null);
+  useEffect(() => {
+    void window.api.settings.profileDefaults().then(setDefaults);
+  }, []);
 
-  // Everything the overlay picker can offer under a prospective state.
-  const availableBuiltins = (
-    hidden: PromptProfileId[],
-    removed: PromptProfileId[]
-  ): PromptProfileId[] => DROPDOWN_PROFILES.filter((p) => !hidden.includes(p) && !removed.includes(p));
-  const visibleCustoms = (customs: Settings['customProfiles']): Settings['customProfiles'] =>
-    customs.filter((c) => !c.hidden);
-
-  // A change that would leave the picker with nothing to choose is refused.
+  // What the overlay picker can offer under a prospective state; a change that
+  // would empty it is refused, and the active profile falls back if dropped.
+  const availableBuiltins = (hidden: PromptProfileId[], removed: PromptProfileId[]) =>
+    EDITABLE_PROFILES.filter((p) => !hidden.includes(p) && !removed.includes(p));
+  const visibleCustoms = (customs: Settings['customProfiles']) => customs.filter((c) => !c.hidden);
   const strands = (
     hidden: PromptProfileId[],
     removed: PromptProfileId[],
     customs: Settings['customProfiles']
-  ): boolean =>
-    availableBuiltins(hidden, removed).length === 0 && visibleCustoms(customs).length === 0;
-
-  // Where the active profile lands when it stops being offered.
+  ) => availableBuiltins(hidden, removed).length === 0 && visibleCustoms(customs).length === 0;
   const fallback = (
     hidden: PromptProfileId[],
     removed: PromptProfileId[],
@@ -198,6 +214,24 @@ function ProfileManager({
     if (builtin) return { promptProfileId: builtin };
     const custom = visibleCustoms(customs)[0];
     return custom ? { promptProfileId: 'custom', activeCustomId: custom.id } : {};
+  };
+
+  const builtinName = (id: PromptProfileId): string =>
+    settings.builtinOverrides[id]?.name ?? t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom');
+
+  // ── Built-in edits ──
+  const setOverride = (id: string, field: 'name' | 'prompt', value: string): void => {
+    patch({
+      builtinOverrides: {
+        ...settings.builtinOverrides,
+        [id]: { ...settings.builtinOverrides[id], [field]: value },
+      },
+    });
+  };
+  const resetBuiltin = (id: string): void => {
+    const next = { ...settings.builtinOverrides };
+    delete next[id];
+    patch({ builtinOverrides: next });
   };
 
   const setHidden = (id: PromptProfileId, visible: boolean): void => {
@@ -221,9 +255,10 @@ function ProfileManager({
         : {};
     patch({ deletedProfiles, ...moveActive });
   };
+  const restoreBuiltin = (id: PromptProfileId): void =>
+    patch({ deletedProfiles: settings.deletedProfiles.filter((d) => d !== id) });
 
-  const restoreBuiltins = (): void => patch({ deletedProfiles: [] });
-
+  // ── Custom edits ──
   const addCustom = (): void => {
     const id = `custom-${Date.now().toString(36)}`;
     patch({
@@ -231,8 +266,8 @@ function ProfileManager({
       promptProfileId: 'custom',
       activeCustomId: id,
     });
+    setOpenId(id);
   };
-
   const editCustom = (id: string, field: 'name' | 'prompt', value: string): void => {
     patch({
       customProfiles: settings.customProfiles.map((p) =>
@@ -240,7 +275,6 @@ function ProfileManager({
       ),
     });
   };
-
   const setCustomHidden = (id: string, visible: boolean): void => {
     const customProfiles = settings.customProfiles.map((p) =>
       p.id === id ? { ...p, hidden: !visible } : p
@@ -252,80 +286,181 @@ function ProfileManager({
         : {};
     patch({ customProfiles, ...moveActive });
   };
-
   const removeCustom = (id: string): void => {
+    const gone = settings.customProfiles.find((p) => p.id === id);
+    if (!gone) return;
     const customProfiles = settings.customProfiles.filter((p) => p.id !== id);
     if (strands(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)) return;
     const wasActive = settings.promptProfileId === 'custom' && settings.activeCustomId === id;
-    const moveActive = wasActive
-      ? fallback(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)
-      : {};
-    patch({ customProfiles, ...moveActive });
+    patch({
+      customProfiles,
+      removedCustoms: [...settings.removedCustoms, gone],
+      ...(wasActive
+        ? fallback(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)
+        : {}),
+    });
   };
+  const restoreCustom = (id: string): void => {
+    const back = settings.removedCustoms.find((p) => p.id === id);
+    if (!back) return;
+    patch({
+      removedCustoms: settings.removedCustoms.filter((p) => p.id !== id),
+      customProfiles: [...settings.customProfiles, back],
+    });
+  };
+  const restoreAll = (): void =>
+    patch({
+      deletedProfiles: [],
+      removedCustoms: [],
+      customProfiles: [...settings.customProfiles, ...settings.removedCustoms],
+    });
+
+  const removedBuiltins = EDITABLE_PROFILES.filter((id) => settings.deletedProfiles.includes(id));
+  const anyRemoved = removedBuiltins.length > 0 || settings.removedCustoms.length > 0;
 
   return (
     <div className="profmgr">
-      <div className="profmgr__head">{t('beh.profVisible')}</div>
-      <div className="profmgr__grid">
-        {DROPDOWN_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => (
-          <div key={id} className="profmgr__row">
-            <span className="profmgr__name">{t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}</span>
-            <Switch on={!settings.hiddenProfiles.includes(id)} onChange={(v) => setHidden(id, v)} />
-            <button
-              type="button"
-              className="profmgr__del"
-              title={t('beh.profRemove')}
-              aria-label={t('beh.profRemove')}
-              onClick={() => removeBuiltin(id)}
-            >
-              ✕
+      <div className="profmgr__head">{t('beh.profTitle')}</div>
+      <div className="profmgr__list">
+        {EDITABLE_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => {
+          const override = settings.builtinOverrides[id];
+          const open = openId === id;
+          const edited = override?.name !== undefined || override?.prompt !== undefined;
+          return (
+            <div key={id} className={`profcard${open ? ' profcard--open' : ''}`}>
+              <div className="profcard__head">
+                <button
+                  type="button"
+                  className="profcard__expand"
+                  aria-expanded={open}
+                  onClick={() => setOpenId(open ? null : id)}
+                >
+                  <Chevron open={open} />
+                </button>
+                <input
+                  type="text"
+                  className="profcard__name"
+                  value={override?.name ?? t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}
+                  onChange={(e) => setOverride(id, 'name', e.target.value)}
+                />
+                <Switch on={!settings.hiddenProfiles.includes(id)} onChange={(v) => setHidden(id, v)} />
+                <button
+                  type="button"
+                  className="profmgr__del"
+                  title={t('beh.profRemove')}
+                  aria-label={t('beh.profRemove')}
+                  onClick={() => removeBuiltin(id)}
+                >
+                  ✕
+                </button>
+              </div>
+              {open && (
+                <div className="profcard__body">
+                  <textarea
+                    className="profmgr__prompt"
+                    value={override?.prompt ?? defaults[id] ?? ''}
+                    placeholder={t('beh.customPlaceholder')}
+                    onChange={(e) => setOverride(id, 'prompt', e.target.value)}
+                  />
+                  {edited && (
+                    <button
+                      type="button"
+                      className="profmgr__restore"
+                      onClick={() => resetBuiltin(id)}
+                    >
+                      {t('beh.profReset')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {settings.customProfiles.map((p) => {
+          const open = openId === p.id;
+          return (
+            <div key={p.id} className={`profcard${open ? ' profcard--open' : ''}`}>
+              <div className="profcard__head">
+                <button
+                  type="button"
+                  className="profcard__expand"
+                  aria-expanded={open}
+                  onClick={() => setOpenId(open ? null : p.id)}
+                >
+                  <Chevron open={open} />
+                </button>
+                <input
+                  type="text"
+                  className="profcard__name"
+                  value={p.name}
+                  placeholder={t('beh.profNamePlaceholder')}
+                  onChange={(e) => editCustom(p.id, 'name', e.target.value)}
+                />
+                <Switch on={!p.hidden} onChange={(v) => setCustomHidden(p.id, v)} />
+                <button
+                  type="button"
+                  className="profmgr__del"
+                  title={t('beh.profDelete')}
+                  aria-label={t('beh.profDelete')}
+                  onClick={() => removeCustom(p.id)}
+                >
+                  ✕
+                </button>
+              </div>
+              {open && (
+                <div className="profcard__body">
+                  <textarea
+                    className="profmgr__prompt"
+                    value={p.prompt}
+                    placeholder={t('beh.customPlaceholder')}
+                    onChange={(e) => editCustom(p.id, 'prompt', e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <button type="button" className="profmgr__add" onClick={addCustom}>
+        + {t('beh.profAdd')}
+      </button>
+
+      {anyRemoved && (
+        <div className="profmgr__removed">
+          <div className="profmgr__removedhead">
+            <span>{t('beh.profRemovedTitle')}</span>
+            <button type="button" className="profmgr__restore" onClick={restoreAll}>
+              {t('beh.profRestoreAll')}
             </button>
           </div>
-        ))}
-
-        {/* Custom profiles sit in the same grid as the built-ins, each taking a
-            full row so it can carry its prompt right below its toggle. */}
-        {settings.customProfiles.map((p) => (
-          <div key={p.id} className="profmgr__row profmgr__row--custom">
-            <div className="profmgr__rowhead">
-              <input
-                type="text"
-                className="profmgr__nameinput"
-                value={p.name}
-                placeholder={t('beh.profNamePlaceholder')}
-                onChange={(e) => editCustom(p.id, 'name', e.target.value)}
-              />
-              <Switch on={!p.hidden} onChange={(v) => setCustomHidden(p.id, v)} />
+          {removedBuiltins.map((id) => (
+            <div key={id} className="profmgr__removeditem">
+              <span>{builtinName(id)}</span>
               <button
                 type="button"
-                className="profmgr__del"
-                title={t('beh.profDelete')}
-                aria-label={t('beh.profDelete')}
-                onClick={() => removeCustom(p.id)}
+                className="profmgr__restore"
+                onClick={() => restoreBuiltin(id)}
               >
-                ✕
+                {t('beh.profRestoreOne')}
               </button>
             </div>
-            <textarea
-              className="profmgr__prompt"
-              value={p.prompt}
-              placeholder={t('beh.customPlaceholder')}
-              onChange={(e) => editCustom(p.id, 'prompt', e.target.value)}
-            />
-          </div>
-        ))}
-      </div>
-
-      <div className="profmgr__foot">
-        <button type="button" className="profmgr__add" onClick={addCustom}>
-          + {t('beh.profAdd')}
-        </button>
-        {settings.deletedProfiles.length > 0 && (
-          <button type="button" className="profmgr__restore" onClick={restoreBuiltins}>
-            {t('beh.profRestore')} ({settings.deletedProfiles.length})
-          </button>
-        )}
-      </div>
+          ))}
+          {settings.removedCustoms.map((c) => (
+            <div key={c.id} className="profmgr__removeditem">
+              <span>{c.name || t('beh.profCustom')}</span>
+              <button
+                type="button"
+                className="profmgr__restore"
+                onClick={() => restoreCustom(c.id)}
+              >
+                {t('beh.profRestoreOne')}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3635,12 +3770,11 @@ function BehaviourCard({
             }
           }}
         >
-          <option value="interview">{t('beh.profInterview')}</option>
-          <option value="meeting">{t('beh.profMeeting')}</option>
-          <option value="lecture">{t('beh.profLecture')}</option>
-          <option value="support">{t('beh.profSupport')}</option>
-          <option value="coding">{t('beh.profCoding')}</option>
-          <option value="quiz">{t('beh.profQuiz')}</option>
+          {EDITABLE_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => (
+            <option key={id} value={id}>
+              {settings.builtinOverrides[id]?.name || t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}
+            </option>
+          ))}
           <option value="interpreter">{t('beh.profInterpreter')}</option>
           {/* User profiles all live under `custom`; the id rides in the value. */}
           {settings.customProfiles.length > 0 && (

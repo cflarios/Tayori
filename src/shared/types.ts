@@ -341,18 +341,34 @@ export interface CustomProfile {
 }
 
 /**
- * The built-in profiles offered in the overlay's picker — the ones the user can
- * hide. `general` is screen-only (never a chip) and `custom` is the umbrella for
- * user profiles, so neither is here.
+ * A user edit to a built-in profile, by id.
+ *
+ * The built-ins ship with our default name and prompt (see the main's
+ * `DEFAULT_PROFILE_PROMPTS`); an override replaces either. Absent means "our
+ * default", so removing the override is how "reset to default" works, and an
+ * unedited profile keeps its original prompt path with no behaviour change.
  */
-export const DROPDOWN_PROFILES: readonly PromptProfileId[] = [
+export interface ProfileOverride {
+  name?: string;
+  prompt?: string;
+}
+
+/**
+ * The built-in profiles the user manages in the dashboard and picks in the
+ * overlay: editable name and prompt, hideable, removable, restorable.
+ *
+ * `interpreter` is a translation MODE, not a persona (its prompt is generated
+ * from the two languages), so it lives outside this list and is offered on its
+ * own. `general` is screen-only (the "Anything else" action), never a picker
+ * entry. `custom` is the umbrella id for user profiles.
+ */
+export const EDITABLE_PROFILES: readonly PromptProfileId[] = [
   'interview',
   'meeting',
   'lecture',
   'support',
   'coding',
   'quiz',
-  'interpreter',
 ];
 
 /**
@@ -638,8 +654,15 @@ export interface Settings {
    * `activeCustomId` when `promptProfileId` is `'custom'`.
    */
   customProfiles: CustomProfile[];
+  /** Custom profiles the user removed — kept so they can be restored. */
+  removedCustoms: CustomProfile[];
   /** Which custom profile is active (its id), used when promptProfileId === 'custom'. */
   activeCustomId: string;
+  /**
+   * User edits to the built-in profiles (name/prompt), keyed by profile id.
+   * Absent = our default; see `ProfileOverride`.
+   */
+  builtinOverrides: Record<string, ProfileOverride>;
   /**
    * Built-in dropdown profiles the user hid from the overlay picker. Most people
    * use two or three; hiding the rest keeps the list short. See DROPDOWN_PROFILES
@@ -1001,7 +1024,9 @@ export const DEFAULT_SETTINGS: Settings = {
   interpreterLangA: 'es',
   interpreterLangB: 'en',
   customProfiles: [],
+  removedCustoms: [],
   activeCustomId: '',
+  builtinOverrides: {},
   hiddenProfiles: [],
   deletedProfiles: [],
   contextPacks: [],

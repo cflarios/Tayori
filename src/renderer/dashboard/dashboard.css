@@ -2403,60 +2403,94 @@ kbd {
   color: var(--text-dim);
 }
 
-.profmgr__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 8px;
+/* Every profile is one editable card, stacked in a single column. */
+.profmgr__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-/* Built-ins are compact cells; a custom (below) spans the whole row. */
-.profmgr__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+.profcard {
   border: 1px solid var(--line);
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.02);
 }
 
-.profmgr__name {
-  flex: 1;
-  font-size: 13px;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.profcard--open {
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-.profmgr__row--custom {
-  grid-column: 1 / -1;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-}
-
-.profmgr__rowhead {
+.profcard__head {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 7px 10px;
 }
 
-.profmgr__nameinput {
+.profcard__expand {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.profcard__expand:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.profcard__name {
   flex: 1;
+  min-width: 0;
+}
+
+.profcard__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 10px 10px 40px;
 }
 
 .profmgr__prompt {
   width: 100%;
-  min-height: 64px;
+  min-height: 120px;
   resize: vertical;
 }
 
-.profmgr__foot {
+/* Removed profiles (built-in or custom), restorable one by one or all at once. */
+.profmgr__removed {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profmgr__removedhead {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.profmgr__removeditem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 2px;
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 /* Restore removed built-ins: a quiet link, since it only shows once you've

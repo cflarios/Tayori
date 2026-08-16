@@ -51,6 +51,9 @@ const api = {
     update: (patch: Partial<Settings>): Promise<Settings> =>
       ipcRenderer.invoke(IPC.settingsUpdate, patch),
     onChange: (cb: (s: Settings) => void) => subscribe<Settings>(IPC.onSettings, cb),
+    /** Default prompt text per built-in profile, for the dashboard editor. */
+    profileDefaults: (): Promise<Record<string, string>> =>
+      ipcRenderer.invoke(IPC.profileDefaults),
   },
 
   secrets: {

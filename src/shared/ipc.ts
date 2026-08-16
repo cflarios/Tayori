@@ -19,6 +19,8 @@ export const IPC = {
   stealthSet: 'stealth:set',
   /** Preview images (data URLs) of the decoy taskbar icons, for the picker. */
   decoyPreviews: 'decoy:previews',
+  /** Default prompt text per built-in profile, for the editor and reset. */
+  profileDefaults: 'profile:defaults',
   clickThroughSet: 'click-through:set',
   overlayHide: 'overlay:hide',
   overlayResize: 'overlay:resize',

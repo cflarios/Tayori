@@ -1,6 +1,7 @@
 import {
   activeCustomProfile,
   CONTEXT_KIND_LABEL,
+  EDITABLE_PROFILES,
   interpreterLangName,
   packsForProfile,
   type ContextKind,
@@ -324,6 +325,24 @@ const RULES: Record<Exclude<PromptProfileId, 'interpreter'>, string> = {
 };
 
 /**
+ * The editable default for each built-in: its persona and its format rules, as
+ * one block — what the dashboard shows in the textarea and seeds edits from.
+ *
+ * The app still resolves an UNEDITED built-in through the separate `PROFILES` and
+ * `RULES` below (so nothing changes for a profile the user hasn't touched); this
+ * combined text only matters as the default the user sees and as the thing an
+ * override replaces.
+ */
+export const DEFAULT_PROFILE_PROMPTS: Record<string, string> = Object.fromEntries(
+  EDITABLE_PROFILES.map((id) => [
+    id,
+    `${PROFILES[id as Exclude<PromptProfileId, 'custom' | 'interpreter'>]}\n\n${
+      RULES[id as Exclude<PromptProfileId, 'interpreter'>]
+    }`,
+  ])
+);
+
+/**
  * The Interpreter-mode prompt, separate from the normal assembly.
  *
  * It carries no profile, no context, and no injection warning with its "report
@@ -438,10 +457,11 @@ export function buildSystemPrompt(
   // profile, context or format rules. It's cut off here before the normal build.
   if (profileId === 'interpreter') return interpreterPrompt(settings);
 
-  const profile =
-    profileId === 'custom'
-      ? activeCustomProfile(settings)?.prompt.trim() || PROFILES.interview
-      : PROFILES[profileId];
+  // A built-in the user edited replaces its persona+rules wholesale; an unedited
+  // one (or a custom) takes the original path below, so nothing changes for a
+  // profile that hasn't been touched.
+  const override = profileId === 'custom' ? undefined : settings.builtinOverrides[profileId];
+  const custom = profileId === 'custom' ? activeCustomProfile(settings) : undefined;
 
   /*
    * The language goes in every profile and goes FIRST among the rules.
@@ -460,9 +480,18 @@ export function buildSystemPrompt(
   // recency beats a rule buried above ~20 lines of Spanish, which is what let some
   // models — Sonnet especially — answer in the prompt's language anyway.
   const forcedLang = settings.answerLanguage !== 'auto';
-  const sections = [profile, INJECTION_RULE];
-  if (!forcedLang) sections.push(LANGUAGE_RULE);
-  sections.push(RULES[profileId]);
+  const sections: string[] = [];
+  if (override?.prompt !== undefined) {
+    // The user's text carries both persona and format, so no separate RULES.
+    sections.push(override.prompt, INJECTION_RULE);
+    if (!forcedLang) sections.push(LANGUAGE_RULE);
+  } else {
+    const persona =
+      profileId === 'custom' ? custom?.prompt.trim() || PROFILES.interview : PROFILES[profileId];
+    sections.push(persona, INJECTION_RULE);
+    if (!forcedLang) sections.push(LANGUAGE_RULE);
+    sections.push(RULES[profileId]);
+  }
 
   if (profileId === 'coding') {
     const language = settings.codeLanguage.trim();
