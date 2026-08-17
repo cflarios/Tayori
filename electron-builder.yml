@@ -12,7 +12,7 @@ appId: com.interviewhelper.app
 # main/index.ts; changing it orphans that data.
 productName: Tayori
 executableName: Tayori
-copyright: MIT
+copyright: © 2026 Cristian Ferla · GPL-3.0-only
 
 directories:
   output: release

@@ -2765,7 +2765,7 @@ function AboutCard() {
           <code className="aboutval">{info?.author ?? '@cflarios'}</code>
         </Row>
         <Row icon="check" label={t('about.license')} desc={t('about.licenseDesc')}>
-          <code className="aboutval">MIT</code>
+          <code className="aboutval">GPL-3.0-only</code>
         </Row>
         <Row icon="globe" label={t('about.web')} desc={t('about.webDesc')}>
           <ExtLink href={TAYORI_WEB_URL}>Web</ExtLink>

@@ -66,7 +66,7 @@ describe('parseSkillFile', () => {
     // allowed-tools…). Rejecting it for that would break compatibility with the
     // format we've chosen to follow.
     const parsed = parseSkillFile(
-      ['---', 'name: X', 'license: MIT', 'allowed-tools: none', '---', 'Cuerpo.'].join('\n'),
+      ['---', 'name: X', 'license: GPL-3.0', 'allowed-tools: none', '---', 'Cuerpo.'].join('\n'),
       'x'
     );
 

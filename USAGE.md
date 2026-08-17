@@ -806,4 +806,4 @@ newer version and, if there is, shows the changes and a button to **download** t
 new portable (the download is done by your browser). Nothing downloads or installs
 on its own, and it only checks when you press it.
 
-Author: **@cflarios**. MIT, no monetization.
+Author: **@cflarios**. GPL-3.0-only, no monetization.

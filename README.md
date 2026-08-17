@@ -9,7 +9,7 @@
 It listens to the call, transcribes who says what, and suggests answers in an
 overlay that **stays invisible when you share your screen**.
 
-[![License: MIT](https://img.shields.io/github/license/cflarios/Tayori?color=blue)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/github/license/cflarios/Tayori?color=blue)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/cflarios/Tayori?sort=semver)](https://github.com/cflarios/Tayori/releases)
 [![CI](https://github.com/cflarios/Tayori/actions/workflows/ci.yml/badge.svg)](https://github.com/cflarios/Tayori/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D6)
@@ -23,7 +23,7 @@ overlay that **stays invisible when you share your screen**.
 
 ---
 
-Open source, MIT, no monetization. Everything runs on your machine and calls go
+Open source, GPL-3.0, no monetization. Everything runs on your machine and calls go
 straight to the AI provider you pick — there is **no server in between**.
 
 > **No audio is ever written to disk** — not even a temporary file. Audio chunks
@@ -143,4 +143,4 @@ from [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## 📄 License
 
-MIT. Author: [**@cflarios**](https://github.com/cflarios).
+GPL-3.0-only. Author: [**@cflarios**](https://github.com/cflarios).
