@@ -706,10 +706,14 @@ fast, and the symptom is the model forgetting what you just told it. It's adjust
 in *dashboard → Transcription → Ollama context window*; by default the app asks
 for 8192.
 
-Related: the overlay shows a **`memory n/8`** chip in the answer header with the
-exchanges the assistant resends on each query. Click it to make it forget them,
-and it's **not** the same as "new conversation": the transcript and the history
-stay as they are.
+Related: the overlay shows a **`memory`** chip in the answer header for the
+exchanges the assistant resends on each query. On a **local model (Ollama)** it
+counts them — `memory n/8`, turning red when full — because those turns press
+against Ollama's small context window. On a **cloud model** there's room to
+spare, so the cap is a roomier 40 and the chip drops the counter (the count
+stays in its tooltip), reading as a plain *forget* button. Either way, clicking
+it makes the assistant forget them, and it's **not** the same as "new
+conversation": the transcript and the history stay as they are.
 
 Whisper local downloads the official whisper.cpp binary (7.6 MB) and the GGML
 model you choose the first time you enable it. The dashboard's **Model Manager**

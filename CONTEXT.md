@@ -1547,7 +1547,9 @@ streaming. That's what Gemini Live is for.
   work in sales"*, the assistant answered *"I have no information about what my
   profession is in this conversation"*. And it forgot a name it had just been
   assigned in under a minute.
-  Now `AnswerRequest.history` carries the last 8 exchanges and **each provider
+  Now `AnswerRequest.history` carries the last exchanges —a cap that follows the
+  provider: 8 on Ollama, where the resent turns press against its small context
+  window, and 40 on a cloud model with room to spare— and **each provider
   sends them as real messages** (`user`/`assistant`, or `model` in Gemini), not
   summarized inside the prompt: it's what makes the model treat them as things it
   said. Only the turns completed with text are saved —an aborted answer isn't
@@ -2019,9 +2021,12 @@ history wasn't being sent; this one is that it is sent and Ollama throws it away
 That two distinct causes produce the same symptom is the reason this is written
 here. Now `num_ctx` is sent explicitly, configurable, with 8192 by default.
 
-The overlay's `memoria n/8` chip also comes from here. Each remembered turn is
+The overlay's memory chip also comes from here. Each remembered turn is
 resent **whole** in the following query, and that showed up nowhere; it's the only
-part of a query's cost the user can decide on. Clearing it is different from "new
+part of a query's cost the user can decide on. The cap follows the provider —
+`memoria n/8` with a counter on Ollama, where `num_ctx` bites; a roomier 40 with
+no counter on a cloud model, where the chip is just a *forget* button. Clearing
+it is different from "new
 conversation": that one aborts the in-flight answer, clears the transcript and
 closes the conversation on disk. This only throws away what's resent to the model.
 
@@ -2566,7 +2571,7 @@ they're recorded because each one marks a trap that's easy to step on again.
 | Symptom | Cause | Lesson |
 |---|---|---|
 | A window that starts with stealth off couldn't be turned on afterward | `registerWindow()` was only called from `applyStealth`, so the window never entered `tracked` | The registration must be independent of the initial state |
-| The text of the window behind was read **sharp** through the overlay | `backdrop-filter: blur()` **doesn't compose** reliably over a `transparent: true` window on Windows | Don't trust blur on transparent windows; solid background. A 4% translucency gives no sense of transparency, just noise |
+| The text of the window behind was read **sharp** through the overlay | `backdrop-filter: blur()` **doesn't compose** reliably over a `transparent: true` window on Windows | Don't trust blur on transparent windows. The glass is a background **alpha** (a tint), not a blur, with the text on its own opaque layer so it stays readable; a 4% translucency is just noise, but ~15% over opaque text reads as glass (`--panel-alpha`, the opacity setting) |
 | The configuration was ignored **silently** | **UTF-8 BOM** in `settings.json` → `JSON.parse` throws → the store fell back to defaults. Notepad and PowerShell 5.1's `Set-Content -Encoding utf8` write a BOM | A file meant to be edited by hand must tolerate a BOM |
 | `Unable to load a worklet's module` | The CSP itself: `script-src 'self'` blocks the worklet's Blob URL | Strict CSPs also block your own generated code |
 | ~344 IPC messages/s per stream | The worklet emitted on every `process()` | Accumulate to a useful block size |
@@ -2787,8 +2792,6 @@ written here than discovered by surprise.
 - **`resizeOverlay` is called by nobody.** The handler and the preload exist; the
   idea was for the overlay to fit the answer's height. Now that the write tab
   changes the panel's usable height, it's more visible than before.
-- **`overlayOpacity` can't be changed.** The overlay respects it; the dashboard
-  doesn't expose it.
 - **The hotkeys can't be remapped from the UI.** `settings.hotkeys` and
   `registerHotkeys()` already support it (and `registerHotkeys` returns the
   accelerators Windows rejected, so it can warn), but the dashboard doesn't have

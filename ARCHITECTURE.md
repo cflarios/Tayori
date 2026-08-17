@@ -239,7 +239,7 @@ flowchart TB
 
     SYS --> SKILL["Active skill<br/>SKILL.md · goes LAST"]
 
-    MSG["Messages"] --> HIST["Last 8 exchanges<br/>real user / assistant"]
+    MSG["Messages"] --> HIST["Last exchanges<br/>8 on Ollama · 40 on cloud<br/>real user / assistant"]
     MSG --> NOW["Current turn:<br/>transcript + question"]
 
     VOC["kind: vocabulary"] -.-> ASR["NOT in the prompt:<br/>goes to the speech recognizer"]
