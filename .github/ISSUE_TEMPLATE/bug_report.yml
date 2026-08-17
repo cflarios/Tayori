@@ -1,0 +1,83 @@
+name: 🐛 Bug report
+description: Something isn't working the way it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in what you can —
+        the version, OS and providers are usually what it takes to reproduce.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I'm on the latest release and the bug still happens
+          required: true
+        - label: I searched existing issues and didn't find a duplicate
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What went wrong, and what did you expect instead?
+      placeholder: When I press X, the overlay does Y. I expected Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps, so we can see it too.
+      placeholder: |
+        1. Open the overlay
+        2. Switch to Listen with source "both"
+        3. …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Tayori version
+      description: See the dashboard's About section, or the release you downloaded.
+      placeholder: 1.10.1
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2 (build 26100)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Answer provider
+      description: Which model was answering when it broke?
+      options:
+        - Claude
+        - Gemini
+        - OpenAI
+        - DeepSeek
+        - Ollama (local)
+        - Not relevant / don't know
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: |
+        Any console output, error text, or a screenshot. Please redact API keys
+        and anything private.
+      render: shell
+    validations:
+      required: false
