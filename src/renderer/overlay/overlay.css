@@ -92,7 +92,10 @@ body {
    * `transparent: true` so the rounded corners don't leave a black rectangle.
    */
   background: #111317;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  /* Tight to the panel: the wide `0 12px 40px` bled a soft dark band into the
+     window's transparent margin, most visible below. Same fix as the compact
+     bar, the tooltips and the dropdowns. */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Central state ── */
@@ -407,6 +410,14 @@ body {
  */
 .panel--compact {
   height: auto;
+  /*
+   * The full-mode shadow (`0 12px 40px`) reaches ~52 px below the panel. On a
+   * tall window that's depth; on the compact bar —just the strip— it projects
+   * into the transparent space below as a soft dark rectangle with no object
+   * casting it. Here the shadow is pulled tight to the bar so nothing floats
+   * underneath it.
+   */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 /*
@@ -602,7 +613,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9px;
   background: #1b1e25;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* Bridge the 5 px gap so the cursor doesn't leave `.listenctl` on the way down. */
@@ -879,7 +890,9 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   padding: 3px 8px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55);
+  /* Tight to the bubble: the wide `0 8px 20px` cast a soft dark rectangle below
+     the tooltip over the transparent window, same as the compact bar did. */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   opacity: 0;
   pointer-events: none;
   transition: opacity 110ms ease 250ms;
@@ -1399,7 +1412,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: #1b1e25;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* Bridge the gap so the cursor doesn't leave `.modelmenu` on the way down. */
@@ -1483,7 +1496,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: #1b1e25;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* Bridge the 5 px gap so the cursor doesn't leave `.profilemenu` on the way. */
@@ -1892,7 +1905,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: #1b1e25;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* Bridge the 6 px gap so the cursor doesn't leave `.compose__add` on the way
@@ -2653,7 +2666,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: #1b1e25;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* Bridge the 5 px gap so the cursor doesn't leave `.solve` on the way down. */
@@ -2696,7 +2709,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   background: #1b1e25;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /*
