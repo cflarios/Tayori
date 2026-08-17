@@ -7,6 +7,23 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.11.0](https://github.com/cflarios/Tayori/compare/v1.10.1...v1.11.0) (2026-08-17)
+
+
+### Features
+
+* **overlay:** icons on the Listen and Write tabs ([f85f8e0](https://github.com/cflarios/Tayori/commit/f85f8e056ce3020955c251cb44dc7e71fabc39a4))
+* **overlay:** label who sent each Write turn — you, the interviewer, or Tayori ([f6159d5](https://github.com/cflarios/Tayori/commit/f6159d58975f3153acc50a5400ba064a57250bd9))
+* **overlay:** provider-aware memory — a large ceiling and a calmer chip on cloud ([8305ff3](https://github.com/cflarios/Tayori/commit/8305ff3734351f29d18fe1a7096517348ec83880))
+* **overlay:** show Tayori as the responder in Listen, drop the duplicated question ([4dc7dfd](https://github.com/cflarios/Tayori/commit/4dc7dfd0a2436706a8a860d51027de42869e3665))
+* **overlay:** translucent glass background that keeps text opaque ([3ad355b](https://github.com/cflarios/Tayori/commit/3ad355ba965e5066b3a7f8721711d3b4a4e8a838))
+
+
+### Bug Fixes
+
+* **auto-trigger:** follow the audio source to its full audience on a source change ([d678a89](https://github.com/cflarios/Tayori/commit/d678a89ea0c9f4d9cb82c33b90d42fd797612c61))
+* **overlay:** quick actions sent the locale key and dragged the reply into the UI language ([d58a567](https://github.com/cflarios/Tayori/commit/d58a567147aa68fa4eeb10913951bab89d1eb86b))
+
 ## [1.10.1](https://github.com/cflarios/Tayori/compare/v1.10.0...v1.10.1) (2026-08-17)
 
 
