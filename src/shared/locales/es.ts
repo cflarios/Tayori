@@ -119,8 +119,11 @@ export const es: Record<UIKey, string> = {
   'overlay.nextAnswer': 'Respuesta siguiente',
   'overlay.forgotten': 'olvidado',
   'overlay.memory': 'memoria {turns}/{max}',
+  'overlay.memoryCloud': 'memoria',
   'overlay.memoryTitle':
     'El asistente recuerda {turns} de {max} intercambios y los reenvía en cada consulta. Pulsa para que los olvide; la transcripción y el historial se quedan como están.',
+  'overlay.memoryTitleCloud':
+    'El asistente recuerda {turns} intercambios y los reenvía en cada consulta. Pulsa para que los olvide; la transcripción y el historial se quedan como están.',
   'overlay.stop': 'Parar la generación',
   'overlay.dismiss': 'Descartar',
   'overlay.transcription': 'Transcripción',

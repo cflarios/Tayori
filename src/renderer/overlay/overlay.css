@@ -927,6 +927,14 @@ body {
   transform: none;
 }
 
+/* A long tooltip (the memory chip's is a full sentence) wraps into a block
+   instead of one endless line that runs off the panel and gets clipped. */
+.tip--wrap::after {
+  white-space: normal;
+  width: max-content;
+  max-width: 230px;
+}
+
 /* Controls low in the panel (the answer header, the footer, code blocks) point
    their tooltip UP, so it doesn't spill off the panel's bottom edge. */
 .tip--up::after {

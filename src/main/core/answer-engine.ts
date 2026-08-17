@@ -130,11 +130,28 @@ export class AnswerEngine extends EventEmitter {
   private history: ConversationExchange[] = [];
 
   /**
-   * How many exchanges are resent. Eight easily covers a several-minute
-   * conversation without the prompt growing until it hurts; the oldest fall off
-   * the front.
+   * How many exchanges are resent, by provider.
+   *
+   * The cap exists for one reason: each remembered turn travels WHOLE in the
+   * next prompt. On Ollama that collides with `num_ctx`, which silently drops
+   * what doesn't fit —the model "forgets" with no error—, so eight is a tight,
+   * honest ceiling the chip can surface. A cloud model has a 200k-token window
+   * where eight turns is a needless amnesia, so it gets a far larger ceiling,
+   * still bounded so a marathon session's prompt (and cost) can't grow forever.
    */
-  private static readonly MAX_HISTORY = 8;
+  private static readonly MAX_HISTORY_LOCAL = 8;
+  private static readonly MAX_HISTORY_CLOUD = 40;
+
+  /** `true` for the only local provider; the rest are cloud. */
+  private get isLocalProvider(): boolean {
+    return settingsStore.get().llmProviderId === 'ollama';
+  }
+
+  private get maxHistory(): number {
+    return this.isLocalProvider
+      ? AnswerEngine.MAX_HISTORY_LOCAL
+      : AnswerEngine.MAX_HISTORY_CLOUD;
+  }
 
   constructor(private readonly transcript: TranscriptBuffer) {
     super();
@@ -199,8 +216,8 @@ export class AnswerEngine extends EventEmitter {
    * doesn't fit is discarded **with no error at all** — the symptom is the model
    * "forgetting" something you just told it.
    */
-  get memory(): { turns: number; max: number } {
-    return { turns: this.history.length, max: AnswerEngine.MAX_HISTORY };
+  get memory(): { turns: number; max: number; local: boolean } {
+    return { turns: this.history.length, max: this.maxHistory, local: this.isLocalProvider };
   }
 
   /**
@@ -578,7 +595,9 @@ export class AnswerEngine extends EventEmitter {
       question: neutralize(answer.question.trim()) || m('hist.inferredQuestion'),
       answer: answer.text.trim(),
     });
-    if (this.history.length > AnswerEngine.MAX_HISTORY) this.history.shift();
+    // `while`, not `if`: switching from a cloud model to Ollama shrinks the cap,
+    // so more than one old turn may need dropping to fit the new ceiling.
+    while (this.history.length > this.maxHistory) this.history.shift();
   }
 
   private update(patch: Partial<Answer>): void {

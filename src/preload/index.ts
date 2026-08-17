@@ -184,9 +184,10 @@ const api = {
 
   /** How many exchanges the assistant resends on each query. */
   memory: {
-    get: (): Promise<{ turns: number; max: number }> => ipcRenderer.invoke(IPC.memoryGet),
-    onChange: (cb: (m: { turns: number; max: number }) => void) =>
-      subscribe<{ turns: number; max: number }>(IPC.onMemory, cb),
+    get: (): Promise<{ turns: number; max: number; local: boolean }> =>
+      ipcRenderer.invoke(IPC.memoryGet),
+    onChange: (cb: (m: { turns: number; max: number; local: boolean }) => void) =>
+      subscribe<{ turns: number; max: number; local: boolean }>(IPC.onMemory, cb),
   },
 
   hotkeys: {

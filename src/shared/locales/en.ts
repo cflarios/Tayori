@@ -136,8 +136,11 @@ export const en = {
   'overlay.nextAnswer': 'Next answer',
   'overlay.forgotten': 'forgotten',
   'overlay.memory': 'memory {turns}/{max}',
+  'overlay.memoryCloud': 'memory',
   'overlay.memoryTitle':
     'The assistant remembers {turns} of {max} exchanges and resends them with every query. Press to make it forget them; the transcript and the history stay as they are.',
+  'overlay.memoryTitleCloud':
+    'The assistant remembers {turns} exchanges and resends them with every query. Press to make it forget them; the transcript and the history stay as they are.',
   'overlay.stop': 'Stop generating',
   'overlay.dismiss': 'Dismiss',
   'overlay.transcription': 'Transcription',

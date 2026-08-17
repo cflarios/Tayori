@@ -2703,7 +2703,7 @@ function ScrollChip({ state }: { state: ScrollCaptureState }) {
   );
 }
 
-function MemoryChip({ turns, max }: { turns: number; max: number }) {
+function MemoryChip({ turns, max, local }: { turns: number; max: number; local: boolean }) {
   const t = useT();
   const [done, setDone] = useState(false);
 
@@ -2719,12 +2719,16 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
   // without saying anything and the "forgotten" is never seen.
   if (turns === 0 && !done) return null;
 
+  // The counter and the "full" alarm are the local story: on Ollama the resent
+  // turns press against num_ctx, so how many there are matters. A cloud model
+  // has room to spare, so the chip drops to a plain "forget it" affordance —no
+  // fraction, no red— with the count kept only in the tooltip.
   return (
     <button
       type="button"
-      className={`memory tip tip--up tip--end${turns >= max ? ' memory--full' : ''}`}
+      className={`memory tip tip--up tip--end tip--wrap${local && turns >= max ? ' memory--full' : ''}`}
       data-interactive
-      data-tip={t('overlay.memoryTitle', { turns, max })}
+      data-tip={t(local ? 'overlay.memoryTitle' : 'overlay.memoryTitleCloud', { turns, max })}
       onClick={() => {
         // Marked BEFORE calling, and not in the `.then`. Clearing the memory
         // leaves the counter at zero, and with zero the chip isn't drawn: by
@@ -2735,7 +2739,11 @@ function MemoryChip({ turns, max }: { turns: number; max: number }) {
         void window.api.ask.forgetContext().catch(() => setDone(false));
       }}
     >
-      {done ? t('overlay.forgotten') : t('overlay.memory', { turns, max })}
+      {done
+        ? t('overlay.forgotten')
+        : local
+          ? t('overlay.memory', { turns, max })
+          : t('overlay.memoryCloud')}
     </button>
   );
 }
@@ -2801,7 +2809,7 @@ export function OverlayApp() {
   const [tab, setTab] = useState<InputTab>('listen');
   const [sttError, setSttError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [memory, setMemory] = useState({ turns: 0, max: 8 });
+  const [memory, setMemory] = useState({ turns: 0, max: 8, local: false });
   const [scroll, setScroll] = useState<ScrollCaptureState>({
     frames: 0,
     capturing: false,
@@ -3269,7 +3277,7 @@ export function OverlayApp() {
                     settings.llmProviderId}
                 </span>
               )}
-              <MemoryChip turns={memory.turns} max={memory.max} />
+              <MemoryChip turns={memory.turns} max={memory.max} local={memory.local} />
               <ScrollChip state={scroll} />
               {/* Copy the whole answer. It appears once it's finished (with
                   generation in progress there's the «Stop» button), for any kind
