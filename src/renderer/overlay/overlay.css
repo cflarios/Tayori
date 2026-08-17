@@ -53,6 +53,11 @@ body {
    */
   --font-scale: 1;
 
+  /* Background translucency (the `overlayOpacity` setting, applied as alpha —see
+     the panel's `background`). 1 here is the safety net if the style didn't
+     arrive. */
+  --panel-alpha: 1;
+
   /*
    * Palette, in three levels and one accent.
    *
@@ -84,14 +89,16 @@ body {
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   /*
-   * Solid background on purpose. `backdrop-filter: blur()` doesn't compose
-   * reliably over a `transparent: true` window on Windows: it was verified by
-   * capture that the content of the window behind was read sharp through the
-   * panel. And a low translucency (4%) gives no sense of seeing what's behind: it
-   * only adds noise that competes with the long answers. The window is still
-   * `transparent: true` so the rounded corners don't leave a black rectangle.
+   * Dark glass. The fill (`#111317`) carries an alpha —`--panel-alpha`, the
+   * `overlayOpacity` setting— so the call behind shows through the panel while
+   * the text and controls, which have their own opaque layers, stay readable.
+   * There's no `backdrop-filter: blur()`: it doesn't compose over a
+   * `transparent: true` window on Windows —verified by capture, the content
+   * behind read sharp through it— so the depth here is the tint, not a blur. The
+   * window stays `transparent: true` so the rounded corners don't leave a black
+   * rectangle, and at alpha 1 (the default) this is the old solid panel exactly.
    */
-  background: #111317;
+  background: rgba(17, 19, 23, var(--panel-alpha, 1));
   /* Tight to the panel: the wide `0 12px 40px` bled a soft dark band into the
      window's transparent margin, most visible below. Same fix as the compact
      bar, the tooltips and the dropdowns. */

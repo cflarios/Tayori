@@ -264,7 +264,7 @@ export const en = {
     'How the floating panel looks. It applies immediately, so it is worth adjusting with the overlay in sight.',
   'gen.opacity': 'Opacity',
   'gen.opacityDesc':
-    'Lowering it lets you glimpse what is underneath. Below 60 % the text starts to be hard to read over light backgrounds.',
+    'Turns the background to glass so you glimpse the call behind it; the text and controls stay opaque. Very low, over light backgrounds, the contrast can get hard.',
   'gen.textSize': 'Text size',
   'gen.textSizeDesc':
     'It affects the answer, the code and the transcript; the controls stay the same. The S/M/L/XL sizes make the window bigger, not the letters: this is what you need on a 4K monitor.',

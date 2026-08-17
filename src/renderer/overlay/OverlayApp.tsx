@@ -3014,7 +3014,11 @@ export function OverlayApp() {
         ref={panelRef}
         className={`panel${compact ? ' panel--compact' : ''}`}
         style={{
-          opacity: settings?.overlayOpacity ?? 1,
+          // Translucency is the panel's BACKGROUND alpha, not a whole-panel
+          // `opacity`: fading the element faded the text too —"the whole app
+          // gets less visible"—. As background alpha the call shows through the
+          // glass while the text and controls stay fully opaque and readable.
+          ['--panel-alpha' as string]: settings?.overlayOpacity ?? 1,
           // Only the CONTENT scales: the bar and the chips stay as they are, or
           // with large text the controls would eat the whole panel.
           ['--font-scale' as string]: clampFontScale(settings?.overlayFontScale ?? 1),

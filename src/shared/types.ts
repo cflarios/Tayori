@@ -1021,8 +1021,10 @@ export const DEFAULT_SETTINGS: Settings = {
   stealthEnabled: true,
   decoyIcon: 'off',
   clickThrough: true,
-  // Opaque by default: legibility rules. It can be lowered from the dashboard.
-  overlayOpacity: 1,
+  // A touch of glass by default: the fill is ~15% see-through so the call reads
+  // faintly behind the panel, like similar assistants, while the opaque text
+  // stays fully legible. Tunable from the dashboard (1 = solid).
+  overlayOpacity: 0.85,
   overlaySize: 'M',
   overlayFontScale: 1,
   overlayCompact: false,

@@ -248,7 +248,7 @@ export const es: Record<UIKey, string> = {
     'Cómo se ve el panel flotante. Se aplica al momento, así que conviene ajustarlo con el overlay a la vista.',
   'gen.opacity': 'Opacidad',
   'gen.opacityDesc':
-    'Bajarla deja entrever lo que hay debajo. Por debajo del 60 % el texto empieza a costar de leer sobre fondos claros.',
+    'Vuelve el fondo cristalino para entrever la reunión detrás; el texto y los controles se mantienen opacos. Muy baja, sobre fondos claros, el contraste puede costar.',
   'gen.textSize': 'Tamaño del texto',
   'gen.textSizeDesc':
     'Afecta a la respuesta, al código y a la transcripción; los controles se quedan igual. Los tamaños S/M/L/XL agrandan la ventana, no la letra: esto es lo que hace falta en un monitor 4K.',
