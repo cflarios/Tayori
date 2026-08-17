@@ -1752,9 +1752,10 @@ body {
   align-items: flex-start;
 }
 
-/* Sender caption above the bubble: who said it, so a captured question reads as
-   the interviewer's and a typed one as your own — and every answer as Tayori's. */
-.wexmsg__from {
+/* Sender caption above a message or answer: who said it, so a captured question
+   reads as the interviewer's and a typed one as your own — and every answer as
+   Tayori's. Shared by the Write thread and Listen's answer area. */
+.msgfrom {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1766,9 +1767,15 @@ body {
   color: #8b9096;
 }
 
-.wexmsg__mascot {
+.msgfrom__mascot {
   width: 15px;
   height: 15px;
+}
+
+/* In Listen the caption is a plain column child (no flex gap), so it needs its
+   own space above the answer. */
+.answerfrom {
+  margin-bottom: 6px;
 }
 
 .wexmsg__q {

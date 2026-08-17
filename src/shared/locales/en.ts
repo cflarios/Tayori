@@ -143,7 +143,6 @@ export const en = {
   'overlay.transcription': 'Transcription',
   'overlay.attached': 'Screenshot attached',
   'overlay.size': 'Size {size}',
-  'overlay.questionLabel': 'Question',
   'overlay.modelTitle': 'Model that answers — click to change',
   'overlay.noModels': 'No models available',
   'overlay.loadingModels': 'Loading…',

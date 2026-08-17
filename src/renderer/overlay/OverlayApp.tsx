@@ -1689,15 +1689,15 @@ function WriteExchange({ answer, settings }: { answer: Answer; settings: Setting
     <div className="wexmsg" data-interactive>
       {showQuestion && (
         <div className="wexmsg__side wexmsg__side--q">
-          <span className="wexmsg__from">
+          <span className="msgfrom">
             {t(askedByMe ? 'overlay.senderYou' : 'overlay.senderInterviewer')}
           </span>
           <p className="wexmsg__q">{answer.question}</p>
         </div>
       )}
       <div className="wexmsg__side wexmsg__side--a">
-        <span className="wexmsg__from">
-          <Mascot className="wexmsg__mascot" />
+        <span className="msgfrom">
+          <Mascot className="msgfrom__mascot" />
           Tayori
         </span>
         <div className="wexmsg__a">
@@ -2453,11 +2453,15 @@ function AnswerBody({ text }: { text: string }) {
  * carry a canned instruction as their question ("solve the code on screen"),
  * which is noise here, so `isScreenTrigger` ones don't show it.
  */
-function QuestionLine({ text }: { text: string }) {
+function QuestionLine({ text, mine }: { text: string; mine: boolean }) {
   const t = useT();
   return (
     <div className="qline" data-interactive>
-      <span className="qline__label">{t('overlay.questionLabel')}</span>
+      {/* Who asked, not a generic "Question": a typed query is yours, a captured
+          one is the interviewer's — same distinction the Write thread draws. */}
+      <span className="qline__label">
+        {t(mine ? 'overlay.senderYou' : 'overlay.senderInterviewer')}
+      </span>
       <p className="qline__text">{text}</p>
     </div>
   );
@@ -3244,8 +3248,28 @@ export function OverlayApp() {
                 footer). Only for a typed or dictated question: the screen
                 actions' canned instruction is noise here. */}
             <div className="answerbody">
-              {answer && answer.question.trim() && !isScreenTrigger(answer.trigger) && (
-                <QuestionLine text={answer.question} />
+              {/* In Listen the transcript above already shows the live question,
+                  so repeating it over the latest answer is noise; it's kept only
+                  when navigating back (viewing a prior answer), where the
+                  transcript no longer shows that question, and always in compact,
+                  which has no transcript. */}
+              {answer &&
+                answer.question.trim() &&
+                !isScreenTrigger(answer.trigger) &&
+                !(tab === 'listen' && viewing === null) && (
+                  <QuestionLine
+                    text={answer.question}
+                    mine={answer.trigger === 'manual-input'}
+                  />
+                )}
+              {/* Every answer is Tayori's: its mascot and name head the reply so a
+                  mixed feed reads as a conversation, not anonymous text. Only once
+                  there's an answer object — the empty/skip states aren't Tayori. */}
+              {answer && (
+                <span className="msgfrom answerfrom">
+                  <Mascot className="msgfrom__mascot" />
+                  Tayori
+                </span>
               )}
               <AnswerPane
                 answer={answer}

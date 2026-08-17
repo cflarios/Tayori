@@ -126,7 +126,6 @@ export const es: Record<UIKey, string> = {
   'overlay.transcription': 'Transcripción',
   'overlay.attached': 'Captura adjunta',
   'overlay.size': 'Tamaño {size}',
-  'overlay.questionLabel': 'Pregunta',
   'overlay.modelTitle': 'Modelo que responde — clic para cambiar',
   'overlay.noModels': 'Sin modelos disponibles',
   'overlay.loadingModels': 'Cargando…',
