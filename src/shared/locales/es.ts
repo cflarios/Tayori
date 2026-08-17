@@ -366,6 +366,7 @@ export const es: Record<UIKey, string> = {
   'beh.interpreterLangs': 'Idiomas del intérprete',
   'beh.interpreterLangsDesc':
     'Traduce cada intervención al otro idioma, en los dos carriles. Necesita la escucha y el disparo automático encendidos.',
+  'beh.interpreterSwap': 'Intercambiar los dos idiomas',
   'beh.profCustom': 'Personalizado',
   'beh.codeLang': 'Lenguaje del modo código',
   'beh.codeLangDesc':
@@ -528,6 +529,8 @@ export const es: Record<UIKey, string> = {
   'about.licenseDesc': 'Código abierto, sin monetización.',
   'about.web': 'Web',
   'about.webDesc': 'La landing page de Tayori.',
+  'about.docs': 'Documentación',
+  'about.docsDesc': 'Guías y referencia en la web.',
   'about.updateTitle': 'Actualizaciones',
   'about.updateHint': 'Comprueba en GitHub si hay una versión más nueva. No se descarga nada solo.',
   'about.checkUpdate': 'Comprobar actualizaciones',
@@ -680,8 +683,11 @@ export const es: Record<UIKey, string> = {
   'aud.seeTrigger': 'Ver el disparo automático',
   'nav.attention': 'Algo requiere tu atención',
   'nav.wizard': 'Configuración guiada',
+  'nav.docs': 'Docs',
+  'nav.search': 'Buscar ajustes…',
+  'nav.searchClear': 'Limpiar búsqueda',
+  'nav.noSection': 'Ninguna sección coincide.',
   'nav.quit': 'Cerrar Tayori',
-  'nav.footer': 'Todo se guarda en tu equipo. Nada se sube a ningún servidor propio.',
   'ph.qrAlt': 'Código QR con el enlace del espejo',
   'local.title': 'Qué modelo local le pega a tu equipo',
   'local.hint':

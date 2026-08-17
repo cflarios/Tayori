@@ -255,6 +255,80 @@ body {
   margin-top: 3px;
 }
 
+.nav__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 10px 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-faint);
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.nav__search:focus-within {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.nav__search svg {
+  flex: none;
+  opacity: 0.8;
+}
+
+/* `.nav` prefix so it outweighs the global `input[type='text']` rule (which this
+   type-less input otherwise inherits, giving it a second box inside the search). */
+.nav .nav__searchinput {
+  flex: 1;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  padding: 7px 0;
+}
+
+.nav .nav__searchinput::placeholder {
+  color: var(--text-faint);
+}
+
+.nav__searchclear {
+  flex: none;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-faint);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.nav__searchclear:hover {
+  color: var(--text);
+}
+
+.nav__empty {
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 8px 10px;
+  margin: 0;
+}
+
+/* The search match highlight, painted with the CSS Custom Highlight API (no DOM
+   nodes added). `::highlight` styles like a selection, so only background/color. */
+::highlight(nav-search) {
+  background-color: rgba(96, 165, 250, 0.38);
+  color: #fff;
+}
+
 .nav__list {
   flex: 1;
   overflow-y: auto;
@@ -298,6 +372,12 @@ body {
   opacity: 0.9;
 }
 
+/* A trailing icon (e.g. the external-link hint on «Docs») reads as secondary, so
+   it's dimmer than the leading one. Only matches icons placed after the label. */
+.navitem svg:last-child {
+  opacity: 0.5;
+}
+
 .navitem__label {
   flex: 1;
   min-width: 0;
@@ -332,13 +412,6 @@ body {
 .navitem--danger:hover {
   background: rgba(248, 113, 113, 0.12);
   color: #fca5a5;
-}
-
-.nav__note {
-  font-size: 10.5px;
-  line-height: 1.45;
-  color: #5f656b;
-  padding: 8px 10px 4px;
 }
 
 .pane {
@@ -929,11 +1002,21 @@ button.btn--primary:hover:not(:disabled) {
   margin: 4px 0;
 }
 
+/*
+ * Two rows on a grid so it survives any width: the name and the actions share
+ * the top line (the name shrinks, Apply/× stay pinned right), and the tags take
+ * the full width below and wrap. The old single flex row pushed the actions onto
+ * a stray second line and cramped the name once the tags —which can be long— ran
+ * out of room.
+ */
 .preset__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'name acts'
+    'tags tags';
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px 10px;
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -941,6 +1024,7 @@ button.btn--primary:hover:not(:disabled) {
 }
 
 .preset__name {
+  grid-area: name;
   font-family: inherit;
   font-size: 13px;
   font-weight: 550;
@@ -949,8 +1033,8 @@ button.btn--primary:hover:not(:disabled) {
   border: 0;
   border-bottom: 1px solid transparent;
   padding: 2px 0;
-  min-width: 120px;
-  flex: 1;
+  width: 100%;
+  min-width: 0;
 }
 
 .preset__name:hover {
@@ -963,6 +1047,7 @@ button.btn--primary:hover:not(:disabled) {
 }
 
 .preset__tags {
+  grid-area: tags;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -977,25 +1062,53 @@ button.btn--primary:hover:not(:disabled) {
 }
 
 .preset__acts {
+  grid-area: acts;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
 }
 
 .preset__del {
-  font-family: inherit;
-  font-size: 18px;
-  line-height: 1;
+  display: grid;
+  place-items: center;
   color: var(--text-faint);
   background: transparent;
   border: 0;
-  padding: 0 6px;
+  padding: 3px 5px;
   cursor: pointer;
 }
 
 .preset__del:hover {
-  color: var(--text);
+  color: #fca5a5;
+}
+
+/* Swaps the two interpreter languages. Quiet at rest so it reads as the divider
+   it replaces, and it turns to the accent on hover to invite the click. */
+.langswap {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--text-faint);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.langswap:hover {
+  color: var(--accent);
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.langswap:active {
+  transform: scale(0.94);
 }
 
 /*
@@ -1812,6 +1925,13 @@ button.btn--primary:hover:not(:disabled) {
 button.btn--small {
   font-size: 11.5px;
   padding: 5px 10px;
+}
+
+/* Icon-only button: square-ish, the glyph centered instead of a text label. */
+button.btn--icon {
+  display: inline-grid;
+  place-items: center;
+  padding: 7px 9px;
 }
 
 button.btn--ghost {

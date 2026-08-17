@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PiperStatus, TtsPiperProgress, WhisperProgress } from '@shared/ipc';
 import { PIPER_VOICES, piperVoiceById } from '@shared/piper-voices';
 import {
@@ -30,7 +30,15 @@ import {
   duplicateAccelerators,
   formatAccelerator,
 } from '@shared/accelerator';
-import { translate, UI_LANG_LABEL, UI_LANGS, type UIKey, type UILang } from '@shared/i18n';
+import {
+  translate,
+  uiTable,
+  DEFAULT_UI_LANG,
+  UI_LANG_LABEL,
+  UI_LANGS,
+  type UIKey,
+  type UILang,
+} from '@shared/i18n';
 import { skillDescription, skillName } from '@shared/skills';
 import {
   WHISPER_MODELS,
@@ -71,6 +79,7 @@ import type {
 
 /** Sibling projects born from this one. */
 const TAYORI_WEB_URL = 'https://tayori-web.cflarios.workers.dev/';
+const TAYORI_DOCS_URL = `${TAYORI_WEB_URL}docs`;
 const TAYORI_ESP32_URL = 'https://github.com/cflarios/TayoriESP32';
 
 /**
@@ -785,8 +794,14 @@ function SecretField({
           </button>
         )}
         {present && (
-          <button className="btn btn--danger" disabled={busy} onClick={() => void onClear()}>
-            {t('keys.clear')}
+          <button
+            className="btn btn--danger btn--icon"
+            disabled={busy}
+            onClick={() => void onClear()}
+            aria-label={t('keys.clear')}
+            title={t('keys.clear')}
+          >
+            <Icon name="trash" size={15} />
           </button>
         )}
       </div>
@@ -962,6 +977,30 @@ const SECTION_ORDER: SectionId[] = [
 ];
 
 /**
+ * Locale-key prefixes that belong to each section, so the sidebar search can index
+ * every string a section shows —not just its name— and a term buried in a card
+ * ("microphone", "decoy", "vocabulary", "broker") still surfaces it. It leans on
+ * the locale namespacing (`aud.`, `keys.`, `stt.`…); prefixes outside a dashboard
+ * section (`overlay.`, `guide.`, `wiz.`, `err.`…) are simply not mapped, so their
+ * text isn't searched. Keep in sync when a card moves between sections.
+ */
+const SECTION_SEARCH_PREFIXES: Record<SectionId, readonly string[]> = {
+  general: ['gen', 'dash'],
+  audio: ['aud', 'tts'],
+  phone: ['ph'],
+  mqtt: ['mq', 'mqtt'],
+  models: ['keys', 'presets', 'model', 'mdl', 'screen', 'local', 'ol'],
+  transcription: ['stt'],
+  behaviour: ['beh'],
+  context: ['ctx'],
+  skills: ['sk'],
+  history: ['hist'],
+  hotkeys: ['hk'],
+  diagnostics: ['diag'],
+  about: ['about'],
+};
+
+/**
  * The section is remembered between openings. The dashboard is opened and closed
  * many times in a row while tuning something —change the model, test, go back—
  * and always returning to "General" forces repeating the same click.
@@ -1028,6 +1067,48 @@ function TitleBar() {
   );
 }
 
+/** The CSS Custom Highlight registry name for the search matches. */
+const SEARCH_HL = 'nav-search';
+
+/** Every range in `container` whose text matches `query` (case-insensitive). */
+function searchRanges(container: HTMLElement, query: string): Range[] {
+  const q = query.trim().toLowerCase();
+  const ranges: Range[] = [];
+  if (!q) return ranges;
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = (node.nodeValue ?? '').toLowerCase();
+    for (let idx = text.indexOf(q); idx !== -1; idx = text.indexOf(q, idx + q.length)) {
+      const range = document.createRange();
+      range.setStart(node, idx);
+      range.setEnd(node, idx + q.length);
+      ranges.push(range);
+    }
+  }
+  return ranges;
+}
+
+/**
+ * Paints (or clears) the search highlight over the matches in the content pane,
+ * using the CSS Custom Highlight API — no DOM mutation, so React's tree is
+ * untouched. A no-op where the API is missing; the jump-to-match still works.
+ */
+function paintHighlight(container: HTMLElement, query: string): void {
+  const HL = (globalThis as { Highlight?: new (...r: Range[]) => unknown }).Highlight;
+  const reg = (CSS as { highlights?: { set(k: string, v: unknown): void; delete(k: string): void } })
+    .highlights;
+  if (!HL || !reg) return;
+  reg.delete(SEARCH_HL);
+  const ranges = searchRanges(container, query);
+  if (ranges.length) reg.set(SEARCH_HL, new HL(...ranges));
+}
+
+/** Scrolls the first match in the content pane into view. */
+function scrollToMatch(container: HTMLElement, query: string): void {
+  const first = searchRanges(container, query)[0];
+  first?.startContainer.parentElement?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 export function DashboardApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [presence, setPresence] = useState<SecretsPresence>({
@@ -1044,6 +1125,14 @@ export function DashboardApp() {
   });
   const [levels, setLevels] = useState<AudioLevels>({ me: 0, them: 0 });
   const [section, setSection] = useState<SectionId>(storedSection);
+  /** Sidebar search: filters the sections by any text they contain (see `searchBlobs`). */
+  const [navQuery, setNavQuery] = useState('');
+  /** Set when a result is chosen, to scroll to its first match after navigating.
+      The nonce makes repeated jumps to the same query re-fire the effect. */
+  const [searchJump, setSearchJump] = useState<{ query: string; nonce: number }>({
+    query: '',
+    nonce: 0,
+  });
   /**
    * It rises here from `HotkeysCard` because painting it inside is no longer
    * enough: the sidebar marks the section that has a problem, and for that the
@@ -1085,6 +1174,32 @@ export function DashboardApp() {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [section]);
 
+  // Paint the search term over the shown section, live as you type. A frame lets
+  // the section render first; the cleanup clears the highlight on unmount.
+  useEffect(() => {
+    const container = bodyRef.current;
+    if (!container) return;
+    const raf = requestAnimationFrame(() => paintHighlight(container, navQuery));
+    return () => cancelAnimationFrame(raf);
+  }, [section, navQuery]);
+
+  useEffect(
+    () => () => {
+      (CSS as { highlights?: { delete(k: string): void } }).highlights?.delete(SEARCH_HL);
+    },
+    []
+  );
+
+  // Jump to the first match when a result is chosen (click or Enter). Bumped by a
+  // counter so it fires even if the section and query didn't change.
+  useEffect(() => {
+    if (!searchJump.nonce) return;
+    const container = bodyRef.current;
+    if (!container) return;
+    const raf = requestAnimationFrame(() => scrollToMatch(container, searchJump.query));
+    return () => cancelAnimationFrame(raf);
+  }, [searchJump]);
+
   const patch = useCallback(async (p: Partial<Settings>): Promise<void> => {
     setSettings(await window.api.settings.update(p));
   }, []);
@@ -1096,6 +1211,30 @@ export function DashboardApp() {
   const clearSecret = useCallback(async (key: SecretKey): Promise<void> => {
     setPresence(await window.api.secrets.clear(key));
   }, []);
+
+  // Search index: for each section, all of its visible strings (label, hint and
+  // every locale entry under its namespaces) in the active language, lowercased.
+  // Rebuilt only when the interface language changes. It's up here, before the
+  // early returns, so the hook order never changes.
+  const searchLang = settings?.uiLanguage ?? DEFAULT_UI_LANG;
+  const searchBlobs = useMemo(() => {
+    const table = uiTable(searchLang);
+    const entries = Object.entries(table) as [string, string][];
+    const blobs = {} as Record<SectionId, string>;
+    for (const id of SECTION_ORDER) {
+      const prefixes = SECTION_SEARCH_PREFIXES[id];
+      // The section id and the locale keys go in too, so internal terms that
+      // aren't in the visible text still match: "hotkey" finds Shortcuts (id
+      // `hotkeys`), "decoy" finds General (key `gen.decoy`, even if the label
+      // reads "disguise"). Keys are English, a bonus when the UI is in Spanish.
+      const parts = [id, table[SECTIONS[id].label], table[SECTIONS[id].hint]];
+      for (const [key, value] of entries) {
+        if (prefixes.some((p) => key.startsWith(`${p}.`))) parts.push(value, key);
+      }
+      blobs[id] = parts.join(' ').toLowerCase();
+    }
+    return blobs;
+  }, [searchLang]);
 
   if (!settings)
     return (
@@ -1159,6 +1298,12 @@ export function DashboardApp() {
     hotkeys: failedHotkeys.length > 0 || duplicateAccelerators(activeHotkeys(settings)).size > 0,
   };
 
+  // Filter the sidebar against the search index (built above, before the early
+  // returns), so any keyword shown anywhere in a section —not only its name—
+  // finds it.
+  const q = navQuery.trim().toLowerCase();
+  const navSections = q ? SECTION_ORDER.filter((id) => searchBlobs[id].includes(q)) : SECTION_ORDER;
+
   return (
     <div className="shell">
       {/* Dashed red frame when stealth is off: the dashboard —with the API keys,
@@ -1177,19 +1322,63 @@ export function DashboardApp() {
               </div>
             </div>
 
+            <div className="nav__search">
+              <Icon name="search" size={15} />
+              <input
+                className="nav__searchinput"
+                value={navQuery}
+                placeholder={t('nav.search')}
+                aria-label={t('nav.search')}
+                onChange={(e) => setNavQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setNavQuery('');
+                    return;
+                  }
+                  // Enter jumps to the first match, so a search can end without
+                  // reaching for the mouse.
+                  if (e.key === 'Enter') {
+                    const first = navSections[0];
+                    if (first) {
+                      go(first);
+                      setSearchJump((p) => ({ query: navQuery, nonce: p.nonce + 1 }));
+                    }
+                  }
+                }}
+              />
+              {navQuery && (
+                <button
+                  type="button"
+                  className="nav__searchclear"
+                  aria-label={t('nav.searchClear')}
+                  onClick={() => setNavQuery('')}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
             <nav className="nav__list">
-              {SECTION_ORDER.map((id) => (
+              {navSections.map((id) => (
                 <button
                   key={id}
                   className="navitem"
                   aria-current={id === section}
-                  onClick={() => go(id)}
+                  onClick={() => {
+                    go(id);
+                    // With a search active, a click is a "take me there": scroll
+                    // to and highlight the first match in the section.
+                    if (navQuery.trim()) {
+                      setSearchJump((p) => ({ query: navQuery, nonce: p.nonce + 1 }));
+                    }
+                  }}
                 >
                   <Icon name={SECTIONS[id].icon} />
                   <span className="navitem__label">{t(SECTIONS[id].label)}</span>
                   {alerts[id] && <span className="navitem__dot" title={t('nav.attention')} />}
                 </button>
               ))}
+              {navSections.length === 0 && <p className="nav__empty">{t('nav.noSection')}</p>}
             </nav>
 
             <div className="nav__foot">
@@ -1210,7 +1399,17 @@ export function DashboardApp() {
                 <Icon name="compass" />
                 <span className="navitem__label">{t('nav.wizard')}</span>
               </button>
-              <p className="nav__note">{t('nav.footer')}</p>
+              {/* The project's docs live on the web; this opens them in the
+                  browser, never inside the app. */}
+              <button
+                className="navitem navitem--ghost"
+                onClick={() => void window.api.system.openExternal(TAYORI_DOCS_URL)}
+              >
+                <Icon name="bookOpen" />
+                <span className="navitem__label">{t('nav.docs')}</span>
+                {/* Signals it leaves the app for the browser. */}
+                <Icon name="external" size={13} />
+              </button>
             </div>
           </aside>
 
@@ -2551,7 +2750,10 @@ function AboutCard() {
           <code className="aboutval">MIT</code>
         </Row>
         <Row icon="globe" label={t('about.web')} desc={t('about.webDesc')}>
-          <ExtLink href={TAYORI_WEB_URL}>tayori-web.cflarios.workers.dev</ExtLink>
+          <ExtLink href={TAYORI_WEB_URL}>Web</ExtLink>
+        </Row>
+        <Row icon="book" label={t('about.docs')} desc={t('about.docsDesc')}>
+          <ExtLink href={TAYORI_DOCS_URL}>Docs</ExtLink>
         </Row>
       </section>
 
@@ -3661,7 +3863,7 @@ function ModelPresetsCard({ settings, patch }: { settings: Settings; patch: Patc
                   title={t('presets.delete')}
                   onClick={() => remove(p.id)}
                 >
-                  ×
+                  <Icon name="trash" size={15} />
                 </button>
               </div>
             </div>
@@ -4363,14 +4565,34 @@ function BehaviourCard({
             ariaLabel={t('beh.interpreterLangs')}
             value={settings.interpreterLangA}
             onChange={(v) => void patch({ interpreterLangA: v })}
-            options={INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
+            // The language chosen on the other side is dropped here (and vice
+            // versa): the interpreter translates BETWEEN two languages, so the
+            // same one on both makes no sense. Its own value always stays.
+            options={INTERPRETER_LANGS.filter(
+              (l) => l.code === settings.interpreterLangA || l.code !== settings.interpreterLangB
+            ).map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
           />
-          <span style={{ color: 'var(--text-faint)' }}>⇄</span>
+          <button
+            type="button"
+            className="langswap"
+            aria-label={t('beh.interpreterSwap')}
+            title={t('beh.interpreterSwap')}
+            onClick={() =>
+              void patch({
+                interpreterLangA: settings.interpreterLangB,
+                interpreterLangB: settings.interpreterLangA,
+              })
+            }
+          >
+            <Icon name="swap" size={16} />
+          </button>
           <Select
             ariaLabel={t('beh.interpreterLangs')}
             value={settings.interpreterLangB}
             onChange={(v) => void patch({ interpreterLangB: v })}
-            options={INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
+            options={INTERPRETER_LANGS.filter(
+              (l) => l.code === settings.interpreterLangB || l.code !== settings.interpreterLangA
+            ).map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
           />
         </div>
       </Row>

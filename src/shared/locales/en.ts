@@ -383,6 +383,7 @@ export const en = {
   'beh.interpreterLangs': 'Interpreter languages',
   'beh.interpreterLangsDesc':
     'Translates every utterance into the other language, on both lanes. Needs listening and auto-trigger on.',
+  'beh.interpreterSwap': 'Swap the two languages',
   'beh.profCustom': 'Custom',
   'beh.codeLang': 'Code mode language',
   'beh.codeLangDesc':
@@ -545,6 +546,8 @@ export const en = {
   'about.licenseDesc': 'Open source, no monetisation.',
   'about.web': 'Website',
   'about.webDesc': 'The Tayori landing page.',
+  'about.docs': 'Documentation',
+  'about.docsDesc': 'Guides and reference on the web.',
   'about.updateTitle': 'Updates',
   'about.updateHint': 'Check GitHub for a newer version. Nothing is downloaded automatically.',
   'about.checkUpdate': 'Check for updates',
@@ -699,8 +702,11 @@ export const en = {
   'aud.seeTrigger': 'See the automatic trigger',
   'nav.attention': 'Something needs your attention',
   'nav.wizard': 'Guided setup',
+  'nav.docs': 'Docs',
+  'nav.search': 'Search settings…',
+  'nav.searchClear': 'Clear search',
+  'nav.noSection': 'No section matches.',
   'nav.quit': 'Quit Tayori',
-  'nav.footer': 'Everything is stored on your machine. Nothing is uploaded to any server of ours.',
   'ph.qrAlt': 'QR code with the mirror link',
   'local.title': 'Which local model suits your machine',
   'local.hint':

@@ -29,6 +29,15 @@ export const UI_LANG_LABEL: Record<UILang, string> = {
 const TABLES: Record<UILang, Record<UIKey, string>> = { en, es };
 
 /**
+ * The whole dictionary for a language. The dashboard's section search reads it to
+ * index every visible string, so a term that lives deep in a card ("microphone",
+ * "decoy", "vocabulary") still finds its section.
+ */
+export function uiTable(lang: UILang): Record<UIKey, string> {
+  return TABLES[lang];
+}
+
+/**
  * A key's text, with the `{…}` slots already filled.
  *
  * It lives loose —outside React— because the main process also translates: the
