@@ -304,7 +304,12 @@ export function setOverlaySize(size: OverlaySize): void {
 export function resizeOverlay(height: number, width?: number): void {
   const win = getOverlay();
   if (!win) return;
-  const clampedH = Math.round(Math.max(120, Math.min(height, 900)));
+  // The floor is a safety net for a degenerate/transient measurement, NOT a real
+  // minimum: it has to sit BELOW the compact bar's measured height (~58–68 px) or
+  // it silently pads a tall empty area under the bar. It was 120, which did
+  // exactly that; 40 lets the fit-to-content sizes (compact bar, idle hero)
+  // through untouched.
+  const clampedH = Math.round(Math.max(40, Math.min(height, 900)));
   const bounds = win.getBounds();
   /*
    * `setBounds`, NOT `setSize`.

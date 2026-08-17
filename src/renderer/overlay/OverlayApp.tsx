@@ -2675,6 +2675,16 @@ const ANSWER_MEMORY = 20;
 const OVERLAY_MENUS =
   '.more__menu, .solve__menu, .profilemenu__menu, .modelmenu__menu, .listenctl__menu';
 
+/**
+ * A transparent gap kept below the compact bar: the window is this much taller
+ * than the panel, so the red frame (at the window edge) sits a little BELOW the
+ * bar rather than hugging it, and a button's tooltip —which drops below its
+ * button— lands in that gap without growing the bar on hover. The gap is
+ * transparent (the window is), not the dark panel, so the bar itself isn't
+ * enlarged; the frame just rings a small breathing space, tooltip included.
+ */
+const COMPACT_TOOLTIP_TAIL = 14;
+
 export function OverlayApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [status, setStatus] = useState<CaptureStatus>({
@@ -2910,9 +2920,11 @@ export function OverlayApp() {
         bottom = Math.max(bottom, menu.getBoundingClientRect().bottom);
       });
       // From the window's top (0) to the lowest edge, plus the panel's 4px
-      // bottom margin. getBoundingClientRect is layout, not paint, so a menu
-      // currently clipped by the window still reports its full extent.
-      return Math.ceil(bottom) + 4;
+      // bottom margin, plus a transparent tail so the frame sits a little below
+      // the bar and a tooltip has room (see `COMPACT_TOOLTIP_TAIL`).
+      // getBoundingClientRect is layout, not paint, so a menu currently clipped
+      // by the window still reports its full extent.
+      return Math.ceil(bottom) + 4 + COMPACT_TOOLTIP_TAIL;
     };
 
     // Width follows the bar's real content. In compact the bar packs left (the
