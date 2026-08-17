@@ -7,6 +7,13 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.11.1](https://github.com/cflarios/Tayori/compare/v1.11.0...v1.11.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* **auto-trigger:** update the canonical tests and skip realignment when off ([4e2b73e](https://github.com/cflarios/Tayori/commit/4e2b73e9f5a8ceb13bf1242411b37eea42f53e7f))
+
 ## [1.11.0](https://github.com/cflarios/Tayori/compare/v1.10.1...v1.11.0) (2026-08-17)
 
 
