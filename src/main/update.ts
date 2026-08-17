@@ -36,7 +36,6 @@ export async function checkForUpdate(): Promise<UpdateInfo | { error: string }> 
     const data = (await response.json()) as {
       tag_name?: string;
       html_url?: string;
-      body?: string;
       assets?: { name?: string; browser_download_url?: string }[];
     };
 
@@ -52,7 +51,6 @@ export async function checkForUpdate(): Promise<UpdateInfo | { error: string }> 
       current,
       latest,
       isNewer: isNewerVersion(latest, current),
-      notes: (data.body ?? '').trim(),
       releaseUrl: data.html_url ?? `https://github.com/${REPO}/releases/latest`,
       downloadUrl: portable?.browser_download_url ?? '',
     };

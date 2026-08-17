@@ -2652,21 +2652,6 @@ kbd {
 }
 
 /* Release notes in the update block: raw, capped and with scroll. */
-.update__notes {
-  margin: 8px 0;
-  max-height: 160px;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--text-dim);
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-
 .about {
   display: flex;
   flex-direction: column;

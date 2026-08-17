@@ -2798,7 +2798,6 @@ function AboutCard() {
             <p>
               <Tx k="about.updateAvailable" vars={{ latest: update.latest, current: update.current }} />
             </p>
-            {update.notes && <pre className="update__notes">{update.notes}</pre>}
             <div className="field">
               {update.downloadUrl && (
                 <button

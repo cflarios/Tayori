@@ -1414,8 +1414,6 @@ export interface UpdateInfo {
   current: string;
   latest: string;
   isNewer: boolean;
-  /** Release notes (raw Markdown), to show a summary. */
-  notes: string;
   releaseUrl: string;
   downloadUrl: string;
 }
