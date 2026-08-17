@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PiperStatus, TtsPiperProgress, WhisperProgress } from '@shared/ipc';
 import { PIPER_VOICES, piperVoiceById } from '@shared/piper-voices';
 import {
@@ -237,6 +237,20 @@ function Select({
     if (!root) return;
     const sel = root.querySelector<HTMLButtonElement>('.selopt[aria-selected="true"]');
     (sel ?? root.querySelector<HTMLButtonElement>('.selopt'))?.focus();
+  }, [open]);
+
+  // Keep the menu on screen. It opens growing rightward (CSS `left: 0`); if that
+  // overflows the app's right edge —which happens for selects near it— flip it to
+  // grow leftward instead. Done imperatively before paint (no state round-trip,
+  // no visible jump). A blanket right-anchor used to push left-placed selects
+  // (the model picker, with an input beside it) off under the sidebar.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const menu = rootRef.current?.querySelector<HTMLElement>('.selmenu');
+    if (menu && menu.getBoundingClientRect().right > window.innerWidth - 12) {
+      menu.style.left = 'auto';
+      menu.style.right = '0';
+    }
   }, [open]);
 
   const current = [...options, ...groups.flatMap((g) => g.options)].find((o) => o.value === value);
@@ -4729,6 +4743,14 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
     { type: 'slot'; kind: ContextKind } | { type: 'pack'; id: string } | null
   >(null);
 
+  // The editor opens BELOW the grid; on a short window it lands off-screen and
+  // the user had to scroll down to reach it. Clicking a tile now brings it into
+  // view — the point of clicking a tile is to edit it.
+  const editorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (sel) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [sel]);
+
   const write = (next: ContextPack[]): void => void patch({ contextPacks: next });
 
   const update = (id: string, changes: Partial<ContextPack>): void =>
@@ -4847,6 +4869,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         </button>
       </div>
 
+      <div ref={editorRef}>
       {sel?.type === 'slot' && (
         <SlotEditor
           kind={sel.kind}
@@ -4915,6 +4938,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
           <FileDrop onText={(text) => update(editing.id, { content: text })} />
         </div>
       )}
+      </div>
     </section>
   );
 }

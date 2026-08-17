@@ -1524,13 +1524,10 @@ button.btn--primary:hover:not(:disabled) {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
 }
 
-/* Box selects sit at the right edge of their row, so a menu wider than the
-   trigger has to grow leftward — anchored left it runs off the app. Inline (the
-   Context header, on the left) keeps growing rightward. */
-.sel--box .selmenu {
-  left: auto;
-  right: 0;
-}
+/* The menu grows rightward by default (`left: 0` above). When that would overflow
+   the app's right edge, Select flips it to `right: 0` imperatively on open — so a
+   select near the right stays on screen while a left-placed one (the model
+   picker) no longer runs off under the sidebar. */
 
 .selopt {
   display: flex;
@@ -1775,6 +1772,28 @@ button.btn--primary:hover:not(:disabled) {
 .ctxeditor__head input[type='text'] {
   flex: 1;
   min-width: 140px;
+}
+
+/*
+ * The context boxes hold long prose —a CV, a job post—, so the editor's textarea
+ * is roomier and speaks the app's card language (surface fill, soft line, 10px
+ * radius, comfortable padding) instead of reading as a dark recessed hole.
+ */
+.ctxeditor textarea {
+  min-height: 200px;
+  padding: 12px 14px;
+  line-height: 1.6;
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: 10px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.ctxeditor textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
 }
 
 .ctxdrop {
