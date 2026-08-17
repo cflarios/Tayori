@@ -11,7 +11,6 @@
       <stop offset="1" stop-color="#22d3ee"/>
     </linearGradient>
   </defs>
-  <rect width="48" height="48" rx="11" fill="#0d0d15"/>
   <path d="M10 39 L10 21 C10 13.3 16.3 7 24 7 C31.7 7 38 13.3 38 21 L38 39 Q34.5 43.5 31 39 Q27.5 43.5 24 39 Q20.5 43.5 17 39 Q13.5 43.5 10 39 Z"
         fill="url(#b)" stroke="url(#g)" stroke-width="1.4" stroke-linejoin="round"/>
   <path d="M8.5 21 A15.5 15.5 0 0 1 39.5 21" fill="none" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round"/>

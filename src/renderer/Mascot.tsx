@@ -28,7 +28,6 @@ export function Mascot({
   const rawId = useId().replace(/:/g, '');
   const body = `body-${rawId}`;
   const gear = `gear-${rawId}`;
-  const glow = `glow-${rawId}`;
 
   const [blink, setBlink] = useState(false);
   useEffect(() => {
@@ -71,13 +70,7 @@ export function Mascot({
           <stop offset="0.5" stopColor="#818cf8" />
           <stop offset="1" stopColor="#22d3ee" />
         </linearGradient>
-        <radialGradient id={glow} cx="0.5" cy="0.45" r="0.6">
-          <stop offset="0" stopColor="#8b5cf6" stopOpacity="0.45" />
-          <stop offset="1" stopColor="#8b5cf6" stopOpacity="0" />
-        </radialGradient>
       </defs>
-
-      <circle cx="24" cy="24" r="22" fill={`url(#${glow})`} />
 
       <path
         d="M10 39 L10 21 C10 13.3 16.3 7 24 7 C31.7 7 38 13.3 38 21 L38 39
