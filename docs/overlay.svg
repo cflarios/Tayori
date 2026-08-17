@@ -11,6 +11,16 @@
     <filter id="cardShadow" x="-40%" y="-40%" width="180%" height="180%">
       <feDropShadow dx="0" dy="16" stdDeviation="26" flood-color="#000000" flood-opacity="0.5"/>
     </filter>
+    <linearGradient id="bodyM" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#f4f1ff"/>
+      <stop offset="0.6" stop-color="#dcd6ff"/>
+      <stop offset="1" stop-color="#c3e9f6"/>
+    </linearGradient>
+    <linearGradient id="gearM" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="0.5" stop-color="#818cf8"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
   </defs>
 
   <!-- Backdrop -->
@@ -55,37 +65,56 @@
   <path d="M593 110 l3 3 l3 -3" stroke="#9aa0a6" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- ── Tabs ── -->
-  <text x="250" y="152" fill="#e2e5e9" font-size="11" font-weight="600" letter-spacing="0.6">LISTEN</text>
-  <text x="312" y="152" fill="#7c8288" font-size="11" letter-spacing="0.6">WRITE</text>
+  <!-- Listen (active): headphones -->
+  <path d="M251 148 V145.8 A5.4 5.4 0 0 1 262 145.8 V148" fill="none" stroke="#d6d9dd" stroke-width="1.3" stroke-linecap="round"/>
+  <rect x="249.6" y="146.2" width="3" height="5.8" rx="1.5" fill="none" stroke="#d6d9dd" stroke-width="1.3"/>
+  <rect x="260.4" y="146.2" width="3" height="5.8" rx="1.5" fill="none" stroke="#d6d9dd" stroke-width="1.3"/>
+  <text x="270" y="152" fill="#e2e5e9" font-size="11" font-weight="600" letter-spacing="0.6">LISTEN</text>
+  <!-- Write (inactive): message bubble -->
+  <path d="M323 144.5 h10 a2.2 2.2 0 0 1 2.2 2.2 v3 a2.2 2.2 0 0 1 -2.2 2.2 h-5.5 l-2.8 2.2 v-2.2 h-1.7 a2.2 2.2 0 0 1 -2.2 -2.2 v-3 a2.2 2.2 0 0 1 2.2 -2.2 z" fill="none" stroke="#7c8288" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="326" cy="148.2" r="0.7" fill="#7c8288"/>
+  <circle cx="328.8" cy="148.2" r="0.7" fill="#7c8288"/>
+  <circle cx="331.6" cy="148.2" r="0.7" fill="#7c8288"/>
+  <text x="341" y="152" fill="#7c8288" font-size="11" letter-spacing="0.6">WRITE</text>
   <line x1="250" y1="160" x2="610" y2="160" stroke="#ffffff" stroke-opacity="0.05"/>
-  <line x1="249" y1="160" x2="298" y2="160" stroke="#60a5fa" stroke-width="1.6"/>
+  <line x1="248" y1="160" x2="316" y2="160" stroke="#60a5fa" stroke-width="1.6"/>
 
   <!-- ── Answer header ── -->
   <text x="250" y="185" fill="#7c8288" font-size="10.5">&#8249; 2/5 &#8250;</text>
-  <rect x="486" y="176" width="66" height="16" rx="4" fill="#ffffff" fill-opacity="0.05"/>
-  <text x="493" y="187.5" fill="#8b9096" font-size="9.5">memory 2/8</text>
+  <rect x="504" y="176" width="48" height="16" rx="4" fill="#ffffff" fill-opacity="0.05"/>
+  <text x="511" y="187.5" fill="#8b9096" font-size="9.5">memory</text>
   <rect x="560" y="175" width="50" height="18" rx="6" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
   <text x="571" y="187.5" fill="#c8ccd0" font-size="10">Copy</text>
 
-  <!-- ── Question ── -->
-  <text x="250" y="210" fill="#7c8288" font-size="9.5" letter-spacing="0.8">QUESTION</text>
-  <text x="250" y="230" fill="#c8ccd0" font-size="13.5">How would you handle a 10&#215; traffic</text>
-  <text x="250" y="249" fill="#c8ccd0" font-size="13.5">spike at checkout?</text>
+  <!-- ── Question: who asked ── -->
+  <text x="250" y="208" fill="#7c8288" font-size="9.5" letter-spacing="0.8">INTERVIEWER</text>
+  <text x="250" y="227" fill="#c8ccd0" font-size="13.5">How would you handle a 10&#215; traffic</text>
+  <text x="250" y="245" fill="#c8ccd0" font-size="13.5">spike at checkout?</text>
 
-  <line x1="250" y1="264" x2="610" y2="264" stroke="#ffffff" stroke-opacity="0.05"/>
+  <line x1="250" y1="259" x2="610" y2="259" stroke="#ffffff" stroke-opacity="0.05"/>
 
-  <!-- ── Answer bullets ── -->
-  <circle cx="253" cy="285" r="2" fill="#4c8dff"/>
-  <text x="266" y="289" fill="#e6e5f2" font-size="13">Numbers first: current RPS and expected peak.</text>
+  <!-- ── Answer: Tayori, with its mascot ── -->
+  <g transform="translate(250 268) scale(0.32)">
+    <path d="M10 39 L10 21 C10 13.3 16.3 7 24 7 C31.7 7 38 13.3 38 21 L38 39 Q34.5 43.5 31 39 Q27.5 43.5 24 39 Q20.5 43.5 17 39 Q13.5 43.5 10 39 Z" fill="url(#bodyM)" stroke="url(#gearM)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M8.5 21 A15.5 15.5 0 0 1 39.5 21" fill="none" stroke="url(#gearM)" stroke-width="2.4" stroke-linecap="round"/>
+    <rect x="5.4" y="18.5" width="5.6" height="9" rx="2.8" fill="url(#gearM)"/>
+    <rect x="37" y="18.5" width="5.6" height="9" rx="2.8" fill="url(#gearM)"/>
+    <ellipse cx="17.6" cy="22.2" rx="2.7" ry="3.6" fill="#2a2340"/>
+    <ellipse cx="30.4" cy="22.2" rx="2.7" ry="3.6" fill="#2a2340"/>
+  </g>
+  <text x="271" y="279" fill="#8b9096" font-size="9.5" letter-spacing="0.8">TAYORI</text>
 
-  <circle cx="253" cy="311" r="2" fill="#4c8dff"/>
-  <text x="266" y="315" fill="#e6e5f2" font-size="13">Read-through cache, and queue the writes.</text>
+  <circle cx="253" cy="299" r="2" fill="#4c8dff"/>
+  <text x="266" y="303" fill="#e6e5f2" font-size="13">Numbers first: current RPS and expected peak.</text>
 
-  <circle cx="253" cy="337" r="2" fill="#4c8dff"/>
-  <text x="266" y="341" fill="#e6e5f2" font-size="13">Autoscale horizontally, with cost caps.</text>
+  <circle cx="253" cy="321" r="2" fill="#4c8dff"/>
+  <text x="266" y="325" fill="#e6e5f2" font-size="13">Read-through cache, and queue the writes.</text>
 
-  <circle cx="253" cy="363" r="2" fill="#4c8dff"/>
-  <text x="266" y="367" fill="#e6e5f2" font-size="13">Feature flag to degrade gracefully.</text>
+  <circle cx="253" cy="343" r="2" fill="#4c8dff"/>
+  <text x="266" y="347" fill="#e6e5f2" font-size="13">Autoscale horizontally, with cost caps.</text>
+
+  <circle cx="253" cy="365" r="2" fill="#4c8dff"/>
+  <text x="266" y="369" fill="#e6e5f2" font-size="13">Feature flag to degrade gracefully.</text>
 
   <!-- ── Footer ── -->
   <text x="250" y="394" fill="#6b7075" font-size="10.5">Ctrl+Enter to ask</text>
