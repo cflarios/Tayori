@@ -971,6 +971,10 @@ export function idleShutoffDue(
 export function alignAutoTrigger(current: Settings, patch: Partial<Settings>): Partial<Settings> {
   if (!patch.audioSources || patch.audioSources === current.audioSources) return patch;
 
+  // Auto-trigger off: there's no trigger to keep sensible, so don't churn a
+  // speaker setting that does nothing right now.
+  if ((patch.autoTriggerMode ?? current.autoTriggerMode) === 'off') return patch;
+
   // 'any' answers whoever speaks, so no source can mute it; leave it be.
   if (current.autoTriggerSpeaker === 'any') return patch;
 

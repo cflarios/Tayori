@@ -234,10 +234,14 @@ describe('alignAutoTrigger', () => {
     });
   });
 
-  it("doesn't touch anything if the combination could already fire", () => {
+  it('to both hears everyone, so the trigger widens to answer everyone', () => {
     const current = settings({ audioSources: 'mic', autoTriggerSpeaker: 'them' });
-    // With both sources everyone is heard: there's nothing to realign.
-    expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({ audioSources: 'both' });
+    // 'both' hears you and the other party; the trigger widens to 'any' so a
+    // stale single-speaker setting can't silently ignore one of you.
+    expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({
+      audioSources: 'both',
+      autoTriggerSpeaker: 'any',
+    });
   });
 
   it('respects "any" and the trigger being off', () => {

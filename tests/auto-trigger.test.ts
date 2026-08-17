@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  alignAutoTrigger,
-  autoTriggerIsInert,
-  DEFAULT_SETTINGS,
-  speakersFor,
-} from '../src/shared/types';
+import { autoTriggerIsInert, DEFAULT_SETTINGS, speakersFor } from '../src/shared/types';
 
 /**
  * Regression of the bug that left the app mute: with `audioSources: 'mic'` the
@@ -63,64 +58,5 @@ describe('autoTriggerIsInert', () => {
     // change the default.
     expect(DEFAULT_SETTINGS.autoTriggerSpeaker).toBe('them');
     expect(speakersFor(DEFAULT_SETTINGS.audioSources)).toContain('them');
-  });
-});
-
-/**
- * The trigger speaker follows a source change to that source's primary target.
- */
-describe('alignAutoTrigger', () => {
-  const settings = (patch: Partial<typeof DEFAULT_SETTINGS>): typeof DEFAULT_SETTINGS => ({
-    ...DEFAULT_SETTINGS,
-    ...patch,
-  });
-
-  it('answers everyone when switching to both — the reported bug', () => {
-    // A past mic-only session pinned the trigger to "me". Back on "both" the
-    // interviewer was heard but never answered; forcing "them" instead would
-    // ignore the user. "both" hears everyone, so it answers everyone.
-    const current = settings({ audioSources: 'mic', autoTriggerSpeaker: 'me' });
-    expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({
-      audioSources: 'both',
-      autoTriggerSpeaker: 'any',
-    });
-  });
-
-  it('rescues the inert combination (mic drops the them lane)', () => {
-    const current = settings({ audioSources: 'both', autoTriggerSpeaker: 'them' });
-    expect(alignAutoTrigger(current, { audioSources: 'mic' })).toEqual({
-      audioSources: 'mic',
-      autoTriggerSpeaker: 'me',
-    });
-  });
-
-  it('to system routes the trigger to them', () => {
-    const current = settings({ audioSources: 'mic', autoTriggerSpeaker: 'me' });
-    expect(alignAutoTrigger(current, { audioSources: 'system' })).toEqual({
-      audioSources: 'system',
-      autoTriggerSpeaker: 'them',
-    });
-  });
-
-  it('to both even overrides a deliberate single speaker', () => {
-    // Switching source re-derives the audience: on "both" that's everyone.
-    const current = settings({ audioSources: 'system', autoTriggerSpeaker: 'them' });
-    expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({
-      audioSources: 'both',
-      autoTriggerSpeaker: 'any',
-    });
-  });
-
-  it('respects a deliberate "any"', () => {
-    const current = settings({ audioSources: 'mic', autoTriggerSpeaker: 'any' });
-    expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({ audioSources: 'both' });
-  });
-
-  it('does nothing when the source is unchanged or absent', () => {
-    const current = settings({ audioSources: 'both', autoTriggerSpeaker: 'any' });
-    expect(alignAutoTrigger(current, { autoTriggerSpeaker: 'me' })).toEqual({
-      autoTriggerSpeaker: 'me',
-    });
-    expect(alignAutoTrigger(current, { audioSources: 'both' })).toEqual({ audioSources: 'both' });
   });
 });
