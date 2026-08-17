@@ -1441,7 +1441,18 @@ function QuickActions({
   return (
     <div className="quick" data-interactive>
       {actions.map(([label, prompt]) => (
-        <button key={label} type="button" className="quick__btn" onClick={() => onAsk(prompt)}>
+        // `t(prompt)`, not `prompt`: the second tuple item is a locale KEY, so
+        // sending it raw handed the model the literal "overlay.qaMorePrompt",
+        // which it rightly answered wasn't a real question. It's the translated
+        // sentence that has to travel — plus a directive to keep the reply in the
+        // conversation's language, or an English UI would drag a Spanish reply
+        // into English just because the button's text is English.
+        <button
+          key={label}
+          type="button"
+          className="quick__btn"
+          onClick={() => onAsk(`${t(prompt)}\n\n${t('overlay.qaKeepLang')}`)}
+        >
           {t(label)}
         </button>
       ))}

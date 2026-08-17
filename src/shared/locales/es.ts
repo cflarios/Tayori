@@ -146,6 +146,8 @@ export const es: Record<UIKey, string> = {
   'overlay.qaFollowUpPrompt': 'Dame 3 preguntas de seguimiento que YO pueda hacer ahora.',
   'overlay.qaSummary': 'Resumen',
   'overlay.qaSummaryPrompt': 'Resume la conversación hasta ahora en 4 viñetas.',
+  'overlay.qaKeepLang':
+    'Responde en el mismo idioma que tu respuesta anterior, sin importar el idioma de esta instrucción.',
   'overlay.qaExplain': 'Explícalo',
   'overlay.qaExplainPrompt':
     'Explica tu última solución en 4 viñetas, como si se lo contara en voz alta a un entrevistador.',

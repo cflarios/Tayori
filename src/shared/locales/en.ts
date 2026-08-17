@@ -165,6 +165,12 @@ export const en = {
   'overlay.qaFollowUpPrompt': 'Give me 3 follow-up questions that I could ask right now.',
   'overlay.qaSummary': 'Summary',
   'overlay.qaSummaryPrompt': 'Summarise the conversation so far in 4 bullets.',
+  // Appended to every quick-action prompt: these are UI-language canned prompts,
+  // and without this a Spanish conversation would flip to English just because
+  // the button's text is English. It names the previous answer as the anchor, so
+  // its own wording language doesn't leak into the reply.
+  'overlay.qaKeepLang':
+    'Reply in the same language as your previous answer, regardless of the language of this instruction.',
   'overlay.qaExplain': 'Explain it',
   'overlay.qaExplainPrompt':
     'Explain your last solution in 4 bullets, as if you were saying it out loud to an interviewer.',
