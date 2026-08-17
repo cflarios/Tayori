@@ -1630,6 +1630,9 @@ body {
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-family: inherit;
   font-size: 10px;
   letter-spacing: 0.08em;

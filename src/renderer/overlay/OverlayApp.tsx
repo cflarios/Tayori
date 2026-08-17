@@ -170,6 +170,63 @@ function NewChatIcon() {
   );
 }
 
+/** Headphones: the Listen tab follows the call's audio. */
+function TabListenIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+        d="M3.4 9.8V8a4.6 4.6 0 0 1 9.2 0v1.8"
+      />
+      <rect
+        x="1.8"
+        y="9.2"
+        width="2.6"
+        height="4"
+        rx="1.3"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        fill="none"
+      />
+      <rect
+        x="11.6"
+        y="9.2"
+        width="2.6"
+        height="4"
+        rx="1.3"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+/** A speech bubble with a typing ellipsis: the Write tab is where you ask. */
+function TabWriteIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        fill="none"
+        d="M2.2 4.4A1.6 1.6 0 0 1 3.8 2.8h8.4a1.6 1.6 0 0 1 1.6 1.6v4.2a1.6 1.6 0 0 1-1.6 1.6H6.6l-3 2.4v-2.4h-.8A1.6 1.6 0 0 1 2.2 8.6z"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        d="M5.4 6.6h0M8 6.6h0M10.6 6.6h0"
+      />
+    </svg>
+  );
+}
+
 /**
  * The listen switch, in the overlay.
  *
@@ -1626,10 +1683,10 @@ function Tabs({
     <div className="tabs" data-interactive>
       {(
         [
-          ['listen', t('overlay.tabListen')],
-          ['write', t('overlay.tabWrite')],
+          ['listen', t('overlay.tabListen'), <TabListenIcon key="i" />],
+          ['write', t('overlay.tabWrite'), <TabWriteIcon key="i" />],
         ] as const
-      ).map(([id, label]) => (
+      ).map(([id, label, icon]) => (
         <button
           key={id}
           type="button"
@@ -1637,6 +1694,7 @@ function Tabs({
           aria-pressed={tab === id}
           onClick={() => onChange(id)}
         >
+          {icon}
           {label}
         </button>
       ))}
