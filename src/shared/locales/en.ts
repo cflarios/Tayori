@@ -97,6 +97,8 @@ export const en = {
   'overlay.attach': 'Attach an image',
   'overlay.writeEmptyTitle': 'Write mode',
   'overlay.writeEmptySub': 'Ask anything, run a skill, or solve your screen.',
+  'overlay.senderYou': 'You',
+  'overlay.senderInterviewer': 'Interviewer',
   'overlay.composeHint': 'Enter sends · Shift+Enter adds a line',
   'overlay.send': 'Send',
   'overlay.composeWarn': 'Writing takes keyboard focus — back to «Listen» before sharing your screen.',

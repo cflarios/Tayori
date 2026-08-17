@@ -1728,11 +1728,47 @@ body {
 .wexmsg {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .wexmsg + .wexmsg {
   margin-top: 14px;
+}
+
+/* Each turn is two labelled groups: the message (right) and Tayori's answer
+   (left). The label sits tight above its bubble; the two groups keep the panel's
+   gap between them. */
+.wexmsg__side {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wexmsg__side--q {
+  align-items: flex-end;
+}
+
+.wexmsg__side--a {
+  align-items: flex-start;
+}
+
+/* Sender caption above the bubble: who said it, so a captured question reads as
+   the interviewer's and a typed one as your own — and every answer as Tayori's. */
+.wexmsg__from {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 2px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8b9096;
+}
+
+.wexmsg__mascot {
+  width: 15px;
+  height: 15px;
 }
 
 .wexmsg__q {

@@ -80,6 +80,8 @@ export const es: Record<UIKey, string> = {
   'overlay.attach': 'Adjuntar imagen',
   'overlay.writeEmptyTitle': 'Modo escritura',
   'overlay.writeEmptySub': 'Pregunta lo que sea, usa una skill o resuelve tu pantalla.',
+  'overlay.senderYou': 'Tú',
+  'overlay.senderInterviewer': 'Entrevistador',
   'overlay.composeHint': 'Enter envía · Shift+Enter salta línea',
   'overlay.send': 'Enviar',
   'overlay.composeWarn': 'Escribir toma el foco del teclado — vuelve a «Escucha» antes de compartir pantalla.',

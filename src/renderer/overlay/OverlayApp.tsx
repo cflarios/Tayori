@@ -15,6 +15,7 @@ import {
 } from '@shared/types';
 import { formatAccelerator } from '@shared/accelerator';
 import { LangProvider, useT } from '@renderer/i18n';
+import { Mascot } from '@renderer/Mascot';
 import { DEFAULT_UI_LANG, translate, type UIKey } from '@shared/i18n';
 import { matchSkills, skillName } from '@shared/skills';
 import type {
@@ -1679,31 +1680,48 @@ function WriteExchange({ answer, settings }: { answer: Answer; settings: Setting
   // A screen action's question is a canned instruction, not something typed, so
   // it's hidden here the same way `QuestionLine` hides it.
   const showQuestion = answer.question.trim() !== '' && !isScreenTrigger(answer.trigger);
+  // Who sent the question: a typed one (`manual-input`) is the user's own; a
+  // captured one (`hotkey`/`auto`) came from the interviewer's speech. The answer
+  // is always Tayori's, so its sender is fixed.
+  const askedByMe = answer.trigger === 'manual-input';
 
   return (
     <div className="wexmsg" data-interactive>
-      {showQuestion && <p className="wexmsg__q">{answer.question}</p>}
-      <div className="wexmsg__a">
-        <AnswerPane answer={answer} skip={null} listening={false} teleprompter={false} />
-        {generating ? (
-          <div className="wexmsg__tools">
-            <button
-              type="button"
-              className="wexmsg__stop"
-              onClick={() => void window.api.ask.abort()}
-            >
-              {t('overlay.stop')}
-            </button>
-          </div>
-        ) : (
-          answer.status === 'done' &&
-          answer.text.trim() !== '' && (
+      {showQuestion && (
+        <div className="wexmsg__side wexmsg__side--q">
+          <span className="wexmsg__from">
+            {t(askedByMe ? 'overlay.senderYou' : 'overlay.senderInterviewer')}
+          </span>
+          <p className="wexmsg__q">{answer.question}</p>
+        </div>
+      )}
+      <div className="wexmsg__side wexmsg__side--a">
+        <span className="wexmsg__from">
+          <Mascot className="wexmsg__mascot" />
+          Tayori
+        </span>
+        <div className="wexmsg__a">
+          <AnswerPane answer={answer} skip={null} listening={false} teleprompter={false} />
+          {generating ? (
             <div className="wexmsg__tools">
-              <SpeakAnswerButton answer={answer} settings={settings} tipStart />
-              <CopyAnswerButton text={answer.text} tipStart iconOnly />
+              <button
+                type="button"
+                className="wexmsg__stop"
+                onClick={() => void window.api.ask.abort()}
+              >
+                {t('overlay.stop')}
+              </button>
             </div>
-          )
-        )}
+          ) : (
+            answer.status === 'done' &&
+            answer.text.trim() !== '' && (
+              <div className="wexmsg__tools">
+                <SpeakAnswerButton answer={answer} settings={settings} tipStart />
+                <CopyAnswerButton text={answer.text} tipStart iconOnly />
+              </div>
+            )
+          )}
+        </div>
       </div>
     </div>
   );
