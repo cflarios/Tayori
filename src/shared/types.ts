@@ -971,12 +971,18 @@ export function idleShutoffDue(
 export function alignAutoTrigger(current: Settings, patch: Partial<Settings>): Partial<Settings> {
   if (!patch.audioSources || patch.audioSources === current.audioSources) return patch;
 
-  const merged = { ...current, ...patch };
-  if (!autoTriggerIsInert(merged)) return patch;
+  // 'any' answers whoever speaks, so no source can mute it; leave it be.
+  if (current.autoTriggerSpeaker === 'any') return patch;
 
-  // Inert implies only one speaker is listened to and it's not the expected one.
-  const heard = speakersFor(merged.audioSources)[0];
-  return heard ? { ...patch, autoTriggerSpeaker: heard } : patch;
+  // Follow the source to its full audience: a single-speaker source targets that
+  // speaker, and a source that hears everyone ('both') targets everyone ('any').
+  // This rescues the inert case (the expected speaker is no longer heard) AND
+  // undoes a speaker that a past single-source session pinned: switching to
+  // 'both' answers you and the interviewer both, instead of silently ignoring
+  // one of you with no error to hint at why.
+  const heard = speakersFor(patch.audioSources);
+  const target: AutoTriggerSpeaker = heard.length > 1 ? 'any' : (heard[0] ?? 'any');
+  return target === current.autoTriggerSpeaker ? patch : { ...patch, autoTriggerSpeaker: target };
 }
 
 export const DEFAULT_HOTKEYS: HotkeyMap = {

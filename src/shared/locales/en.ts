@@ -1166,6 +1166,7 @@ export const en = {
   'err.captureUnknown': 'Unknown failure while starting the capture.',
   'notice.nowThem': 'I now answer what the other person says.',
   'notice.nowMe': 'I now answer what you say.',
+  'notice.nowAny': 'I now answer both you and the other person.',
   'notice.idleStop': 'Listening stopped after inactivity.',
 
   /*

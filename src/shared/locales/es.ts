@@ -1143,6 +1143,7 @@ export const es: Record<UIKey, string> = {
   'err.captureUnknown': 'Fallo desconocido al iniciar la captura.',
   'notice.nowThem': 'Ahora respondo a lo que diga el interlocutor.',
   'notice.nowMe': 'Ahora respondo a lo que digas tú.',
+  'notice.nowAny': 'Ahora os respondo a ti y al interlocutor.',
   'notice.idleStop': 'Escucha detenida por inactividad.',
 
   /*

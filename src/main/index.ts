@@ -157,10 +157,13 @@ function registerIpcHandlers(): void {
       );
       // It's said: it's a setting the user didn't ask for, even if it's the one
       // that makes what they did ask for work.
-      broadcast(
-        IPC.onNotice,
-        m(patch.autoTriggerSpeaker === 'them' ? 'notice.nowThem' : 'notice.nowMe')
-      );
+      const noticeKey =
+        patch.autoTriggerSpeaker === 'them'
+          ? 'notice.nowThem'
+          : patch.autoTriggerSpeaker === 'any'
+            ? 'notice.nowAny'
+            : 'notice.nowMe';
+      broadcast(IPC.onNotice, m(noticeKey));
     }
 
     if (patch.stealthEnabled !== undefined && patch.stealthEnabled !== previous.stealthEnabled) {
