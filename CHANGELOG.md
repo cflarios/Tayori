@@ -7,6 +7,26 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.10.0](https://github.com/cflarios/Tayori/compare/v1.9.0...v1.10.0) (2026-08-17)
+
+
+### Features
+
+* **audio:** choose the input and output device in settings ([c2366e3](https://github.com/cflarios/Tayori/commit/c2366e36aa8afc76ba4c507f93ee2d947b319a65))
+* **dashboard:** delete a removed custom profile permanently ([7473ebd](https://github.com/cflarios/Tayori/commit/7473ebdafd91a266c9911d61bffc3ef53c7299cd))
+* **dashboard:** searchable sidebar, responsive presets, and small fixes ([f79241b](https://github.com/cflarios/Tayori/commit/f79241b068a876d294ae906b35e3c9dde7dfe63d))
+* **overlay:** + attach menu, /skill cue, write empty state, bar polish ([e4a74c9](https://github.com/cflarios/Tayori/commit/e4a74c9a9325bcf1fd7b955466e0816bfcea200d))
+* **overlay:** attach images off disk in the write tab ([c6b2134](https://github.com/cflarios/Tayori/commit/c6b21347dac15c8e921530ecfbffdb969701aec3))
+* **overlay:** new-conversation on the tab row, self-dismissing focus warning ([10f023f](https://github.com/cflarios/Tayori/commit/10f023f71d92318b15a0be8d13f3e5b12f8e7a13))
+* **tts:** local neural voices with Piper (phase 2) ([36c260e](https://github.com/cflarios/Tayori/commit/36c260e16bff04287aa87b710b890317ee5cfff0))
+* **tts:** read answers aloud — Web Speech and OpenAI (phase 1) ([acfe714](https://github.com/cflarios/Tayori/commit/acfe714c610c1ab0bf8942d2a8a84f815347643a))
+
+
+### Bug Fixes
+
+* **overlay:** compact hugs the bar, with room for its tooltips ([9ff5f50](https://github.com/cflarios/Tayori/commit/9ff5f50626db0ad6f28e0a8d41a63dd5a1cd681e))
+* **tts:** drop the Kokoro placeholder, harden playback, polish Write ([239b63f](https://github.com/cflarios/Tayori/commit/239b63f6ced83f848c34de7612996e5f7af5f400))
+
 ## [1.9.0](https://github.com/cflarios/Tayori/compare/v1.8.0...v1.9.0) (2026-08-16)
 
 
