@@ -348,6 +348,16 @@ the focus, so everything in it is, in practice, unreachable while you talk.
   the flex spacer and the two `margin-left: auto` pushers are dropped in compact;
   otherwise an item pinned to the window's edge reports the full width and it
   never shrinks.
+- **The compact window fits its height too, sitting a little below the bar.** It
+  was clamped to a 120 px floor, which left a tall empty strip under the bar
+  —bare, or ringed red when stealth is off, the thing that most read as
+  "unfinished". The floor is now 40 px, a safety net well below the bar's ~58 px,
+  so compact hugs it. Then a small **transparent** tail is added to the measured
+  height so the red frame (at the window edge) sits just below the bar and a
+  button's tooltip —which drops below its button— lands in that gap. The
+  alternatives were worse: growing the *opaque* panel on hover made the bar jump,
+  and a permanent dark band just brought the empty strip back. Transparent is the
+  point — the tail shows nothing, it only gives the frame and the tooltip room.
 
 ### The phone mirror: getting the answer off the shared screen
 

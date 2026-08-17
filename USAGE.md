@@ -314,9 +314,11 @@ three combine:
 
 The **profiles are yours to shape**: in *dashboard → Behavior* you can rename or
 rewrite any built-in, hide the ones you don't use, create your own from scratch,
-and delete or restore any of them — the interpreter is the one fixed mode, kept
-out of that list. The default text you start editing from is shown in the
-interface language.
+and restore any you removed. Removed profiles gather in a **Removed** list; a
+**custom** one you no longer want can be **deleted permanently** there, so they
+don't pile up, while built-ins only hide — they're the app's and always come
+back. The interpreter is the one fixed mode, kept out of that list. The default
+text you start editing from is shown in the interface language.
 
 The app ships one skill: **"Don't sound like AI"**, which strips filler formulas and
 the vocabulary that gives a model away. It's the flaw that shows most when the
