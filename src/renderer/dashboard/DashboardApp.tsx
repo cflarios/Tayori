@@ -525,6 +525,11 @@ function ProfileManager({
       customProfiles: [...settings.customProfiles, back],
     });
   };
+  // Drop a removed custom for good. Only customs can go: the built-ins are the
+  // app's own, so «removing» one just hides it (`deletedProfiles`) and it can
+  // always come back — there's nothing to delete.
+  const deleteCustom = (id: string): void =>
+    patch({ removedCustoms: settings.removedCustoms.filter((p) => p.id !== id) });
   const restoreAll = (): void =>
     patch({
       deletedProfiles: [],
@@ -667,13 +672,26 @@ function ProfileManager({
           {settings.removedCustoms.map((c) => (
             <div key={c.id} className="profmgr__removeditem">
               <span>{c.name || t('beh.profCustom')}</span>
-              <button
-                type="button"
-                className="profmgr__restore"
-                onClick={() => restoreCustom(c.id)}
-              >
-                {t('beh.profRestoreOne')}
-              </button>
+              <div className="profmgr__removedacts">
+                <button
+                  type="button"
+                  className="profmgr__restore"
+                  onClick={() => restoreCustom(c.id)}
+                >
+                  {t('beh.profRestoreOne')}
+                </button>
+                {/* Custom-only: delete it for good, since it can't be re-created
+                    like a built-in. */}
+                <button
+                  type="button"
+                  className="profmgr__delete"
+                  aria-label={t('beh.profDeleteForever')}
+                  title={t('beh.profDeleteForever')}
+                  onClick={() => deleteCustom(c.id)}
+                >
+                  <Icon name="trash" size={14} />
+                </button>
+              </div>
             </div>
           ))}
         </div>

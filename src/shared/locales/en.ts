@@ -401,6 +401,7 @@ export const en = {
   'beh.profReset': 'Reset to our default',
   'beh.profRemovedTitle': 'Removed',
   'beh.profRestoreOne': 'Restore',
+  'beh.profDeleteForever': 'Delete permanently',
   'beh.profRestoreAll': 'Restore all',
   'beh.speakerThemShort': 'the other person',
   'beh.speakerMeShort': 'you',

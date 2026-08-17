@@ -2806,6 +2806,30 @@ kbd {
   color: var(--text);
 }
 
+/* Restore + delete for a removed custom profile. */
+.profmgr__removedacts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profmgr__delete {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.profmgr__delete:hover {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.12);
+}
+
 .profmgr__del {
   flex: none;
   width: 28px;

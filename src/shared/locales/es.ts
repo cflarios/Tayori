@@ -384,6 +384,7 @@ export const es: Record<UIKey, string> = {
   'beh.profReset': 'Volver al de fábrica',
   'beh.profRemovedTitle': 'Removidos',
   'beh.profRestoreOne': 'Restaurar',
+  'beh.profDeleteForever': 'Eliminar permanentemente',
   'beh.profRestoreAll': 'Restaurar todo',
   'beh.speakerThemShort': 'el interlocutor',
   'beh.speakerMeShort': 'tú',
