@@ -7,6 +7,14 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.11.3](https://github.com/cflarios/Tayori/compare/v1.11.2...v1.11.3) (2026-08-18)
+
+
+### Bug Fixes
+
+* **dashboard:** style the profile checkboxes and explain what they do ([4cc06e2](https://github.com/cflarios/Tayori/commit/4cc06e28f5812109eb9a7d5fc5f9f9e13756f570))
+* **overlay:** translucent dropdown menus so they match the glass panel ([39001b8](https://github.com/cflarios/Tayori/commit/39001b8753e7a9f1810c840d1b12f76b19ebfa92))
+
 ## [1.11.2](https://github.com/cflarios/Tayori/compare/v1.11.1...v1.11.2) (2026-08-17)
 
 
