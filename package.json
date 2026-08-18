@@ -1,7 +1,7 @@
 {
   "name": "interview-helper",
   "productName": "Tayori",
-  "version": "1.11.2",
+  "version": "1.11.3",
   "description": "Real-time AI assistant for meetings and interviews, invisible when you share your screen",
   "license": "GPL-3.0-only",
   "author": "Cristian Larios",
