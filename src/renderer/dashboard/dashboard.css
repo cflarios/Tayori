@@ -1612,6 +1612,12 @@ button.btn--primary:hover:not(:disabled) {
   margin: 6px 0 8px;
 }
 
+.pack__profileshint {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
 .pack__profiles {
   display: flex;
   flex-wrap: wrap;
@@ -1622,10 +1628,52 @@ button.btn--primary:hover:not(:disabled) {
 .pack__profile {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 11.5px;
   color: var(--text-dim);
   cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.pack__profile:hover {
+  color: var(--text);
+}
+
+/*
+ * Custom checkbox: the native one is an OS square that clashes with the dark UI.
+ * A rounded surface tile that fills with the accent and shows the same check the
+ * Select uses, so the profile toggles read as part of the app.
+ */
+.pack__profile input[type='checkbox'] {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 5px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.pack__profile input[type='checkbox']:hover {
+  border-color: rgba(96, 165, 250, 0.55);
+}
+
+.pack__profile input[type='checkbox']:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.5 9.5 3.5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.pack__profile input[type='checkbox']:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.5);
+  outline-offset: 1px;
 }
 
 /* ── Context: card grid ── */

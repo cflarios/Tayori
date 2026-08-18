@@ -4908,6 +4908,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
               {t('ctx.close')}
             </button>
           </div>
+          <p className="pack__profileshint">{t('ctx.profilesHint')}</p>
           <div className="pack__profiles">
             {(Object.keys(PROFILE_LABEL) as Settings['promptProfileId'][])
               // `general` is a screen-only profile, never chosen by hand, so it

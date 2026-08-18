@@ -425,6 +425,7 @@ export const en = {
   'ctx.addOwn': 'Add your own context',
   'ctx.pasteHere': 'Paste the text here…',
   'ctx.newName': 'New context',
+  'ctx.profilesHint': 'Used in these modes · none checked = always',
   'ctx.loadFile': 'Load a file',
   'ctx.kindCv': 'Your CV or experience',
   'ctx.kindJob': 'Job description',

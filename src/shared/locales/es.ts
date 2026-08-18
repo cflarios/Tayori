@@ -404,6 +404,7 @@ export const es: Record<UIKey, string> = {
   'ctx.addOwn': 'Añadir contexto propio',
   'ctx.pasteHere': 'Pega aquí el texto…',
   'ctx.newName': 'Nuevo contexto',
+  'ctx.profilesHint': 'Se usa en estos modos · sin marcar = siempre',
   'ctx.loadFile': 'Cargar un archivo',
   'ctx.kindCv': 'Tu CV o experiencia',
   'ctx.kindJob': 'Descripción del puesto',
