@@ -772,6 +772,7 @@ function SolveScreenMenu({
   onSolveScreen: (task: ScreenTask) => void;
   compact: boolean;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -803,15 +804,15 @@ function SolveScreenMenu({
       <button
         type="button"
         className={`actionbtn tip tip--end${open ? ' actionbtn--on' : ''}`}
-        data-tip="Solve what's on your screen"
-        aria-label="Solve what's on your screen"
+        data-tip={t('overlay.tipSolve')}
+        aria-label={t('overlay.tipSolve')}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         <ScreenIcon />
         {/* In compact the label is dropped to keep the bar tight — the monitor
             icon plus the tooltip carry it, like the eye and ⋯ buttons. */}
-        {!compact && <span className="actionbtn__label">Solve screen</span>}
+        {!compact && <span className="actionbtn__label">{t('overlay.solveScreen')}</span>}
         <svg className="solve__caret" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
           <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -821,15 +822,15 @@ function SolveScreenMenu({
         <div className="solve__menu" role="menu">
           <button type="button" className="more__item" role="menuitem" onClick={pick('code')}>
             <CodeIcon />
-            Code problem
+            {t('overlay.solveCodeItem')}
           </button>
           <button type="button" className="more__item" role="menuitem" onClick={pick('quiz')}>
             <QuizIcon />
-            Quiz question
+            {t('overlay.solveQuizItem')}
           </button>
           <button type="button" className="more__item" role="menuitem" onClick={pick('general')}>
             <HelpIcon />
-            Anything else
+            {t('overlay.solveOther')}
           </button>
         </div>
       )}
@@ -1659,17 +1660,16 @@ function IdleHero({
  * state isn't shown, and the warning has to fit on one line.
  */
 function SetupPrompt() {
+  const t = useT();
   return (
     <div className="setup" data-interactive>
-      <p className="setup__text">
-        Falta configurar un proveedor de IA. Ábrelo con el engranaje de arriba.
-      </p>
+      <p className="setup__text">{t('overlay.setupWarn')}</p>
       <button
         type="button"
         className="setup__btn"
         onClick={() => void window.api.window.openDashboard()}
       >
-        Abrir configuración
+        {t('overlay.setupAction')}
       </button>
     </div>
   );
@@ -3298,7 +3298,7 @@ export function OverlayApp() {
                   data-interactive
                   onClick={() => void window.api.ask.abort()}
                 >
-                  Parar
+                  {t('overlay.stopShort')}
                 </button>
               )}
               {/* Extends a code solution that got cut off. Only on the last

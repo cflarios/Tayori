@@ -11,6 +11,7 @@ import {
   type PromptProfileId,
   type Settings,
 } from '@shared/types';
+import { PROFILE_BY_TRIGGER, resolveAnswerProfile } from '@shared/answer-profile';
 import { settingsStore } from '../config/store';
 import { m } from '../i18n';
 import { createLLMProvider, LLMError } from '../llm';
@@ -52,12 +53,6 @@ const MAX_CODE_TOKENS = 4_096;
  * mode is used mid-interview and the next spoken question still comes out in
  * bullets.
  */
-const PROFILE_BY_TRIGGER: Partial<Record<AnswerTrigger, PromptProfileId>> = {
-  code: 'coding',
-  quiz: 'quiz',
-  general: 'general',
-};
-
 /**
  * General screen-help cap.
  *
@@ -130,6 +125,20 @@ export class AnswerEngine extends EventEmitter {
   private history: ConversationExchange[] = [];
 
   /**
+   * Conversation continuity for the answering profile.
+   *
+   * A screen solve forces its own profile (code/quiz/general) for that one shot,
+   * and a listen answer uses the chip. A TYPED follow-up used to snap back to the
+   * chip too — so with the interpreter selected it translated the follow-up
+   * instead of continuing the conversation it was answering. Now a typed
+   * follow-up inherits the profile the conversation is answering with, unless the
+   * user has since switched the chip on purpose (tracked by `chipAtTurn`). Both
+   * reset when the memory does.
+   */
+  private conversationProfile: PromptProfileId | null = null;
+  private chipAtTurn: PromptProfileId | null = null;
+
+  /**
    * How many exchanges are resent, by provider.
    *
    * The cap exists for one reason: each remembered turn travels WHOLE in the
@@ -195,6 +204,10 @@ export class AnswerEngine extends EventEmitter {
       createdAt: Date.now(),
     };
     this.emitCurrent();
+    // Direct-audio answers carry the conversation too: record the chip's profile
+    // so a later typed follow-up inherits it like any other turn.
+    this.conversationProfile = settingsStore.get().promptProfileId;
+    this.chipAtTurn = this.conversationProfile;
     this.remember();
   }
 
@@ -205,6 +218,8 @@ export class AnswerEngine extends EventEmitter {
    */
   resetHistory(): void {
     this.history = [];
+    this.conversationProfile = null;
+    this.chipAtTurn = null;
   }
 
   /**
@@ -232,6 +247,8 @@ export class AnswerEngine extends EventEmitter {
   forgetContext(): void {
     const had = this.history.length;
     this.history = [];
+    this.conversationProfile = null;
+    this.chipAtTurn = null;
     console.log(`[answer] contexto olvidado a petición: ${had} intercambios fuera.`);
   }
 
@@ -276,8 +293,17 @@ export class AnswerEngine extends EventEmitter {
      * "Code" by hand left the cap at 700 tokens and the solution came out cut off
      * mid-function.
      */
-    const forced = PROFILE_BY_TRIGGER[trigger];
-    const profile = forced ?? settings.promptProfileId;
+    const chip = settings.promptProfileId;
+    const profile = resolveAnswerProfile({
+      trigger,
+      chip,
+      conversationProfile: this.conversationProfile,
+      chipAtTurn: this.chipAtTurn,
+    });
+    // Remember for the next turn: the profile the conversation answers with, and
+    // the chip value, so a later explicit chip switch overrides the inheritance.
+    this.conversationProfile = profile;
+    this.chipAtTurn = chip;
     const onScreen = isScreenTrigger(trigger);
 
     // Screen actions can have their own model: speech asks for latency and the
@@ -369,7 +395,7 @@ export class AnswerEngine extends EventEmitter {
 
       const stream = provider.streamAnswer(
         {
-          systemPrompt: buildSystemPrompt(settings, forced, skill),
+          systemPrompt: buildSystemPrompt(settings, profile, skill),
           transcript: this.transcript.format(this.transcript.recent(settings.manualContextSeconds)),
           // When an answer language is pinned, the directive is appended to the
           // user turn IN that language — the strongest output-language cue, harder

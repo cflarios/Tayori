@@ -51,6 +51,10 @@ export const en = {
   'overlay.solveCodeShort': 'Solve the code on screen',
   'overlay.solveQuiz': 'Answer the quiz question on screen (Ctrl+Alt+Q)',
   'overlay.solveQuizShort': 'Answer the quiz on screen',
+  'overlay.solveScreen': 'Solve screen',
+  'overlay.solveCodeItem': 'Code problem',
+  'overlay.solveQuizItem': 'Quiz question',
+  'overlay.solveOther': 'Anything else',
   'overlay.expand': 'Expand: brings back the transcript and the profiles',
   'overlay.expandShort': 'Expand the panel',
   'overlay.compact': 'Compact mode: leaves only the answer',
@@ -77,6 +81,7 @@ export const en = {
   'overlay.setupTitle': 'The AI is not set up yet',
   'overlay.setupSub': 'Paste an Anthropic, Google, OpenAI or DeepSeek API key to start',
   'overlay.setupAction': 'Open settings',
+  'overlay.setupWarn': 'No AI provider set up yet. Open it with the gear above.',
   'overlay.idleTitle': 'Ready to listen',
   'overlay.idleSub': 'Press the microphone to begin',
   'overlay.connectingTitle': 'Connecting…',
@@ -142,6 +147,7 @@ export const en = {
   'overlay.memoryTitleCloud':
     'The assistant remembers {turns} exchanges and resends them with every query. Press to make it forget them; the transcript and the history stay as they are.',
   'overlay.stop': 'Stop generating',
+  'overlay.stopShort': 'Stop',
   'overlay.dismiss': 'Dismiss',
   'overlay.transcription': 'Transcription',
   'overlay.attached': 'Screenshot attached',
@@ -1177,6 +1183,8 @@ export const en = {
   'notice.nowThem': 'I now answer what the other person says.',
   'notice.nowMe': 'I now answer what you say.',
   'notice.nowAny': 'I now answer both you and the other person.',
+  'notice.interpreterSolve':
+    "You're in Interpreter mode. I solved the screen and will answer your follow-ups — switch profile if you'd rather stop translating.",
   'notice.idleStop': 'Listening stopped after inactivity.',
 
   /*

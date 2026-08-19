@@ -174,6 +174,8 @@ class SessionOrchestrator {
   private lastFrameHash: bigint | null = null;
   /** Automatic-mode loop; `null` when not recording. */
   private autoCaptureTimer: NodeJS.Timeout | null = null;
+  /** Warn once per interpreter streak that Solve Screen answers, not translates. */
+  private interpreterSolveWarned = false;
   private static readonly SCROLL_MAX_FRAMES = 15;
   private static readonly SCROLL_INTERVAL_MS = 2_500;
   /** Hamming distance below which two frames are the same chunk. */
@@ -483,7 +485,27 @@ class SessionOrchestrator {
     this.answers.attachImage(image);
     this.broadcast(IPC.onScreenshot, image);
 
+    // Heads-up when solving under the interpreter: the screen is solved and typed
+    // follow-ups are answered (not translated), but the chip still says
+    // Interpreter and Listen keeps translating speech — so nudge a profile
+    // switch. The warning persists and only clears when the profile changes (see
+    // `resetInterpreterSolveWarning`); shown once so a second solve doesn't
+    // re-raise a notice that's already up.
+    if (settingsStore.get().promptProfileId === 'interpreter' && !this.interpreterSolveWarned) {
+      this.broadcast(IPC.onNotice, m('notice.interpreterSolve'));
+      this.interpreterSolveWarned = true;
+    }
+
     await this.answers.ask(task, SOLVE_INSTRUCTION[task]);
+  }
+
+  /**
+   * Re-arms the interpreter Solve-Screen warning. Called when the profile leaves
+   * the interpreter (see the settings handler), which also hides the notice — so
+   * the next interpreter session warns again.
+   */
+  resetInterpreterSolveWarning(): void {
+    this.interpreterSolveWarned = false;
   }
 
   /**

@@ -34,6 +34,10 @@ export const es: Record<UIKey, string> = {
   'overlay.solveCodeShort': 'Resolver el código de la pantalla',
   'overlay.solveQuiz': 'Responder la pregunta de test que hay en pantalla (Ctrl+Alt+Q)',
   'overlay.solveQuizShort': 'Responder el test de la pantalla',
+  'overlay.solveScreen': 'Resolver pantalla',
+  'overlay.solveCodeItem': 'Problema de código',
+  'overlay.solveQuizItem': 'Pregunta de test',
+  'overlay.solveOther': 'Cualquier otra cosa',
   'overlay.expand': 'Desplegar: vuelve la transcripción y los perfiles',
   'overlay.expandShort': 'Desplegar el panel',
   'overlay.compact': 'Modo compacto: deja sólo la respuesta',
@@ -60,6 +64,7 @@ export const es: Record<UIKey, string> = {
   'overlay.setupTitle': 'Falta configurar la IA',
   'overlay.setupSub': 'Pega una API key de Anthropic, Google, OpenAI o DeepSeek para empezar',
   'overlay.setupAction': 'Abrir configuración',
+  'overlay.setupWarn': 'Falta configurar un proveedor de IA. Ábrelo con el engranaje de arriba.',
   'overlay.idleTitle': 'Listo para escuchar',
   'overlay.idleSub': 'Pulsa el micrófono para comenzar',
   'overlay.connectingTitle': 'Conectando…',
@@ -125,6 +130,7 @@ export const es: Record<UIKey, string> = {
   'overlay.memoryTitleCloud':
     'El asistente recuerda {turns} intercambios y los reenvía en cada consulta. Pulsa para que los olvide; la transcripción y el historial se quedan como están.',
   'overlay.stop': 'Parar la generación',
+  'overlay.stopShort': 'Parar',
   'overlay.dismiss': 'Descartar',
   'overlay.transcription': 'Transcripción',
   'overlay.attached': 'Captura adjunta',
@@ -1150,6 +1156,8 @@ export const es: Record<UIKey, string> = {
   'notice.nowThem': 'Ahora respondo a lo que diga el interlocutor.',
   'notice.nowMe': 'Ahora respondo a lo que digas tú.',
   'notice.nowAny': 'Ahora os respondo a ti y al interlocutor.',
+  'notice.interpreterSolve':
+    'Estás en modo Intérprete. Resolví la pantalla y responderé tus preguntas; cambia de perfil si prefieres dejar de traducir.',
   'notice.idleStop': 'Escucha detenida por inactividad.',
 
   /*

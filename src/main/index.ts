@@ -166,6 +166,18 @@ function registerIpcHandlers(): void {
       broadcast(IPC.onNotice, m(noticeKey));
     }
 
+    // The interpreter's Solve-Screen warning only clears when you switch profile
+    // —which is exactly what it asked for—. Leaving the interpreter hides it (an
+    // empty message hides the notice bar) and re-arms it for the next time.
+    if (
+      patch.promptProfileId !== undefined &&
+      patch.promptProfileId !== previous.promptProfileId &&
+      previous.promptProfileId === 'interpreter'
+    ) {
+      broadcast(IPC.onNotice, '');
+      sessionOrchestrator.resetInterpreterSolveWarning();
+    }
+
     if (patch.stealthEnabled !== undefined && patch.stealthEnabled !== previous.stealthEnabled) {
       setStealthForAll(next.stealthEnabled);
     }
