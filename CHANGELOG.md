@@ -7,6 +7,15 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.12.0](https://github.com/cflarios/Tayori/compare/v1.11.4...v1.12.0) (2026-08-20)
+
+
+### Features
+
+* **dashboard:** group Behaviour into cards and make each profile a row ([a63a152](https://github.com/cflarios/Tayori/commit/a63a152259cff5449ea20ef1ac69df0ab52c3d33))
+* **dashboard:** open on a Home overview and group the sidebar ([cb9e0d1](https://github.com/cflarios/Tayori/commit/cb9e0d16317886a03e0b96fd83a040eef862d0e4))
+* **dashboard:** rebuild About and Context around the question each answers ([3476eec](https://github.com/cflarios/Tayori/commit/3476eec9aa9f6c79bb2ebf33cc709e6985a90043))
+
 ## [1.11.4](https://github.com/cflarios/Tayori/compare/v1.11.3...v1.11.4) (2026-08-19)
 
 
