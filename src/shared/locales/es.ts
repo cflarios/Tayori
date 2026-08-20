@@ -435,14 +435,28 @@ export const es: Record<UIKey, string> = {
 
   // ───────────────────── Ajustes · contexto ─────────────────────
   'ctx.preparingFor': 'Preparando para',
-  'ctx.inUse': '{count} en uso: {names}',
-  'ctx.nothingActive': 'nada activo todavía',
   'ctx.remove': 'Quitar',
   'ctx.addOwn': 'Añadir contexto propio',
-  'ctx.pasteHere': 'Pega aquí el texto…',
   'ctx.newName': 'Nuevo contexto',
   'ctx.profilesHint': 'Se usa en estos modos · sin marcar = siempre',
-  'ctx.loadFile': 'Cargar un archivo',
+  'ctx.slotsTitle': 'Lo que este modo pide',
+  'ctx.slotsHint':
+    'Las piezas con nombre que este modo quiere preparadas. Lo que siga vacío es lo que queda por hacer.',
+  'ctx.ownTitle': 'Tu propio contexto',
+  'ctx.ownHint':
+    'Cajas que añadiste tú. Una sin ningún modo marcado se aplica siempre; el resto, solo en los modos que nombran.',
+  'ctx.readyOf': '{done} de {total}',
+  'ctx.readyAll': 'listo para este modo',
+  'ctx.readySome': 'preparado para este modo',
+  'ctx.sizeNote': '~{words} palabras acompañan a cada pregunta.',
+  'ctx.sizeNothing': 'Todavía no se envía nada.',
+  'ctx.stateEmpty': 'Vacío',
+  'ctx.stateOff': 'Apagado',
+  'ctx.stateOther': 'Otro modo',
+  'ctx.words': '{count} palabras',
+  'ctx.back': 'Todo el contexto',
+  'ctx.prevBox': 'Caja anterior',
+  'ctx.nextBox': 'Caja siguiente',
   'ctx.kindCv': 'Tu CV o experiencia',
   'ctx.kindJob': 'Descripción del puesto',
   'ctx.kindQa': 'Respuestas preparadas',
@@ -490,7 +504,6 @@ export const es: Record<UIKey, string> = {
   'ctx.badgeInUse': 'En uso',
   'ctx.tileEmpty': 'Vacío — pega o importa el texto',
   'ctx.dropHint': 'Arrastra o haz clic para subir',
-  'ctx.close': 'Cerrar',
   'ctx.parsing': 'Leyendo…',
   'ctx.parseFailed': 'No se pudo leer el archivo',
 
@@ -568,15 +581,11 @@ export const es: Record<UIKey, string> = {
   // ───────────────────── Ajustes · acerca de ─────────────────────
   'about.what':
     'Un asistente que escucha una reunión o una entrevista, transcribe quién dice qué y te sugiere respuestas en un panel flotante que **no aparece cuando compartes pantalla**. También resuelve el código o el test que tengas delante, leyéndolo de una captura.',
-  'about.version': 'Versión',
-  'about.author': 'Autor',
-  'about.license': 'Licencia',
-  'about.licenseDesc': 'Código abierto, sin monetización.',
+  'about.licenseDesc': 'Código abierto, sin monetización',
   'about.web': 'Web',
   'about.webDesc': 'La landing page de Tayori.',
   'about.docs': 'Documentación',
   'about.docsDesc': 'Guías y referencia en la web.',
-  'about.updateTitle': 'Actualizaciones',
   'about.updateHint': 'Comprueba en GitHub si hay una versión más nueva. No se descarga nada solo.',
   'about.checkUpdate': 'Comprobar actualizaciones',
   'about.checking': 'Comprobando…',
@@ -586,14 +595,35 @@ export const es: Record<UIKey, string> = {
   'about.viewRelease': 'Ver release',
   'about.dataTitle': 'Qué hace con lo que oye',
   'about.dataHint': 'Es lo que conviene tener claro antes de dejarlo escuchando algo importante.',
-  'about.audio':
-    '**El audio nunca toca el disco.** Los fragmentos van al motor de transcripción y se descartan en el acto. No hay archivos de audio, ni siquiera temporales.',
-  'about.text':
-    '**El texto sí se guarda, si tú quieres.** Con el historial activo, las respuestas y la transcripción completa —incluido lo que dijo la otra persona— van a un JSON en tu carpeta de datos. Se apaga entero desde *Historial*, y con él apagado no se escribe nada.',
-  'about.noServer':
-    '**No hay servidor intermedio.** Las llamadas van directas al proveedor que elijas, con tu clave. Las claves se guardan cifradas con DPAPI y nunca salen hacia el renderer.',
-  'about.offline':
-    '**Puede funcionar sin conexión.** Con Whisper local y Ollama no sale nada de tu máquina.',
+  'about.checkAgain': 'Comprobar otra vez',
+  'about.source': 'Código',
+  'about.sourceDesc': 'El repositorio en GitHub.',
+  'about.audioTitle': 'El audio no toca el disco',
+  'about.audioDesc':
+    'Los trozos van al motor de transcripción y se sueltan en el acto. No hay ficheros de audio, ni siquiera temporales.',
+  'about.audioBadge': 'Nunca se escribe',
+  'about.textTitle': 'El texto se guarda, si tú quieres',
+  'about.textOn':
+    'El historial está encendido: las respuestas y la transcripción entera —incluido lo que dijo el interlocutor— están yendo a un JSON en tu carpeta de datos.',
+  'about.textOff':
+    'El historial está apagado, así que no se escribe nada. Con él encendido, las respuestas y la transcripción entera —incluido lo que dijo el interlocutor— van a un JSON en tu carpeta de datos.',
+  'about.textBadgeOn': 'Guardando transcripciones',
+  'about.textBadgeOff': 'No se escribe nada',
+  'about.goHistory': 'Apágalo en Historial',
+  'about.serverTitle': 'No hay ningún servidor por medio',
+  'about.serverDesc':
+    'Las llamadas van directas al proveedor que elijas, con tu clave. Las claves se guardan cifradas con DPAPI y nunca viajan al renderer.',
+  'about.serverBadge': 'Directo a {provider}',
+  'about.serverBadgeLocal': 'No sale nada',
+  'about.offlineTitle': 'Puede funcionar sin conexión',
+  'about.offlineOn':
+    'Whisper transcribe en local y Ollama responde en local, así que nada de lo que digas sale de esta máquina.',
+  'about.offlineOff':
+    'Ahora mismo está usando un motor en la nube. Con Whisper local y Ollama no saldría nada de tu máquina.',
+  'about.offlineBadgeOn': 'Todo en local',
+  'about.offlineBadgeOff': 'Nube en uso',
+  'about.goModels': 'Elegir los motores',
+  'about.legalTitle': 'Antes de usarlo',
   'about.legal':
     'Usarlo es cosa tuya: muchas empresas restringen los asistentes de IA en sus procesos de selección, y las plataformas de evaluación técnica suelen prohibirlos en sus condiciones. En varias jurisdicciones, además, guardar la transcripción de una conversación cuenta igual que grabarla.',
 

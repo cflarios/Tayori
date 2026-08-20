@@ -228,19 +228,6 @@ body {
   flex-shrink: 0;
 }
 
-.about__head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.about__mascot {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-}
-
 .nav__eyebrow {
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -2052,31 +2039,6 @@ button.btn--primary:hover:not(:disabled) {
   flex: 1;
 }
 
-.ctxbar__active {
-  font-size: 11.5px;
-  color: var(--text-faint);
-  text-align: right;
-  /* With many packs the list grows long; don't let it push the bar. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 60%;
-}
-
-.slot__title {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.slot__hint {
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--text-faint);
-  margin: 6px 0 8px;
-}
-
 .pack__profileshint {
   margin: 0 0 6px;
   font-size: 10.5px;
@@ -2177,24 +2139,6 @@ button.btn--primary:hover:not(:disabled) {
   border-color: rgba(96, 165, 250, 0.35);
 }
 
-/* Open in the editor below: the accent at full intensity. */
-.ctxtile--sel {
-  border-color: var(--accent);
-}
-
-.ctxtile__badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--ok);
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
 .ctxtile__ico {
   width: 30px;
   height: 30px;
@@ -2236,32 +2180,276 @@ button.btn--primary:hover:not(:disabled) {
   font-style: italic;
 }
 
-.ctxtile--add {
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: transparent;
-  border-style: dashed;
-  color: var(--text-dim);
-}
+/* ── Context: readiness ── */
 
-.ctxtile--add:hover {
-  border-color: rgba(255, 255, 255, 0.28);
-}
-
-.ctxtile__plus {
-  width: 34px;
-  height: 34px;
+/*
+ * «Am I ready for this?» — the question the page exists to answer, and the one
+ * it never answered: what actually reached the model was a clipped one-line
+ * list in the header.
+ */
+.ctxready {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--text-dim);
-  background: var(--surface-2);
-  border-radius: 8px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.ctxtile__addlabel {
+.ctxready__text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.ctxready__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ctxready__count {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ctxready__of {
   font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Context is prompt budget: a 300-word CV and a 5-word note used to look the
+   same, and nothing said how much was going out. */
+.ctxready__size {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+
+.ctxready__bar {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  margin-top: 9px;
+}
+
+.ctxready__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
+.ctxready__fill--done {
+  background: var(--ok);
+}
+
+/* ── Context: tile state ── */
+
+/* Empty recedes, so what is left to do is what stands out. */
+.ctxtile--empty {
+  border-style: dashed;
+  background: transparent;
+}
+
+.ctxtile--empty .ctxtile__ico {
+  color: var(--text-faint);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ctxtile__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.ctxtile__words {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctxtile__state {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.ctxtile__state--on {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.13);
+}
+
+.ctxtile__state--off {
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.ctxtile__state--other {
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.14);
+}
+
+/* Which modes an own box applies to, on the tile: it used to be visible only
+   after opening the editor. */
+.ctxtile__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ctxmode {
+  font-size: 10px;
+  color: var(--text-faint);
+  background: rgba(255, 255, 255, 0.045);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* Out of the grid: the grid holds content, and an action is not content. */
+.ctxadd {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 8px 13px;
+  margin-top: 14px;
+  cursor: pointer;
+}
+
+.ctxadd:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* ── Context: the open box ── */
+
+.ctxback {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.ctxback:hover {
+  color: var(--text);
+}
+
+.ctxedit__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.ctxedit__ico {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 8px;
+  color: var(--accent);
+  background: rgba(96, 165, 250, 0.14);
+}
+
+.ctxedit__title {
+  flex: 1;
+  min-width: 140px;
+}
+
+.ctxedit__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ctxedit__hint {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  margin-top: 2px;
+  max-width: 56ch;
+}
+
+.ctxedit__body {
+  margin-top: 14px;
+}
+
+.ctxedit__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.ctxedit__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.ctxedit__words {
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Step through the boxes without going back to the grid each time, which is
+   what makes filling four slots in a row still cost one click each. */
+.ctxstep {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.ctxstep__btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.ctxstep__btn:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ctxstep__pos {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Context: editor for the open card ── */
@@ -2272,19 +2460,6 @@ button.btn--primary:hover:not(:disabled) {
   background: var(--bg-nav);
   border: 1px solid var(--line);
   border-radius: 10px;
-}
-
-.ctxeditor__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.ctxeditor__head input[type='text'] {
-  flex: 1;
-  min-width: 140px;
 }
 
 /*
@@ -3160,18 +3335,6 @@ kbd {
 
 /* ── About ── */
 
-.aboutval {
-  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
-  font-size: 12px;
-  color: var(--text-dim);
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  padding: 3px 8px;
-  /* Selectable: the version number exists so it can be pasted into a bug
-     report, and text that can't be copied forces transcribing it by hand. */
-  user-select: text;
-}
-
 /* Link to an external site (opens in the system browser). */
 .extlink {
   color: var(--accent);
@@ -3183,18 +3346,224 @@ kbd {
   text-decoration: underline;
 }
 
-/* Release notes in the update block: raw, capped and with scroll. */
-.about {
+/*
+ * The identity block. Version, author and license are FACTS, not settings, and
+ * rendering them as settings rows borrowed a form's grammar for a spec sheet —
+ * three rows carrying the same meaningless check icon. Here the product
+ * introduces itself once, and the facts drop to a strip underneath.
+ */
+.abouthero {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.abouthero__mascot {
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+
+.abouthero__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.abouthero__name {
+  display: flex;
+  align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.abouthero__desc {
   font-size: 12.5px;
   line-height: 1.6;
   color: #8b9096;
+  margin-top: 5px;
+  max-width: 60ch;
 }
 
-.about strong {
+.abouthero__desc strong {
   color: var(--text);
+  font-weight: 600;
+}
+
+/* The version, next to the name: it is the single most copied fact on the page
+   —it goes into every bug report— and it used to be the least prominent. */
+.aboutver {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.14);
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 999px;
+  padding: 2px 10px;
+  user-select: text;
+}
+
+/* «Which version do I have» and «is there a newer one» are one question, so the
+   check lives with the version instead of in a card of its own. */
+.aboutupdate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.aboutupdate__note {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.aboutbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.aboutfacts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Selectable, like the version: these exist to be pasted into a bug report. */
+.aboutfacts code {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  padding: 2px 7px;
+  user-select: text;
+}
+
+.aboutfacts__sep {
+  opacity: 0.4;
+}
+
+.aboutlinks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.aboutlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.aboutlink:hover {
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+.aboutlink svg {
+  opacity: 0.65;
+}
+
+/*
+ * A guarantee row. It reuses `.row`, but the title carries the weight: in a
+ * settings row the label is the quiet part and the control is the point, and
+ * here it is the other way round.
+ */
+.guarantee .row__label {
+  font-weight: 600;
+}
+
+.guarantee .row__desc {
+  max-width: 58ch;
+}
+
+.guarantee__side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.badge--warn {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.14);
+}
+
+.badge--info {
+  color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.14);
+}
+
+/*
+ * The legal note gets its own card. It is the one thing on this page that can
+ * cost the reader something, and it was the last strip at the bottom of a card
+ * about something else, styled like any routine settings warning.
+ */
+.card--legal {
+  border-color: rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.04);
+}
+
+.legal {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.legal__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.11);
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  color: #fcd34d;
+}
+
+.legal__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.legal__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fcd34d;
+}
+
+.legal__desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #c9a94a;
+  margin-top: 4px;
+  max-width: 62ch;
 }
 
 /* ── Profile manager (Behaviour) ── */

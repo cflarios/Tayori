@@ -457,14 +457,28 @@ export const en = {
 
   // ───────────────────── Settings · context ─────────────────────
   'ctx.preparingFor': 'Preparing for',
-  'ctx.inUse': '{count} in use: {names}',
-  'ctx.nothingActive': 'nothing active yet',
   'ctx.remove': 'Remove',
   'ctx.addOwn': 'Add your own context',
-  'ctx.pasteHere': 'Paste the text here…',
   'ctx.newName': 'New context',
   'ctx.profilesHint': 'Used in these modes · none checked = always',
-  'ctx.loadFile': 'Load a file',
+  'ctx.slotsTitle': 'What this mode asks for',
+  'ctx.slotsHint':
+    'The named things this mode wants prepared. Anything still empty is what is left to do.',
+  'ctx.ownTitle': 'Your own context',
+  'ctx.ownHint':
+    'Boxes you added yourself. One with no mode listed applies everywhere; the rest only in the modes they name.',
+  'ctx.readyOf': '{done} of {total}',
+  'ctx.readyAll': 'ready for this mode',
+  'ctx.readySome': 'prepared for this mode',
+  'ctx.sizeNote': '~{words} words ride with every question.',
+  'ctx.sizeNothing': 'Nothing is being sent yet.',
+  'ctx.stateEmpty': 'Empty',
+  'ctx.stateOff': 'Off',
+  'ctx.stateOther': 'Other mode',
+  'ctx.words': '{count} words',
+  'ctx.back': 'All context',
+  'ctx.prevBox': 'Previous box',
+  'ctx.nextBox': 'Next box',
   'ctx.kindCv': 'Your CV or experience',
   'ctx.kindJob': 'Job description',
   'ctx.kindQa': 'Prepared answers',
@@ -511,7 +525,6 @@ export const en = {
   'ctx.badgeInUse': 'In use',
   'ctx.tileEmpty': 'Empty — paste or import the text',
   'ctx.dropHint': 'Drag or click to upload',
-  'ctx.close': 'Close',
   'ctx.parsing': 'Reading…',
   'ctx.parseFailed': "Couldn't read that file",
 
@@ -590,15 +603,11 @@ export const en = {
   // ───────────────────── Settings · about ─────────────────────
   'about.what':
     'An assistant that listens to a meeting or an interview, transcribes who says what and suggests answers in a floating panel that **does not show up when you share your screen**. It also solves the code or the quiz in front of you, reading it from a screenshot.',
-  'about.version': 'Version',
-  'about.author': 'Author',
-  'about.license': 'License',
-  'about.licenseDesc': 'Open source, no monetisation.',
+  'about.licenseDesc': 'Open source, no monetisation',
   'about.web': 'Website',
   'about.webDesc': 'The Tayori landing page.',
   'about.docs': 'Documentation',
   'about.docsDesc': 'Guides and reference on the web.',
-  'about.updateTitle': 'Updates',
   'about.updateHint': 'Check GitHub for a newer version. Nothing is downloaded automatically.',
   'about.checkUpdate': 'Check for updates',
   'about.checking': 'Checking…',
@@ -609,14 +618,35 @@ export const en = {
   'about.dataTitle': 'What it does with what it hears',
   'about.dataHint':
     'This is what is worth being clear about before leaving it listening to something important.',
-  'about.audio':
-    '**Audio never touches the disk.** The chunks go to the transcription engine and are dropped on the spot. There are no audio files, not even temporary ones.',
-  'about.text':
-    '**Text is saved, if you want it to be.** With the history on, the answers and the full transcript —including what the other person said— go to a JSON in your data folder. It is turned off entirely from *History*, and with it off nothing gets written.',
-  'about.noServer':
-    '**There is no server in between.** The calls go straight to the provider you choose, with your key. The keys are stored encrypted with DPAPI and never travel to the renderer.',
-  'about.offline':
-    '**It can work offline.** With Whisper local and Ollama nothing leaves your machine.',
+  'about.checkAgain': 'Check again',
+  'about.source': 'Source',
+  'about.sourceDesc': 'The repository on GitHub.',
+  'about.audioTitle': 'Audio never touches the disk',
+  'about.audioDesc':
+    'The chunks go to the transcription engine and are dropped on the spot. There are no audio files, not even temporary ones.',
+  'about.audioBadge': 'Never written',
+  'about.textTitle': 'Text is saved, if you want it to be',
+  'about.textOn':
+    'History is on: the answers and the full transcript —including what the other person said— are going to a JSON in your data folder.',
+  'about.textOff':
+    'History is off, so nothing is being written. With it on, the answers and the full transcript —including what the other person said— go to a JSON in your data folder.',
+  'about.textBadgeOn': 'Saving transcripts',
+  'about.textBadgeOff': 'Nothing written',
+  'about.goHistory': 'Turn it off in History',
+  'about.serverTitle': 'There is no server in between',
+  'about.serverDesc':
+    'The calls go straight to the provider you choose, with your key. The keys are stored encrypted with DPAPI and never travel to the renderer.',
+  'about.serverBadge': 'Direct to {provider}',
+  'about.serverBadgeLocal': 'Nothing leaves',
+  'about.offlineTitle': 'It can work offline',
+  'about.offlineOn':
+    'Whisper runs locally and Ollama answers locally, so nothing you say leaves this machine.',
+  'about.offlineOff':
+    'Right now it is using a cloud engine. With Whisper local and Ollama nothing would leave your machine.',
+  'about.offlineBadgeOn': 'Fully offline',
+  'about.offlineBadgeOff': 'Cloud in use',
+  'about.goModels': 'Choose the engines',
+  'about.legalTitle': 'Before you use it',
   'about.legal':
     'Using it is on you: many companies restrict AI assistants in their hiring processes, and technical assessment platforms usually forbid them in their terms. In several jurisdictions, on top of that, keeping the transcript of a conversation counts the same as recording it.',
 

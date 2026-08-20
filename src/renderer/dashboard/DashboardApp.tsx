@@ -17,7 +17,6 @@ import {
   normalizeModelId,
   mqttTopics,
   INTERPRETER_LANGS,
-  packsForProfile,
   presetFromSettings,
   PROFILE_SLOTS,
   providerIsReady,
@@ -81,6 +80,7 @@ import type {
 /** Sibling projects born from this one. */
 const TAYORI_WEB_URL = 'https://tayori-web.cflarios.workers.dev/';
 const TAYORI_DOCS_URL = `${TAYORI_WEB_URL}docs`;
+const TAYORI_REPO_URL = 'https://github.com/cflarios/Tayori';
 const TAYORI_ESP32_URL = 'https://github.com/cflarios/TayoriESP32';
 
 /**
@@ -1863,7 +1863,7 @@ export function DashboardApp() {
                   <HotkeysCard settings={settings} patch={patch} failed={failedHotkeys} />
                 )}
                 {section === 'diagnostics' && <DiagnosticsCard />}
-                {section === 'about' && <AboutCard />}
+                {section === 'about' && <AboutCard settings={settings} go={go} />}
               </div>
             </div>
           </main>
@@ -3440,7 +3440,21 @@ function SkillsCard({ settings, patch }: { settings: Settings; patch: PatchFn })
  * to know before leaving this listening to an interview, and you can't depend on
  * them having read the README.
  */
-function AboutCard() {
+/**
+ * What Tayori is, which version you have, and what it does with your data.
+ *
+ * Three cards, each answering a different question. Two things it does not do
+ * any more: render the identity as a settings form —version, author and license
+ * are facts, and they were three rows carrying the same meaningless check
+ * icon— and split «which version do I have» from «is there a newer one» across
+ * two cards, when they are one question.
+ *
+ * The middle card is the reason this needs `settings`. Two of its four claims
+ * are not facts but consequences of how the app is set up, and the app already
+ * knows which way it is: saying «text is saved, if you want it to be» left the
+ * reader to go and check History for themselves.
+ */
+function AboutCard({ settings, go }: { settings: Settings; go: (id: SectionId) => void }) {
   const t = useT();
   const [info, setInfo] = useState<{ version: string; author: string } | null>(null);
   const [update, setUpdate] = useState<UpdateInfo | { error: string } | null>(null);
@@ -3460,44 +3474,38 @@ function AboutCard() {
     }
   };
 
+  const history = settings.historyEnabled;
+  // The only combination where nothing at all leaves the machine, which is
+  // exactly what the offline claim promises.
+  const offline = settings.sttProviderId === 'whisper-local' && settings.llmProviderId === 'ollama';
+
+  const checkLabel = checking
+    ? t('about.checking')
+    : update
+      ? t('about.checkAgain')
+      : t('about.checkUpdate');
+
   return (
     <>
       <section className="card">
-        <div className="about__head">
-          <Mascot className="about__mascot" autoBlink />
-          <h2 className="card__title" style={{ margin: 0 }}>
-            Tayori
-          </h2>
+        <div className="abouthero">
+          <Mascot className="abouthero__mascot" autoBlink />
+          <div className="abouthero__text">
+            <h2 className="abouthero__name">
+              Tayori
+              <code className="aboutver">v{info?.version ?? '…'}</code>
+            </h2>
+            <p className="abouthero__desc">
+              <Tx k="about.what" />
+            </p>
+          </div>
         </div>
-        <p className="card__hint">
-          <Tx k="about.what" />
-        </p>
 
-        <Row icon="check" label={t('about.version')}>
-          <code className="aboutval">{info?.version ?? '…'}</code>
-        </Row>
-        <Row icon="check" label={t('about.author')}>
-          <code className="aboutval">{info?.author ?? '@cflarios'}</code>
-        </Row>
-        <Row icon="check" label={t('about.license')} desc={t('about.licenseDesc')}>
-          <code className="aboutval">GPL-3.0-only</code>
-        </Row>
-        <Row icon="globe" label={t('about.web')} desc={t('about.webDesc')}>
-          <ExtLink href={TAYORI_WEB_URL}>Web</ExtLink>
-        </Row>
-        <Row icon="book" label={t('about.docs')} desc={t('about.docsDesc')}>
-          <ExtLink href={TAYORI_DOCS_URL}>Docs</ExtLink>
-        </Row>
-      </section>
-
-      <section className="card">
-        <h2 className="card__title">{t('about.updateTitle')}</h2>
-        <p className="card__hint">{t('about.updateHint')}</p>
-
-        <div className="field">
+        <div className="aboutupdate">
           <button className="btn" disabled={checking} onClick={() => void checkUpdate()}>
-            {checking ? t('about.checking') : t('about.checkUpdate')}
+            {checkLabel}
           </button>
+          {!update && <span className="aboutupdate__note">{t('about.updateHint')}</span>}
         </div>
 
         {update && 'error' in update && <div className="warn">{update.error}</div>}
@@ -3511,7 +3519,10 @@ function AboutCard() {
         {update && !('error' in update) && update.isNewer && (
           <div className="diag diag--ok">
             <p>
-              <Tx k="about.updateAvailable" vars={{ latest: update.latest, current: update.current }} />
+              <Tx
+                k="about.updateAvailable"
+                vars={{ latest: update.latest, current: update.current }}
+              />
             </p>
             <div className="field">
               {update.downloadUrl && (
@@ -3531,28 +3542,140 @@ function AboutCard() {
             </div>
           </div>
         )}
+
+        <div className="aboutbar">
+          <div className="aboutfacts">
+            <code>GPL-3.0-only</code>
+            <span className="aboutfacts__sep">·</span>
+            <span>{t('about.licenseDesc')}</span>
+            <span className="aboutfacts__sep">·</span>
+            <code>{info?.author ?? '@cflarios'}</code>
+          </div>
+
+          <div className="aboutlinks">
+            <button
+              className="aboutlink"
+              title={t('about.webDesc')}
+              onClick={() => void window.api.system.openExternal(TAYORI_WEB_URL)}
+            >
+              <Icon name="globe" size={13} />
+              {t('about.web')}
+            </button>
+            <button
+              className="aboutlink"
+              title={t('about.docsDesc')}
+              onClick={() => void window.api.system.openExternal(TAYORI_DOCS_URL)}
+            >
+              <Icon name="bookOpen" size={13} />
+              {t('about.docs')}
+            </button>
+            {/* The repo was missing entirely: the version and the author are here
+                so they can go into a bug report, and there was nowhere to file it. */}
+            <button
+              className="aboutlink"
+              title={t('about.sourceDesc')}
+              onClick={() => void window.api.system.openExternal(TAYORI_REPO_URL)}
+            >
+              <Icon name="external" size={13} />
+              {t('about.source')}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="card">
         <h2 className="card__title">{t('about.dataTitle')}</h2>
         <p className="card__hint">{t('about.dataHint')}</p>
 
-        <div className="about">
-          <p>
-            <Tx k="about.audio" />
-          </p>
-          <p>
-            <Tx k="about.text" />
-          </p>
-          <p>
-            <Tx k="about.noServer" />
-          </p>
-          <p>
-            <Tx k="about.offline" />
-          </p>
+        <div className="row guarantee">
+          <span className="row__icon">
+            <Icon name="mic" size={16} />
+          </span>
+          <div className="row__text">
+            <div className="row__label">{t('about.audioTitle')}</div>
+            <div className="row__desc">{t('about.audioDesc')}</div>
+          </div>
+          <div className="guarantee__side">
+            <span className="badge badge--ok">{t('about.audioBadge')}</span>
+          </div>
         </div>
 
-        <div className="warn">{t('about.legal')}</div>
+        <div className="row guarantee">
+          <span className="row__icon">
+            <Icon name="file" size={16} />
+          </span>
+          <div className="row__text">
+            <div className="row__label">{t('about.textTitle')}</div>
+            <div className="row__desc">
+              {history ? t('about.textOn') : t('about.textOff')}
+              {history && (
+                <div className="field">
+                  <Jump to="history" go={go}>
+                    {t('about.goHistory')}
+                  </Jump>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="guarantee__side">
+            <span className={`badge ${history ? 'badge--warn' : 'badge--ok'}`}>
+              {history ? t('about.textBadgeOn') : t('about.textBadgeOff')}
+            </span>
+          </div>
+        </div>
+
+        <div className="row guarantee">
+          <span className="row__icon">
+            <Icon name="broadcast" size={16} />
+          </span>
+          <div className="row__text">
+            <div className="row__label">{t('about.serverTitle')}</div>
+            <div className="row__desc">{t('about.serverDesc')}</div>
+          </div>
+          <div className="guarantee__side">
+            <span className="badge badge--info">
+              {offline
+                ? t('about.serverBadgeLocal')
+                : t('about.serverBadge', { provider: LLM_LABEL[settings.llmProviderId] })}
+            </span>
+          </div>
+        </div>
+
+        <div className="row guarantee">
+          <span className="row__icon">
+            <Icon name="power" size={16} />
+          </span>
+          <div className="row__text">
+            <div className="row__label">{t('about.offlineTitle')}</div>
+            <div className="row__desc">
+              {offline ? t('about.offlineOn') : t('about.offlineOff')}
+              {!offline && (
+                <div className="field">
+                  <Jump to="models" go={go}>
+                    {t('about.goModels')}
+                  </Jump>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="guarantee__side">
+            <span className={`badge ${offline ? 'badge--ok' : 'badge--missing'}`}>
+              {offline ? t('about.offlineBadgeOn') : t('about.offlineBadgeOff')}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="card card--legal">
+        <div className="legal">
+          <span className="legal__icon">
+            <Icon name="alert" size={16} />
+          </span>
+          <div className="legal__text">
+            <div className="legal__title">{t('about.legalTitle')}</div>
+            <div className="legal__desc">{t('about.legal')}</div>
+          </div>
+        </div>
       </section>
     </>
   );
@@ -5637,6 +5760,25 @@ const KIND_ICON: Record<ContextKind, IconName> = {
   notes: 'file',
 };
 
+/** Words in a context box. Rough on purpose: it is a size hint, not a token count. */
+function wordCount(text: string): number {
+  const clean = text.trim();
+  return clean ? clean.split(/\s+/).length : 0;
+}
+
+/**
+ * What a box is doing right now, which the grid never used to say.
+ *
+ * The rule is `packsForProfile`: a box reaches the model only if it has text, is
+ * switched on, and either applies always or names the mode you are in. Before
+ * this, a filled box that was switched off — or that belonged to another mode —
+ * looked exactly like one that was being sent.
+ */
+type EntryState = 'on' | 'empty' | 'off' | 'other';
+
+/** One thing on the page: a named slot of this mode, or one of your own boxes. */
+type CtxEntry = { ref: string; kind: ContextKind; pack: ContextPack | undefined };
+
 function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
   const packs = settings.contextPacks;
@@ -5644,19 +5786,10 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
   const slots = PROFILE_SLOTS[profile];
   const prof = useProfileSelect(settings, patch);
 
-  // Which tile is open in the editor: a profile slot (by kind) or an own pack
-  // (by id). `null` = just the grid.
-  const [sel, setSel] = useState<
-    { type: 'slot'; kind: ContextKind } | { type: 'pack'; id: string } | null
-  >(null);
-
-  // The editor opens BELOW the grid; on a short window it lands off-screen and
-  // the user had to scroll down to reach it. Clicking a tile now brings it into
-  // view — the point of clicking a tile is to edit it.
-  const editorRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (sel) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [sel]);
+  // Which box is open, by `ref`. Empty = the grid. The editor used to open BELOW
+  // the grid, which meant clicking a tile scrolled it off screen; now it takes
+  // the card over and the grid comes back with «All context».
+  const [sel, setSel] = useState('');
 
   const write = (next: ContextPack[]): void => void patch({ contextPacks: next });
 
@@ -5665,7 +5798,7 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
 
   const remove = (id: string): void => {
     write(packs.filter((p) => p.id !== id));
-    setSel(null);
+    setSel('');
   };
 
   /** This slot's pack for the active profile, if it already exists. */
@@ -5711,145 +5844,162 @@ function ContextCard({ settings, patch }: { settings: Settings; patch: PatchFn }
         profiles: [],
       },
     ]);
-    setSel({ type: 'pack', id });
+    setSel(`pack:${id}`);
   };
 
   // The ones that don't fill a slot of the active profile: the user's own packs
   // and those of other profiles, worth being able to see and edit without
-  // switching mode.
+  // switching mode. They get their own card now instead of being appended to
+  // this mode's slots with nothing marking the difference.
   const others = packs.filter((p) => !slots.includes(p.kind) || !p.profiles.includes(profile));
-  const activeNow = packsForProfile(packs, profile).filter((p) => p.content.trim());
-  const isActive = (pack?: ContextPack): boolean =>
-    !!pack && activeNow.some((a) => a.id === pack.id);
 
-  const editing = sel?.type === 'pack' ? packs.find((p) => p.id === sel.id) : undefined;
+  const slotEntries: CtxEntry[] = slots.map((kind) => ({
+    ref: `slot:${kind}`,
+    kind,
+    pack: slotPack(kind),
+  }));
+  const ownEntries: CtxEntry[] = others.map((p) => ({
+    ref: `pack:${p.id}`,
+    kind: p.kind,
+    pack: p,
+  }));
+  const order = [...slotEntries, ...ownEntries];
+
+  const stateOf = (entry: CtxEntry): EntryState => {
+    const pack = entry.pack;
+    if (!pack || !pack.content.trim()) return 'empty';
+    if (!pack.enabled) return 'off';
+    if (pack.profiles.length > 0 && !pack.profiles.includes(profile)) return 'other';
+    return 'on';
+  };
+
+  const ready = slotEntries.filter((e) => e.pack?.content.trim()).length;
+  const liveWords = order
+    .filter((e) => stateOf(e) === 'on')
+    .reduce((sum, e) => sum + wordCount(e.pack?.content ?? ''), 0);
+
+  const current = order.find((e) => e.ref === sel);
+
+  if (current) {
+    const index = order.indexOf(current);
+    const step = (delta: number): void => {
+      const next = order[(index + delta + order.length) % order.length];
+      if (next) setSel(next.ref);
+    };
+    const isSlot = current.ref.startsWith('slot:');
+    return (
+      <ContextEditor
+        entry={current}
+        isSlot={isSlot}
+        position={`${index + 1} / ${order.length}`}
+        onBack={() => setSel('')}
+        onPrev={() => step(-1)}
+        onNext={() => step(1)}
+        onContent={(content) =>
+          isSlot
+            ? writeSlot(current.kind, content)
+            : current.pack && update(current.pack.id, { content })
+        }
+        onPatch={(changes) => current.pack && update(current.pack.id, changes)}
+        onRemove={() => current.pack && remove(current.pack.id)}
+      />
+    );
+  }
 
   return (
-    <section className="card">
-      <div className="ctxbar ctxbar--first">
-        <span className="ctxbar__label">{t('ctx.preparingFor')}</span>
-        {/* The active profile is switchable right here: preparing context for
-            another profile shouldn't mean a trip to the overlay and back. */}
-        <Select variant="inline" ariaLabel={t('ctx.preparingFor')} {...prof} />
-        <span className="ctxbar__spacer" />
-        <span className="ctxbar__active">
-          {activeNow.length
-            ? t('ctx.inUse', {
-                count: activeNow.length,
-                names: activeNow.map((pack) => pack.name).join(', '),
-              })
-            : t('ctx.nothingActive')}
-        </span>
-      </div>
-
-      <div className="ctxgrid">
-        {slots.map((kind) => (
-          <ContextTile
-            key={kind}
-            icon={KIND_ICON[kind]}
-            name={t(CONTEXT_KIND_KEY[kind])}
-            content={slotPack(kind)?.content}
-            active={isActive(slotPack(kind))}
-            selected={sel?.type === 'slot' && sel.kind === kind}
-            onClick={() => setSel({ type: 'slot', kind })}
-          />
-        ))}
-
-        {others.map((pack) => (
-          <ContextTile
-            key={pack.id}
-            icon={KIND_ICON[pack.kind]}
-            name={pack.name || t('ctx.newName')}
-            kindLabel={t(CONTEXT_KIND_KEY[pack.kind])}
-            content={pack.content}
-            active={isActive(pack)}
-            selected={sel?.type === 'pack' && sel.id === pack.id}
-            onClick={() => setSel({ type: 'pack', id: pack.id })}
-          />
-        ))}
-
-        <button type="button" className="ctxtile ctxtile--add" onClick={addOwn}>
-          <span className="ctxtile__plus">
-            <Icon name="plus" size={20} />
-          </span>
-          <span className="ctxtile__addlabel">{t('ctx.addOwn')}</span>
-        </button>
-      </div>
-
-      <div ref={editorRef}>
-      {sel?.type === 'slot' && (
-        <SlotEditor
-          kind={sel.kind}
-          pack={slotPack(sel.kind)}
-          onChange={(content) => writeSlot(sel.kind, content)}
-          onToggle={(on) => {
-            const existing = slotPack(sel.kind);
-            if (existing) update(existing.id, { enabled: on });
-          }}
-          onClose={() => setSel(null)}
-        />
-      )}
-
-      {editing && (
-        <div className="ctxeditor">
-          <div className="ctxeditor__head">
-            <input
-              type="text"
-              value={editing.name}
-              onChange={(e) => update(editing.id, { name: e.target.value })}
-            />
-            <Select
-              value={editing.kind}
-              onChange={(v) => update(editing.id, { kind: v as ContextKind })}
-              options={(Object.keys(CONTEXT_KIND_KEY) as ContextKind[]).map((k) => ({
-                value: k,
-                label: t(CONTEXT_KIND_KEY[k]),
-              }))}
-            />
-            <Switch on={editing.enabled} onChange={(v) => update(editing.id, { enabled: v })} />
-            <span className="ctxbar__spacer" />
-            <button className="btn btn--danger" onClick={() => remove(editing.id)}>
-              {t('ctx.remove')}
-            </button>
-            <button className="btn" onClick={() => setSel(null)}>
-              {t('ctx.close')}
-            </button>
-          </div>
-          <p className="pack__profileshint">{t('ctx.profilesHint')}</p>
-          <div className="pack__profiles">
-            {(Object.keys(PROFILE_LABEL) as Settings['promptProfileId'][])
-              // `general` is a screen-only profile, never chosen by hand, so it
-              // isn't offered as a pack target.
-              .filter((p) => p !== 'general')
-              .map((p) => (
-              <label key={p} className="pack__profile">
-                <input
-                  type="checkbox"
-                  checked={editing.profiles.includes(p)}
-                  onChange={(e) =>
-                    update(editing.id, {
-                      profiles: e.target.checked
-                        ? [...editing.profiles, p]
-                        : editing.profiles.filter((x) => x !== p),
-                    })
-                  }
-                />
-                {t(PROFILE_LABEL[p])}
-              </label>
-            ))}
-          </div>
-          <textarea
-            placeholder={t('ctx.pasteHere')}
-            value={editing.content}
-            onChange={(e) => update(editing.id, { content: e.target.value })}
-          />
-          <FileDrop onText={(text) => update(editing.id, { content: text })} />
+    <>
+      <section className="card">
+        <div className="ctxbar ctxbar--first">
+          <span className="ctxbar__label">{t('ctx.preparingFor')}</span>
+          {/* The active profile is switchable right here: preparing context for
+              another profile shouldn't mean a trip to the overlay and back. */}
+          <Select variant="inline" ariaLabel={t('ctx.preparingFor')} {...prof} />
         </div>
-      )}
-      </div>
-    </section>
+
+        {/*
+          «Am I ready for this?» is the question this page exists to answer, and
+          nothing on it used to answer it: what reached the model was a clipped
+          one-line list in the header.
+        */}
+        <div className="ctxready">
+          <div className="ctxready__text">
+            <div className="ctxready__line">
+              <span className="ctxready__count">
+                {t('ctx.readyOf', { done: ready, total: slotEntries.length })}
+              </span>
+              <span className="ctxready__of">
+                {ready === slotEntries.length ? t('ctx.readyAll') : t('ctx.readySome')}
+              </span>
+            </div>
+            <div className="ctxready__size">
+              {liveWords ? t('ctx.sizeNote', { words: liveWords }) : t('ctx.sizeNothing')}
+            </div>
+            <div className="ctxready__bar">
+              <div
+                className={`ctxready__fill${ready === slotEntries.length ? ' ctxready__fill--done' : ''}`}
+                style={{
+                  width: `${slotEntries.length ? Math.round((ready / slotEntries.length) * 100) : 0}%`,
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2 className="card__title">{t('ctx.slotsTitle')}</h2>
+        <p className="card__hint">{t('ctx.slotsHint')}</p>
+
+        <div className="ctxgrid">
+          {slotEntries.map((entry) => (
+            <ContextTile
+              key={entry.ref}
+              icon={KIND_ICON[entry.kind]}
+              name={t(CONTEXT_KIND_KEY[entry.kind])}
+              content={entry.pack?.content}
+              state={stateOf(entry)}
+              onClick={() => setSel(entry.ref)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <h2 className="card__title">{t('ctx.ownTitle')}</h2>
+        <p className="card__hint">{t('ctx.ownHint')}</p>
+
+        <div className="ctxgrid">
+          {ownEntries.map((entry) => (
+            <ContextTile
+              key={entry.ref}
+              icon={KIND_ICON[entry.kind]}
+              name={entry.pack?.name || t('ctx.newName')}
+              kindLabel={t(CONTEXT_KIND_KEY[entry.kind])}
+              content={entry.pack?.content}
+              state={stateOf(entry)}
+              modes={entry.pack?.profiles ?? []}
+              onClick={() => setSel(entry.ref)}
+            />
+          ))}
+        </div>
+
+        {/* Out of the grid: the grid holds content, an action is not content. */}
+        <button type="button" className="ctxadd" onClick={addOwn}>
+          <Icon name="plus" size={15} />
+          {t('ctx.addOwn')}
+        </button>
+      </section>
+    </>
   );
 }
+
+/** The state chip's wording and tone, shared by every tile. */
+const CTX_STATE: Record<EntryState, { key: UIKey; cls: string }> = {
+  on: { key: 'ctx.badgeInUse', cls: 'ctxtile__state--on' },
+  empty: { key: 'ctx.stateEmpty', cls: 'ctxtile__state--off' },
+  off: { key: 'ctx.stateOff', cls: 'ctxtile__state--off' },
+  other: { key: 'ctx.stateOther', cls: 'ctxtile__state--other' },
+};
 
 /** A grid tile: a typed slot or an own pack. */
 function ContextTile({
@@ -5857,27 +6007,28 @@ function ContextTile({
   name,
   kindLabel,
   content,
-  active,
-  selected,
+  state,
+  modes,
   onClick,
 }: {
   icon: IconName;
   name: string;
   kindLabel?: string;
   content: string | undefined;
-  active: boolean;
-  selected: boolean;
+  state: EntryState;
+  modes?: PromptProfileId[];
   onClick: () => void;
 }) {
   const t = useT();
   const text = content?.trim();
+  const words = wordCount(content ?? '');
+  const chip = CTX_STATE[state];
   return (
     <button
       type="button"
-      className={`ctxtile${selected ? ' ctxtile--sel' : ''}${active ? ' ctxtile--on' : ''}`}
+      className={`ctxtile${text ? '' : ' ctxtile--empty'}${state === 'on' ? ' ctxtile--on' : ''}`}
       onClick={onClick}
     >
-      {active && <span className="ctxtile__badge">{t('ctx.badgeInUse')}</span>}
       <span className="ctxtile__ico">
         <Icon name={icon} />
       </span>
@@ -5886,44 +6037,183 @@ function ContextTile({
       <span className={`ctxtile__snip${text ? '' : ' ctxtile__snip--empty'}`}>
         {text || t('ctx.tileEmpty')}
       </span>
+      {/* Which modes an own box applies to, on the tile: it used to be visible
+          only after opening the editor. No modes = it applies always. */}
+      {modes && modes.length > 0 && (
+        <span className="ctxtile__modes">
+          {modes.map((mode) => (
+            <span key={mode} className="ctxmode">
+              {t(PROFILE_LABEL[mode])}
+            </span>
+          ))}
+        </span>
+      )}
+      <span className="ctxtile__foot">
+        <span className={`ctxtile__state ${chip.cls}`}>{t(chip.key)}</span>
+        {words > 0 && <span className="ctxtile__words">{t('ctx.words', { count: words })}</span>}
+      </span>
     </button>
   );
 }
 
-/** Editor of a typed slot of the active profile (CV, job offer, Q&A…). */
-function SlotEditor({
-  kind,
-  pack,
-  onChange,
-  onToggle,
-  onClose,
+/** A left- or right-pointing chevron, for the box stepper and the way back. */
+function StepChevron({ back }: { back: boolean }) {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={back ? 'm14 6-6 6 6 6' : 'm10 6 6 6-6 6'} />
+    </svg>
+  );
+}
+
+/**
+ * The open box, taking the card over.
+ *
+ * It replaces the grid instead of opening under it: the old panel pushed the
+ * tile you had just clicked off the top of the window, and picking another one
+ * scrolled the page again. `‹ ›` steps through the boxes in grid order, so
+ * filling four slots in a row still costs one click each.
+ */
+function ContextEditor({
+  entry,
+  isSlot,
+  position,
+  onBack,
+  onPrev,
+  onNext,
+  onContent,
+  onPatch,
+  onRemove,
 }: {
-  kind: ContextKind;
-  pack: ContextPack | undefined;
-  onChange: (content: string) => void;
-  onToggle: (on: boolean) => void;
-  onClose: () => void;
+  entry: CtxEntry;
+  isSlot: boolean;
+  position: string;
+  onBack: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onContent: (content: string) => void;
+  onPatch: (changes: Partial<ContextPack>) => void;
+  onRemove: () => void;
 }) {
   const t = useT();
-  const help = SLOT_HELP[kind];
+  const pack = entry.pack;
+  const help = SLOT_HELP[entry.kind];
+  const words = wordCount(pack?.content ?? '');
   return (
-    <div className="ctxeditor">
-      <div className="ctxeditor__head">
-        <strong className="slot__title">{t(CONTEXT_KIND_KEY[kind])}</strong>
-        {pack && <Switch on={pack.enabled} onChange={onToggle} />}
-        <span className="ctxbar__spacer" />
-        <button className="btn" onClick={onClose}>
-          {t('ctx.close')}
-        </button>
+    <section className="card">
+      <button type="button" className="ctxback" onClick={onBack}>
+        <StepChevron back />
+        {t('ctx.back')}
+      </button>
+
+      <div className="ctxedit__head">
+        <span className="ctxedit__ico">
+          <Icon name={KIND_ICON[entry.kind]} size={18} />
+        </span>
+
+        <div className="ctxedit__title">
+          {isSlot ? (
+            <div className="ctxedit__name">{t(CONTEXT_KIND_KEY[entry.kind])}</div>
+          ) : (
+            <input
+              type="text"
+              value={pack?.name ?? ''}
+              placeholder={t('ctx.newName')}
+              onChange={(e) => onPatch({ name: e.target.value })}
+            />
+          )}
+          <div className="ctxedit__hint">{t(help.hint)}</div>
+        </div>
+
+        {pack && <Switch on={pack.enabled} onChange={(v) => onPatch({ enabled: v })} />}
+
+        <div className="ctxstep">
+          <button
+            type="button"
+            className="ctxstep__btn"
+            aria-label={t('ctx.prevBox')}
+            onClick={onPrev}
+          >
+            <StepChevron back />
+          </button>
+          <span className="ctxstep__pos">{position}</span>
+          <button
+            type="button"
+            className="ctxstep__btn"
+            aria-label={t('ctx.nextBox')}
+            onClick={onNext}
+          >
+            <StepChevron back={false} />
+          </button>
+        </div>
       </div>
-      <p className="slot__hint">{t(help.hint)}</p>
-      <textarea
-        placeholder={t(help.placeholder)}
-        value={pack?.content ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <FileDrop onText={onChange} />
-    </div>
+
+      <div className="ctxedit__body">
+        {!isSlot && pack && (
+          <>
+            <div className="ctxedit__row">
+              <Select
+                ariaLabel={t('ctx.kindNotes')}
+                value={pack.kind}
+                onChange={(v) => onPatch({ kind: v as ContextKind })}
+                options={(Object.keys(CONTEXT_KIND_KEY) as ContextKind[]).map((k) => ({
+                  value: k,
+                  label: t(CONTEXT_KIND_KEY[k]),
+                }))}
+              />
+              <span className="ctxbar__spacer" />
+              <button className="btn btn--danger" onClick={onRemove}>
+                {t('ctx.remove')}
+              </button>
+            </div>
+            <p className="pack__profileshint">{t('ctx.profilesHint')}</p>
+            <div className="pack__profiles">
+              {(Object.keys(PROFILE_LABEL) as Settings['promptProfileId'][])
+                // `general` is a screen-only profile, never chosen by hand, so it
+                // isn't offered as a pack target.
+                .filter((p) => p !== 'general')
+                .map((p) => (
+                  <label key={p} className="pack__profile">
+                    <input
+                      type="checkbox"
+                      checked={pack.profiles.includes(p)}
+                      onChange={(e) =>
+                        onPatch({
+                          profiles: e.target.checked
+                            ? [...pack.profiles, p]
+                            : pack.profiles.filter((x) => x !== p),
+                        })
+                      }
+                    />
+                    {t(PROFILE_LABEL[p])}
+                  </label>
+                ))}
+            </div>
+          </>
+        )}
+
+        <div className="ctxeditor">
+          <textarea
+            placeholder={t(help.placeholder)}
+            value={pack?.content ?? ''}
+            onChange={(e) => onContent(e.target.value)}
+          />
+          <div className="ctxedit__meta">
+            <span className="ctxedit__words">{t('ctx.words', { count: words })}</span>
+          </div>
+          <FileDrop onText={onContent} />
+        </div>
+      </div>
+    </section>
   );
 }
 
