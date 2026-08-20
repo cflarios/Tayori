@@ -401,6 +401,157 @@ function useProfileSelect(
   return { value, options, groups, onChange };
 }
 
+/** The mark for each built-in, so the list scans as a list and not six rows. */
+const PROFILE_ICON: Partial<Record<PromptProfileId, IconName>> = {
+  interview: 'briefcase',
+  meeting: 'message',
+  lecture: 'book',
+  support: 'key',
+  coding: 'monitor',
+  quiz: 'check',
+};
+
+/**
+ * One row of the profile list: what it is, what it reads, and what you can do
+ * to it.
+ *
+ * It used to be a name box, a naked switch and an ✕. Three things the list never
+ * said, and all three are here now: **which profile is in use** (you had to read
+ * the picker in another card to find out), **what context each one reads** —the
+ * app already knows, from `PROFILE_SLOTS`, and never showed it— and **which are
+ * hidden**, which is why a hidden row is dimmed and keeps its eye lit.
+ *
+ * The actions stay visible at low contrast rather than appearing on hover: an
+ * affordance nobody can see is one nobody uses, and hover has no touch
+ * equivalent.
+ */
+function ProfileRow({
+  icon,
+  name,
+  placeholder,
+  slots,
+  active,
+  visible,
+  edited,
+  open,
+  onName,
+  onUse,
+  onToggleVisible,
+  onDuplicate,
+  onRemove,
+  onOpen,
+  removeTitle,
+  children,
+}: {
+  icon: IconName;
+  name: string;
+  placeholder?: string;
+  slots: ContextKind[];
+  active: boolean;
+  visible: boolean;
+  edited?: boolean;
+  open: boolean;
+  onName: (v: string) => void;
+  onUse: () => void;
+  onToggleVisible: (v: boolean) => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+  onOpen: () => void;
+  removeTitle: string;
+  children?: React.ReactNode;
+}) {
+  const t = useT();
+  const cls = [
+    'profcard',
+    open ? 'profcard--open' : '',
+    active ? 'profcard--active' : '',
+    visible ? '' : 'profcard--hidden',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const eyeTitle = visible ? t('beh.profShown') : t('beh.profHiddenTitle');
+  return (
+    <div className={cls}>
+      <div className="profcard__head">
+        <button
+          type="button"
+          className="profcard__expand"
+          aria-expanded={open}
+          aria-label={t('beh.profExpand')}
+          onClick={onOpen}
+        >
+          <Chevron open={open} />
+        </button>
+
+        <span className="profcard__icon">
+          <Icon name={icon} size={15} />
+        </span>
+
+        <div className="profcard__main">
+          <input
+            type="text"
+            className="profcard__name"
+            value={name}
+            placeholder={placeholder}
+            onChange={(e) => onName(e.target.value)}
+          />
+          {slots.length > 0 && (
+            <div className="profcard__slots">
+              {slots.map((kind) => (
+                <span key={kind} className="profslot">
+                  {t(CONTEXT_KIND_KEY[kind])}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {active ? (
+          <span className="badge badge--active">{t('beh.profActive')}</span>
+        ) : (
+          <button type="button" className="profuse" onClick={onUse}>
+            {t('beh.profUse')}
+          </button>
+        )}
+        {edited && <span className="badge badge--missing">{t('beh.profEdited')}</span>}
+
+        <div className="profcard__acts">
+          <button
+            type="button"
+            className={`profact${visible ? '' : ' profact--on'}`}
+            title={eyeTitle}
+            aria-label={eyeTitle}
+            aria-pressed={visible}
+            onClick={() => onToggleVisible(!visible)}
+          >
+            <Icon name={visible ? 'eye' : 'eyeOff'} size={15} />
+          </button>
+          <button
+            type="button"
+            className="profact"
+            title={t('beh.profDuplicate')}
+            aria-label={t('beh.profDuplicate')}
+            onClick={onDuplicate}
+          >
+            <Icon name="copy" size={15} />
+          </button>
+          <button
+            type="button"
+            className="profact profact--danger"
+            title={removeTitle}
+            aria-label={removeTitle}
+            onClick={onRemove}
+          >
+            <Icon name="trash" size={15} />
+          </button>
+        </div>
+      </div>
+
+      {open && <div className="profcard__body">{children}</div>}
+    </div>
+  );
+}
+
 /**
  * Create, edit, hide, remove and restore answer profiles — built-ins and
  * custom alike.
@@ -412,6 +563,10 @@ function useProfileSelect(
  * built-ins and customs both go to a "removed" bucket and come back one by one
  * or all at once. Nothing may strand the picker with nothing to choose, and the
  * active profile falls back whenever it stops being offered.
+ *
+ * Duplicating is the other way in, and the one people actually reach for: a
+ * custom profile almost always starts as "the interview one, but…", and before
+ * this the only path was «New profile» and an empty box.
  */
 function ProfileManager({
   settings,
@@ -423,6 +578,9 @@ function ProfileManager({
   const t = useT();
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [openId, setOpenId] = useState<string | null>(null);
+  // Removed profiles fold away: it's a recovery path, not a second list to read
+  // past every time you come here.
+  const [removedOpen, setRemovedOpen] = useState(false);
   useEffect(() => {
     void window.api.settings.profileDefaults().then(setDefaults);
   }, [settings.uiLanguage]);
@@ -451,6 +609,28 @@ function ProfileManager({
   const builtinName = (id: PromptProfileId): string =>
     settings.builtinOverrides[id]?.name ?? t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom');
 
+  /** The prompt a profile is actually running with, ours or the rewritten one. */
+  const builtinPrompt = (id: PromptProfileId): string =>
+    settings.builtinOverrides[id]?.prompt ?? defaults[id] ?? '';
+
+  /**
+   * A free id for a new custom profile.
+   *
+   * Counted rather than stamped with `Date.now()`: two profiles created inside
+   * the same millisecond would collide, and reading the clock while rendering is
+   * not something a component may do. The removed ones count as taken — they can
+   * come back.
+   */
+  const freshCustomId = (): string => {
+    const taken = new Set([
+      ...settings.customProfiles.map((p) => p.id),
+      ...settings.removedCustoms.map((p) => p.id),
+    ]);
+    let n = taken.size + 1;
+    while (taken.has(`custom-${n}`)) n += 1;
+    return `custom-${n}`;
+  };
+
   // ── Built-in edits ──
   const setOverride = (id: string, field: 'name' | 'prompt', value: string): void => {
     patch({
@@ -470,7 +650,8 @@ function ProfileManager({
     const hiddenProfiles = visible
       ? settings.hiddenProfiles.filter((h) => h !== id)
       : [...settings.hiddenProfiles, id];
-    if (!visible && strands(hiddenProfiles, settings.deletedProfiles, settings.customProfiles)) return;
+    if (!visible && strands(hiddenProfiles, settings.deletedProfiles, settings.customProfiles))
+      return;
     const moveActive =
       !visible && settings.promptProfileId === id
         ? fallback(hiddenProfiles, settings.deletedProfiles, settings.customProfiles)
@@ -492,7 +673,7 @@ function ProfileManager({
 
   // ── Custom edits ──
   const addCustom = (): void => {
-    const id = `custom-${Date.now().toString(36)}`;
+    const id = freshCustomId();
     patch({
       customProfiles: [...settings.customProfiles, { id, name: '', prompt: '' }],
       promptProfileId: 'custom',
@@ -500,6 +681,25 @@ function ProfileManager({
     });
     setOpenId(id);
   };
+
+  /**
+   * Copy a profile into a new custom one. It carries the prompt it was running
+   * with —ours for an untouched built-in— so the copy starts where the original
+   * left off, which is the whole point of copying it.
+   */
+  const duplicate = (name: string, prompt: string): void => {
+    const id = freshCustomId();
+    patch({
+      customProfiles: [
+        ...settings.customProfiles,
+        { id, name: t('beh.profCopy', { name }), prompt },
+      ],
+      promptProfileId: 'custom',
+      activeCustomId: id,
+    });
+    setOpenId(id);
+  };
+
   const editCustom = (id: string, field: 'name' | 'prompt', value: string): void => {
     patch({
       customProfiles: settings.customProfiles.map((p) =>
@@ -511,7 +711,8 @@ function ProfileManager({
     const customProfiles = settings.customProfiles.map((p) =>
       p.id === id ? { ...p, hidden: !visible } : p
     );
-    if (!visible && strands(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)) return;
+    if (!visible && strands(settings.hiddenProfiles, settings.deletedProfiles, customProfiles))
+      return;
     const moveActive =
       !visible && settings.promptProfileId === 'custom' && settings.activeCustomId === id
         ? fallback(settings.hiddenProfiles, settings.deletedProfiles, customProfiles)
@@ -553,52 +754,45 @@ function ProfileManager({
     });
 
   const removedBuiltins = EDITABLE_PROFILES.filter((id) => settings.deletedProfiles.includes(id));
-  const anyRemoved = removedBuiltins.length > 0 || settings.removedCustoms.length > 0;
+  const removedCount = removedBuiltins.length + settings.removedCustoms.length;
 
   return (
-    <div className="profmgr">
-      <div className="profmgr__head">{t('beh.profTitle')}</div>
-      <div className="profmgr__list">
-        {EDITABLE_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => {
-          const override = settings.builtinOverrides[id];
-          const open = openId === id;
-          const edited = override?.name !== undefined || override?.prompt !== undefined;
-          return (
-            <div key={id} className={`profcard${open ? ' profcard--open' : ''}`}>
-              <div className="profcard__head">
-                <button
-                  type="button"
-                  className="profcard__expand"
-                  aria-expanded={open}
-                  onClick={() => setOpenId(open ? null : id)}
-                >
-                  <Chevron open={open} />
-                </button>
-                <input
-                  type="text"
-                  className="profcard__name"
-                  value={override?.name ?? t(PROFILE_BEH_LABEL[id] ?? 'beh.profCustom')}
-                  onChange={(e) => setOverride(id, 'name', e.target.value)}
+    <section className="card">
+      <div className="card__title">{t('beh.profCustomTitle')}</div>
+      <div className="card__hint">{t('beh.profListHint')}</div>
+
+      <div className="profmgr">
+        <div className="profmgr__list">
+          {EDITABLE_PROFILES.filter((id) => !settings.deletedProfiles.includes(id)).map((id) => {
+            const override = settings.builtinOverrides[id];
+            const edited = override?.name !== undefined || override?.prompt !== undefined;
+            return (
+              <ProfileRow
+                key={id}
+                icon={PROFILE_ICON[id] ?? 'sparkles'}
+                name={builtinName(id)}
+                slots={PROFILE_SLOTS[id]}
+                active={settings.promptProfileId === id}
+                visible={!settings.hiddenProfiles.includes(id)}
+                edited={edited}
+                open={openId === id}
+                onName={(v) => setOverride(id, 'name', v)}
+                onUse={() => patch({ promptProfileId: id })}
+                onToggleVisible={(v) => setHidden(id, v)}
+                onDuplicate={() => duplicate(builtinName(id), builtinPrompt(id))}
+                onRemove={() => removeBuiltin(id)}
+                onOpen={() => setOpenId(openId === id ? null : id)}
+                removeTitle={t('beh.profRemove')}
+              >
+                <div className="profcard__label">{t('beh.profSystemPrompt')}</div>
+                <textarea
+                  className="profmgr__prompt"
+                  value={builtinPrompt(id)}
+                  placeholder={t('beh.customPlaceholder')}
+                  onChange={(e) => setOverride(id, 'prompt', e.target.value)}
                 />
-                <Switch on={!settings.hiddenProfiles.includes(id)} onChange={(v) => setHidden(id, v)} />
-                <button
-                  type="button"
-                  className="profmgr__del"
-                  title={t('beh.profRemove')}
-                  aria-label={t('beh.profRemove')}
-                  onClick={() => removeBuiltin(id)}
-                >
-                  ✕
-                </button>
-              </div>
-              {open && (
-                <div className="profcard__body">
-                  <textarea
-                    className="profmgr__prompt"
-                    value={override?.prompt ?? defaults[id] ?? ''}
-                    placeholder={t('beh.customPlaceholder')}
-                    onChange={(e) => setOverride(id, 'prompt', e.target.value)}
-                  />
+                <div className="profcard__foot">
+                  <span className="row__desc">{t('beh.profPromptHint')}</span>
                   {edited && (
                     <button
                       type="button"
@@ -609,109 +803,109 @@ function ProfileManager({
                     </button>
                   )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              </ProfileRow>
+            );
+          })}
 
-        {settings.customProfiles.map((p) => {
-          const open = openId === p.id;
-          return (
-            <div key={p.id} className={`profcard${open ? ' profcard--open' : ''}`}>
-              <div className="profcard__head">
-                <button
-                  type="button"
-                  className="profcard__expand"
-                  aria-expanded={open}
-                  onClick={() => setOpenId(open ? null : p.id)}
-                >
-                  <Chevron open={open} />
-                </button>
-                <input
-                  type="text"
-                  className="profcard__name"
-                  value={p.name}
-                  placeholder={t('beh.profNamePlaceholder')}
-                  onChange={(e) => editCustom(p.id, 'name', e.target.value)}
-                />
-                <Switch on={!p.hidden} onChange={(v) => setCustomHidden(p.id, v)} />
-                <button
-                  type="button"
-                  className="profmgr__del"
-                  title={t('beh.profDelete')}
-                  aria-label={t('beh.profDelete')}
-                  onClick={() => removeCustom(p.id)}
-                >
-                  ✕
-                </button>
+          {settings.customProfiles.map((p) => (
+            <ProfileRow
+              key={p.id}
+              icon="sparkles"
+              name={p.name}
+              placeholder={t('beh.profNamePlaceholder')}
+              slots={PROFILE_SLOTS.custom}
+              active={settings.promptProfileId === 'custom' && settings.activeCustomId === p.id}
+              visible={!p.hidden}
+              open={openId === p.id}
+              onName={(v) => editCustom(p.id, 'name', v)}
+              onUse={() => patch({ promptProfileId: 'custom', activeCustomId: p.id })}
+              onToggleVisible={(v) => setCustomHidden(p.id, v)}
+              onDuplicate={() => duplicate(p.name || t('beh.profUntitled'), p.prompt)}
+              onRemove={() => removeCustom(p.id)}
+              onOpen={() => setOpenId(openId === p.id ? null : p.id)}
+              removeTitle={t('beh.profDelete')}
+            >
+              <div className="profcard__label">{t('beh.profSystemPrompt')}</div>
+              <textarea
+                className="profmgr__prompt"
+                value={p.prompt}
+                placeholder={t('beh.customPlaceholder')}
+                onChange={(e) => editCustom(p.id, 'prompt', e.target.value)}
+              />
+              <div className="profcard__foot">
+                <span className="row__desc">{t('beh.profPromptHint')}</span>
               </div>
-              {open && (
-                <div className="profcard__body">
-                  <textarea
-                    className="profmgr__prompt"
-                    value={p.prompt}
-                    placeholder={t('beh.customPlaceholder')}
-                    onChange={(e) => editCustom(p.id, 'prompt', e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            </ProfileRow>
+          ))}
+        </div>
 
-      <button type="button" className="profmgr__add" onClick={addCustom}>
-        + {t('beh.profAdd')}
-      </button>
+        <div className="profmgr__foot">
+          <button type="button" className="profmgr__add" onClick={addCustom}>
+            + {t('beh.profAdd')}
+          </button>
 
-      {anyRemoved && (
-        <div className="profmgr__removed">
-          <div className="profmgr__removedhead">
-            <span>{t('beh.profRemovedTitle')}</span>
-            <button type="button" className="profmgr__restore" onClick={restoreAll}>
-              {t('beh.profRestoreAll')}
+          {removedCount > 0 && (
+            <button
+              type="button"
+              className="profmgr__removedtoggle"
+              aria-expanded={removedOpen}
+              onClick={() => setRemovedOpen(!removedOpen)}
+            >
+              <Chevron open={removedOpen} />
+              {t('beh.profRemovedCount', { count: removedCount })}
             </button>
-          </div>
-          {removedBuiltins.map((id) => (
-            <div key={id} className="profmgr__removeditem">
-              <span>{builtinName(id)}</span>
-              <button
-                type="button"
-                className="profmgr__restore"
-                onClick={() => restoreBuiltin(id)}
-              >
-                {t('beh.profRestoreOne')}
+          )}
+        </div>
+
+        {removedCount > 0 && removedOpen && (
+          <div className="profmgr__removed">
+            <div className="profmgr__removedhead">
+              <span>{t('beh.profRemovedTitle')}</span>
+              <button type="button" className="profmgr__restore" onClick={restoreAll}>
+                {t('beh.profRestoreAll')}
               </button>
             </div>
-          ))}
-          {settings.removedCustoms.map((c) => (
-            <div key={c.id} className="profmgr__removeditem">
-              <span>{c.name || t('beh.profCustom')}</span>
-              <div className="profmgr__removedacts">
+            {removedBuiltins.map((id) => (
+              <div key={id} className="profmgr__removeditem">
+                <span>{builtinName(id)}</span>
                 <button
                   type="button"
                   className="profmgr__restore"
-                  onClick={() => restoreCustom(c.id)}
+                  onClick={() => restoreBuiltin(id)}
                 >
                   {t('beh.profRestoreOne')}
                 </button>
-                {/* Custom-only: delete it for good, since it can't be re-created
-                    like a built-in. */}
-                <button
-                  type="button"
-                  className="profmgr__delete"
-                  aria-label={t('beh.profDeleteForever')}
-                  title={t('beh.profDeleteForever')}
-                  onClick={() => deleteCustom(c.id)}
-                >
-                  <Icon name="trash" size={14} />
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+            {settings.removedCustoms.map((c) => (
+              <div key={c.id} className="profmgr__removeditem">
+                <span>{c.name || t('beh.profCustom')}</span>
+                <div className="profmgr__removedacts">
+                  <button
+                    type="button"
+                    className="profmgr__restore"
+                    onClick={() => restoreCustom(c.id)}
+                  >
+                    {t('beh.profRestoreOne')}
+                  </button>
+                  {/* Custom-only: delete it for good, since it can't be re-created
+                      like a built-in. */}
+                  <button
+                    type="button"
+                    className="profmgr__delete"
+                    aria-label={t('beh.profDeleteForever')}
+                    title={t('beh.profDeleteForever')}
+                    onClick={() => deleteCustom(c.id)}
+                  >
+                    <Icon name="trash" size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -5111,6 +5305,17 @@ const ACC_KEY: Record<ModelAccuracy, UIKey> = {
 
 // ────────────────────────────── Behavior ──────────────────────────────
 
+/**
+ * One card per question, instead of the single stack this used to be.
+ *
+ * Twelve rows in a row said nothing about which of them answered what, and four
+ * of them appear and disappear with the trigger mode — as one flat list, turning
+ * the trigger off tore a hole through the middle of the page. Grouped, the
+ * conditional rows live INSIDE the card they belong to and that card just gets
+ * shorter. The order is the order of the decisions: when it fires, how long it
+ * listens, how the answer reads, what happens on the screen, and last the list
+ * of profiles, which is long and is edited rarely.
+ */
 function BehaviourCard({
   settings,
   patch,
@@ -5123,223 +5328,251 @@ function BehaviourCard({
   const t = useT();
   const prof = useProfileSelect(settings, patch);
   return (
-    <section className="card">
-      <Row icon="bolt" label={t('beh.auto')} desc={t('beh.autoDesc')}>
-        <Select
-          ariaLabel={t('beh.auto')}
-          value={settings.autoTriggerMode}
-          onChange={(v) => void patch({ autoTriggerMode: v as Settings['autoTriggerMode'] })}
-          options={[
-            { value: 'off', label: t('beh.autoOff') },
-            { value: 'heuristic', label: t('beh.autoHeuristic') },
-            { value: 'heuristic+classifier', label: t('beh.autoClassifier') },
-          ]}
-        />
-      </Row>
+    <>
+      <section className="card">
+        <div className="card__title">{t('beh.cardTrigger')}</div>
+        <div className="card__hint">{t('beh.cardTriggerHint')}</div>
 
-      {settings.autoTriggerMode === 'heuristic+classifier' && (
-        <div className="warn">
-          <Tx k="beh.classifierWarn" />
-          <br />
-          <Tx k="beh.classifierCost" />
-        </div>
-      )}
+        <Row icon="bolt" label={t('beh.auto')} desc={t('beh.autoDesc')}>
+          <Select
+            ariaLabel={t('beh.auto')}
+            value={settings.autoTriggerMode}
+            onChange={(v) => void patch({ autoTriggerMode: v as Settings['autoTriggerMode'] })}
+            options={[
+              { value: 'off', label: t('beh.autoOff') },
+              { value: 'heuristic', label: t('beh.autoHeuristic') },
+              { value: 'heuristic+classifier', label: t('beh.autoClassifier') },
+            ]}
+          />
+        </Row>
 
-      {settings.autoTriggerMode !== 'off' && (
-        <>
-          <Row icon="mic" label={t('beh.speaker')} desc={t('beh.speakerDesc')}>
-            <Select
-              ariaLabel={t('beh.speaker')}
-              value={settings.autoTriggerSpeaker}
-              onChange={(v) =>
-                void patch({ autoTriggerSpeaker: v as Settings['autoTriggerSpeaker'] })
-              }
-              options={[
-                { value: 'them', label: t('beh.speakerThem') },
-                { value: 'me', label: t('beh.speakerMe') },
-                { value: 'any', label: t('beh.speakerAny') },
-              ]}
-            />
-          </Row>
+        {settings.autoTriggerMode === 'heuristic+classifier' && (
+          <div className="warn">
+            <Tx k="beh.classifierWarn" />
+            <br />
+            <Tx k="beh.classifierCost" />
+          </div>
+        )}
 
-          <Row
-            icon="waveform"
-            label={t('beh.sensitivity')}
-            desc={t(SENSITIVITY_HINT[settings.autoTriggerSensitivity])}
-          >
-            <Select
-              ariaLabel={t('beh.sensitivity')}
-              value={settings.autoTriggerSensitivity}
-              onChange={(v) =>
-                void patch({ autoTriggerSensitivity: v as Settings['autoTriggerSensitivity'] })
-              }
-              options={[
-                { value: 'strict', label: t('beh.sensStrict') },
-                { value: 'balanced', label: t('beh.sensBalanced') },
-                { value: 'all', label: t('beh.sensAll') },
-              ]}
-            />
-          </Row>
-
-          {/* The impossible combination gives no symptom: audio arrives, it's
-              transcribed, and the trigger discards everything silently. That's
-              why it warns here and not only in the main process's log. */}
-          {autoTriggerIsInert(settings) && (
-            <div className="warn">
-              <Tx
-                k="beh.inertWarn"
-                vars={{
-                  wanted: t(SPEAKER_LABEL[settings.autoTriggerSpeaker]),
-                  heard: speakersFor(settings.audioSources)
-                    .map((speaker) => t(SPEAKER_LABEL[speaker]))
-                    .join(t('stt.and')),
-                }}
+        {settings.autoTriggerMode !== 'off' && (
+          <>
+            <Row icon="mic" label={t('beh.speaker')} desc={t('beh.speakerDesc')}>
+              <Select
+                ariaLabel={t('beh.speaker')}
+                value={settings.autoTriggerSpeaker}
+                onChange={(v) =>
+                  void patch({ autoTriggerSpeaker: v as Settings['autoTriggerSpeaker'] })
+                }
+                options={[
+                  { value: 'them', label: t('beh.speakerThem') },
+                  { value: 'me', label: t('beh.speakerMe') },
+                  { value: 'any', label: t('beh.speakerAny') },
+                ]}
               />
-              <div className="field">
-                <Jump to="audio" go={go}>
-                  {t('beh.changeSources')}
-                </Jump>
-              </div>
+            </Row>
+
+            <Row
+              icon="waveform"
+              label={t('beh.sensitivity')}
+              desc={t(SENSITIVITY_HINT[settings.autoTriggerSensitivity])}
+            >
+              <Select
+                ariaLabel={t('beh.sensitivity')}
+                value={settings.autoTriggerSensitivity}
+                onChange={(v) =>
+                  void patch({ autoTriggerSensitivity: v as Settings['autoTriggerSensitivity'] })
+                }
+                options={[
+                  { value: 'strict', label: t('beh.sensStrict') },
+                  { value: 'balanced', label: t('beh.sensBalanced') },
+                  { value: 'all', label: t('beh.sensAll') },
+                ]}
+              />
+            </Row>
+          </>
+        )}
+
+        {/* The impossible combination gives no symptom: audio arrives, it's
+            transcribed, and the trigger discards everything silently. That's
+            why it warns here and not only in the main process's log. */}
+        {autoTriggerIsInert(settings) && (
+          <div className="warn">
+            <Tx
+              k="beh.inertWarn"
+              vars={{
+                wanted: t(SPEAKER_LABEL[settings.autoTriggerSpeaker]),
+                heard: speakersFor(settings.audioSources)
+                  .map((speaker) => t(SPEAKER_LABEL[speaker]))
+                  .join(t('stt.and')),
+              }}
+            />
+            <div className="field">
+              <Jump to="audio" go={go}>
+                {t('beh.changeSources')}
+              </Jump>
             </div>
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </section>
 
-      <Row icon="power" label={t('beh.idle')} desc={t('beh.idleDesc')}>
-        <Switch
-          on={settings.idleShutoffEnabled}
-          onChange={(v) => void patch({ idleShutoffEnabled: v })}
-        />
-      </Row>
+      <section className="card">
+        <div className="card__title">{t('beh.cardWindow')}</div>
+        <div className="card__hint">{t('beh.cardWindowHint')}</div>
 
-      {settings.idleShutoffEnabled && (
-        <Row icon="clock" label={t('beh.idleMinutes')} desc={t('beh.idleMinutesDesc')}>
+        <Row icon="power" label={t('beh.idle')} desc={t('beh.idleDesc')}>
+          <Switch
+            on={settings.idleShutoffEnabled}
+            onChange={(v) => void patch({ idleShutoffEnabled: v })}
+          />
+        </Row>
+
+        {settings.idleShutoffEnabled && (
+          <Row icon="clock" label={t('beh.idleMinutes')} desc={t('beh.idleMinutesDesc')}>
+            <input
+              type="number"
+              min={1}
+              max={240}
+              step={1}
+              style={{ width: 90, flex: 'none' }}
+              value={settings.idleShutoffMinutes}
+              onChange={(e) =>
+                void patch({ idleShutoffMinutes: Math.max(1, Number(e.target.value) || 10) })
+              }
+            />
+          </Row>
+        )}
+
+        <Row icon="clock" label={t('beh.window')} desc={t('beh.windowDesc')}>
           <input
             type="number"
-            min={1}
-            max={240}
-            step={1}
+            min={10}
+            max={300}
+            step={5}
             style={{ width: 90, flex: 'none' }}
-            value={settings.idleShutoffMinutes}
+            value={settings.manualContextSeconds}
             onChange={(e) =>
-              void patch({ idleShutoffMinutes: Math.max(1, Number(e.target.value) || 10) })
+              void patch({ manualContextSeconds: Math.max(10, Number(e.target.value) || 30) })
             }
           />
         </Row>
-      )}
+      </section>
 
-      <Row icon="clock" label={t('beh.window')} desc={t('beh.windowDesc')}>
-        <input
-          type="number"
-          min={10}
-          max={300}
-          step={5}
-          style={{ width: 90, flex: 'none' }}
-          value={settings.manualContextSeconds}
-          onChange={(e) =>
-            void patch({ manualContextSeconds: Math.max(10, Number(e.target.value) || 30) })
-          }
-        />
-      </Row>
+      <section className="card">
+        <div className="card__title">{t('beh.cardVoice')}</div>
+        <div className="card__hint">{t('beh.cardVoiceHint')}</div>
 
-      <Row icon="file" label={t('beh.profile')} desc={t('beh.profileDesc')}>
-        <Select ariaLabel={t('beh.profile')} {...prof} />
-      </Row>
+        {/* Picking the profile lives here —«which one am I in»— and the list you
+            edit lives in its own card below. They used to be four rows apart in
+            the same stack, which read as two unrelated things. */}
+        <Row icon="file" label={t('beh.profile')} desc={t('beh.profileDesc')}>
+          <Select ariaLabel={t('beh.profile')} {...prof} />
+        </Row>
 
-      {/* It came from the answering-model card, where it was the one row that
-          did not describe the model: it decides how what comes out reads, not
-          who writes it. Here it sits with the profile and the interpreter's two
-          languages, which is the rest of that same decision. */}
-      <Row icon="globe" label={t('beh.answerLang')} desc={t('beh.answerLangDesc')}>
-        <Select
-          ariaLabel={t('beh.answerLang')}
-          value={settings.answerLanguage}
-          onChange={(v) => void patch({ answerLanguage: v })}
-          options={[
-            { value: 'auto', label: t('beh.answerLangAuto') },
-            ...INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] })),
-          ]}
-        />
-      </Row>
-
-      {/* Interpreter is its own mode now, so its two languages are always
-          configurable here, not only while it's the active profile. */}
-      <Row icon="globe" label={t('beh.interpreterLangs')} desc={t('beh.interpreterLangsDesc')}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* It came from the answering-model card, where it was the one row that
+            did not describe the model: it decides how what comes out reads, not
+            who writes it. Here it sits with the profile and the interpreter's two
+            languages, which is the rest of that same decision. */}
+        <Row icon="globe" label={t('beh.answerLang')} desc={t('beh.answerLangDesc')}>
           <Select
-            ariaLabel={t('beh.interpreterLangs')}
-            value={settings.interpreterLangA}
-            onChange={(v) => void patch({ interpreterLangA: v })}
-            // The language chosen on the other side is dropped here (and vice
-            // versa): the interpreter translates BETWEEN two languages, so the
-            // same one on both makes no sense. Its own value always stays.
-            options={INTERPRETER_LANGS.filter(
-              (l) => l.code === settings.interpreterLangA || l.code !== settings.interpreterLangB
-            ).map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
+            ariaLabel={t('beh.answerLang')}
+            value={settings.answerLanguage}
+            onChange={(v) => void patch({ answerLanguage: v })}
+            options={[
+              { value: 'auto', label: t('beh.answerLangAuto') },
+              ...INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] })),
+            ]}
           />
-          <button
-            type="button"
-            className="langswap"
-            aria-label={t('beh.interpreterSwap')}
-            title={t('beh.interpreterSwap')}
-            onClick={() =>
-              void patch({
-                interpreterLangA: settings.interpreterLangB,
-                interpreterLangB: settings.interpreterLangA,
-              })
-            }
-          >
-            <Icon name="swap" size={16} />
-          </button>
-          <Select
-            ariaLabel={t('beh.interpreterLangs')}
-            value={settings.interpreterLangB}
-            onChange={(v) => void patch({ interpreterLangB: v })}
-            options={INTERPRETER_LANGS.filter(
-              (l) => l.code === settings.interpreterLangB || l.code !== settings.interpreterLangA
-            ).map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
-          />
-        </div>
-      </Row>
+        </Row>
+
+        {/* Interpreter is its own mode now, so its two languages are always
+            configurable here, not only while it's the active profile. */}
+        <Row icon="globe" label={t('beh.interpreterLangs')} desc={t('beh.interpreterLangsDesc')}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Select
+              ariaLabel={t('beh.interpreterLangs')}
+              value={settings.interpreterLangA}
+              onChange={(v) => void patch({ interpreterLangA: v })}
+              // The language chosen on the other side is dropped here (and vice
+              // versa): the interpreter translates BETWEEN two languages, so the
+              // same one on both makes no sense. Its own value always stays.
+              options={INTERPRETER_LANGS.filter(
+                (l) => l.code === settings.interpreterLangA || l.code !== settings.interpreterLangB
+              ).map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
+            />
+            <button
+              type="button"
+              className="langswap"
+              aria-label={t('beh.interpreterSwap')}
+              title={t('beh.interpreterSwap')}
+              onClick={() =>
+                void patch({
+                  interpreterLangA: settings.interpreterLangB,
+                  interpreterLangB: settings.interpreterLangA,
+                })
+              }
+            >
+              <Icon name="swap" size={16} />
+            </button>
+            <Select
+              ariaLabel={t('beh.interpreterLangs')}
+              value={settings.interpreterLangB}
+              onChange={(v) => void patch({ interpreterLangB: v })}
+              options={INTERPRETER_LANGS.filter(
+                (l) => l.code === settings.interpreterLangB || l.code !== settings.interpreterLangA
+              ).map((l) => ({ value: l.code, label: l[settings.uiLanguage] }))}
+            />
+          </div>
+        </Row>
+      </section>
 
       {/*
-        Shown always, not only with the "Code" profile set: the normal path to
-        code mode is Ctrl+Alt+C, which solves the screen WITHOUT touching the
-        profile. Hiding this setting behind the profile would leave it invisible
-        exactly for whoever's going to use it most.
+        The two settings that only matter once you're solving the screen instead
+        of the conversation. Scroll capture in particular had nothing to do with
+        the rows it used to sit between.
       */}
-      <Row icon="monitor" label={t('beh.codeLang')} desc={t('beh.codeLangDesc')}>
-        <input
-          type="text"
-          placeholder="auto"
-          style={{ width: 140, flex: 'none' }}
-          value={settings.codeLanguage}
-          onChange={(e) => void patch({ codeLanguage: e.target.value })}
-        />
-      </Row>
+      <section className="card">
+        <div className="card__title">{t('beh.cardScreen')}</div>
+        <div className="card__hint">{t('beh.cardScreenHint')}</div>
 
-      {/* Chunk capture: for a test on a shared screen revealed by scrolling. The
-          mode decides how the frames are collected. */}
-      <Row
-        icon="monitor"
-        label={t('scroll.title')}
-        desc={`${t('scroll.hint')} ${t(
-          settings.scrollCaptureMode === 'auto' ? 'scroll.autoHint' : 'scroll.manualHint'
-        )}`}
-      >
-        <Select
-          ariaLabel={t('scroll.title')}
-          value={settings.scrollCaptureMode}
-          onChange={(v) => void patch({ scrollCaptureMode: v as Settings['scrollCaptureMode'] })}
-          options={[
-            { value: 'manual', label: t('scroll.manual') },
-            { value: 'auto', label: t('scroll.auto') },
-          ]}
-        />
-      </Row>
+        {/*
+          Shown always, not only with the "Code" profile set: the normal path to
+          code mode is Ctrl+Alt+C, which solves the screen WITHOUT touching the
+          profile. Hiding this setting behind the profile would leave it invisible
+          exactly for whoever's going to use it most.
+        */}
+        <Row icon="type" label={t('beh.codeLang')} desc={t('beh.codeLangDesc')}>
+          <input
+            type="text"
+            placeholder="auto"
+            style={{ width: 140, flex: 'none' }}
+            value={settings.codeLanguage}
+            onChange={(e) => void patch({ codeLanguage: e.target.value })}
+          />
+        </Row>
+
+        {/* Chunk capture: for a test on a shared screen revealed by scrolling. The
+            mode decides how the frames are collected. */}
+        <Row
+          icon="monitor"
+          label={t('scroll.title')}
+          desc={`${t('scroll.hint')} ${t(
+            settings.scrollCaptureMode === 'auto' ? 'scroll.autoHint' : 'scroll.manualHint'
+          )}`}
+        >
+          <Select
+            ariaLabel={t('scroll.title')}
+            value={settings.scrollCaptureMode}
+            onChange={(v) => void patch({ scrollCaptureMode: v as Settings['scrollCaptureMode'] })}
+            options={[
+              { value: 'manual', label: t('scroll.manual') },
+              { value: 'auto', label: t('scroll.auto') },
+            ]}
+          />
+        </Row>
+      </section>
 
       <ProfileManager settings={settings} patch={patch} />
-    </section>
+    </>
   );
 }
 

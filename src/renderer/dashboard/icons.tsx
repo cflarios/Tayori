@@ -139,6 +139,14 @@ const PATHS = {
   ),
 
   /* ── Rows and cards ── */
+  /* The open eye, drawn on the same lid arc as `eyeOff` so toggling between the
+     two only adds the slash instead of swapping one drawing for another. */
+  eye: (
+    <>
+      <path d="M3 11.2C3 9.2 7 4.8 12 4.8s9 4.4 9 6.4-4 6.4-9 6.4-9-4.4-9-6.4z" />
+      <circle cx="12" cy="11.2" r="2.6" />
+    </>
+  ),
   eyeOff: (
     <>
       <line x1="3" y1="3" x2="21" y2="21" />
@@ -284,6 +292,14 @@ const PATHS = {
       fill="currentColor"
       stroke="none"
     />
+  ),
+  /* Two stacked sheets: the front one whole, the back one only where it shows.
+     For «duplicate this profile», which is how a custom usually starts. */
+  copy: (
+    <>
+      <rect x="9" y="9" width="11" height="11" rx="2.5" />
+      <path d="M15 9V5.5A1.5 1.5 0 0 0 13.5 4h-9A1.5 1.5 0 0 0 3 5.5v9A1.5 1.5 0 0 0 4.5 16H9" />
+    </>
   ),
   trash: (
     <>

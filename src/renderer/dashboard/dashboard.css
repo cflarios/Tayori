@@ -3206,14 +3206,6 @@ kbd {
   gap: 8px;
 }
 
-.profmgr__head {
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-dim);
-}
-
 /* Every profile is one editable card, stacked in a single column. */
 .profmgr__list {
   display: flex;
@@ -3225,17 +3217,177 @@ kbd {
   border: 1px solid var(--line);
   border-radius: 9px;
   background: rgba(255, 255, 255, 0.02);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
 .profcard--open {
   border-color: rgba(255, 255, 255, 0.14);
 }
 
+/*
+ * The profile in use, marked the way the sidebar marks the open section: the
+ * list never said which one was active, so the only way to know was to read the
+ * picker above it.
+ */
+.profcard--active {
+  background: rgba(96, 165, 250, 0.09);
+  border-color: rgba(96, 165, 250, 0.32);
+}
+
+/* Hidden from the overlay picker: still here, visibly out of play. */
+.profcard--hidden .profcard__icon,
+.profcard--hidden .profcard__name,
+.profcard--hidden .profcard__slots {
+  opacity: 0.45;
+}
+
 .profcard__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
+  gap: 10px;
+  padding: 9px 10px;
+}
+
+.profcard__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-soft);
+  color: var(--text-faint);
+}
+
+.profcard--active .profcard__icon {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.28);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.profcard__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* What this profile actually reads, from its context slots. */
+.profcard__slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.profslot {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  background: rgba(255, 255, 255, 0.045);
+  border-radius: 5px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/*
+ * Row actions stay visible but quiet, and come up on hover. Not hidden behind
+ * hover: an affordance nobody can see is one nobody uses, and a hover-only
+ * control has no touch equivalent at all.
+ */
+.profcard__acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.profact {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0.4;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.profcard:hover .profact,
+.profcard--open .profact {
+  opacity: 0.75;
+}
+
+/* A hidden profile keeps its eye at full strength: it is the reason the row
+   looks dimmed, so it has to be readable without hunting for it. */
+.profact--on {
+  opacity: 1;
+  color: var(--text-dim);
+}
+
+.profact:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+.profact--danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.profuse {
+  flex: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 11px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.profcard:hover .profuse {
+  color: var(--text-dim);
+}
+
+.profuse:hover {
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.profcard__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.profcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.badge--active {
+  color: #bfdbfe;
+  background: rgba(96, 165, 250, 0.18);
 }
 
 .profcard__expand {
@@ -3257,9 +3409,33 @@ kbd {
   color: var(--text);
 }
 
-.profcard__name {
-  flex: 1;
-  min-width: 0;
+/*
+ * The name reads as text and edits in place. A column of bordered boxes reads as
+ * a form to fill in, not a list to scan, so the box only shows on hover.
+ * The `.profcard input` prefix is load-bearing: it has to outweigh the global
+ * `input[type='text']` rule, which would otherwise put the box back — the same
+ * specificity trap as `.nav__searchinput`.
+ */
+.profcard input.profcard__name {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 3px 6px;
+  margin-left: -6px;
+  outline: none;
+}
+
+.profcard input.profcard__name:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.profcard input.profcard__name:focus {
+  background: var(--bg);
+  border-color: var(--accent);
 }
 
 .profcard__body {
@@ -3267,7 +3443,7 @@ kbd {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  padding: 0 10px 10px 40px;
+  padding: 2px 10px 12px 46px;
 }
 
 .profmgr__prompt {
@@ -3276,7 +3452,21 @@ kbd {
   resize: vertical;
 }
 
-/* Removed profiles (built-in or custom), restorable one by one or all at once. */
+/*
+ * The bottom row of the card: create, and — only once there is something to
+ * recover — the way back to what was removed.
+ */
+.profmgr__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* Removed profiles (built-in or custom), restorable one by one or all at once.
+   They fold away: it is a recovery path, not a second list to read past. */
 .profmgr__removed {
   margin-top: 4px;
   padding-top: 10px;
@@ -3284,6 +3474,23 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.profmgr__removedtoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-faint);
+  background: transparent;
+  border: none;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.profmgr__removedtoggle:hover {
+  color: var(--text-dim);
 }
 
 .profmgr__removedhead {
