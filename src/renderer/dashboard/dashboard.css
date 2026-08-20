@@ -338,6 +338,27 @@ body {
   padding: 4px 10px 12px;
 }
 
+/* ── Sidebar groups ── */
+
+/*
+ * The heading answers «when would I open this», and it's the only thing that
+ * stops thirteen items from being a list read from the top every time. It's the
+ * quietest text in the window on purpose: it orients, it isn't chosen.
+ */
+.nav__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav__groupname {
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: #5e646b;
+  padding: 14px 10px 5px;
+}
+
 .navitem {
   display: flex;
   align-items: center;
@@ -515,6 +536,289 @@ body {
 
 .listen[data-state='error'] .listen__dot {
   background: var(--danger);
+}
+
+/* ── Home ── */
+
+/*
+ * The heading over each of Home's blocks. Same size and tone as the sidebar's
+ * groups: they do the same job on two different scales, and saying it twice in
+ * two voices would read as two different kinds of label.
+ */
+.home__head {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 24px 0 10px;
+}
+
+.home__headrow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.home__headrow .home__head {
+  margin-bottom: 10px;
+}
+
+/*
+ * The readiness banner: the one sentence that answers «can it help me right
+ * now». The state is in the border and the icon before it is in the words, so
+ * it's read from across the desk.
+ */
+.ready {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 17px 20px;
+  margin-bottom: 14px;
+}
+
+.ready__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ready__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 11px;
+  border: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+}
+
+.ready[data-tone='ok'] {
+  border-color: rgba(52, 211, 153, 0.26);
+}
+
+.ready[data-tone='ok'] .ready__icon {
+  background: rgba(52, 211, 153, 0.11);
+  border-color: rgba(52, 211, 153, 0.2);
+  color: #6ee7b7;
+}
+
+.ready[data-tone='warn'] {
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.ready[data-tone='warn'] .ready__icon {
+  background: rgba(251, 191, 36, 0.11);
+  border-color: rgba(251, 191, 36, 0.2);
+  color: #fcd34d;
+}
+
+.ready[data-tone='fresh'] {
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+.ready[data-tone='fresh'] .ready__icon {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.22);
+  color: #93c5fd;
+}
+
+.ready__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ready__title {
+  font-size: 16px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.ready__desc {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  margin-top: 3px;
+  max-width: 58ch;
+}
+
+/*
+ * What's wrong, with the button that ends it.
+ *
+ * It borrows the warning's amber for the card's edge, not for a filled block:
+ * three stacked `.warn`s were a wall of yellow, and each of these has to be read
+ * as its own problem with its own action.
+ */
+.card--attn {
+  border-color: rgba(251, 191, 36, 0.22);
+  padding-top: 6px;
+  padding-bottom: 10px;
+}
+
+.attn__head {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #fcd34d;
+  padding: 14px 0 2px;
+}
+
+.attn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.attn__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 8px;
+}
+
+.attn__icon[data-tone='warn'] {
+  background: rgba(251, 191, 36, 0.11);
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  color: #fcd34d;
+}
+
+.attn__icon[data-tone='danger'] {
+  background: rgba(248, 113, 113, 0.11);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
+}
+
+.attn__text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.attn__title {
+  font-size: 13px;
+}
+
+.attn__desc {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  line-height: 1.45;
+  max-width: 52ch;
+}
+
+/*
+ * The four decisions that make the app yours, each showing what it resolves to
+ * today. The whole tile is the link into the section that owns it: the value is
+ * the thing you want to check, and checking it is exactly when you want to
+ * change it.
+ */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 15px 16px;
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.tile:hover {
+  background: var(--surface-2);
+}
+
+.tile__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line-soft);
+  color: var(--text-dim);
+}
+
+.tile__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.tile__kind {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tile__value {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 550;
+  margin-top: 4px;
+  /* Model ids run long («claude-sonnet-5»); the tile is 2-up in a 720 px pane. */
+  overflow-wrap: anywhere;
+}
+
+.tile .badge {
+  display: inline-block;
+  margin-top: 8px;
+}
+
+/*
+ * The shortcuts you press while talking, four of the eleven. Two columns of
+ * combination + what it does, no card: they're a reminder, not a setting.
+ */
+.keys {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  min-width: 0;
+}
+
+.key__combo {
+  flex: none;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px;
+  padding: 3px 7px;
+}
+
+.key__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Cards ── */
@@ -871,6 +1175,167 @@ button.btn--primary:hover:not(:disabled) {
   border-radius: 3px;
   background: var(--accent);
   transition: width 200ms ease-out;
+}
+
+/* ── AI models: the two jobs ── */
+
+/*
+ * A job card says what it is FOR before it says what to pick.
+ *
+ * The section used to open with «API keys» and reach the provider three cards
+ * later, so the screen never said out loud that there are only two decisions
+ * here: who writes the answers, and who reads the screen. The head is that
+ * sentence; everything under it is how to make it true.
+ */
+.job {
+  padding-top: 16px;
+}
+
+.job__head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 6px;
+}
+
+.job__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line-soft);
+  color: var(--text-dim);
+}
+
+/* The one that always has to be decided; the screen's can stay «the same one». */
+.job__icon--on {
+  background: rgba(96, 165, 250, 0.12);
+  border-color: rgba(96, 165, 250, 0.22);
+  color: #93c5fd;
+}
+
+.job__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.job__title {
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.job__desc {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  margin-top: 3px;
+  max-width: 60ch;
+}
+
+/* The key the chosen provider is missing, asked for inside the card that needs it. */
+.job__key {
+  margin-top: 12px;
+  padding: 2px 14px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.job__keynote {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fcd34d;
+  margin: 12px 0 0;
+}
+
+/* And when it isn't missing, the same space says so in one line. */
+.job__stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ok);
+}
+
+.job__statline {
+  flex: 1 1 auto;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+/* ── Keys, one line each ── */
+
+.keyrow {
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.keyrow__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* In the list the name takes the width, so badge and button line up in a column
+   down the right edge. The broker's password, alone in its card, doesn't. */
+.keyrow__head--list .row__label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── A card behind one line ── */
+
+.disclose {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 13px 16px;
+  margin-bottom: 14px;
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.disclose:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.disclose__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+}
+
+.disclose__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.disclose__title {
+  display: block;
+  font-size: 13px;
+}
+
+.disclose__desc {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-faint);
+  margin-top: 2px;
 }
 
 /* ── Model Manager (Whisper models) ── */

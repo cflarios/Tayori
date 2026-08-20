@@ -53,6 +53,7 @@ import { Icon, type IconName } from './icons';
 import { SetupWizard } from './SetupWizard';
 import type {
   AudioLevels,
+  AutoTriggerMode,
   CaptureStatus,
   ContextPack,
   Conversation,
@@ -759,6 +760,16 @@ function SecretField({
    * this one work?", and it's answered where you paste it.
    */
   onTest,
+  /**
+   * Shows as one line until it's opened.
+   *
+   * The keys card holds four of these and only one is ever being typed into, so
+   * four open fields are three too many. The broker's password is alone in its
+   * card and stays open, which is why this is a prop and not the behaviour.
+   */
+  collapsible = false,
+  /** What this key unlocks. Replaces the hint while the field is closed. */
+  use,
 }: {
   label: UIKey;
   hint: UIKey;
@@ -767,8 +778,11 @@ function SecretField({
   onSave: (value: string) => Promise<void>;
   onClear: () => Promise<void>;
   onTest?: () => Promise<{ ok: boolean; error?: string }>;
+  collapsible?: boolean;
+  use?: UIKey;
 }) {
   const t = useT();
+  const [open, setOpen] = useState(!collapsible);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [tested, setTested] = useState<{ ok: boolean; error?: string } | null>(null);
@@ -799,50 +813,67 @@ function SecretField({
   };
 
   return (
-    <div style={{ padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div className="keyrow">
+      <div className={collapsible ? 'keyrow__head keyrow__head--list' : 'keyrow__head'}>
         <span className="row__label">{t(label)}</span>
         <span className={present ? 'badge badge--ok' : 'badge badge--missing'}>
           {present ? t('keys.configured') : t('keys.missing')}
         </span>
-      </div>
-      <div className="row__desc">{t(hint)}</div>
-      <div className="field">
-        <input
-          type="password"
-          value={draft}
-          placeholder={present ? t('keys.replace') : t(placeholder)}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void save();
-          }}
-        />
-        <button className="btn" disabled={busy || !draft.trim()} onClick={() => void save()}>
-          {t('keys.save')}
-        </button>
-        {onTest && present && (
-          <button className="btn" disabled={busy} onClick={() => void test()}>
-            {busy ? t('keys.testing') : t('keys.test')}
-          </button>
-        )}
-        {present && (
+        {collapsible && (
           <button
-            className="btn btn--danger btn--icon"
-            disabled={busy}
-            onClick={() => void onClear()}
-            aria-label={t('keys.clear')}
-            title={t('keys.clear')}
+            className="btn btn--small"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
           >
-            <Icon name="trash" size={15} />
+            {open ? t('keys.close') : present ? t('keys.change') : t('keys.add')}
           </button>
         )}
       </div>
-      {tested && (
-        <div className="field">
-          <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
-            {tested.ok ? t('keys.ok') : (tested.error ?? t('keys.failed'))}
-          </span>
-        </div>
+
+      {/* Closed, the line says what the key is for; open, where to get it. */}
+      {!open && use && <div className="row__desc">{t(use)}</div>}
+
+      {open && (
+        <>
+          <div className="row__desc">{t(hint)}</div>
+          <div className="field">
+            <input
+              type="password"
+              value={draft}
+              placeholder={present ? t('keys.replace') : t(placeholder)}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void save();
+              }}
+            />
+            <button className="btn" disabled={busy || !draft.trim()} onClick={() => void save()}>
+              {t('keys.save')}
+            </button>
+            {onTest && present && (
+              <button className="btn" disabled={busy} onClick={() => void test()}>
+                {busy ? t('keys.testing') : t('keys.test')}
+              </button>
+            )}
+            {present && (
+              <button
+                className="btn btn--danger btn--icon"
+                disabled={busy}
+                onClick={() => void onClear()}
+                aria-label={t('keys.clear')}
+                title={t('keys.clear')}
+              >
+                <Icon name="trash" size={15} />
+              </button>
+            )}
+          </div>
+          {tested && (
+            <div className="field">
+              <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
+                {tested.ok ? t('keys.ok') : (tested.error ?? t('keys.failed'))}
+              </span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -950,6 +981,7 @@ function CaptureCard({ status, levels }: { status: CaptureStatus; levels: AudioL
  *   most-used control and it was buried in a card.
  */
 type SectionId =
+  | 'home'
   | 'general'
   | 'audio'
   | 'phone'
@@ -973,7 +1005,8 @@ type SectionId =
  * strings, which is the only thing it knows how to store.
  */
 const SECTIONS: Record<SectionId, { icon: IconName; label: UIKey; hint: UIKey }> = {
-  general: { icon: 'sliders', label: 'sec.general', hint: 'sec.generalHint' },
+  home: { icon: 'home', label: 'sec.home', hint: 'sec.homeHint' },
+  general: { icon: 'eyeOff', label: 'sec.general', hint: 'sec.generalHint' },
   audio: { icon: 'mic', label: 'sec.audio', hint: 'sec.audioHint' },
   phone: { icon: 'phone', label: 'sec.phone', hint: 'sec.phoneHint' },
   mqtt: { icon: 'broadcast', label: 'sec.mqtt', hint: 'sec.mqttHint' },
@@ -992,21 +1025,28 @@ const SECTIONS: Record<SectionId, { icon: IconName; label: UIKey; hint: UIKey }>
   about: { icon: 'book', label: 'sec.about', hint: 'sec.aboutHint' },
 };
 
-const SECTION_ORDER: SectionId[] = [
-  'general',
-  'audio',
-  'phone',
-  'mqtt',
-  'models',
-  'transcription',
-  'behaviour',
-  'context',
-  'skills',
-  'history',
-  'hotkeys',
-  'diagnostics',
-  'about',
+/**
+ * The sidebar, in groups.
+ *
+ * Thirteen items in one flat column is a list you read from the top every time,
+ * because nothing in it says which ones you are looking for right now. The
+ * headings answer that and only that: **when** would I open this — before the
+ * call, with it running, or hardly ever. Nothing moved between sections and
+ * nothing was renamed except «General», which is now called by what it decides.
+ *
+ * Inside each group the order is the one the guided setup already walks (who
+ * answers, what it hears, what it knows), so the two agree.
+ */
+const NAV_GROUPS: { label: UIKey | null; ids: SectionId[] }[] = [
+  // Home carries no heading: a heading over a single item names it twice.
+  { label: null, ids: ['home'] },
+  { label: 'nav.groupSetup', ids: ['models', 'transcription', 'audio', 'context', 'skills'] },
+  { label: 'nav.groupCall', ids: ['general', 'behaviour', 'hotkeys', 'phone'] },
+  { label: 'nav.groupMore', ids: ['mqtt', 'history', 'diagnostics', 'about'] },
 ];
+
+/** Every section, in the order the sidebar shows them. */
+const SECTION_ORDER: SectionId[] = NAV_GROUPS.flatMap((group) => group.ids);
 
 /**
  * Locale-key prefixes that belong to each section, so the sidebar search can index
@@ -1017,11 +1057,12 @@ const SECTION_ORDER: SectionId[] = [
  * text isn't searched. Keep in sync when a card moves between sections.
  */
 const SECTION_SEARCH_PREFIXES: Record<SectionId, readonly string[]> = {
+  home: ['home'],
   general: ['gen', 'dash'],
   audio: ['aud', 'tts'],
   phone: ['ph'],
   mqtt: ['mq', 'mqtt'],
-  models: ['keys', 'presets', 'model', 'mdl', 'screen', 'local', 'ol'],
+  models: ['keys', 'presets', 'model', 'mdl', 'screen', 'local', 'ol', 'jobs'],
   transcription: ['stt'],
   behaviour: ['beh'],
   context: ['ctx'],
@@ -1030,6 +1071,96 @@ const SECTION_SEARCH_PREFIXES: Record<SectionId, readonly string[]> = {
   hotkeys: ['hk'],
   diagnostics: ['diag'],
   about: ['about'],
+};
+
+/**
+ * Everything that is wrong right now, worst first.
+ *
+ * This was an inline `Partial<Record<SectionId, boolean>>` feeding the sidebar's
+ * amber dots. A dot says «there is something in here» and nothing else, so the
+ * only way to learn WHAT was to enter the section and find the warning. Home
+ * lists the same problems with their sentence and their fix, and the two have to
+ * be computed once or they drift: a dot with nothing behind it is worse than no
+ * dot.
+ */
+type AlertId = 'stealth' | 'capture' | 'provider' | 'autoInert' | 'hotkeyFailed' | 'hotkeyDup';
+
+interface Alert {
+  id: AlertId;
+  /** Whose dot lights up, and where the fix button goes when it can't fix in place. */
+  section: SectionId;
+  /** The combination Windows rejected, for the sentence that names it. */
+  combo?: string;
+}
+
+function pendingAlerts(
+  settings: Settings,
+  presence: SecretsPresence,
+  status: CaptureStatus,
+  failedHotkeys: string[]
+): Alert[] {
+  const alerts: Alert[] = [];
+  // Being seen comes first: it's the only one whose cost lands while you read it.
+  if (!settings.stealthEnabled) alerts.push({ id: 'stealth', section: 'general' });
+  if (status.state === 'error') alerts.push({ id: 'capture', section: 'audio' });
+  if (!providerIsReady(settings, presence)) alerts.push({ id: 'provider', section: 'models' });
+  if (autoTriggerIsInert(settings)) alerts.push({ id: 'autoInert', section: 'behaviour' });
+  for (const combo of failedHotkeys) alerts.push({ id: 'hotkeyFailed', section: 'hotkeys', combo });
+  // Over the ACTIVE ones only: a disabled shortcut doesn't register, so it can't
+  // clash. This is the same rule `HotkeysCard` applies to paint its own warning.
+  if (duplicateAccelerators(activeHotkeys(settings)).size > 0)
+    alerts.push({ id: 'hotkeyDup', section: 'hotkeys' });
+  return alerts;
+}
+
+/** How each alert reads, and which button ends it. */
+const ALERT_COPY: Record<
+  AlertId,
+  { icon: IconName; tone: 'warn' | 'danger'; title: UIKey; desc: UIKey; action: UIKey }
+> = {
+  stealth: {
+    icon: 'eyeOff',
+    tone: 'danger',
+    title: 'home.alertStealth',
+    desc: 'home.alertStealthDesc',
+    action: 'home.alertStealthAct',
+  },
+  capture: {
+    icon: 'mic',
+    tone: 'danger',
+    title: 'home.alertCapture',
+    // Replaced at render by what the capture actually said; this is the fallback.
+    desc: 'overlay.unknownError',
+    action: 'home.alertCaptureAct',
+  },
+  provider: {
+    icon: 'key',
+    tone: 'warn',
+    title: 'home.alertProvider',
+    desc: 'home.alertProviderDesc',
+    action: 'home.alertProviderAct',
+  },
+  autoInert: {
+    icon: 'bolt',
+    tone: 'warn',
+    title: 'home.alertAuto',
+    desc: 'home.alertAutoDesc',
+    action: 'home.alertAutoAct',
+  },
+  hotkeyFailed: {
+    icon: 'keyboard',
+    tone: 'warn',
+    title: 'home.alertHotkey',
+    desc: 'home.alertHotkeyDesc',
+    action: 'home.alertHotkeyAct',
+  },
+  hotkeyDup: {
+    icon: 'keyboard',
+    tone: 'warn',
+    title: 'home.alertHotkeyDup',
+    desc: 'home.alertHotkeyDupDesc',
+    action: 'home.alertHotkeyAct',
+  },
 };
 
 /**
@@ -1046,7 +1177,7 @@ function storedSection(): SectionId {
   } catch {
     // Unavailable storage is no reason not to open the settings.
   }
-  return 'general';
+  return 'home';
 }
 
 /**
@@ -1316,19 +1447,11 @@ export function DashboardApp() {
     translate(settings.uiLanguage, key, vars);
 
   /*
-   * Which sections ask for attention. They're exactly the warnings that already
-   * existed inside each card: the only new thing is that they're now visible
-   * without entering. A warning you have to go looking for warns of nothing — the
-   * case that motivated it is the inert auto-trigger, which gives no symptom but
-   * silence.
+   * Computed once and used twice: Home lists them with their fix, the sidebar
+   * marks the sections they live in. See `pendingAlerts`.
    */
-  const alerts: Partial<Record<SectionId, boolean>> = {
-    general: !settings.stealthEnabled,
-    audio: status.state === 'error',
-    models: !providerIsReady(settings, presence),
-    behaviour: autoTriggerIsInert(settings),
-    hotkeys: failedHotkeys.length > 0 || duplicateAccelerators(activeHotkeys(settings)).size > 0,
-  };
+  const alerts = pendingAlerts(settings, presence, status, failedHotkeys);
+  const alerted = new Set(alerts.map((alert) => alert.section));
 
   // Filter the sidebar against the search index (built above, before the early
   // returns), so any keyword shown anywhere in a section —not only its name—
@@ -1391,25 +1514,38 @@ export function DashboardApp() {
             </div>
 
             <nav className="nav__list">
-              {navSections.map((id) => (
-                <button
-                  key={id}
-                  className="navitem"
-                  aria-current={id === section}
-                  onClick={() => {
-                    go(id);
-                    // With a search active, a click is a "take me there": scroll
-                    // to and highlight the first match in the section.
-                    if (navQuery.trim()) {
-                      setSearchJump((p) => ({ query: navQuery, nonce: p.nonce + 1 }));
-                    }
-                  }}
-                >
-                  <Icon name={SECTIONS[id].icon} />
-                  <span className="navitem__label">{t(SECTIONS[id].label)}</span>
-                  {alerts[id] && <span className="navitem__dot" title={t('nav.attention')} />}
-                </button>
-              ))}
+              {NAV_GROUPS.map((group) => {
+                // A search that leaves a group empty takes its heading with it:
+                // a title over nothing reads as a section that failed to load.
+                const ids = group.ids.filter((id) => navSections.includes(id));
+                if (ids.length === 0) return null;
+                return (
+                  <div className="nav__group" key={group.label ?? 'top'}>
+                    {group.label && <div className="nav__groupname">{t(group.label)}</div>}
+                    {ids.map((id) => (
+                      <button
+                        key={id}
+                        className="navitem"
+                        aria-current={id === section}
+                        onClick={() => {
+                          go(id);
+                          // With a search active, a click is a "take me there": scroll
+                          // to and highlight the first match in the section.
+                          if (navQuery.trim()) {
+                            setSearchJump((p) => ({ query: navQuery, nonce: p.nonce + 1 }));
+                          }
+                        }}
+                      >
+                        <Icon name={SECTIONS[id].icon} />
+                        <span className="navitem__label">{t(SECTIONS[id].label)}</span>
+                        {alerted.has(id) && (
+                          <span className="navitem__dot" title={t('nav.attention')} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
               {navSections.length === 0 && <p className="nav__empty">{t('nav.noSection')}</p>}
             </nav>
 
@@ -1458,6 +1594,19 @@ export function DashboardApp() {
 
             <div className="pane__body" ref={bodyRef}>
               <div className="pane__inner">
+                {section === 'home' && (
+                  <HomeCards
+                    settings={settings}
+                    presence={presence}
+                    status={status}
+                    levels={levels}
+                    alerts={alerts}
+                    patch={patch}
+                    go={go}
+                    onWizard={() => setWizard(true)}
+                  />
+                )}
+
                 {section === 'general' && <VisibilityCards settings={settings} patch={patch} />}
 
                 {section === 'audio' && (
@@ -1481,19 +1630,29 @@ export function DashboardApp() {
                   />
                 )}
 
+                {/*
+                  The two jobs first, then what they are built out of. The keys
+                  used to open the section: four fields for providers you may
+                  never use, three cards above the one you picked.
+                */}
                 {section === 'models' && (
                   <>
+                    <AnswerJobCard
+                      settings={settings}
+                      presence={presence}
+                      patch={patch}
+                      saveSecret={saveSecret}
+                      clearSecret={clearSecret}
+                    />
+                    <ScreenJobCard settings={settings} patch={patch} />
                     <ApiKeysCard
                       presence={presence}
                       saveSecret={saveSecret}
                       clearSecret={clearSecret}
                     />
+                    <LocalGuide />
+                    {/* Last: a preset is saved once the rest is set up, not before. */}
                     <ModelPresetsCard settings={settings} patch={patch} />
-                    <ModelCard settings={settings} patch={patch} />
-                    {/* Right behind the answers model: it reads as "and for the
-                    screen, this other one", which is the decision to make. */}
-                    <ScreenModelCard settings={settings} patch={patch} />
-                    <LocalModelGuide />
                   </>
                 )}
 
@@ -1588,6 +1747,354 @@ const DECOY_LABEL: Record<DecoyIcon, string> = {
   settings: 'Settings',
   taskmanager: 'Task Manager',
 };
+
+// ─────────────────────────────── Home ───────────────────────────────
+
+/** Transcription engines, short. Proper nouns, so they aren't translated. */
+const STT_SHORT: Record<STTProviderId, string> = {
+  'gemini-live': 'Gemini Live',
+  'gemini-audio': 'Gemini',
+  'openai-live': 'OpenAI live',
+  'openai-transcribe': 'OpenAI',
+  'whisper-local': 'Whisper',
+};
+
+/** The key each engine needs, so the tile can tell without asking main. */
+const STT_SECRET: Record<STTProviderId, keyof SecretsPresence | null> = {
+  'gemini-live': 'google',
+  'gemini-audio': 'google',
+  'openai-live': 'openai',
+  'openai-transcribe': 'openai',
+  'whisper-local': null,
+};
+
+const TTS_LABEL: Record<TTSProviderId, UIKey> = {
+  webspeech: 'tts.webspeech',
+  openai: 'tts.openai',
+  piper: 'tts.piper',
+};
+
+/**
+ * The four shortcuts worth showing on Home.
+ *
+ * Not the eleven: the list of every combination is a section of its own, and
+ * what belongs here is the handful you press while you are talking and can't go
+ * looking for them.
+ */
+const HOME_HOTKEYS: (keyof HotkeyMap)[] = [
+  'askNow',
+  'solveOnScreen',
+  'toggleOverlay',
+  'toggleListening',
+];
+
+/**
+ * Home: the section the dashboard opens on.
+ *
+ * It used to open on «General» —interface language, stealth, the taskbar decoy,
+ * the overlay's opacity—, which answers none of the questions you have with a
+ * call about to start: can it answer, is it hearing both sides, is it going to
+ * show up on the screen I'm sharing. The answer was spread across five sections
+ * and summarised nowhere.
+ *
+ * Nothing here is a new setting. The banner and the tiles **read** what is
+ * configured and take you to the section that owns it; the switches are the same
+ * ones «Overlay & stealth» and «Behaviour» already have, brought to where they
+ * are reached in a hurry; and the alerts are the warnings that already lived
+ * inside the cards, with the sentence that says which one it is and the button
+ * that ends it.
+ */
+function HomeCards({
+  settings,
+  presence,
+  status,
+  levels,
+  alerts,
+  patch,
+  go,
+  onWizard,
+}: {
+  settings: Settings;
+  presence: SecretsPresence;
+  status: CaptureStatus;
+  levels: AudioLevels;
+  alerts: Alert[];
+  patch: PatchFn;
+  go: (section: SectionId) => void;
+  onWizard: () => void;
+}) {
+  const t = useT();
+
+  /*
+   * Which mode to come back to when the automatic answers are switched on again.
+   * `autoTriggerMode` has three values and this is a switch: without remembering
+   * the last one, turning it off and on would silently downgrade «automatic +
+   * classifier» to «automatic», and the classifier is the half that costs money.
+   */
+  const lastAutoMode = useRef<AutoTriggerMode>('heuristic');
+  useEffect(() => {
+    if (settings.autoTriggerMode !== 'off') lastAutoMode.current = settings.autoTriggerMode;
+  }, [settings.autoTriggerMode]);
+
+  const listening = status.state === 'listening';
+  /*
+   * Never configured, as opposed to configured with something wrong: the
+   * provider can't answer AND nothing has been prepared for it to answer with.
+   * The wizard covers the first run; this catches whoever closed it early, and
+   * offers it back instead of a list of five complaints.
+   */
+  const fresh =
+    alerts.some((alert) => alert.id === 'provider') && settings.contextPacks.length === 0;
+
+  const tone = fresh ? 'fresh' : alerts.length > 0 ? 'warn' : 'ok';
+  const title = fresh
+    ? t('home.freshTitle')
+    : alerts.length > 0
+      ? t(alerts.length === 1 ? 'home.pendingOne' : 'home.pendingMany', { n: alerts.length })
+      : listening
+        ? t('home.listeningTitle')
+        : t('home.readyTitle');
+  const desc = fresh
+    ? t('home.freshDesc')
+    : alerts.length > 0
+      ? t('home.pendingDesc')
+      : listening
+        ? t('home.listeningDesc')
+        : t('home.readyDesc', {
+            llm: LLM_LABEL[settings.llmProviderId],
+            stt: STT_SHORT[settings.sttProviderId],
+          });
+
+  const llmModel = settings.llmModels[settings.llmProviderId];
+  const llmReady = providerIsReady(settings, presence);
+  const sttSecret = STT_SECRET[settings.sttProviderId];
+  const sttReady = !sttSecret || presence[sttSecret];
+  const packs = settings.contextPacks.filter((pack) => pack.enabled).length;
+
+  const tiles: {
+    kind: UIKey;
+    icon: IconName;
+    section: SectionId;
+    value: string;
+    badge: UIKey;
+    ok: boolean;
+  }[] = [
+    {
+      kind: 'home.tileLlm',
+      icon: 'cpu',
+      section: 'models',
+      value: llmModel
+        ? `${LLM_LABEL[settings.llmProviderId]} · ${llmModel}`
+        : LLM_LABEL[settings.llmProviderId],
+      badge: llmReady ? 'home.badgeReady' : 'home.badgeCheck',
+      ok: llmReady,
+    },
+    {
+      kind: 'home.tileStt',
+      icon: 'waveform',
+      section: 'transcription',
+      value:
+        settings.sttProviderId === 'whisper-local'
+          ? `${STT_SHORT[settings.sttProviderId]} · ${settings.whisperModel}`
+          : STT_SHORT[settings.sttProviderId],
+      badge: sttReady ? 'home.badgeReady' : 'home.badgeCheck',
+      ok: sttReady,
+    },
+    {
+      kind: 'home.tileContext',
+      icon: 'file',
+      section: 'context',
+      value: packs
+        ? t(packs === 1 ? 'home.valuePacksOne' : 'home.valuePacks', { n: packs })
+        : t('home.valueNoPacks'),
+      badge: packs ? 'home.badgeReady' : 'home.badgeTodo',
+      ok: packs > 0,
+    },
+    {
+      kind: 'home.tileTts',
+      icon: 'speaker',
+      section: 'audio',
+      value: settings.ttsEnabled ? t(TTS_LABEL[settings.ttsProviderId]) : t('home.valueOff'),
+      badge: settings.ttsEnabled ? 'home.badgeOn' : 'home.badgeOptional',
+      ok: settings.ttsEnabled,
+    },
+  ];
+
+  const disabled = new Set(settings.disabledHotkeys);
+  const shortcuts = HOME_HOTKEYS.filter(
+    (action) => !disabled.has(action) && settings.hotkeys[action]
+  );
+
+  return (
+    <>
+      <section className="ready" data-tone={tone}>
+        <div className="ready__head">
+          <span className="ready__icon">
+            <Icon name={fresh ? 'compass' : alerts.length > 0 ? 'alert' : 'check'} size={21} />
+          </span>
+          <div className="ready__text">
+            <div className="ready__title">{title}</div>
+            <div className="ready__desc">{desc}</div>
+          </div>
+          {fresh && (
+            <button className="btn btn--primary" onClick={onWizard}>
+              {t('home.freshAction')}
+            </button>
+          )}
+        </div>
+
+        {/* The same meters as the capture card: with the banner claiming it is
+            listening, the proof that both sources arrive belongs next to it. */}
+        {listening && (
+          <div className="meters">
+            <div className="meter">
+              <span className="meter__label">
+                <Icon name="mic" size={14} />
+                {t('aud.meterMe')}
+              </span>
+              <div className="meter__bar">
+                <div
+                  className="meter__fill"
+                  style={{ width: `${Math.min(levels.me * 140, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="meter">
+              <span className="meter__label">
+                <Icon name="speaker" size={14} />
+                {t('aud.meterThem')}
+              </span>
+              <div className="meter__bar">
+                <div
+                  className="meter__fill meter__fill--them"
+                  style={{ width: `${Math.min(levels.them * 140, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {alerts.length > 0 && (
+        <section className="card card--attn">
+          <h2 className="attn__head">{t('home.attention')}</h2>
+          {alerts.map((alert, i) => {
+            const copy = ALERT_COPY[alert.id];
+            return (
+              <div className="attn" key={`${alert.id}-${alert.combo ?? i}`}>
+                <span className="attn__icon" data-tone={copy.tone}>
+                  <Icon name={copy.icon} size={16} />
+                </span>
+                <div className="attn__text">
+                  <div className="attn__title">
+                    {t(copy.title, { combo: formatAccelerator(alert.combo ?? '') })}
+                  </div>
+                  <div className="attn__desc">
+                    {/* The capture's error is the engine's own sentence, not a
+                        key: «unknown error» is only the fallback. */}
+                    {alert.id === 'capture'
+                      ? (status.error ?? t('overlay.unknownError'))
+                      : t(copy.desc, { provider: LLM_LABEL[settings.llmProviderId] })}
+                  </div>
+                </div>
+                {/* Stealth is fixed right here; the rest need a decision, so they
+                    take you to the card where it is made. */}
+                <button
+                  className={`btn${alert.id === 'stealth' ? ' btn--primary' : ''}`}
+                  onClick={() => {
+                    if (alert.id === 'stealth') void window.api.window.setStealth(true);
+                    else go(alert.section);
+                  }}
+                >
+                  {t(copy.action)}
+                </button>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {/*
+        The interface language, high up and under the banner.
+        Its reason for being near the top hasn't changed since it was written in
+        «Overlay & stealth» —whoever opens the settings because the app is in a
+        language that isn't theirs has to find it without reading anything
+        else—; what changed is which screen you land on. It goes under the
+        alerts and not between them and the banner, so the count and the list it
+        counts stay together. It stays in its section too: this is a shortcut to
+        it, like the two switches below.
+      */}
+      <section className="card">
+        <Row icon="globe" label={t('dash.language')} desc={t('dash.languageDesc')}>
+          <Select
+            ariaLabel={t('dash.language')}
+            value={settings.uiLanguage}
+            onChange={(v) => void patch({ uiLanguage: v as UILang })}
+            options={UI_LANGS.map((lang) => ({ value: lang, label: UI_LANG_LABEL[lang] }))}
+          />
+        </Row>
+      </section>
+
+      <h2 className="home__head">{t('home.setup')}</h2>
+      <div className="tiles">
+        {tiles.map((tile) => (
+          <button className="tile" key={tile.kind} onClick={() => go(tile.section)}>
+            <span className="tile__icon">
+              <Icon name={tile.icon} size={17} />
+            </span>
+            <span className="tile__text">
+              <span className="tile__kind">{t(tile.kind)}</span>
+              <span className="tile__value">{tile.value}</span>
+              <span className={`badge badge--${tile.ok ? 'ok' : 'missing'}`}>{t(tile.badge)}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <h2 className="home__head">{t('home.duringCall')}</h2>
+      <section className="card">
+        <Row icon="eyeOff" label={t('gen.stealth')} desc={t('gen.stealthDesc')}>
+          <Switch
+            on={settings.stealthEnabled}
+            onChange={(v) => {
+              void window.api.window.setStealth(v);
+            }}
+          />
+        </Row>
+        <Row icon="pointer" label={t('gen.clickThrough')} desc={t('gen.clickThroughDesc')}>
+          <Switch
+            on={settings.clickThrough}
+            onChange={(v) => {
+              void window.api.window.setClickThrough(v);
+            }}
+          />
+        </Row>
+        <Row icon="bolt" label={t('home.autoAnswer')} desc={t('home.autoAnswerDesc')}>
+          <Switch
+            on={settings.autoTriggerMode !== 'off'}
+            onChange={(v) => void patch({ autoTriggerMode: v ? lastAutoMode.current : 'off' })}
+          />
+        </Row>
+      </section>
+
+      <div className="home__headrow">
+        <h2 className="home__head">{t('home.whileTalking')}</h2>
+        <button className="jump" onClick={() => go('hotkeys')}>
+          {t('home.allShortcuts')}
+          <Icon name="arrow" size={13} />
+        </button>
+      </div>
+      <div className="keys">
+        {shortcuts.map((action) => (
+          <div className="key" key={action}>
+            <span className="key__combo">{formatAccelerator(settings.hotkeys[action])}</span>
+            <span className="key__label">{t(HOTKEY_LABEL[action])}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
 
 function VisibilityCards({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
@@ -2887,26 +3394,88 @@ function OllamaCheck() {
   };
 
   return (
-    <div style={{ padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div className="keyrow">
+      <div className="keyrow__head keyrow__head--list">
         <span className="row__label">{t('keys.ollama')}</span>
         <span className="badge badge--ok">{t('keys.ollamaBadge')}</span>
-      </div>
-      <div className="row__desc">{t('keys.ollamaHint')}</div>
-      <div className="field">
-        <button className="btn" disabled={busy} onClick={() => void test()}>
+        <button className="btn btn--small" disabled={busy} onClick={() => void test()}>
           {busy ? t('keys.testing') : t('keys.test')}
         </button>
-        {tested && (
+      </div>
+      <div className="row__desc">{t('keys.useOllama')}</div>
+      {tested && (
+        <div className="field">
           <span className={tested.ok ? 'badge badge--ok' : 'badge badge--missing'}>
             {tested.ok ? t('keys.ok') : (tested.error ?? t('keys.failed'))}
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
+/**
+ * The four API keys, with what each one unlocks.
+ *
+ * It's a list and not four calls written out because the same four now feed two
+ * places: the keys card, and the answer card when the provider you picked is
+ * missing its own.
+ */
+const API_KEYS: {
+  secret: Exclude<SecretKey, 'mqtt'>;
+  provider: LLMProviderId;
+  label: UIKey;
+  hint: UIKey;
+  use: UIKey;
+}[] = [
+  {
+    secret: 'anthropic',
+    provider: 'claude',
+    label: 'keys.anthropic',
+    hint: 'keys.anthropicHint',
+    use: 'keys.useAnthropic',
+  },
+  {
+    secret: 'google',
+    provider: 'gemini',
+    label: 'keys.google',
+    hint: 'keys.googleHint',
+    use: 'keys.useGoogle',
+  },
+  {
+    secret: 'openai',
+    provider: 'openai',
+    label: 'keys.openai',
+    hint: 'keys.openaiHint',
+    use: 'keys.useOpenai',
+  },
+  {
+    secret: 'deepseek',
+    provider: 'deepseek',
+    label: 'keys.deepseek',
+    hint: 'keys.deepseekHint',
+    use: 'keys.useDeepseek',
+  },
+];
+
+/** The key each answer provider needs. Ollama needs none: it runs here. */
+const LLM_SECRET: Record<LLMProviderId, Exclude<SecretKey, 'mqtt'> | null> = {
+  claude: 'anthropic',
+  gemini: 'google',
+  openai: 'openai',
+  deepseek: 'deepseek',
+  ollama: null,
+};
+
+/**
+ * The keys, one line each.
+ *
+ * They used to be four blocks open at once, each with its input, its Save, its
+ * Test and its Delete on screen — for providers you may well never use. Reading
+ * is the common case and typing the rare one, so what is always visible is the
+ * line that answers «do I have this one, and what does it unlock»; the field
+ * appears when you say you want to type.
+ */
 function ApiKeysCard({
   presence,
   saveSecret,
@@ -2922,38 +3491,19 @@ function ApiKeysCard({
       <h2 className="card__title">{t('keys.title')}</h2>
       <p className="card__hint">{t('keys.hint')}</p>
 
-      <SecretField
-        label="keys.anthropic"
-        hint="keys.anthropicHint"
-        present={presence.anthropic}
-        onSave={(v) => saveSecret('anthropic', v)}
-        onClear={() => clearSecret('anthropic')}
-        onTest={() => window.api.llm.testConnection('claude')}
-      />
-      <SecretField
-        label="keys.google"
-        hint="keys.googleHint"
-        present={presence.google}
-        onSave={(v) => saveSecret('google', v)}
-        onClear={() => clearSecret('google')}
-        onTest={() => window.api.llm.testConnection('gemini')}
-      />
-      <SecretField
-        label="keys.openai"
-        hint="keys.openaiHint"
-        present={presence.openai}
-        onSave={(v) => saveSecret('openai', v)}
-        onClear={() => clearSecret('openai')}
-        onTest={() => window.api.llm.testConnection('openai')}
-      />
-      <SecretField
-        label="keys.deepseek"
-        hint="keys.deepseekHint"
-        present={presence.deepseek}
-        onSave={(v) => saveSecret('deepseek', v)}
-        onClear={() => clearSecret('deepseek')}
-        onTest={() => window.api.llm.testConnection('deepseek')}
-      />
+      {API_KEYS.map((entry) => (
+        <SecretField
+          key={entry.secret}
+          collapsible
+          label={entry.label}
+          hint={entry.hint}
+          use={entry.use}
+          present={presence[entry.secret]}
+          onSave={(v) => saveSecret(entry.secret, v)}
+          onClear={() => clearSecret(entry.secret)}
+          onTest={() => window.api.llm.testConnection(entry.provider)}
+        />
+      ))}
       <OllamaCheck />
     </section>
   );
@@ -2971,7 +3521,7 @@ function ApiKeysCard({
  * for the first and not the second; a big paid one, the other way around, is
  * expensive for every stray sentence in a meeting.
  */
-function ScreenModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+function ScreenJobCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
   const t = useT();
   /*
    * The result is stored TOGETHER with the provider that requested it, and
@@ -2988,6 +3538,12 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
   });
   const provider = settings.screenProviderId;
   const target = screenModelFor(settings);
+  /*
+   * `same` stopped being an option inside the picker and became the resting
+   * state of the card: the question is «does the screen need its own model?»,
+   * and asking it as a switch is what makes the answer «no» free of reading.
+   */
+  const own = provider !== 'same';
 
   useEffect(() => {
     if (provider === 'same') return;
@@ -3010,63 +3566,92 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
   const chosen = models.find((m) => m.id === target.model);
   const blind = chosen && !chosen.supportsVision;
 
-  return (
-    <section className="card" id="screen-model">
-      <h2 className="card__title">{t('screen.title')}</h2>
-      <p className="card__hint">
-        <Tx k="screen.hint" />
-      </p>
+  const useOwn = (on: boolean): void => {
+    if (!on) {
+      void patch({ screenProviderId: 'same', screenModel: '' });
+      return;
+    }
+    /*
+     * Turning the switch on starts from whoever is already answering, so it
+     * changes nothing until you pick — except with DeepSeek, whose models don't
+     * read images: defaulting to it would be defaulting to the one combination
+     * that guarantees both screen buttons fail.
+     */
+    const answering = settings.llmProviderId;
+    void patch({
+      screenProviderId: answering === 'deepseek' ? 'gemini' : answering,
+      screenModel: '',
+    });
+  };
 
-      <Row icon="cpu" label={t('model.provider')} desc={t('screen.providerDesc')}>
-        {/* DeepSeek isn't offered: none of its models read images, and this card
-            exists to pick the one that DOES have to read the screen. Offering it
-            would be offering the option that guarantees both buttons fail. It can
-            be typed by hand if they ever release one with vision. */}
-        <Select
-          ariaLabel={t('model.provider')}
-          value={provider}
-          onChange={(v) =>
-            void patch({
-              screenProviderId: v as Settings['screenProviderId'],
-              // Switching provider invalidates the chosen model: the ids don't
-              // resemble each other at all between one provider and the next.
-              screenModel: '',
-            })
-          }
-          options={[
-            { value: 'same', label: t('screen.same') },
-            { value: 'claude', label: t('screen.claude') },
-            { value: 'gemini', label: t('screen.gemini') },
-            { value: 'openai', label: t('screen.openai') },
-            { value: 'ollama', label: t('screen.ollama') },
-          ]}
-        />
+  return (
+    <section className="card job" id="screen-model">
+      <div className="job__head">
+        <span className="job__icon">
+          <Icon name="monitor" size={19} />
+        </span>
+        <div className="job__text">
+          <h2 className="job__title">{t('jobs.screen')}</h2>
+          <p className="job__desc">{t('jobs.screenDesc')}</p>
+        </div>
+      </div>
+
+      <Row icon="swap" label={t('jobs.screenOwn')} desc={t('jobs.screenOwnDesc')}>
+        <Switch on={own} onChange={useOwn} />
       </Row>
 
-      {provider !== 'same' && (
-        <Row
-          icon="monitor"
-          label={t('model.model')}
-          desc={
-            models.length === 0
-              ? t('screen.noModels')
-              : provider === 'ollama'
-                ? t('screen.visionOnly')
-                : t('screen.visionOnlyCloud')
-          }
-        >
-          <ModelPicker
-            providerId={provider}
-            models={models.map((m) => ({
-              ...m,
-              // Vision decides whether this model works for the only thing this
-              // card does, so it goes in the label and not in a separate note.
-              label: `${m.label}${m.supportsVision ? t('screen.seesImages') : t('screen.noVision')}`,
-            }))}
-            value={target.model}
-            onChange={(screenModel) => void patch({ screenModel })}
-          />
-        </Row>
+      {own && (
+        <>
+          <Row icon="cpu" label={t('model.provider')} desc={t('screen.providerDesc')}>
+            {/* DeepSeek isn't offered: none of its models read images, and this
+                card exists to pick the one that DOES have to read the screen.
+                Offering it would be offering the option that guarantees both
+                buttons fail. It can be typed by hand if they ever release one
+                with vision. */}
+            <Select
+              ariaLabel={t('model.provider')}
+              value={provider}
+              onChange={(v) =>
+                void patch({
+                  screenProviderId: v as Settings['screenProviderId'],
+                  // Switching provider invalidates the chosen model: the ids don't
+                  // resemble each other at all between one provider and the next.
+                  screenModel: '',
+                })
+              }
+              options={[
+                { value: 'claude', label: t('screen.claude') },
+                { value: 'gemini', label: t('screen.gemini') },
+                { value: 'openai', label: t('screen.openai') },
+                { value: 'ollama', label: t('screen.ollama') },
+              ]}
+            />
+          </Row>
+
+          <Row
+            icon="monitor"
+            label={t('model.model')}
+            desc={
+              models.length === 0
+                ? t('screen.noModels')
+                : provider === 'ollama'
+                  ? t('screen.visionOnly')
+                  : t('screen.visionOnlyCloud')
+            }
+          >
+            <ModelPicker
+              providerId={provider}
+              models={models.map((m) => ({
+                ...m,
+                // Vision decides whether this model works for the only thing this
+                // card does, so it goes in the label and not in a separate note.
+                label: `${m.label}${m.supportsVision ? t('screen.seesImages') : t('screen.noVision')}`,
+              }))}
+              value={target.model}
+              onChange={(screenModel) => void patch({ screenModel })}
+            />
+          </Row>
+        </>
       )}
 
       {blind && (
@@ -3075,12 +3660,40 @@ function ScreenModelCard({ settings, patch }: { settings: Settings; patch: Patch
         </div>
       )}
 
-      {provider === 'same' && settings.llmProviderId === 'ollama' && (
+      {!own && settings.llmProviderId === 'ollama' && (
         <div className="warn">
           <Tx k="screen.allOllama" />
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * The local-model guide, behind a line you open.
+ *
+ * It's a whole card of specs and download sizes that only matters if you are
+ * considering Ollama, and it sat open under everything else for everyone. The
+ * summary is one line; the measuring only happens if you ask for it, which also
+ * spares the specs probe on every visit to the section.
+ */
+function LocalGuide() {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="disclose" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <span className="disclose__icon">
+          <Icon name="laptop" size={17} />
+        </span>
+        <span className="disclose__text">
+          <span className="disclose__title">{t('local.title')}</span>
+          <span className="disclose__desc">{t('local.disclose')}</span>
+        </span>
+        <Chevron open={open} />
+      </button>
+      {open && <LocalModelGuide />}
+    </>
   );
 }
 
@@ -3911,7 +4524,29 @@ function ModelPresetsCard({ settings, patch }: { settings: Settings; patch: Patc
   );
 }
 
-function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) {
+/**
+ * The first of the section's two jobs: who writes the answers.
+ *
+ * It was «Answering model», three cards below the key it cannot work without —
+ * so a first run was a trip up the page, a paste, and a trip back down. The key
+ * now appears **inside this card** when the chosen provider is missing it, and
+ * shrinks to one line saying it is saved once it is. The answer language left:
+ * it decides how what comes out reads, not who writes it, so it lives in
+ * Behaviour with the profile and the trigger.
+ */
+function AnswerJobCard({
+  settings,
+  presence,
+  patch,
+  saveSecret,
+  clearSecret,
+}: {
+  settings: Settings;
+  presence: SecretsPresence;
+  patch: PatchFn;
+  saveSecret: (key: SecretKey, value: string) => Promise<void>;
+  clearSecret: (key: SecretKey) => Promise<void>;
+}) {
   const t = useT();
   const provider = settings.llmProviderId;
 
@@ -3973,6 +4608,10 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
   const test = tested?.provider === provider ? tested.result : null;
   const selectedModel = settings.llmModels[provider];
 
+  const secret = LLM_SECRET[provider];
+  const keyEntry = API_KEYS.find((entry) => entry.secret === secret);
+  const hasKey = !secret || presence[secret];
+
   const runTest = async (): Promise<void> => {
     setBusy(true);
     try {
@@ -3983,9 +4622,16 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
   };
 
   return (
-    <section className="card">
-      <h2 className="card__title">{t('model.title')}</h2>
-      <p className="card__hint">{t('model.hint')}</p>
+    <section className="card job">
+      <div className="job__head">
+        <span className="job__icon job__icon--on">
+          <Icon name="message" size={19} />
+        </span>
+        <div className="job__text">
+          <h2 className="job__title">{t('jobs.answers')}</h2>
+          <p className="job__desc">{t('jobs.answersDesc')}</p>
+        </div>
+      </div>
 
       <Row icon="cpu" label={t('model.provider')}>
         <Select
@@ -4025,28 +4671,40 @@ function ModelCard({ settings, patch }: { settings: Settings; patch: PatchFn }) 
         />
       </Row>
 
-      <Row icon="globe" label={t('model.answerLang')} desc={t('model.answerLangDesc')}>
-        <Select
-          ariaLabel={t('model.answerLang')}
-          value={settings.answerLanguage}
-          onChange={(v) => void patch({ answerLanguage: v })}
-          options={[
-            { value: 'auto', label: t('model.answerLangAuto') },
-            ...INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] })),
-          ]}
-        />
-      </Row>
+      {/* The missing key, where it is missed. Same field as the list below —
+          saving it here is saving it there. */}
+      {!hasKey && keyEntry && (
+        <div className="job__key">
+          <p className="job__keynote">
+            {t('jobs.keyNeeded', { provider: LLM_LABEL[provider] })}
+          </p>
+          <SecretField
+            label={keyEntry.label}
+            hint={keyEntry.hint}
+            present={false}
+            onSave={(v) => saveSecret(keyEntry.secret, v)}
+            onClear={() => clearSecret(keyEntry.secret)}
+            onTest={() => window.api.llm.testConnection(provider)}
+          />
+        </div>
+      )}
 
-      <div className="field">
-        <button className="btn" disabled={busy} onClick={() => void runTest()}>
-          {busy ? t('keys.testing') : t('model.test')}
-        </button>
-        {test && (
-          <span className={test.ok ? 'badge badge--ok' : 'badge badge--missing'}>
-            {test.ok ? t('keys.ok') : (test.error ?? t('keys.failed'))}
+      {hasKey && (
+        <div className="job__stat">
+          <Icon name={secret ? 'check' : 'laptop'} size={16} />
+          <span className="job__statline">
+            {secret ? t('jobs.keySaved', { provider: LLM_LABEL[provider] }) : t('keys.useOllama')}
           </span>
-        )}
-      </div>
+          <button className="btn btn--small" disabled={busy} onClick={() => void runTest()}>
+            {busy ? t('keys.testing') : t('model.test')}
+          </button>
+          {test && (
+            <span className={test.ok ? 'badge badge--ok' : 'badge badge--missing'}>
+              {test.ok ? t('keys.ok') : (test.error ?? t('keys.failed'))}
+            </span>
+          )}
+        </div>
+      )}
 
       {/*
         The context window is shown if Ollama is used FOR ANYTHING, even just for
@@ -4586,6 +5244,22 @@ function BehaviourCard({
 
       <Row icon="file" label={t('beh.profile')} desc={t('beh.profileDesc')}>
         <Select ariaLabel={t('beh.profile')} {...prof} />
+      </Row>
+
+      {/* It came from the answering-model card, where it was the one row that
+          did not describe the model: it decides how what comes out reads, not
+          who writes it. Here it sits with the profile and the interpreter's two
+          languages, which is the rest of that same decision. */}
+      <Row icon="globe" label={t('beh.answerLang')} desc={t('beh.answerLangDesc')}>
+        <Select
+          ariaLabel={t('beh.answerLang')}
+          value={settings.answerLanguage}
+          onChange={(v) => void patch({ answerLanguage: v })}
+          options={[
+            { value: 'auto', label: t('beh.answerLangAuto') },
+            ...INTERPRETER_LANGS.map((l) => ({ value: l.code, label: l[settings.uiLanguage] })),
+          ]}
+        />
       </Row>
 
       {/* Interpreter is its own mode now, so its two languages are always

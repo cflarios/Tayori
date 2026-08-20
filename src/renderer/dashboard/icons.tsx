@@ -11,6 +11,14 @@
 
 const PATHS = {
   /* ── Sections ── */
+  /* The roof and the walls, nothing else: at 17 px a door and windows turn into
+     noise, and this one sits above every other section in the sidebar. */
+  home: (
+    <>
+      <path d="M4 11 12 4l8 7" />
+      <path d="M6.5 10v9h11v-9" />
+    </>
+  ),
   sliders: (
     <>
       <line x1="4" y1="7" x2="20" y2="7" />
@@ -208,6 +216,15 @@ const PATHS = {
     </>
   ),
   check: <path d="M5 12.5 9.5 17 19 6.5" />,
+  /* The warning triangle, for Home's banner. The dot is drawn as a zero-length
+     line so `stroke-linecap: round` rounds it, like the keyboard's keys. */
+  alert: (
+    <>
+      <path d="M12 3.6 21.5 20H2.5z" />
+      <line x1="12" y1="10" x2="12" y2="14.5" />
+      <line x1="12" y1="17.4" x2="12" y2="17.4" />
+    </>
+  ),
   compass: (
     <>
       <circle cx="12" cy="12" r="9" />

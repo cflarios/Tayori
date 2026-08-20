@@ -217,14 +217,19 @@ export const en = {
   'presets.delete': 'Delete preset',
   'presets.nameLabel': 'Preset name',
 
-  'model.title': 'Answering model',
-  'model.hint': 'Who writes the suggestions you see in the overlay.',
+  'jobs.answers': 'Writes the answers',
+  'jobs.answersDesc':
+    'The suggestions you read in the overlay while someone is talking to you.',
+  'jobs.screen': 'Reads your screen',
+  'jobs.screenDesc':
+    'The code, the quiz and the «anything else» actions. Speech needs latency and the screen needs eyes, so they do not have to be the same model.',
+  'jobs.screenOwn': 'Use a different model for this',
+  'jobs.screenOwnDesc': 'Off, the one that answers does this too.',
+  'jobs.keySaved': '{provider} key saved',
+  'jobs.keyNeeded':
+    '{provider} cannot answer without a key. Paste it here — it is saved encrypted and never shown back.',
   'model.provider': 'Provider',
   'model.model': 'Model',
-  'model.answerLang': 'Answer language',
-  'model.answerLangDesc':
-    'Automatic follows the content — the conversation, or what is on the screen. Pick a language to force every answer into it.',
-  'model.answerLangAuto': 'Automatic',
   'model.pick': '— pick a model —',
   'model.none': '—',
   'model.other': 'Other… (type the id)',
@@ -247,7 +252,6 @@ export const en = {
     'The one that solves `Ctrl+Alt+C` (code) and `Ctrl+Alt+Q` (quizzes). It can be different from the one that answers what is being said: that one needs speed, this one needs to read a screenshot properly. **It has to accept images.**',
   'screen.providerDesc':
     '«The same one» uses the answering model above, which is how it worked before.',
-  'screen.same': 'The same one that answers',
   'screen.claude': 'Claude (cloud)',
   'screen.gemini': 'Gemini (cloud)',
   'screen.openai': 'ChatGPT (cloud)',
@@ -349,6 +353,10 @@ export const en = {
   'stt.progressModel': 'Model',
 
   // ───────────────────── Settings · behavior ─────────────────────
+  'beh.answerLang': 'Answer language',
+  'beh.answerLangDesc':
+    'Automatic follows the content — the conversation, or what is on the screen. Pick a language to force every answer into it.',
+  'beh.answerLangAuto': 'Automatic',
   'beh.auto': 'Automatic answers',
   'beh.autoDesc':
     'With the heuristic on, it detects questions aimed at you and answers without you pressing anything. The manual hotkey works in every mode.',
@@ -725,7 +733,11 @@ export const en = {
   'nav.searchClear': 'Clear search',
   'nav.noSection': 'No section matches.',
   'nav.quit': 'Quit Tayori',
+  'nav.groupSetup': 'Set up',
+  'nav.groupCall': 'In a call',
+  'nav.groupMore': 'More',
   'ph.qrAlt': 'QR code with the mirror link',
+  'local.disclose': 'What fits the machine you have, and what the download would cost.',
   'local.title': 'Which local model suits your machine',
   'local.hint':
     'Ollama costs no money and sends nothing off your machine, but choosing wrong costs a download of several gigabytes to end up with one-minute answers. This is what fits what you have.',
@@ -960,6 +972,14 @@ export const en = {
   'keys.title': 'API keys',
   'keys.hint':
     'Stored encrypted with DPAPI in your Windows profile, and only the main process reads them. They are never shown back and never leave this machine except towards the provider you choose.',
+  'keys.change': 'Change',
+  'keys.add': 'Add',
+  'keys.close': 'Close',
+  'keys.useAnthropic': 'The answers, with Claude.',
+  'keys.useGoogle': 'The answers with Gemini, and the Gemini Live transcription.',
+  'keys.useOpenai': 'The answers with ChatGPT, and the OpenAI transcription engines.',
+  'keys.useDeepseek': 'The answers only: it does not transcribe and it cannot read the screen.',
+  'keys.useOllama': 'Nothing to paste — it runs on this machine.',
   'keys.configured': 'configured',
   'keys.missing': 'not set',
   'keys.placeholder': 'Paste your API key',
@@ -983,11 +1003,67 @@ export const en = {
     'platform.deepseek.com → API keys. Answers only: they have no transcription models, and their models do not read images.',
   'keys.ollama': 'Ollama (local)',
   'keys.ollamaBadge': 'no key needed',
-  'keys.ollamaHint':
-    'It runs on your machine, so there is nothing to paste here. What is worth checking is that the server is alive and has some model downloaded.',
+
+  // ─────────────────────────────── Home ───────────────────────────────
+  'home.readyTitle': 'Ready for your call',
+  'home.readyDesc':
+    '{llm} writes the answers, {stt} transcribes, and the overlay stays out of what you share.',
+  'home.listeningTitle': 'Listening to your call',
+  'home.listeningDesc': 'Your microphone and the system audio are arriving separately.',
+  'home.pendingOne': 'One thing left before it can help',
+  'home.pendingMany': '{n} things left before it can help',
+  'home.pendingDesc': 'Everything else is set. These are what stand between you and an answer.',
+  'home.freshTitle': 'Nothing set up yet',
+  'home.freshDesc':
+    'Three questions and you are done: who answers, what it hears, and what it knows about you.',
+  'home.freshAction': 'Start guided setup',
+
+  'home.attention': 'Needs your attention',
+  'home.alertProvider': 'Nobody can write the answers yet',
+  'home.alertProviderDesc': '{provider} is the chosen provider, but it cannot answer as it stands.',
+  'home.alertProviderAct': 'Set it up',
+  'home.alertHotkey': 'Windows rejected {combo}',
+  'home.alertHotkeyDesc': 'Another app already holds it, so that shortcut never fires.',
+  'home.alertHotkeyDup': 'Two actions share the same shortcut',
+  'home.alertHotkeyDupDesc': 'Only one of them fires, and which one is not up to you.',
+  'home.alertHotkeyAct': 'Rebind',
+  'home.alertStealth': 'The overlay shows when you share your screen',
+  'home.alertStealthDesc': 'Stealth mode is off, so Meet, Zoom, Teams and OBS all pick it up.',
+  'home.alertStealthAct': 'Turn it on',
+  'home.alertCapture': 'The capture stopped with an error',
+  'home.alertCaptureAct': 'Open Audio',
+  'home.alertAuto': 'No automatic answer will fire',
+  'home.alertAutoDesc':
+    'The trigger is waiting for a speaker whose source is not being opened, so it never triggers.',
+  'home.alertAutoAct': 'Fix it',
+
+  'home.setup': 'Your setup',
+  'home.tileLlm': 'Answers',
+  'home.tileStt': 'Transcription',
+  'home.tileContext': 'What it knows about you',
+  'home.tileTts': 'Spoken answers',
+  'home.valueOff': 'Off',
+  'home.valueNoPacks': 'Nothing prepared',
+  'home.valuePacksOne': '1 pack prepared',
+  'home.valuePacks': '{n} packs prepared',
+  'home.badgeReady': 'Ready',
+  'home.badgeTodo': 'To do',
+  'home.badgeOptional': 'Optional',
+  'home.badgeOn': 'On',
+  'home.badgeCheck': 'Check it',
+
+  'home.duringCall': 'During the call',
+  'home.autoAnswer': 'Answer without asking',
+  'home.autoAnswerDesc': 'When it spots a question aimed at you, it answers on its own.',
+  'home.whileTalking': 'While you talk',
+  'home.allShortcuts': 'All shortcuts',
 
   // ───────────────────── Settings · sections ─────────────────────
-  'sec.general': 'General',
+  'sec.home': 'Home',
+  'sec.homeHint': 'Where Tayori stands right now, and the switches you flip mid-call.',
+  // «General» was the least urgent-looking word in the list for the most urgent
+  // switch in the app: what this section really decides is whether you are seen.
+  'sec.general': 'Overlay & stealth',
   'sec.generalHint':
     'Whether the overlay shows up when you share your screen, and how it looks meanwhile.',
   'sec.audio': 'Audio',

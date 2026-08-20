@@ -195,14 +195,18 @@ export const es: Record<UIKey, string> = {
   'presets.delete': 'Borrar perfil',
   'presets.nameLabel': 'Nombre del perfil',
 
-  'model.title': 'Modelo de respuestas',
-  'model.hint': 'Quién genera las sugerencias que ves en el overlay.',
+  'jobs.answers': 'Escribe las respuestas',
+  'jobs.answersDesc': 'Las sugerencias que lees en el overlay mientras alguien te habla.',
+  'jobs.screen': 'Lee tu pantalla',
+  'jobs.screenDesc':
+    'Las acciones de código, test y «cualquier otra cosa». Hablar pide latencia y la pantalla pide ojos, así que no tienen por qué ser el mismo modelo.',
+  'jobs.screenOwn': 'Usar otro modelo para esto',
+  'jobs.screenOwnDesc': 'Apagado, lo hace el mismo que responde.',
+  'jobs.keySaved': 'Clave de {provider} guardada',
+  'jobs.keyNeeded':
+    '{provider} no puede responder sin una clave. Pégala aquí: se guarda cifrada y no se vuelve a mostrar.',
   'model.provider': 'Proveedor',
   'model.model': 'Modelo',
-  'model.answerLang': 'Idioma de la respuesta',
-  'model.answerLangDesc':
-    'Automático sigue el contenido —la conversación, o lo que hay en la pantalla—. Elige un idioma para forzar todas las respuestas en él.',
-  'model.answerLangAuto': 'Automático',
   'model.pick': '— elige un modelo —',
   'model.none': '—',
   'model.other': 'Otro… (escribir el id)',
@@ -225,7 +229,6 @@ export const es: Record<UIKey, string> = {
     'El que resuelve `Ctrl+Alt+C` (código) y `Ctrl+Alt+Q` (tests). Puede ser distinto del que responde a lo que se habla: aquello pide rapidez, y esto pide leer bien una captura. **Tiene que admitir imágenes.**',
   'screen.providerDesc':
     '«El mismo» usa el modelo de respuestas de arriba, que es como funcionaba antes.',
-  'screen.same': 'El mismo que para responder',
   'screen.claude': 'Claude (nube)',
   'screen.gemini': 'Gemini (nube)',
   'screen.openai': 'ChatGPT (nube)',
@@ -328,6 +331,10 @@ export const es: Record<UIKey, string> = {
   'stt.progressModel': 'Modelo',
 
   // ───────────────────── Ajustes · comportamiento ─────────────────────
+  'beh.answerLang': 'Idioma de la respuesta',
+  'beh.answerLangDesc':
+    'Automático sigue el contenido —la conversación, o lo que hay en la pantalla—. Elige un idioma para forzar todas las respuestas en él.',
+  'beh.answerLangAuto': 'Automático',
   'beh.auto': 'Respuestas automáticas',
   'beh.autoDesc':
     'Con la heurística activa, detecta preguntas dirigidas a ti y responde sin que pulses nada. El hotkey manual funciona en todos los modos.',
@@ -702,7 +709,11 @@ export const es: Record<UIKey, string> = {
   'nav.searchClear': 'Limpiar búsqueda',
   'nav.noSection': 'Ninguna sección coincide.',
   'nav.quit': 'Cerrar Tayori',
+  'nav.groupSetup': 'Preparar',
+  'nav.groupCall': 'En la llamada',
+  'nav.groupMore': 'Más',
   'ph.qrAlt': 'Código QR con el enlace del espejo',
+  'local.disclose': 'Qué le encaja a la máquina que tienes, y lo que costaría la descarga.',
   'local.title': 'Qué modelo local le pega a tu equipo',
   'local.hint':
     'Ollama no cuesta dinero y no envía nada fuera de tu máquina, pero elegir mal cuesta una descarga de varios gigas para acabar con respuestas de un minuto. Esto es lo que encaja con lo que tienes.',
@@ -937,6 +948,14 @@ export const es: Record<UIKey, string> = {
   'keys.title': 'API keys',
   'keys.hint':
     'Se guardan cifradas con DPAPI en tu perfil de Windows y sólo las lee el proceso principal. Nunca se muestran de vuelta ni salen de esta máquina salvo hacia el proveedor que elijas.',
+  'keys.change': 'Cambiar',
+  'keys.add': 'Añadir',
+  'keys.close': 'Cerrar',
+  'keys.useAnthropic': 'Las respuestas, con Claude.',
+  'keys.useGoogle': 'Las respuestas con Gemini, y la transcripción con Gemini Live.',
+  'keys.useOpenai': 'Las respuestas con ChatGPT, y los motores de transcripción de OpenAI.',
+  'keys.useDeepseek': 'Sólo las respuestas: no transcribe y no puede leer la pantalla.',
+  'keys.useOllama': 'Nada que pegar: corre en tu máquina.',
   'keys.configured': 'configurada',
   'keys.missing': 'sin configurar',
   'keys.placeholder': 'Pega tu API key',
@@ -960,11 +979,66 @@ export const es: Record<UIKey, string> = {
     'platform.deepseek.com → API keys. Sólo responde: no tienen modelos de transcripción, y sus modelos no leen imágenes.',
   'keys.ollama': 'Ollama (local)',
   'keys.ollamaBadge': 'no necesita clave',
-  'keys.ollamaHint':
-    'Corre en tu máquina, así que aquí no hay nada que pegar. Lo que sí conviene comprobar es que el servidor está vivo y tiene algún modelo descargado.',
+
+  // ─────────────────────────────── Inicio ───────────────────────────────
+  'home.readyTitle': 'Listo para tu llamada',
+  'home.readyDesc':
+    '{llm} escribe las respuestas, {stt} transcribe, y el overlay no sale en lo que compartes.',
+  'home.listeningTitle': 'Escuchando tu llamada',
+  'home.listeningDesc': 'Tu micrófono y el audio del sistema están llegando por separado.',
+  'home.pendingOne': 'Falta una cosa para que pueda ayudarte',
+  'home.pendingMany': 'Faltan {n} cosas para que pueda ayudarte',
+  'home.pendingDesc': 'Lo demás está listo. Esto es lo que se interpone entre tú y una respuesta.',
+  'home.freshTitle': 'Todavía no hay nada configurado',
+  'home.freshDesc':
+    'Tres preguntas y ya está: quién responde, qué escucha y qué debería saber de ti.',
+  'home.freshAction': 'Empezar la configuración guiada',
+
+  'home.attention': 'Requiere tu atención',
+  'home.alertProvider': 'Todavía no hay quien escriba las respuestas',
+  'home.alertProviderDesc': '{provider} es el proveedor elegido, pero así no puede responder.',
+  'home.alertProviderAct': 'Configurarlo',
+  'home.alertHotkey': 'Windows rechazó {combo}',
+  'home.alertHotkeyDesc': 'Otra aplicación ya lo tiene cogido, así que ese atajo no dispara nunca.',
+  'home.alertHotkeyDup': 'Dos acciones comparten el mismo atajo',
+  'home.alertHotkeyDupDesc': 'Sólo dispara una, y cuál no lo decides tú.',
+  'home.alertHotkeyAct': 'Reasignar',
+  'home.alertStealth': 'El overlay se ve al compartir pantalla',
+  'home.alertStealthDesc':
+    'El modo invisible está apagado, así que Meet, Zoom, Teams y OBS lo capturan.',
+  'home.alertStealthAct': 'Encenderlo',
+  'home.alertCapture': 'La captura se detuvo con un error',
+  'home.alertCaptureAct': 'Abrir Audio',
+  'home.alertAuto': 'Ninguna respuesta automática va a dispararse',
+  'home.alertAutoDesc':
+    'El disparador espera a un hablante cuya fuente no se está abriendo, así que no salta nunca.',
+  'home.alertAutoAct': 'Arreglarlo',
+
+  'home.setup': 'Tu configuración',
+  'home.tileLlm': 'Respuestas',
+  'home.tileStt': 'Transcripción',
+  'home.tileContext': 'Lo que sabe de ti',
+  'home.tileTts': 'Respuestas habladas',
+  'home.valueOff': 'Apagadas',
+  'home.valueNoPacks': 'Nada preparado',
+  'home.valuePacksOne': '1 paquete preparado',
+  'home.valuePacks': '{n} paquetes preparados',
+  'home.badgeReady': 'Listo',
+  'home.badgeTodo': 'Pendiente',
+  'home.badgeOptional': 'Opcional',
+  'home.badgeOn': 'Encendidas',
+  'home.badgeCheck': 'Revísalo',
+
+  'home.duringCall': 'Durante la llamada',
+  'home.autoAnswer': 'Responder sin que se lo pidas',
+  'home.autoAnswerDesc': 'Cuando detecta una pregunta dirigida a ti, responde por su cuenta.',
+  'home.whileTalking': 'Mientras hablas',
+  'home.allShortcuts': 'Todos los atajos',
 
   // ───────────────────── Ajustes · secciones ─────────────────────
-  'sec.general': 'General',
+  'sec.home': 'Inicio',
+  'sec.homeHint': 'Cómo está Tayori ahora mismo, y los interruptores que tocas en plena llamada.',
+  'sec.general': 'Overlay e invisibilidad',
   'sec.generalHint': 'Si el overlay aparece al compartir pantalla, y cómo se ve mientras tanto.',
   'sec.audio': 'Audio',
   'sec.audioHint': 'Qué se escucha, y la comprobación de que las dos fuentes llegan por separado.',
