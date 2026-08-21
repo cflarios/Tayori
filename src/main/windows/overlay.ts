@@ -244,11 +244,22 @@ export function startOverlayDrag(): void {
   if (!win || dragTimer) return;
 
   const cursor = screen.getCursorScreenPoint();
-  const pos = win.getPosition();
+  const start = win.getBounds();
   // Offset between the cursor and the window's corner: keeping it constant is
   // what keeps the window from jumping when the drag starts.
-  const offsetX = cursor.x - (pos[0] ?? 0);
-  const offsetY = cursor.y - (pos[1] ?? 0);
+  const offsetX = cursor.x - start.x;
+  const offsetY = cursor.y - start.y;
+
+  /*
+   * The SIZE is frozen for the whole drag and re-asserted on every move.
+   *
+   * A bare `setPosition` grew the window a pixel at a time as it moved on a
+   * fractional-DPI display: a DIP↔physical rounding quirk of `transparent`,
+   * `resizable: false` windows on Windows, where each move ratchets the size up.
+   * Passing the drag-start width/height back through `setBounds` on every tick
+   * pins it, so the window can only move — never grow.
+   */
+  const { width, height } = start;
 
   // ~60 fps. An interval instead of following the renderer's mousemove because
   // the cursor leaves the window as soon as the drag goes fast.
@@ -259,7 +270,7 @@ export function startOverlayDrag(): void {
       return;
     }
     const point = screen.getCursorScreenPoint();
-    current.setPosition(point.x - offsetX, point.y - offsetY);
+    current.setBounds({ x: point.x - offsetX, y: point.y - offsetY, width, height });
   }, 16);
 }
 
