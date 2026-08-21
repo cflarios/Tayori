@@ -304,6 +304,19 @@ export function setOverlaySize(size: OverlaySize): void {
 export function resizeOverlay(height: number, width?: number): void {
   const win = getOverlay();
   if (!win) return;
+  /*
+   * While dragging, the window only MOVES — it must not resize.
+   *
+   * The drag's `setPosition` pins the LEFT edge to the cursor, while the compact
+   * fit's re-anchor below pins the RIGHT edge. The two disagree, and on a
+   * fractional-DPI display —where moving the window shifts the sub-pixel origin
+   * and nudges the measured size across a `Math.ceil` boundary— every such nudge
+   * grows the width while the next drag tick re-pins the left edge, ratcheting
+   * the window larger the longer the grip is held. Integer DPI never nudges, so
+   * it only shows up on scaled laptops. The window re-fits on the next content
+   * change once the drag ends.
+   */
+  if (dragTimer) return;
   // The floor is a safety net for a degenerate/transient measurement, NOT a real
   // minimum: it has to sit BELOW the compact bar's measured height (~58–68 px) or
   // it silently pads a tall empty area under the bar. It was 120, which did
