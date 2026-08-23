@@ -7,6 +7,14 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.12.3](https://github.com/cflarios/Tayori/compare/v1.12.2...v1.12.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **overlay:** keep the overlay on its monitor instead of yanking it to the primary ([0820e2b](https://github.com/cflarios/Tayori/commit/0820e2b9d1b0369ded890c86b55c0a02a97652cb))
+* **overlay:** reach New conversation from the answer header, and copy as an icon ([5e7dc96](https://github.com/cflarios/Tayori/commit/5e7dc96eaab79bbf66dc8cc9d3154a005d78e451))
+
 ## [1.12.2](https://github.com/cflarios/Tayori/compare/v1.12.1...v1.12.2) (2026-08-21)
 
 
