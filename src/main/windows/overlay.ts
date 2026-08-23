@@ -305,7 +305,10 @@ export function setOverlaySize(size: OverlaySize): void {
   const current = win.getSize();
   const right = (pos[0] ?? 0) + (current[0] ?? width);
 
-  const { workArea } = screen.getPrimaryDisplay();
+  // The monitor the overlay is actually ON, not always the primary: clamping to
+  // the primary's work area yanked the window back to it the moment it resized on
+  // a second screen.
+  const { workArea } = screen.getDisplayMatching(win.getBounds());
   const x = Math.max(workArea.x, Math.min(right - width, workArea.x + workArea.width - width));
   const y = Math.min(pos[1] ?? 0, workArea.y + workArea.height - height);
 
@@ -356,8 +359,10 @@ export function resizeOverlay(height: number, width?: number): void {
   // Compact fits its WIDTH to the bar too, so the row never wraps or clips a
   // control now that it carries the profile and model dropdowns. Re-anchor to the
   // RIGHT edge (grow leftward), exactly as the size presets do, so widening never
-  // pushes the overlay off the top-right corner it lives in.
-  const { workArea } = screen.getPrimaryDisplay();
+  // pushes the overlay off the top-right corner it lives in. Against the monitor
+  // the overlay is ON —not the primary—: clamping to the primary's work area
+  // teleported the window there the instant it re-fitted on a second screen.
+  const { workArea } = screen.getDisplayMatching(bounds);
   const clampedW = Math.round(Math.max(240, Math.min(width, workArea.width)));
   const right = bounds.x + bounds.width;
   const x = Math.max(workArea.x, Math.min(right - clampedW, workArea.x + workArea.width - clampedW));
