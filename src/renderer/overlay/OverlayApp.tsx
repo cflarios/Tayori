@@ -1786,7 +1786,7 @@ function WriteExchange({ answer, settings }: { answer: Answer; settings: Setting
             answer.text.trim() !== '' && (
               <div className="wexmsg__tools">
                 <SpeakAnswerButton answer={answer} settings={settings} tipStart />
-                <CopyAnswerButton text={answer.text} tipStart iconOnly />
+                <CopyAnswerButton text={answer.text} tipStart />
               </div>
             )
           )}
@@ -2378,15 +2378,7 @@ function Teleprompter({ text }: { text: string }) {
  * `focusable: false`, so it would always fail. It gives a brief «Copied» as
  * confirmation.
  */
-function CopyAnswerButton({
-  text,
-  tipStart,
-  iconOnly,
-}: {
-  text: string;
-  tipStart?: boolean;
-  iconOnly?: boolean;
-}) {
+function CopyAnswerButton({ text, tipStart }: { text: string; tipStart?: boolean }) {
   const t = useT();
   const [copied, setCopied] = useState<'no' | 'sí' | 'falló'>('no');
 
@@ -2403,50 +2395,32 @@ function CopyAnswerButton({
       .catch(() => setCopied('falló'));
   };
 
-  if (iconOnly) {
-    const done = copied === 'sí';
-    return (
-      <button
-        type="button"
-        className={`section__copy section__copyicon tip tip--up ${tipStart ? 'tip--start' : 'tip--end'}${done ? ' section__copyicon--ok' : ''}`}
-        data-interactive
-        data-tip={
-          copied === 'falló'
-            ? t('overlay.copyFailed')
-            : done
-              ? t('overlay.copied')
-              : t('overlay.copyAnswer')
-        }
-        aria-label={t('overlay.copyAnswer')}
-        onClick={copy}
-      >
-        {done ? (
-          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        ) : (
-          <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
-            <rect x="3.7" y="3" width="8.6" height="11" rx="1.7" fill="none" stroke="currentColor" strokeWidth="1.3" />
-            <rect x="5.7" y="1.7" width="4.6" height="2.6" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
-          </svg>
-        )}
-      </button>
-    );
-  }
-
+  const done = copied === 'sí';
   return (
     <button
       type="button"
-      className={`section__copy tip tip--up ${tipStart ? 'tip--start' : 'tip--end'}`}
+      className={`section__copy section__copyicon tip tip--up ${tipStart ? 'tip--start' : 'tip--end'}${done ? ' section__copyicon--ok' : ''}`}
       data-interactive
-      data-tip={t('overlay.copyAnswer')}
+      data-tip={
+        copied === 'falló'
+          ? t('overlay.copyFailed')
+          : done
+            ? t('overlay.copied')
+            : t('overlay.copyAnswer')
+      }
+      aria-label={t('overlay.copyAnswer')}
       onClick={copy}
     >
-      {copied === 'sí'
-        ? t('overlay.copied')
-        : copied === 'falló'
-          ? t('overlay.copyFailed')
-          : t('overlay.copy')}
+      {done ? (
+        <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="3.7" y="3" width="8.6" height="11" rx="1.7" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          <rect x="5.7" y="1.7" width="4.6" height="2.6" rx="1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+        </svg>
+      )}
     </button>
   );
 }
@@ -3318,6 +3292,23 @@ export function OverlayApp() {
                     {t('overlay.continue')}
                   </button>
                 )}
+
+              {/* Start fresh, next to Copy: with a conversation on screen this is
+                  where you reach to clear it and begin again. In compact the tab
+                  row that carries it when expanded is folded away, so this is the
+                  only place it lives there. */}
+              {answers.length > 0 && (
+                <button
+                  type="button"
+                  className="section__copy section__newchat tip tip--up tip--end"
+                  data-interactive
+                  data-tip={t('overlay.newChat')}
+                  aria-label={t('overlay.newChat')}
+                  onClick={() => void window.api.history.newConversation()}
+                >
+                  <NewChatIcon />
+                </button>
+              )}
             </div>
             {/* The question and the answer share ONE scroll region, so the
                 question doesn't steal fixed height and collapse the answer at

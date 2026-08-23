@@ -1228,6 +1228,22 @@ body {
   background: rgba(52, 211, 153, 0.12);
 }
 
+/* New conversation reuses the copy pill's frame with an icon; a neutral hover
+   (not copy's green) since it neither copies nor plays. Defined after
+   `.section__copy:hover` so its hover wins on the shared element. */
+.section__newchat {
+  display: grid;
+  place-items: center;
+  padding: 2px 6px;
+  color: #b7bcc1;
+}
+
+.section__newchat:hover {
+  color: #e8eaed;
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* The speak toggle reuses the copy pill's frame but holds an icon, so it's
    squared up and centered — and blue instead of the copy's green. When it's the
    answer currently playing, the accent fills so the state is unmistakable. */
