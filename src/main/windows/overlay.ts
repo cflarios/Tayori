@@ -1,4 +1,5 @@
 import { BrowserWindow, screen } from 'electron';
+import { IPC } from '@shared/ipc';
 import { OVERLAY_SIZES, type OverlaySize } from '@shared/types';
 import { settingsStore } from '../config/store';
 import { setClickThrough, setStealth } from './stealth';
@@ -99,16 +100,55 @@ export function createOverlay(): BrowserWindow {
   return overlay;
 }
 
+/**
+ * `true` while the overlay is hidden by the toggle hotkey.
+ *
+ * The overlay is hidden by fading it to `setOpacity(0)`, never by `hide()`.
+ * `win.hide()` + `showInactive()` corrupts the `setIgnoreMouseEvents(_, {forward})`
+ * hook on Windows: the overlay comes back visible but dead to the mouse, and no
+ * later `setIgnoreMouseEvents(false)` re-enables clicks (electron/electron —
+ * forward-hook state lost across hide/show). Keeping the window shown the whole
+ * time sidesteps it, and as a bonus the content-protection re-apply (stealth.ts,
+ * bound to the `show` event) is never needed because the flag is never lost.
+ *
+ * Because the window stays "visible" to Electron, this flag — not `isVisible()` —
+ * is the source of truth for whether the overlay is hidden.
+ */
+let overlayHidden = false;
+
 export function toggleOverlayVisibility(): void {
   const win = getOverlay();
   if (!win) return;
-  // The `show` hook in stealth.ts re-applies the content protection.
-  if (win.isVisible()) {
-    // Hiding it while it's focusable would leave it that way on return, and a
-    // focusable window that reappears can steal the video call's focus.
+  if (overlayHidden) {
+    revealOverlay(win);
+    reassertOverlayTopmost();
+  } else {
+    // Leaving it focusable would let the re-shown window steal the call's focus.
     setOverlayInteractive(false);
-    win.hide();
-  } else win.showInactive();
+    overlayHidden = true;
+    // Full click-through (no `forward`) so the invisible window can't eat clicks
+    // meant for the app below while it's faded out.
+    win.setIgnoreMouseEvents(true);
+    win.setOpacity(0);
+  }
+}
+
+/**
+ * Fades the overlay back in after a toggle-hide.
+ *
+ * Restoring opacity is the easy half; the important half is re-arming the normal
+ * click-through (the forward hook that lets hover make the bar clickable) and
+ * re-syncing the renderer's `useChromeMouse` cache. While hidden the window's
+ * mouse-ignore state was forced, and the renderer never heard about it — without
+ * the resync the two disagree and the first hover's early-return would swallow
+ * every click, leaving the overlay visible but dead to the mouse. Same resync the
+ * dashboard sends when it closes.
+ */
+function revealOverlay(win: BrowserWindow): void {
+  overlayHidden = false;
+  win.setOpacity(1);
+  setClickThrough(win, settingsStore.get().clickThrough);
+  win.webContents.send(IPC.onOverlayResync);
 }
 
 /**
@@ -162,7 +202,7 @@ export function setOverlayInteractive(interactive: boolean): void {
  */
 function reassertOverlayTopmost(): void {
   const win = getOverlay();
-  if (!win || overlayInteractive || !win.isVisible()) return;
+  if (!win || overlayInteractive || overlayHidden) return;
   win.setAlwaysOnTop(true, 'screen-saver');
 }
 
@@ -176,7 +216,7 @@ function reassertOverlayTopmost(): void {
 export function recoverOverlay(): void {
   const win = getOverlay();
   if (!win || overlayInteractive) return;
-  if (!win.isVisible()) win.showInactive();
+  if (overlayHidden) revealOverlay(win);
   win.setAlwaysOnTop(true, 'screen-saver');
   win.moveTop();
 }
