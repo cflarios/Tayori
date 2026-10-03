@@ -210,6 +210,34 @@ export interface QuestionVerdict {
 }
 
 /**
+ * Whether a suggestion asks the interviewer something back.
+ *
+ * The interview profile opens a hypothetical with a clarifying question, and the
+ * interviewer's answer to it arrives as a **statement**: "solo en algunos pods,
+ * desde el deploy de ayer". None of the rules below fire on that, by design, so
+ * the session needs to know a reply is expected. A question mark in the
+ * suggestion is the signal: the prompt asks for those questions written to be
+ * said, and a spoken question is written with one.
+ */
+export function asksBack(answer: string): boolean {
+  return /[?？]/.test(answer);
+}
+
+/**
+ * Whether an utterance can be the reply to a clarifying question.
+ *
+ * Much looser than `looksLikeQuestion`, and it only applies while a reply is
+ * expected: then a plain statement is exactly what's being waited for. It still
+ * discards what carries no data —a greeting, an audio check, a two-word "vale,
+ * perfecto"— because a follow-up fired on that answers nothing new.
+ */
+export function looksLikeReply(text: string): boolean {
+  const raw = text.trim();
+  if (!raw || isAllFiller(raw)) return false;
+  return normalize(raw).split(' ').filter(Boolean).length >= MIN_WORDS;
+}
+
+/**
  * Local heuristic, zero cost.
  *
  * It doesn't require a question mark because many STT engines don't add one

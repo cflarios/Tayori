@@ -102,11 +102,22 @@ sequenceDiagram
         S->>A: ask(full text)
         A->>O: "Thinking…"
         A-->>O: streamed text (throttle 60 ms)
+    else Not a question, but a reply was expected
+        Note over S: the last suggestion (interview profile)<br/>asked the interviewer something,<br/>less than 2 min ago
+        S->>A: ask(full text) — once
     else No
         D-->>S: reason for skipping
         S->>O: on-screen explanation
     end
 ```
+
+**The middle branch is the follow-up.** The interview profile answers a
+hypothetical with a clarifying question, and the interviewer's reply is a
+statement the detector rightly skips. So a finished suggestion that asked
+something (`asksBack`) arms a wait in the session, and the next utterance that
+carries data (`looksLikeReply`) fires even though it isn't a question. It's
+consumed on use and cleared by a new conversation; `armFollowUp` and
+`evaluateTrigger` in `core/session.ts`.
 
 **The two points where waiting is decided** are what define the feel of the
 app, and both are measured in CONTEXT.md:

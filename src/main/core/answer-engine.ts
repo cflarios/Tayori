@@ -138,6 +138,11 @@ export class AnswerEngine extends EventEmitter {
   private conversationProfile: PromptProfileId | null = null;
   private chipAtTurn: PromptProfileId | null = null;
 
+  /** The profile the conversation is answering with; `null` before the first turn. */
+  get answeringProfile(): PromptProfileId | null {
+    return this.conversationProfile;
+  }
+
   /**
    * How many exchanges are resent, by provider.
    *

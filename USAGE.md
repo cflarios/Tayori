@@ -182,6 +182,17 @@ How it answers depends on the question:
 - **A behavioural question** ("tell me about a time…") comes as a story told,
   anchored in your CV, never in experience you don't have.
 
+**The follow-up is automatic.** When a suggestion asks the interviewer something
+and they answer — "only in production, since yesterday's deploy" — that's a
+statement, not a question, and normally it wouldn't trigger anything. After a
+suggestion that asked something, Tayori waits for that reply for up to two
+minutes and answers it without a hotkey. It fires once per question asked; a
+greeting or a short "ok, great" doesn't count. It needs auto-trigger on and only
+happens with the Interview profile.
+
+It doesn't know whether you actually said the question out loud: if you skip it
+and the interviewer keeps talking, their next sentence gets a suggestion, once.
+
 **If you edited the Interview profile** in the settings, your text replaces the
 default one entirely, so none of this applies until you restore the default.
 

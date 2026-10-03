@@ -39,7 +39,7 @@ import { classifyQuestion, worthClassifying } from './question-classifier';
 import { buildSystemPrompt } from './prompt';
 import { TranscriptBuffer } from './transcript-buffer';
 import { AnswerEngine } from './answer-engine';
-import { looksLikeQuestion } from './question-detector';
+import { asksBack, looksLikeQuestion, looksLikeReply } from './question-detector';
 import { getAudioWorker } from '../windows/audio-worker';
 
 /**
@@ -112,6 +112,20 @@ class SessionOrchestrator {
   /** Time of the last auto-trigger, for the debounce. */
   private lastAutoTrigger = 0;
   private static readonly AUTO_DEBOUNCE_MS = 2_500;
+
+  /**
+   * How long a clarifying question in a suggestion keeps waiting for its reply.
+   *
+   * Long enough for the candidate to read it, say it and hear the answer; short
+   * enough that a statement minutes later, on another topic, doesn't fire as if
+   * it were that reply.
+   */
+  private static readonly FOLLOW_UP_WINDOW_MS = 120_000;
+
+  /** Until when a reply to the last suggestion's question is expected; 0 = none. */
+  private awaitingReplyUntil = 0;
+  /** The answer that armed it, so a re-emitted `done` doesn't re-arm a used wait. */
+  private followUpArmedBy: string | null = null;
 
   /**
    * Closed fragments that can still be part of the same question.
@@ -194,6 +208,7 @@ class SessionOrchestrator {
     });
 
     this.answers.on('answer', (answer: Answer) => {
+      if (answer.status === 'done') this.armFollowUp(answer);
       this.broadcast(IPC.onAnswer, answer);
       this.recordAnswer(answer);
       this.logAnswerStage(answer);
@@ -836,6 +851,27 @@ class SessionOrchestrator {
   private clearPendingTriggers(): void {
     for (const pending of this.pendingTrigger.values()) clearTimeout(pending.timer);
     this.pendingTrigger.clear();
+    this.awaitingReplyUntil = 0;
+  }
+
+  /**
+   * Starts waiting for the interviewer's reply if the suggestion asked them
+   * something.
+   *
+   * Only in the interview profile, which is the one told to ask before
+   * diagnosing: in a meeting a question mark in the answer is just a question,
+   * and firing on the next statement would be the noise the detector exists to
+   * avoid. Every finished answer decides afresh, so one that doesn't ask anything
+   * cancels the wait of the previous one.
+   */
+  private armFollowUp(answer: Answer): void {
+    if (answer.id === this.followUpArmedBy) return;
+    this.followUpArmedBy = answer.id;
+    const expectsReply =
+      this.answers.answeringProfile === 'interview' && asksBack(answer.text);
+    this.awaitingReplyUntil = expectsReply
+      ? Date.now() + SessionOrchestrator.FOLLOW_UP_WINDOW_MS
+      : 0;
   }
 
   private armSettleTimer(speaker: Speaker): NodeJS.Timeout {
@@ -867,6 +903,22 @@ class SessionOrchestrator {
     }
 
     const verdict = looksLikeQuestion(full, settings.autoTriggerSensitivity);
+
+    /*
+     * The reply to a clarifying question the suggestion asked.
+     *
+     * It's a statement, so the heuristic discards it, and without this the
+     * conversation the interview profile opened stalled right there: the
+     * candidate asked, the interviewer answered, and the continuation needed the
+     * manual hotkey. It's consumed on use —one reply per question asked— and it
+     * goes before the classifier because there's nothing left to doubt: a reply
+     * was being waited for.
+     */
+    if (!verdict.isQuestion && Date.now() < this.awaitingReplyUntil && looksLikeReply(full)) {
+      this.awaitingReplyUntil = 0;
+      this.fire(speaker, full, 'respuesta a la pregunta sugerida', parts.length);
+      return;
+    }
 
     /*
      * Second step: what the heuristic couldn't decide is asked to the model.

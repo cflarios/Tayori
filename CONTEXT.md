@@ -1613,12 +1613,28 @@ like "Situation:"», and `the interview profile no longer dictates copyable
 labels` failed: naming the label is giving the model a label to copy, the lesson
 that test already records.
 
-**The gap left open: the follow-up turn isn't automatic.** When the interviewer
+**The follow-up turn, and why it needed the detector.** When the interviewer
 answers your clarifying questions, what they say is a statement, not a question,
-and the detector —tuned for precision, see «Auto-trigger»— doesn't fire. The
-continuation needs the manual hotkey. Firing on any statement right after a
-suggestion that asked something would close it, and it's a detector change, not
-a prompt one.
+and the detector —tuned for precision, see «Auto-trigger»— rightly discards it.
+At first that left the conversation stalled right there: the continuation needed
+the manual hotkey. Now the session **waits for that reply**:
+
+- A finished suggestion **arms** the wait if it was answered with the interview
+  profile and carries a question mark (`asksBack`). Each finished answer decides
+  afresh, so one that asks nothing cancels the previous wait.
+- While it's armed —two minutes at most— a statement the heuristic discards is
+  fired anyway if it carries something (`looksLikeReply`: not a greeting or an
+  audio check, three words or more). It goes **before** the classifier: there's
+  nothing to doubt, a reply was being waited for.
+- It's **consumed** on use: one reply per question asked. If the follow-up asks
+  again, it arms again. «New conversation» and stopping clear it.
+
+What it doesn't do is know whether you actually said the question out loud. If
+you skipped it and the interviewer keeps talking, their next statement fires
+once; the two-minute window and the single use are what bound that. Only the
+interview profile arms it: in a meeting, a question mark in the answer is just a
+question, and firing on the next statement would be the noise the detector
+exists to avoid.
 
 **A user override isn't touched.** Whoever edited the interview profile in the
 dashboard has a text that replaces persona and rules wholesale, so none of this

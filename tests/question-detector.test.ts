@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { looksLikeQuestion } from '../src/main/core/question-detector';
+import { asksBack, looksLikeQuestion, looksLikeReply } from '../src/main/core/question-detector';
 import { worthClassifying } from '../src/main/core/question-classifier';
 
 /** Helper so the cases read like a table. */
@@ -358,6 +358,47 @@ describe('imperative requests', () => {
       'Desarrolla software para el sector bancario',
     ]) {
       expect(looksLikeQuestion(texto).isQuestion, texto).toBe(false);
+    }
+  });
+});
+
+/**
+ * The follow-up after a clarifying question. The interview profile asks the
+ * interviewer something before diagnosing; their reply is a statement, which the
+ * heuristic above rightly discards — so these two decide it instead, and only
+ * while a reply is being waited for.
+ */
+describe('asksBack', () => {
+  it('sees a question in the suggestion', () => {
+    expect(
+      asksBack('¿Esto pasa en todos los pods o solo en algunos?\nLo primero que miraría…')
+    ).toBe(true);
+    expect(asksBack('Is it every pod, or just some of them?')).toBe(true);
+  });
+
+  it('a suggestion that only explains asks nothing', () => {
+    expect(
+      asksBack('Un índice evita recorrer la tabla entera.\nEl coste está en las escrituras.')
+    ).toBe(false);
+  });
+});
+
+describe('looksLikeReply', () => {
+  it('takes the statements that carry the data asked for', () => {
+    for (const texto of [
+      'Solo en algunos pods, desde el deploy de ayer.',
+      'Only on some of the nodes',
+      'Empezó ayer por la tarde',
+    ]) {
+      // The point: the normal detector discards exactly these.
+      expect(looksLikeQuestion(texto).isQuestion, texto).toBe(false);
+      expect(looksLikeReply(texto), texto).toBe(true);
+    }
+  });
+
+  it('discards what carries nothing', () => {
+    for (const texto of ['', 'vale perfecto', 'Hola, ¿me escuchas?', 'sí']) {
+      expect(looksLikeReply(texto), texto).toBe(false);
     }
   });
 });
