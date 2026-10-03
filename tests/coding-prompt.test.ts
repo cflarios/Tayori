@@ -21,7 +21,8 @@ describe('code profile', () => {
   });
 
   it('the other profiles keep the speaking rules', () => {
-    for (const profile of ['interview', 'meeting', 'lecture', 'support'] as const) {
+    // Interview has its own spoken ones; see interview-prompt.test.ts.
+    for (const profile of ['meeting', 'lecture', 'support'] as const) {
       expect(buildSystemPrompt(settings({ promptProfileId: profile }))).toContain(
         'Máximo 4 viñetas'
       );
@@ -34,7 +35,7 @@ describe('code profile', () => {
     const configurado = settings({ promptProfileId: 'interview' });
 
     expect(buildSystemPrompt(configurado, 'coding')).toContain('El código COMPLETO');
-    expect(buildSystemPrompt(configurado)).toContain('Máximo 4 viñetas');
+    expect(buildSystemPrompt(configurado)).toContain('Entre dos y cuatro frases cortas');
     expect(configurado.promptProfileId).toBe('interview');
   });
 

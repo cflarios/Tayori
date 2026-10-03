@@ -11,6 +11,7 @@ for why it's built this way, [CONTEXT.md](CONTEXT.md).
 - [Guided setup](#guided-setup)
 - [First steps](#first-steps)
 - [Handling the overlay](#handling-the-overlay)
+- [The Interview profile](#the-interview-profile)
 - [Audio devices](#audio-devices)
 - [Spoken answers](#spoken-answers)
 - [Teleprompter mode](#teleprompter-mode)
@@ -155,6 +156,34 @@ Everything you use mid-call is in the top bar, without opening the settings:
 The bar buttons work even with *click-through* enabled: the overlay stops
 ignoring the mouse while the cursor is over the bar, and lets it pass again as
 soon as you leave.
+
+## The Interview profile
+
+The Interview profile writes what you're going to **say**, not notes to read: two
+to four short lines, in the first person and in a spoken register, each one
+something you can say as-is. It doesn't use bullets or labels, and it doesn't
+answer everything instantly and perfectly rounded, because in a real interview
+that sounds read.
+
+How it answers depends on the question:
+
+- **A hypothetical or open case** — troubleshooting ("the API latency doubled,
+  what do you do?"), system design, "how would you approach…": first one or two
+  questions to ask the interviewer to narrow the case down, then where you'd
+  start in the meantime — the first hypothesis and the command to check it. It
+  doesn't close the diagnosis yet: that's what the interviewer is evaluating.
+- **Once the interviewer gives you the data**, it doesn't ask again: it carries
+  on with what they said, up to the likely cause and how you'd fix it.
+- **If they ask you to cut to the chase** ("assume that…", "just tell me the
+  cause"), it answers directly.
+- **A conceptual question** ("what is X", "how do A and B differ") is explained
+  the way you'd tell a colleague, without asking first — there a question would
+  sound like stalling.
+- **A behavioural question** ("tell me about a time…") comes as a story told,
+  anchored in your CV, never in experience you don't have.
+
+**If you edited the Interview profile** in the settings, your text replaces the
+default one entirely, so none of this applies until you restore the default.
 
 ## Audio devices
 

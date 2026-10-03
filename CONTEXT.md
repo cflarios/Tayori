@@ -1576,7 +1576,53 @@ streaming. That's what Gemini Live is for.
 - **The prompt was designed under a single constraint:** the answer is read out
   of the corner of your eye while someone looks you in the face. Hence the maximum
   of 4 bullets, the ban on preambles, and the rule not to invent data outside
-  `<contexto>` — a generic answer is recoverable, a detected lie isn't.
+  `<contexto>` — a generic answer is recoverable, a detected lie isn't. The interview
+  profile later got its own, spoken format: see «The interview profile talks».
+
+### The interview profile talks, it doesn't hand over a fact sheet
+
+October 2026. The complaint was that the interview answers sounded mechanical:
+on a DevOps troubleshooting hypothetical it suggested the exact diagnosis at
+once, and a candidate who does that without asking a single question sounds like
+they're reading. In those questions the interviewer is evaluating the process,
+not the verdict.
+
+**Half the cause wasn't the profile, it was the format.** Interview shared
+`BASE_RULES` with meeting, lecture and support —at most four bullets, start
+straight with the content, the fact in the first bullet—, and those rules
+produce a fact sheet whatever the persona says. They fit the other three, where
+the text is a briefing for you; they don't fit a text you say out loud to
+someone. So interview got its own `INTERVIEW_RULES`: two to four short lines,
+each one said as-is in the first person, no bullets, spoken register. The length
+cap stays, because it's still read out of the corner of the eye.
+
+**What the persona now asks for, by type of question:**
+
+- Hypotheticals (troubleshooting, design): one or two questions to the
+  interviewer that narrow the case down, plus where you'd start meanwhile —first
+  hypothesis and the command to confirm it—, so that whoever reads it isn't left
+  with only questions if they're pushed to commit. It was chosen over «only
+  questions» for that reason.
+- If the interviewer already answered, **no asking again**: continue the
+  reasoning. Otherwise the second turn would ask the same thing twice.
+- Conceptual questions are answered **without** asking first: there a question
+  sounds like stalling.
+
+**The label examples were removed on purpose.** The first draft said «no labels
+like "Situation:"», and `the interview profile no longer dictates copyable
+labels` failed: naming the label is giving the model a label to copy, the lesson
+that test already records.
+
+**The gap left open: the follow-up turn isn't automatic.** When the interviewer
+answers your clarifying questions, what they say is a statement, not a question,
+and the detector —tuned for precision, see «Auto-trigger»— doesn't fire. The
+continuation needs the manual hotkey. Firing on any statement right after a
+suggestion that asked something would close it, and it's a detector change, not
+a prompt one.
+
+**A user override isn't touched.** Whoever edited the interview profile in the
+dashboard has a text that replaces persona and rules wholesale, so none of this
+reaches them until they restore the default.
 
 ### Prompt injection: the envelope and the rule
 

@@ -111,7 +111,7 @@ describe('quiz profile', () => {
   it("the forced profile doesn't touch the configured one", () => {
     const current = settings({ promptProfileId: 'interview' });
     expect(buildSystemPrompt(current, 'quiz')).toContain('DUDA:');
-    expect(buildSystemPrompt(current)).toContain('Máximo 4 viñetas');
+    expect(buildSystemPrompt(current)).toContain('Entre dos y cuatro frases cortas');
   });
 });
 

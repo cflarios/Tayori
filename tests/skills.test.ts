@@ -241,7 +241,7 @@ describe('buildSystemPrompt with a skill', () => {
     expect(prompt).toContain('NO cambia el formato');
     expect(prompt).toContain('gana la regla de formato');
     // And the profile's rules are still there in full.
-    expect(prompt).toContain('Máximo 4 viñetas');
+    expect(prompt).toContain('Entre dos y cuatro frases cortas');
   });
 
   it("coexists with code mode's forced profile", () => {

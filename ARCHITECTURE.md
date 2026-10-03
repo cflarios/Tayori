@@ -234,7 +234,8 @@ flowchart TB
     SYS["System prompt"]
     SYS --> P["Active profile<br/>interview · meeting · lecture · support · coding · quiz · general · custom<br/>(interpreter is a separate mode)"]
     SYS --> R["Format rules<br/>RULES[profile]"]
-    R --> RA["The speaking profiles:<br/>max 4 bullets, no preamble"]
+    R --> RA["meeting · lecture · support · custom:<br/>max 4 bullets, no preamble"]
+    R --> RI["interview:<br/>2–4 spoken lines, asks before<br/>diagnosing a hypothetical"]
     R --> RB["coding:<br/>full code block"]
     R --> RC["quiz:<br/>one line per question"]
     SYS --> CTX["Context block"]
@@ -257,7 +258,7 @@ confusing them is what makes one of them go unnoticed:
 
 | | What it adds | Example |
 |---|---|---|
-| Profile | The **shape** of the answer | 4 bullets · code block · one line per question |
+| Profile | The **shape** of the answer | 4 bullets · spoken lines · code block · one line per question |
 | Context pack | The **material** | The CV, the job offer, prepared answers |
 | Skill | The **way** of writing | Which words to avoid, what rhythm, what tone |
 
@@ -275,10 +276,12 @@ A few things that aren't obvious:
 - **The conversation history travels as real messages**, not summarized inside
   the prompt. That's what makes the model treat its own previous answers as
   things it said.
-- **`RULES` is a profile → rules map, not a constant.** `coding` is the only one
-  that **replaces** the format rules instead of inheriting them: the four
-  bullets exist because the answer is read out of the corner of your eye, and an
-  algorithm isn't read, it's copied.
+- **`RULES` is a profile → rules map, not a constant.** `coding` **replaces**
+  the format rules instead of inheriting them: the four bullets exist because the
+  answer is read out of the corner of your eye, and an algorithm isn't read, it's
+  copied. `interview` has its own too, `INTERVIEW_RULES`: still short, but lines
+  to say out loud instead of bullets, because there the text is said to someone
+  who's evaluating how you think.
 - **The answer language is a prompt rule, not a model setting.** By default a rule
   tells the model to answer in the conversation's language (for a screen action,
   the screen's). If the user pins a language (`settings.answerLanguage`), that
