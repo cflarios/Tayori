@@ -7,6 +7,15 @@ contents are generated automatically from commits following the
 > Entries up to and including **1.6.0** are in Spanish, mirroring the commit
 > history at the time. From the next release onward they are in English.
 
+## [1.13.0](https://github.com/cflarios/Tayori/compare/v1.12.4...v1.13.0) (2026-10-03)
+
+
+### Features
+
+* **auto-trigger:** answer the interviewer's reply to a suggested question ([cd9f14e](https://github.com/cflarios/Tayori/commit/cd9f14ed4794c462a2ddcc451b7b997ae01309ac))
+* **models:** update cloud catalogs and move Gemini Live to the dedicated transcriber ([3c8cdad](https://github.com/cflarios/Tayori/commit/3c8cdadfef5b4106f5c57f394e4f94a1d685938a))
+* **prompt:** conversational interview profile with its own spoken format ([e985bd9](https://github.com/cflarios/Tayori/commit/e985bd9631877c710e996e2bc85694942e0e38ca))
+
 ## [1.12.4](https://github.com/cflarios/Tayori/compare/v1.12.3...v1.12.4) (2026-08-27)
 
 
