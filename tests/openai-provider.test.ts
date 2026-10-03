@@ -80,7 +80,7 @@ describe('OpenAIProvider · what goes out to the API', () => {
   it('returns the text that arrives in pieces', async () => {
     scripted.push({ status: 200, events: textEvents('Kubernetes ', 'orquesta contenedores.') });
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     const text = await collect(provider.streamAnswer(request(), new AbortController().signal));
 
     expect(text).toBe('Kubernetes orquesta contenedores.');
@@ -93,7 +93,7 @@ describe('OpenAIProvider · what goes out to the API', () => {
     // aren't touched.
     scripted.push({ status: 200, events: textEvents('ok') });
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     await collect(provider.streamAnswer(request(), new AbortController().signal));
 
     expect(received[0]!.store).toBe(false);
@@ -104,7 +104,7 @@ describe('OpenAIProvider · what goes out to the API', () => {
     // model that thinks spends it all and finishes without writing anything.
     scripted.push({ status: 200, events: textEvents('ok') });
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     await collect(provider.streamAnswer(request({ maxTokens: 2_200 }), new AbortController().signal));
 
     expect(received[0]!.reasoning).toEqual({ effort: 'low' });
@@ -116,7 +116,7 @@ describe('OpenAIProvider · what goes out to the API', () => {
     // Summarizing them in the text doesn't produce the same effect.
     scripted.push({ status: 200, events: textEvents('ok') });
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     await collect(
       provider.streamAnswer(
         request({
@@ -140,7 +140,7 @@ describe('OpenAIProvider · what goes out to the API', () => {
   it('attaches the capture as an image and leaves the instruction behind it', async () => {
     scripted.push({ status: 200, events: textEvents('ok') });
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     await collect(
       provider.streamAnswer(
         request({ images: [{ mime: 'image/jpeg', base64: 'QUJD' }] }),
@@ -171,7 +171,7 @@ describe('OpenAIProvider · what comes back', () => {
       ],
     });
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     await expect(
       collect(provider.streamAnswer(request(), new AbortController().signal))
     ).rejects.toThrow(LLMError);
@@ -190,7 +190,7 @@ describe('OpenAIProvider · what comes back', () => {
       ],
     });
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     // Without readable settings, `m()` falls back to the default language, English.
     await expect(
       collect(provider.streamAnswer(request(), new AbortController().signal))
@@ -227,7 +227,7 @@ describe('OpenAIProvider · what comes back', () => {
     const controller = new AbortController();
     controller.abort();
 
-    const provider = new OpenAIProvider('sk-test', 'gpt-5.6-terra');
+    const provider = new OpenAIProvider('sk-test', 'gpt-6.1-sol');
     await expect(collect(provider.streamAnswer(request(), controller.signal))).resolves.toBe('');
   });
 });

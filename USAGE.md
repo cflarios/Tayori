@@ -41,7 +41,8 @@ for why it's built this way, [CONTEXT.md](CONTEXT.md).
   - The Google and OpenAI keys also work for **transcription**. Anthropic and
     DeepSeek only answer: if those are the only keys you set, speech is handled
     by Whisper local.
-  - **DeepSeek can't read images**, so it doesn't work for the screen buttons.
+  - **The app doesn't send images to DeepSeek**, so it doesn't work for the screen
+    buttons.
 
 ## Installation
 
@@ -388,7 +389,7 @@ the capture is downscaled for the model. **Pin the shared content to full screen
 (the Meet/Zoom "pin") before collecting, or the prompt may end up illegible.
 
 Like any screen action, it needs a **vision-capable model** (Claude, Gemini,
-OpenAI or multimodal Ollama); DeepSeek can't read images.
+OpenAI or multimodal Ollama); the app doesn't send images to DeepSeek.
 
 ## Code mode
 
@@ -663,6 +664,12 @@ the model itself, which returns transcription and answer at once. A bad
 transcription can no longer spoil the answer, because the model hears what you
 said instead of reading what someone else understood. In exchange, the audio
 leaves your machine.
+
+**Gemini Live** uses `gemini-3.5-transcribe-live`, Google's dedicated live
+transcriber, when your key has access to it. If it doesn't, it falls back to the
+older conversational Live models; those transcribe just as well but also
+generate an answer that's thrown away, which costs a little. *Test
+transcription* in the dashboard says which one your key got.
 
 ### Which model to use: the card and the guide
 

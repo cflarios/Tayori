@@ -18,7 +18,7 @@ describe('screenModelFor', () => {
     // It's what guarantees that whoever touches nothing keeps the behavior from
     // before this setting existed.
     const target = screenModelFor(settings());
-    expect(target).toEqual({ providerId: 'claude', model: 'claude-sonnet-5', inherited: true });
+    expect(target).toEqual({ providerId: 'claude', model: 'claude-sonnet-5-5', inherited: true });
   });
 
   it("a dedicated provider for the screen doesn't touch the conversing one", () => {
@@ -41,7 +41,7 @@ describe('screenModelFor', () => {
     // An empty field would give a provider error about a setting the user doesn't
     // know exists; answering with something is preferable.
     const target = screenModelFor(settings({ screenProviderId: 'gemini', screenModel: '' }));
-    expect(target.model).toBe('gemini-3.6-flash');
+    expect(target.model).toBe('gemini-3.8-flash');
   });
 
   it('the same provider can carry a different model', () => {
@@ -51,10 +51,10 @@ describe('screenModelFor', () => {
       settings({
         llmProviderId: 'ollama',
         llmModels: {
-          claude: 'claude-sonnet-5',
-          gemini: 'gemini-3.6-flash',
-          openai: 'gpt-5.6-terra',
-          deepseek: 'deepseek-v4-flash',
+          claude: 'claude-sonnet-5-5',
+          gemini: 'gemini-3.8-flash',
+          openai: 'gpt-6.1-sol',
+          deepseek: 'deepseek-flash',
           ollama: 'llama3.2:3b',
         },
         screenProviderId: 'ollama',

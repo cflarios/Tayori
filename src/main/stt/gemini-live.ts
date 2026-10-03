@@ -11,12 +11,14 @@ import { m } from '../i18n';
  * mixing the two streams, but it's what keeps the who-spoke attribution exact:
  * a single session with mixed audio would return an indistinguishable transcript.
  *
- * Known trade-off: the Live models are conversational, not pure transcribers —
- * they'll try to answer the audio they receive. We mitigate it by requesting
- * `responseModalities: [TEXT]` (the cheapest output) plus a system instruction
- * asking it to stay quiet, and by discarding `modelTurn` entirely. We consume
- * only `inputTranscription`. There's no way to disable generation in the Live
- * API, so a small output cost is paid.
+ * Since October 2026 the first choice is `gemini-3.5-transcribe-live`, a
+ * **dedicated transcriber**: it generates no answer, so there's nothing to
+ * silence and no output to pay for. The rest of the chain are the older
+ * conversational Live models, kept for accounts that only reach those, and
+ * with them the old trade-off still holds: they'll try to answer the audio they
+ * receive. We mitigate it by requesting `responseModalities: [TEXT]` (the
+ * cheapest output) plus a system instruction asking it to stay quiet, and by
+ * discarding `modelTurn` entirely. We consume only `inputTranscription`.
  */
 
 /**
@@ -35,13 +37,54 @@ import { m } from '../i18n';
  * which besides not appearing in the SDK is a native-audio model: those expect
  * `responseModalities: [AUDIO]` and here TEXT is requested, so it had two reasons
  * to fail. It stays last, in case some account only has that one.
+ *
+ * October 2026: the dedicated transcriber goes first,
+ * `gemini-3.1-flash-live-preview` moves up as the newest conversational one
+ * (Google lists it as legacy), the 2.5 ones stay for the accounts that still reach them (Google
+ * restricts them to past users) and `gemini-2.0-flash-live-preview-04-09` is
+ * gone: the 2.0 family is shut down.
  */
 export const GEMINI_LIVE_MODELS = [
-  'gemini-live-2.5-flash-preview',
-  'gemini-2.0-flash-live-preview-04-09',
+  'gemini-3.5-transcribe-live',
   'gemini-3.1-flash-live-preview',
+  'gemini-live-2.5-flash-preview',
   'gemini-2.5-flash-native-audio-preview-12-2025',
 ] as const;
+
+/**
+ * Whether the model is a dedicated transcriber and not a conversational one.
+ *
+ * It changes two things: it isn't sent the silence instruction (there's no
+ * answer to silence), and its transcript arrives in a different shape — see
+ * `Lane.handleTranscriber`.
+ */
+function isTranscriber(model: string): boolean {
+  return model.includes('-transcribe');
+}
+
+/**
+ * Removes from a transcriber result the turns that were already finalized.
+ *
+ * Sometimes a partial **restates the finalized turns first**, glued together
+ * without spaces (`"…of October.Before then"`). It's not documented by Google;
+ * it was reported by another project using this same model in production. Since
+ * the partials are emitted as the whole text of the open turn, letting that
+ * through would write the previous sentence twice on screen and in the
+ * transcript sent to the model. They're removed in order, and only if they're
+ * actually at the start: a sentence that merely repeats words isn't touched.
+ */
+export function stripRestated(text: string, finalized: readonly string[]): string {
+  for (let start = 0; start < finalized.length; start += 1) {
+    let rest = text.trimStart();
+    let index = start;
+    while (index < finalized.length && rest.startsWith(finalized[index]!)) {
+      rest = rest.slice(finalized[index]!.length).trimStart();
+      index += 1;
+    }
+    if (index === finalized.length) return rest;
+  }
+  return text;
+}
 
 /**
  * Output modalities to try, in order.
@@ -162,6 +205,8 @@ class Lane {
    */
   private pending: Buffer[] = [];
   private static readonly MAX_PENDING_CHUNKS = 50; // ~5 s at 100 ms/chunk
+  /** Turns the transcriber finalized in this session; see `stripRestated`. */
+  private finalized: string[] = [];
 
   constructor(
     private readonly speaker: Speaker,
@@ -175,6 +220,8 @@ class Lane {
 
   async connect(): Promise<void> {
     this.closed = false;
+    // A new session doesn't restate the previous one's turns.
+    this.finalized = [];
 
     const languageConfig =
       this.options.language === 'auto'
@@ -188,7 +235,7 @@ class Lane {
         // The output is discarded entirely no matter what; we only consume
         // `inputAudioTranscription`. The modality is imposed by the model.
         responseModalities: [this.modality],
-        systemInstruction: SILENCE_INSTRUCTION,
+        ...(isTranscriber(this.model) ? {} : { systemInstruction: SILENCE_INSTRUCTION }),
         inputAudioTranscription: {
           ...languageConfig,
           ...(this.options.vocabulary?.length
@@ -221,6 +268,11 @@ class Lane {
   }
 
   private handleMessage(message: LiveServerMessage): void {
+    if (isTranscriber(this.model)) {
+      this.handleTranscriber(message);
+      return;
+    }
+
     const transcription = message.serverContent?.inputTranscription;
     if (!transcription?.text) return;
 
@@ -230,6 +282,45 @@ class Lane {
       // `finished` marks that the engine won't revise this fragment anymore.
       isFinal: transcription.finished === true,
     });
+  }
+
+  /**
+   * The dedicated transcriber speaks in two fields, not in fragments.
+   *
+   * `interimInputTranscription` is the **hypothesis of the open turn**, which
+   * each new one overwrites, and `inputTranscription` is that turn finalized,
+   * whole. Both are therefore cumulative: concatenating them like the
+   * conversational models' fragments would repeat the sentence at every update.
+   */
+  private handleTranscriber(message: LiveServerMessage): void {
+    const content = message.serverContent;
+
+    const interim = content?.interimInputTranscription?.text;
+    if (interim) {
+      const text = stripRestated(interim, this.finalized);
+      if (text.trim()) {
+        this.emitter.emit('segment', {
+          speaker: this.speaker,
+          text,
+          isFinal: false,
+          cumulative: true,
+        });
+      }
+    }
+
+    const final = content?.inputTranscription?.text;
+    if (final) {
+      const text = stripRestated(final, this.finalized).trim();
+      if (text) {
+        this.finalized.push(text);
+        this.emitter.emit('segment', {
+          speaker: this.speaker,
+          text,
+          isFinal: true,
+          cumulative: true,
+        });
+      }
+    }
   }
 
   private scheduleReconnect(): void {
@@ -320,14 +411,23 @@ export class GeminiLiveSTT implements STTProvider {
   /** A fixed `model` skips the negotiation; without it the candidates are tried. */
   constructor(
     private readonly apiKey: string,
-    private readonly model?: string
+    private readonly model?: string,
+    /** Only the tests use it, to talk to a local server. */
+    private readonly baseUrl?: string
   ) {}
+
+  private createClient(): GoogleGenAI {
+    return new GoogleGenAI({
+      apiKey: this.apiKey,
+      ...(this.baseUrl ? { httpOptions: { baseUrl: this.baseUrl } } : {}),
+    });
+  }
 
   async start(options: STTStartOptions): Promise<void> {
     await this.stop();
     // The client belongs to the session, not the provider: each `start` opens
     // its own and the lanes capture it, so `stop` has nothing to clean up.
-    const client = new GoogleGenAI({ apiKey: this.apiKey });
+    const client = this.createClient();
     const { model, modality } = await this.resolveModel(client, options);
 
     // Only the speakers being listened to: one session per speaker is expensive.
@@ -381,7 +481,7 @@ export class GeminiLiveSTT implements STTProvider {
                 model: candidate,
                 config: {
                   responseModalities: [modality],
-                  systemInstruction: SILENCE_INSTRUCTION,
+                  ...(isTranscriber(candidate) ? {} : { systemInstruction: SILENCE_INSTRUCTION }),
                   inputAudioTranscription:
                     options.language === 'auto'
                       ? { languageAuto: {} }
@@ -447,7 +547,7 @@ export class GeminiLiveSTT implements STTProvider {
    */
   async testConnection(language: string): Promise<{ ok: boolean; detail: string }> {
     try {
-      const client = new GoogleGenAI({ apiKey: this.apiKey });
+      const client = this.createClient();
       const { model, modality } = await this.resolveModel(client, {
         sampleRate: 16_000,
         language,

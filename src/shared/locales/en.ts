@@ -928,7 +928,7 @@ export const en = {
   'wiz.geminiNote': 'Cheaper, and the same key works for live transcription.',
   'wiz.openaiNote': 'If you already pay for OpenAI. It answers and also transcribes.',
   'wiz.deepseekNote':
-    'The cheapest by far. It does not read images, so the screen needs another one.',
+    'The cheapest by far. The app does not send it images, so the screen needs another one.',
   'wiz.apiKey': 'API key',
   'wiz.alreadyHave': 'you already have one',
   'wiz.keepExisting': 'Leave it empty to use the one you already saved',
@@ -1054,7 +1054,7 @@ export const en = {
     'platform.openai.com → API keys. Works for the answers and also to transcribe with the OpenAI engines.',
   'keys.deepseek': 'DeepSeek',
   'keys.deepseekHint':
-    'platform.deepseek.com → API keys. Answers only: they have no transcription models, and their models do not read images.',
+    'platform.deepseek.com → API keys. Answers only: they have no transcription models, and the app does not send them images.',
   'keys.ollama': 'Ollama (local)',
   'keys.ollamaBadge': 'no key needed',
 
@@ -1378,12 +1378,12 @@ export const en = {
     'A screenshot is not free: the app sends it 1600 px wide, and at that resolution a high-resolution vision model bills it as <strong>around 4,800 input tokens</strong>. With a normal-sized answer, and counting the system prompt, it works out at roughly:',
   'guide.thScreenModel': 'Screen model',
   'guide.thCostEach': 'Approximate cost per press',
-  'guide.costLuna': 'two thousandths of a dollar',
+  'guide.costLuna': 'under a thousandth of a dollar',
   'guide.costHaiku': 'half a cent',
-  'guide.costTerra': 'a cent and a half',
-  'guide.costSonnet': 'about 2 cents',
-  'guide.costOpus': 'about 4 cents',
-  'guide.costSol': 'about 4 cents',
+  'guide.costAstra': 'about 8 cents',
+  'guide.costSonnet': 'a cent and a half',
+  'guide.costOpus': 'about 3 cents',
+  'guide.costSol': 'a cent and a half',
   'guide.costOutro':
     'These are orders of magnitude, not an invoice: the real cost depends on how much context you have loaded. The practical conclusion is that screen mode is cheap even with the expensive model — <strong>what adds up is the automatic listening</strong>, which fires a query for every question it hears.',
   'guide.costHaikuNote':
@@ -1402,7 +1402,7 @@ export const en = {
   'guide.recipe3Who':
     'You do not want to install anything and your machine cannot run local models.',
   'guide.recipe3Cost':
-    'The cheapest thing that works. Conversation is almost free and you only really pay per screen press. Careful: the conversation one can be anything, but the screen one HAS to read images, and DeepSeek does not.',
+    'The cheapest thing that works. Conversation is almost free and you only really pay per screen press. Careful: the conversation one can be anything, but the screen one HAS to read images, and the app does not send them to DeepSeek.',
   'guide.recipe4Title': 'No compromises',
   'guide.recipe4Who': 'A real technical assessment, and you would rather not gamble.',
   'guide.recipe4Cost': 'The most expensive on the list, and even so it is cents per exercise.',
@@ -1433,36 +1433,36 @@ export const en = {
     'The best you can run locally for reading screens. It asks for a real machine.',
   // Prices, vision and notes of the paid ones.
   'guide.priceHaiku45': '$1 / $5 per million tokens (input / output)',
-  'guide.priceSonnet5': '$3 / $15 (introductory $2 / $10 until 31-08-2026)',
-  'guide.priceOpus5': '$5 / $25',
+  'guide.priceSonnet55': '$2 / $10',
+  'guide.priceOpus55': '$4 / $20',
   'guide.priceGemini': 'See ai.google.dev/pricing for the current price',
-  'guide.priceLuna': '$0.20 / $1.20 per million tokens (input / output)',
-  'guide.priceTerra': '$2 / $12',
-  'guide.priceDsFlash': '$0.28 / $0.28 ($0.14 for already-cached input)',
-  'guide.priceDsPro': '$0.87 / $0.87 ($0.435 for already-cached input)',
-  'guide.priceSol': '$5 / $30',
+  'guide.priceLuna': '$0.10 / $0.50 per million tokens (input / output)',
+  'guide.priceAstra': '$10 / $50',
+  'guide.priceDsFlash': '$0.30 / $1.20 at peak hours, half that off-peak',
+  'guide.priceDsPro': '$1.32 / $3.96 at peak hours, half that off-peak',
+  'guide.priceSol': '$2 / $10',
   'guide.visionStd': 'Yes, at standard resolution',
   'guide.visionHigh': 'Yes, high resolution (2576 px)',
   'guide.visionYes': 'Yes',
   'guide.visionNo': 'NO',
   'guide.haiku45':
-    'The cheapest Anthropic model and the lowest latency one. It reads screenshots, but at a lower resolution than the Claude 5s: for a statement in small print it is the first one to fail.',
-  'guide.sonnet5':
+    'The cheapest Anthropic model and the lowest latency one. It reads screenshots, but at a lower resolution than the Claude 5.5s: for a statement in small print it is the first one to fail.',
+  'guide.sonnet55':
     'This app’s default, and with good reason: it reads a screenshot well and answers fast. If you are only going to set up one model, this one.',
-  'guide.opus5':
+  'guide.opus55':
     'For the exercises Sonnet cannot crack. It costs twice as much per token and answers more slowly: it makes sense as a screen-ONLY model, not for conversation.',
-  'guide.gemini36flash':
+  'guide.gemini38flash':
     'The same key works for transcription with Gemini Live, so a single credential gives you ears and answers. The price is not reproduced here because it could not be verified against the same kind of source as the Anthropic ones.',
   'guide.luna':
-    'The cheapest in this whole table, by an order of magnitude. It is OpenAI’s model for price-sensitive workloads: the obvious pick if what worries you is what the automatic listening spends.',
-  'guide.terra':
-    'The balance between capability and cost, and the one the app sets by default on OpenAI. It reasons before answering; the app asks it for the lowest effort so that does not show up as latency.',
-  'guide.dsFlash':
-    'The cheapest in the whole table, by a fair margin. A 1M-token window. It does not read images, so it is NO use for the screen actions: it is the conversation option when what worries you is what the automatic listening spends.',
-  'guide.dsPro':
-    'DeepSeek’s big one, still below what the cheapest Anthropic model costs. It does not read images either.',
-  'guide.sol':
+    'The cheapest in this whole table. It is OpenAI’s model for price-sensitive workloads: the obvious pick if what worries you is what the automatic listening spends.',
+  'guide.astra':
     'OpenAI’s frontier model, for complex work. Its output is the most expensive in the table: like Opus, it makes more sense for the screen ONLY than for answering every sentence of a meeting.',
+  'guide.dsFlash':
+    'Among the cheapest in the table; only GPT-6 Luna costs less. A 1M-token window. The model now reads images, but the app does not send it any yet, so it is NO use for the screen actions: it is a conversation option when what worries you is what the automatic listening spends.',
+  'guide.dsPro':
+    'DeepSeek’s big one, around what the cheapest Anthropic model costs. It does not read images.',
+  'guide.sol':
+    'Close to Astra for a fifth of the price, and the one the app sets by default on OpenAI. It reasons before answering; the app asks it for the lowest effort so that does not show up as latency.',
 
   // Failures read in Diagnostics or in the overlay, not in the log.
   'diag.logUnreadable': 'The log could not be read: {detail}',

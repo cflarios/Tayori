@@ -37,7 +37,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       if (!apiKey) {
         throw new LLMError(m('err.noKeyAnthropic'), 'claude');
       }
-      return new ClaudeProvider(apiKey, model || 'claude-sonnet-5');
+      return new ClaudeProvider(apiKey, model || 'claude-sonnet-5-5');
     }
 
     case 'gemini': {
@@ -45,7 +45,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       if (!apiKey) {
         throw new LLMError(m('err.noKeyGoogle'), 'gemini');
       }
-      return new GeminiProvider(apiKey, model || 'gemini-3.6-flash');
+      return new GeminiProvider(apiKey, model || 'gemini-3.8-flash');
     }
 
     case 'openai': {
@@ -53,7 +53,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       if (!apiKey) {
         throw new LLMError(m('err.noKeyOpenai'), 'openai');
       }
-      return new OpenAIProvider(apiKey, model || 'gpt-5.6-terra');
+      return new OpenAIProvider(apiKey, model || 'gpt-6.1-sol');
     }
 
     case 'deepseek': {
@@ -61,7 +61,7 @@ export function createLLMProvider(settings: Settings, forScreen = false): LLMPro
       if (!apiKey) {
         throw new LLMError(m('err.noKeyDeepseek'), 'deepseek');
       }
-      return new DeepSeekProvider(apiKey, model || 'deepseek-v4-flash');
+      return new DeepSeekProvider(apiKey, model || 'deepseek-flash');
     }
 
     case 'ollama':

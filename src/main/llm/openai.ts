@@ -8,8 +8,8 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  * OpenAI (ChatGPT) provider.
  *
  * It goes through the **Responses API**, not Chat Completions, and it's not
- * indifferent: the GPT-5 models reason, and in Chat Completions the reasoning
- * can't be governed —neither the effort nor the budget— so the only latency
+ * indifferent: the GPT-5 and GPT-6 models reason, and in Chat Completions the
+ * reasoning can't be governed —neither the effort nor the budget— so the only latency
  * lever that exists for this use case lives in the other API.
  *
  * Four provider-specific decisions, all verified against the installed SDK's
@@ -39,28 +39,29 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  */
 
 /**
- * Starting catalog: the GPT-5.6 family, which is the current one.
+ * Starting catalog: the GPT-6 family, which is the current one.
  *
  * The three roles and the vision are **verified against OpenAI's reference**,
- * not deduced from the name — which is no help here, because "sol", "terra" and
- * "luna" don't say which is the big one: Sol is the frontier model for complex
- * work, Terra balances capability and cost, and Luna is the one for
- * price-sensitive loads. All three accept text **and image**, which is the
- * condition for also appearing in the screen selector.
+ * not deduced from the name — which is no help here, and less than before: in
+ * GPT-5.6 "sol" was the frontier model, and in GPT-6 **Sol is the middle one**.
+ * Astra is the frontier model, Sol gives near-Astra performance at a fifth of
+ * the price, and Luna is the one for price-sensitive loads. All three accept
+ * text **and image**, which is the condition for also appearing in the screen
+ * selector.
  *
  * Like Claude's and Gemini's, it's a **suggestion and not a boundary**: the
  * dashboard offers "Other…" to type any id, and the installed SDK lists quite a
- * few more (the `gpt-5.4` and earlier families, the `-pro`s, the `-codex`es).
+ * few more.
  *
- * The order isn't by price, it's by **which one almost everyone wants**: Terra
+ * The order isn't by price, it's by **which one almost everyone wants**: Sol
  * first because it's the default, and for the same reason Sonnet is in Claude —
  * an app that fires a query for every question it hears mustn't start with the
  * expensive model.
  */
 export const OPENAI_MODELS: ModelInfo[] = [
-  { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', supportsVision: true, note: 'mdl.balanced' },
-  { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', supportsVision: true, note: 'mdl.capable' },
-  { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', supportsVision: true, note: 'mdl.cheapest' },
+  { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', supportsVision: true, note: 'mdl.balanced' },
+  { id: 'gpt-6-astra', label: 'GPT-6 Astra', supportsVision: true, note: 'mdl.capable' },
+  { id: 'gpt-6-luna', label: 'GPT-6 Luna', supportsVision: true, note: 'mdl.cheapest' },
 ];
 
 /** Reasoning effort level. `low` prioritizes latency. */
@@ -126,7 +127,7 @@ export class OpenAIProvider implements LLMProvider {
 
   constructor(
     apiKey: string,
-    readonly model: string = 'gpt-5.6-terra',
+    readonly model: string = 'gpt-6.1-sol',
     private readonly effort: Effort = 'low'
   ) {
     this.client = new OpenAI({ apiKey });

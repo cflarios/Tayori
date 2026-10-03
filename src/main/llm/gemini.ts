@@ -12,7 +12,7 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  */
 
 export const GEMINI_MODELS: ModelInfo[] = [
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', supportsVision: true, note: 'mdl.fast' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', supportsVision: true, note: 'mdl.fast' },
 ];
 
 export class GeminiProvider implements LLMProvider {
@@ -23,7 +23,7 @@ export class GeminiProvider implements LLMProvider {
 
   constructor(
     apiKey: string,
-    readonly model: string = 'gemini-3.6-flash'
+    readonly model: string = 'gemini-3.8-flash'
   ) {
     this.client = new GoogleGenAI({ apiKey });
   }

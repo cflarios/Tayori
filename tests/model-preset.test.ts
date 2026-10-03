@@ -38,9 +38,9 @@ describe('applyModelPreset', () => {
     const current = settings({
       llmModels: {
         claude: 'claude-opus-4-8',
-        gemini: 'gemini-3.6-flash',
-        openai: 'gpt-5.6-terra',
-        deepseek: 'deepseek-v4-flash',
+        gemini: 'gemini-3.8-flash',
+        openai: 'gpt-6.1-sol',
+        deepseek: 'deepseek-flash',
         ollama: '',
       },
     });
@@ -49,9 +49,9 @@ describe('applyModelPreset', () => {
 
     expect(patch.llmModels).toEqual({
       claude: 'claude-opus-4-8',
-      gemini: 'gemini-3.6-flash',
-      openai: 'gpt-5.6-terra',
-      deepseek: 'deepseek-v4-flash',
+      gemini: 'gemini-3.8-flash',
+      openai: 'gpt-6.1-sol',
+      deepseek: 'deepseek-flash',
       ollama: 'llama3.1:8b',
     });
   });

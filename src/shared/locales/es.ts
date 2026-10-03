@@ -906,7 +906,7 @@ export const es: Record<UIKey, string> = {
   'wiz.geminiNote': 'Más barato, y la misma clave sirve para transcribir en directo.',
   'wiz.openaiNote': 'Si ya pagas OpenAI. Responde y también transcribe.',
   'wiz.deepseekNote':
-    'El más barato con diferencia. No lee imágenes, así que la pantalla pide otro.',
+    'El más barato con diferencia. La app no le manda imágenes, así que la pantalla pide otro.',
   'wiz.apiKey': 'API key',
   'wiz.alreadyHave': 'ya tienes una',
   'wiz.keepExisting': 'Déjalo vacío para usar la que ya guardaste',
@@ -1030,7 +1030,7 @@ export const es: Record<UIKey, string> = {
     'platform.openai.com → API keys. Sirve para las respuestas y también para transcribir con los motores de OpenAI.',
   'keys.deepseek': 'DeepSeek',
   'keys.deepseekHint':
-    'platform.deepseek.com → API keys. Sólo responde: no tienen modelos de transcripción, y sus modelos no leen imágenes.',
+    'platform.deepseek.com → API keys. Sólo responde: no tienen modelos de transcripción, y la app no les manda imágenes.',
   'keys.ollama': 'Ollama (local)',
   'keys.ollamaBadge': 'no necesita clave',
 
@@ -1343,12 +1343,12 @@ export const es: Record<UIKey, string> = {
     'Una captura no es gratis: la app la manda a 1600 px de ancho, y a esa resolución un modelo con visión de alta resolución la cobra como <strong>unos 4.800 tokens de entrada</strong>. Con una respuesta de tamaño normal, y contando el prompt del sistema, sale aproximadamente:',
   'guide.thScreenModel': 'Modelo de pantalla',
   'guide.thCostEach': 'Coste aproximado por pulsación',
-  'guide.costLuna': 'dos décimas de céntimo',
+  'guide.costLuna': 'menos de una décima de céntimo',
   'guide.costHaiku': 'medio céntimo',
-  'guide.costTerra': 'céntimo y medio',
-  'guide.costSonnet': 'unos 2 céntimos',
-  'guide.costOpus': 'unos 4 céntimos',
-  'guide.costSol': 'unos 4 céntimos',
+  'guide.costAstra': 'unos 8 céntimos',
+  'guide.costSonnet': 'céntimo y medio',
+  'guide.costOpus': 'unos 3 céntimos',
+  'guide.costSol': 'céntimo y medio',
   'guide.costOutro':
     'Son órdenes de magnitud, no una factura: el coste real depende de cuánto contexto tengas cargado. La conclusión práctica es que el modo pantalla es barato aunque uses el modelo caro — <strong>lo que suma es la escucha automática</strong>, que dispara una consulta por cada pregunta que oye.',
   'guide.costHaikuNote':
@@ -1366,7 +1366,7 @@ export const es: Record<UIKey, string> = {
   'guide.recipe3Title': 'Todo nube, lo más barato que funciona',
   'guide.recipe3Who': 'No quieres instalar nada y tu máquina no da para modelos locales.',
   'guide.recipe3Cost':
-    'Lo más barato que funciona. Conversar sale casi gratis y sólo se paga de verdad cada pulsación de pantalla. Ojo: el de conversar tiene que ser uno cualquiera, pero el de la pantalla TIENE que leer imágenes, y DeepSeek no lee.',
+    'Lo más barato que funciona. Conversar sale casi gratis y sólo se paga de verdad cada pulsación de pantalla. Ojo: el de conversar tiene que ser uno cualquiera, pero el de la pantalla TIENE que leer imágenes, y la app no se las manda a DeepSeek.',
   'guide.recipe4Title': 'Sin concesiones',
   'guide.recipe4Who': 'Una prueba técnica de verdad y prefieres no arriesgar.',
   'guide.recipe4Cost': 'El más caro de la lista, y aun así son céntimos por ejercicio.',
@@ -1394,36 +1394,36 @@ export const es: Record<UIKey, string> = {
   'guide.qwenvl32b': 'Lo mejor en local para leer pantallas. Pide máquina de verdad.',
   // Precios, visión y notas de los de pago.
   'guide.priceHaiku45': '1 $ / 5 $ por millón de tokens (entrada / salida)',
-  'guide.priceSonnet5': '3 $ / 15 $ (introductorio 2 $ / 10 $ hasta el 31-08-2026)',
-  'guide.priceOpus5': '5 $ / 25 $',
+  'guide.priceSonnet55': '2 $ / 10 $',
+  'guide.priceOpus55': '4 $ / 20 $',
   'guide.priceGemini': 'Consulta ai.google.dev/pricing para el precio actual',
-  'guide.priceLuna': '0,20 $ / 1,20 $ por millón de tokens (entrada / salida)',
-  'guide.priceTerra': '2 $ / 12 $',
-  'guide.priceDsFlash': '0,28 $ / 0,28 $ (0,14 $ la entrada ya cacheada)',
-  'guide.priceDsPro': '0,87 $ / 0,87 $ (0,435 $ la entrada ya cacheada)',
-  'guide.priceSol': '5 $ / 30 $',
+  'guide.priceLuna': '0,10 $ / 0,50 $ por millón de tokens (entrada / salida)',
+  'guide.priceAstra': '10 $ / 50 $',
+  'guide.priceDsFlash': '0,30 $ / 1,20 $ en hora punta, la mitad fuera de ella',
+  'guide.priceDsPro': '1,32 $ / 3,96 $ en hora punta, la mitad fuera de ella',
+  'guide.priceSol': '2 $ / 10 $',
   'guide.visionStd': 'Sí, en resolución estándar',
   'guide.visionHigh': 'Sí, alta resolución (2576 px)',
   'guide.visionYes': 'Sí',
   'guide.visionNo': 'NO',
   'guide.haiku45':
-    'El más barato de Anthropic y el de menor latencia. Lee capturas, pero a menor resolución que los Claude 5: para un enunciado con letra pequeña es el primero que falla.',
-  'guide.sonnet5':
+    'El más barato de Anthropic y el de menor latencia. Lee capturas, pero a menor resolución que los Claude 5.5: para un enunciado con letra pequeña es el primero que falla.',
+  'guide.sonnet55':
     'La opción por defecto de esta app, y con razón: lee bien una captura y responde rápido. Si sólo vas a configurar un modelo, éste.',
-  'guide.opus5':
+  'guide.opus55':
     'Para los ejercicios que Sonnet no saca. Cuesta el doble por token y responde más despacio: tiene sentido como modelo SÓLO de pantalla, no para conversar.',
-  'guide.gemini36flash':
+  'guide.gemini38flash':
     'La misma clave sirve para la transcripción con Gemini Live, así que con una sola credencial tienes oído y respuesta. El precio no se reproduce aquí porque no se pudo verificar con la misma fuente que los de Anthropic.',
   'guide.luna':
-    'El más barato de toda esta tabla, por un orden de magnitud. Es el modelo de OpenAI para cargas sensibles al precio: la opción obvia si lo que te preocupa es lo que gasta la escucha automática.',
-  'guide.terra':
-    'El equilibrio entre capacidad y coste, y el que la app pone por defecto en OpenAI. Razona antes de responder; la app le pide el esfuerzo más bajo para que eso no se note en la latencia.',
-  'guide.dsFlash':
-    'El más barato de toda la tabla, y por bastante. Ventana de 1M de tokens. No lee imágenes, así que NO sirve para las acciones de pantalla: es la opción de conversar cuando lo que preocupa es lo que gasta la escucha automática.',
-  'guide.dsPro':
-    'El grande de DeepSeek, todavía por debajo de lo que cuesta el más barato de Anthropic. Tampoco lee imágenes.',
-  'guide.sol':
+    'El más barato de toda esta tabla. Es el modelo de OpenAI para cargas sensibles al precio: la opción obvia si lo que te preocupa es lo que gasta la escucha automática.',
+  'guide.astra':
     'El modelo de frontera de OpenAI, para trabajo complejo. La salida es la más cara de la tabla: como Opus, tiene más sentido SÓLO para la pantalla que para contestar cada frase de una reunión.',
+  'guide.dsFlash':
+    'De los más baratos de la tabla; sólo GPT-6 Luna cuesta menos. Ventana de 1M de tokens. El modelo ya lee imágenes, pero la app todavía no se las manda, así que NO sirve para las acciones de pantalla: es una opción de conversar cuando lo que preocupa es lo que gasta la escucha automática.',
+  'guide.dsPro':
+    'El grande de DeepSeek, en torno a lo que cuesta el más barato de Anthropic. No lee imágenes.',
+  'guide.sol':
+    'Cerca de Astra por la quinta parte del precio, y el que la app pone por defecto en OpenAI. Razona antes de responder; la app le pide el esfuerzo más bajo para que eso no se note en la latencia.',
 
   // Fallos que se leen en Diagnóstico o en el overlay, no en el log.
   'diag.logUnreadable': 'No se pudo leer el log: {detail}',

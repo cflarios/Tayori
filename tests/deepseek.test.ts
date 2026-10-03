@@ -58,7 +58,7 @@ async function collect(iterable: AsyncIterable<string>): Promise<string> {
   return out;
 }
 
-const provider = (model = 'deepseek-v4-flash'): DeepSeekProvider =>
+const provider = (model = 'deepseek-flash'): DeepSeekProvider =>
   new DeepSeekProvider('sk-test', model, baseUrl);
 
 describe('DeepSeekProvider', () => {
@@ -140,6 +140,6 @@ describe('DeepSeek catalog', () => {
   it('are the two ids DeepSeek publishes today', () => {
     // R1 and deepseek-chat are no longer in its catalog; whoever keeps access
     // writes them by hand in «Other…».
-    expect(DEEPSEEK_MODELS.map((m) => m.id)).toEqual(['deepseek-v4-flash', 'deepseek-v4-pro']);
+    expect(DEEPSEEK_MODELS.map((m) => m.id)).toEqual(['deepseek-flash', 'deepseek-v4-pro']);
   });
 });

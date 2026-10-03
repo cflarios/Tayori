@@ -135,7 +135,7 @@ flowchart LR
     end
 
     subgraph live["gemini-live"]
-        WS["WebSocket per speaker<br/>streaming"] --> TXT2["partial and final text"]
+        WS["WebSocket per speaker<br/>streaming<br/>transcribe-live first"] --> TXT2["partial and final text"]
     end
 
     subgraph direct["gemini-audio"]
@@ -167,6 +167,13 @@ something deserved an answer is the model that heard the audio.
 | `gemini-audio` | ~2 s, includes the answer | To Google | Yes |
 | `openai-live` | ~300 ms, streaming | To OpenAI | Yes |
 | `openai-transcribe` | ~1 s, closed turn | To OpenAI | Yes |
+
+**`gemini-live` negotiates its model.** It tries `gemini-3.5-transcribe-live`,
+a dedicated transcriber, and falls back to the older conversational Live models
+for accounts that only reach those. The two speak differently: the transcriber
+sends the open turn's hypothesis and the finished turn in two fields, both whole,
+while the conversational ones send fragments to concatenate and have to be asked
+to stay silent. `isTranscriber` in `stt/gemini-live.ts` picks the path.
 
 **`openai-live` resamples to 24 kHz** because OpenAI's real-time API accepts
 nothing else, while the rest of the pipeline runs at 16 kHz. The conversion

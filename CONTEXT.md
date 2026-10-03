@@ -902,7 +902,9 @@ reflects it in three places:
 V4 Flash and R1», and R1 no longer exists: DeepSeek's `list models` returns today
 exactly `deepseek-v4-flash` and `deepseek-v4-pro`, and its pricing table doesn't
 list `deepseek-reasoner` or `deepseek-chat` either. The V4 family replaced them.
-Whoever still has access to one writes it in «Other…».
+Whoever still has access to one writes it in «Other…». (October 2026:
+`deepseek-v4-flash` became `deepseek-flash`, see «The October 2026 model
+update».)
 
 The prices are reproduced in the guide because they could be verified: $0.28 per
 million on Flash and $0.87 on Pro, input and output. It's between three and ten
@@ -2202,7 +2204,10 @@ some day the code looks "incomplete" on these points, it's deliberate:
 3. **`stop_reason: 'refusal'` arrives as HTTP 200**, not as an exception. You have
    to check it explicitly or the overlay stays blank for no reason.
 
-Correct model IDs: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`.
+Correct model IDs: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`. Since
+October 2026 the catalog is `claude-opus-5-5`, `claude-sonnet-5-5` and
+`claude-haiku-4-5`; points 1 to 3 still hold for the 5.5s (see «The October 2026
+model update»).
 
 **Fourth fact, learned the hard way:** point 2 was verified against Opus 5 and
 applied to all three models. `output_config.effort` is **generation 5**'s, and
@@ -2267,6 +2272,9 @@ reference:
 | `gpt-5.6-terra` | Balances capability and cost | $2 / $12 |
 | `gpt-5.6-sol` | Frontier model, complex work | $5 / $30 |
 
+Superseded in October 2026 by the GPT-6 family, where the same names mean other
+things: see «The October 2026 model update».
+
 All three accept **text and image**, which is the condition to be able to appear
 in the screen-model selector too. That was also checked instead of taken for
 granted: a model without vision there doesn't degrade, **it invents the whole
@@ -2324,6 +2332,86 @@ different pages. The API's shape was verified against the installed SDK's types
 (`node_modules/@google/genai/dist/genai.d.ts`), which is the authoritative source.
 `GEMINI_LIVE_MODELS` is ordered by preference: if the first gives 404 or
 permission denied, try the next.
+
+### The October 2026 model update
+
+The request was «many models fell behind; use the most recent ones», for the cloud
+providers. Every id below was checked against each provider's reference, not
+written from memory, and three of the four providers turned out to be more than an
+id swap.
+
+| Provider | Before | Now | What else it took |
+|---|---|---|---|
+| Claude | Sonnet 5, Opus 5, Haiku 4.5 | `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-haiku-4-5` | Nothing: no `thinking`, no sampling parameters, and `effort: 'low'` is accepted |
+| OpenAI | GPT-5.6 Terra / Sol / Luna | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-luna` | Nothing in the code, but the names moved (see below) |
+| Gemini | `gemini-3.6-flash` | `gemini-3.8-flash` | Direct audio could no longer turn the reasoning off |
+| Gemini Live | A chain of four conversational models | `gemini-3.5-transcribe-live` first | A second message shape in the engine |
+| DeepSeek | `deepseek-v4-flash` | `deepseek-flash` (V4.1) | Nothing yet; it reads images now, and that's left for later |
+
+**Claude was the free one.** Opus 5.5 and Sonnet 5.5 don't accept
+`thinking: {type: "disabled"}`, but this app never sent it: the latency lever
+was already `effort: 'low'`. It's still sent explicitly, and now there's one more
+reason: Opus 5.5's default is `medium`, the rest's is `high`. Opus 5.5 is also
+**cheaper** than Opus 5 ($4 / $20 against $5 / $25), and Sonnet 5.5 keeps
+Sonnet 5's $2 / $10. Fable 5.1 wasn't added: at $10 / $50 it's the wrong model
+for something that fires a query for every question it hears.
+
+**OpenAI's names changed meaning.** In GPT-5.6 Sol was the frontier model; in
+GPT-6 **Astra** is ($10 / $50), Sol is the middle one ($2 / $10, «near-Astra at a
+lower cost») and Luna the cheap one ($0.10 / $0.50). So the default moved to
+`gpt-6.1-sol`, which is what Terra used to be in role and price. The one thing to
+watch: GPT-6.1 Sol rejects `reasoning.effort` `none` and `minimal`. The app sends
+`low`, so nothing breaks, but the `Effort` type still lists the other two.
+
+**Gemini 3.8 Flash can't stop thinking.** Its levels are `low`, `medium` and
+`high`; `minimal` is an error and there's no budget of zero. Direct audio relied
+on `thinkingBudget: 0` to fix the JSON that came cut off mid-string, so the fix
+had to change shape: `thinkingLevel: LOW`, and the cap lends the reasoning 4,000
+tokens on top of the answer's 1,200. It's the budget trap once more —Ollama,
+OpenAI, Gemini 2.5, now this— and the rule written in the ChatGPT section is what
+solved it without rediscovering it. The answers provider sends no thinking
+setting at all, so it runs at Google's default, `medium`, as it already did with
+3.6.
+
+**Gemini Live finally has a transcriber.** Everything the «Transcription» section
+says about the Live models being conversational —the silence instruction, the
+`modelTurn` thrown away, the AUDIO output paid for nothing— was a workaround for
+not having one. `gemini-3.5-transcribe-live` heads the chain now, and it speaks
+differently:
+
+- **Partials and finals come in two fields.** `interimInputTranscription` is the
+  hypothesis of the open turn, rewritten whole each time; `inputTranscription` is
+  that turn finished. Both are emitted as `cumulative`: concatenating them, as the
+  conversational models' fragments are, would repeat the sentence at every
+  update.
+- **A partial sometimes restates the finished turns**, glued without spaces
+  (`"…of October.Before then"`). Google doesn't document it; another project that
+  uses this model in production does. `stripRestated` removes them, in order and
+  only at the start, and it has tests.
+- **It isn't sent the silence instruction.** There's no answer to silence, and a
+  field a model doesn't expect is exactly how `turn_detection` took down the
+  OpenAI engine.
+
+The chain keeps `gemini-3.1-flash-live-preview` (Google calls it legacy) and the
+2.5 ones (restricted to past users) for accounts that reach nothing newer;
+`gemini-2.0-flash-live-preview-04-09` is gone with the 2.0 family. The engine is
+tested against a real WebSocket server, same as OpenAI's, and the test was broken
+on purpose to check that it fails.
+
+**DeepSeek Flash reads images now.** Their pricing page says so for
+`deepseek-flash`; Pro still doesn't. The integration still sends none: the image
+format of their OpenAI-compatible door hasn't been verified, and «DeepSeek is
+blind» isn't one flag but the provider's `supportsVision`, the discard with a
+warning and every text that tells the user to pick another for the screen. Those
+texts now say «the app doesn't send it images» instead of «it can't read them»,
+which is what's true today. Their prices also stopped being flat: they're quoted
+at peak, and off-peak is half.
+
+**What isn't migrated: the saved settings.** Someone who had `gpt-5.6-terra` or
+`claude-sonnet-5` saved keeps it; only the factory defaults and the catalogs
+changed. It's the same rule as the auto-fill that stopped overwriting hand-typed
+ids: changing someone's model behind their back is worse than an old model that
+still answers. `deepseek-v4-flash` is redirected by DeepSeek itself.
 
 ### Model mini-profiles, and why they aren't the prompt profile
 
@@ -2724,6 +2812,17 @@ looking at screenshots**, not just compiling.
 ### NOT verified — requires keys or manual intervention
 
 - **Real token streaming** from Claude/Gemini (needs the user's API key).
+- **The October 2026 models against the real APIs.** `claude-sonnet-5-5`,
+  `claude-opus-5-5`, `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-luna`,
+  `gemini-3.8-flash` and `deepseek-flash` were checked against each provider's
+  reference, not called. Direct audio with `thinkingLevel: LOW` and the 5,200
+  cap needs a real turn to confirm the JSON closes.
+- **`gemini-3.5-transcribe-live` against Google.** The engine is tested against a
+  local WebSocket server built from the documentation; whether the real
+  `inputTranscription` is the whole turn, as documented, and whether it accepts
+  `languageAuto` / `languageHints` (the SDK's fields; the docs show the deprecated
+  `languageCodes`) needs «Test transcription» with a Google key and a real
+  meeting.
 - **ChatGPT against OpenAI's real API.** **The contract** is verified:
   `tests/openai-provider.test.ts` brings up a real HTTP server that speaks the
   Responses API over SSE, and pins what goes out (`store: false`, the `reasoning`

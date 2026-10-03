@@ -38,7 +38,7 @@ export async function testSTTConnection(
       if (settings.sttProviderId === 'gemini-audio') {
         return await new GeminiAudioSTT(
           apiKey,
-          settings.llmModels.gemini || 'gemini-3.6-flash',
+          settings.llmModels.gemini || 'gemini-3.8-flash',
           () => ({ systemPrompt: '', history: [] })
         ).testConnection();
       }
@@ -90,7 +90,7 @@ export function createSTTProvider(
       }
       return new GeminiAudioSTT(
         apiKey,
-        settings.llmModels.gemini || 'gemini-3.6-flash',
+        settings.llmModels.gemini || 'gemini-3.8-flash',
         answerContext
       );
     }

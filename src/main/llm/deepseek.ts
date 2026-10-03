@@ -18,12 +18,13 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  * here: DeepSeek doesn't store the responses to retrieve them by API, and
  * reasoning effort isn't a parameter of theirs.
  *
- * **None of its models accept images.** It's not an oversight of this
- * integration: neither the pricing page nor the API reference mentions image
- * input for either of them. That's why they go with `supportsVision: false`,
- * which is what makes the screen-model selector mark them "no vision" and warn
- * before someone finds out mid-exam. For the screen actions you have to pick
- * another provider.
+ * **This integration sends them no images.** Until October 2026 none of their
+ * models accepted them. `deepseek-flash` (V4.1) now does, per their pricing
+ * page, but the image format of their OpenAI-compatible door hasn't been
+ * verified yet, so both still go with `supportsVision: false`, which is what
+ * makes the screen-model selector mark them "no vision" and warn before
+ * someone finds out mid-exam. For the screen actions you have to pick another
+ * provider until that's verified and wired.
  */
 
 /** The OpenAI-compatible door. The other one they offer speaks Anthropic format. */
@@ -32,11 +33,12 @@ const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 /**
  * The catalog, verified against their pricing page and their models endpoint.
  *
- * **R1 is gone**, and it's not an oversight: DeepSeek's `list models` returns
- * exactly these two ids today, and their pricing table doesn't list
- * `deepseek-reasoner` or `deepseek-chat` either. The V4 family replaced them. If
- * an account keeps access to one, the dashboard's "Other…" field still allows
- * typing it — the catalog is a suggestion, not a boundary.
+ * **R1 is gone**, and it's not an oversight: their pricing table doesn't list
+ * `deepseek-reasoner` or `deepseek-chat`. The V4 family replaced them, and
+ * `deepseek-flash` (V4.1) in turn replaced `deepseek-v4-flash`, which is still
+ * accepted but served by `deepseek-flash` at its price. If an account keeps
+ * access to an older one, the dashboard's "Other…" field still allows typing
+ * it — the catalog is a suggestion, not a boundary.
  *
  * Both declare **1M of context**, which is far more than this app needs: the
  * prompt with CV, transcript and eight turns of memory doesn't come close. It
@@ -45,8 +47,8 @@ const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
  */
 export const DEEPSEEK_MODELS: ModelInfo[] = [
   {
-    id: 'deepseek-v4-flash',
-    label: 'DeepSeek V4 Flash',
+    id: 'deepseek-flash',
+    label: 'DeepSeek Flash',
     supportsVision: false,
     note: 'mdl.fastCheap',
   },
@@ -62,7 +64,7 @@ export class DeepSeekProvider implements LLMProvider {
 
   constructor(
     apiKey: string,
-    readonly model: string = 'deepseek-v4-flash',
+    readonly model: string = 'deepseek-flash',
     /** Only the tests use it, to talk to a local server. */
     baseURL: string = DEEPSEEK_BASE_URL
   ) {

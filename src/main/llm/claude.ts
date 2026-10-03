@@ -10,23 +10,26 @@ import { LLMError, type AnswerRequest, type LLMProvider } from './types';
  * Model-specific decisions, verified against the API reference and not from
  * memory:
  *
- *  - `temperature`, `top_p` and `top_k` are NOT sent: on Opus 5 and Sonnet 5
- *    they're removed and return 400. Style is controlled by prompt.
- *  - Thinking is on by default on Opus 5. For a real-time assistant the latency
- *    lever is `effort: 'low'`, not disabling thinking: disabling it has two known
- *    bugs (tool calls emitted as plain text and <thinking> tags leaked into the
- *    answer). **But `effort` is a generation-5 thing and not all models accept
- *    it**; see `EFFORT_UNSUPPORTED`. That distinction was missing and made Haiku
- *    4.5 fail with a 400 on every question.
+ *  - `temperature`, `top_p` and `top_k` are NOT sent: on the Claude 5 and 5.5
+ *    models they're removed and return 400. Style is controlled by prompt.
+ *  - Thinking is on by default on Opus 5, and on Opus 5.5 and Sonnet 5.5 it
+ *    can't even be disabled (`disabled` is a 400). For a real-time assistant the
+ *    latency lever is `effort: 'low'`, not disabling thinking: disabling it has
+ *    two known bugs (tool calls emitted as plain text and <thinking> tags leaked
+ *    into the answer). It's sent explicitly because the default isn't the same
+ *    everywhere (`medium` on Opus 5.5, `high` on the rest). **But `effort` is a
+ *    generation-5 thing and not all models accept it**; see
+ *    `EFFORT_UNSUPPORTED`. That distinction was missing and made Haiku 4.5 fail
+ *    with a 400 on every question.
  *  - `cache_control` on the system prompt: the CV and the job description don't
  *    change during the interview, so that prefix is cached and the following
- *    calls cost ~10% on that part. It requires ≥512 tokens on Opus 5 for the
+ *    calls cost ~10% on that part. It requires ≥512 tokens on Opus 5.5 for the
  *    cache to be created; below that it simply doesn't cache.
  */
 
 export const CLAUDE_MODELS: ModelInfo[] = [
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5', supportsVision: true, note: 'mdl.fast' },
-  { id: 'claude-opus-5', label: 'Claude Opus 5', supportsVision: true, note: 'mdl.capable' },
+  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', supportsVision: true, note: 'mdl.fast' },
+  { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', supportsVision: true, note: 'mdl.capable' },
   {
     id: 'claude-haiku-4-5',
     label: 'Claude Haiku 4.5',
@@ -68,7 +71,7 @@ export class ClaudeProvider implements LLMProvider {
 
   constructor(
     apiKey: string,
-    readonly model: string = 'claude-sonnet-5',
+    readonly model: string = 'claude-sonnet-5-5',
     private readonly effort: Effort = 'low'
   ) {
     this.client = new Anthropic({ apiKey });

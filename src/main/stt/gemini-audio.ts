@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import type { Speaker, STTProviderId } from '@shared/types';
 import { EnergyVAD, type Utterance } from '../core/vad';
 import { m } from '../i18n';
@@ -64,7 +64,7 @@ export interface AudioAnswerContext {
  *
  * `responseSchema` guarantees the shape when the model reaches the end, but not
  * that it reaches it: if `maxOutputTokens` runs out the JSON comes truncated and
- * `JSON.parse` throws. It shouldn't happen anymore with reasoning off, but a long
+ * `JSON.parse` throws. It shouldn't happen with the reasoning budget, but a long
  * answer can always graze the cap, and losing the whole turn over a missing
  * quote is a bad deal: at least the transcript is salvaged.
  */
@@ -205,9 +205,15 @@ export class GeminiAudioSTT implements STTProvider {
            * spent thinking and the answer was cut before closing the quotes.
            * Here reasoning adds nothing —you have to transcribe and answer
            * briefly— and on top of that it's pure latency.
+           *
+           * From Gemini 3.8 Flash on, reasoning **can't be turned off**: there's
+           * no `thinkingBudget: 0` anymore, only levels, and `minimal` returns an
+           * error. So it's asked for the lowest level that exists, and the cap
+           * lends the reasoning its own budget on top of the answer's — the same
+           * rule as `budgetFor` in `openai.ts`, for the same trap.
            */
-          thinkingConfig: { thinkingBudget: 0 },
-          maxOutputTokens: 1_200,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          maxOutputTokens: 1_200 + 4_000,
         },
       });
 
